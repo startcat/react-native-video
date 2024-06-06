@@ -8,6 +8,9 @@ buildscript {
 
     repositories {
         mavenCentral()
+        maven {
+            url "https://artifact.plugin.npaw.com/artifactory/plugins/android"
+        }
     }
 
     dependencies {
@@ -173,6 +176,9 @@ repositories {
         // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
         url "$rootDir/../node_modules/react-native/android"
     }
+    maven {
+        url "https://artifact.plugin.npaw.com/artifactory/plugins/android"
+    }
     mavenCentral()
 }
 
@@ -233,4 +239,8 @@ dependencies {
     implementation "androidx.media3:media3-common:$media3_version"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+
+    // Youbora
+    implementation 'com.npaw.plugin:plugin:7.2.14'
+    implementation "com.npaw.plugin:plugin-media3-exoplayer:$media3_version-7.2.14"
 }
