@@ -170,6 +170,14 @@ def reactNativeArchitectures() {
     return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
 }
 
+allprojects {
+    repositories {
+        maven {
+            url "https://artifact.plugin.npaw.com/artifactory/plugins/android"
+        }
+    }
+}
+
 repositories {
     google()
     maven {
