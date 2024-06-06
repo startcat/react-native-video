@@ -32,8 +32,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _localSourceEncryptionKeyScheme: String?
     
     /* Dani Youbora */
-    private var _youbora:YouboraParams?
-    private var _videoAdapter:VideoAdapter?
+    #if USE_YOUBORA
+        private var _youbora:YouboraParams?
+        private var _videoAdapter:VideoAdapter?
+    #endif
 
     /* Required to publish events */
     private var _eventDispatcher: RCTEventDispatcher?
@@ -259,19 +261,22 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     deinit {
-        
         // Dani Youbora
-        _videoAdapter?.playerAdapter.fireStop()
+        #if USE_YOUBORA
+            _videoAdapter?.playerAdapter.fireStop()
+        #endif
         
         NotificationCenter.default.removeObserver(self)
         self.removePlayerLayer()
         _playerObserver.clearPlayer()
         
         // Dani Youbora
-        guard let npawPlugin = NpawPluginProvider.shared else { return }
-      
-        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
-        NpawPluginProvider.destroy()
+        #if USE_YOUBORA
+            guard let npawPlugin = NpawPluginProvider.shared else { return }
+          
+            npawPlugin.removeAdapter(adapter: self._videoAdapter!)
+            NpawPluginProvider.destroy()
+        #endif
 
         if let player = _player {
             NowPlayingInfoCenterManager.shared.removePlayer(player: player)
@@ -646,7 +651,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     @objc
     func setYoubora(_ youbora:NSDictionary) {
-        _youbora = YouboraParams(youbora)
+        #if USE_YOUBORA
+            _youbora = YouboraParams(youbora)
+        #endif
     }
 
     /*
