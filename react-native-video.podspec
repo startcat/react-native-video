@@ -16,8 +16,13 @@ Pod::Spec.new do |s|
   s.source         = { :git => "https://github.com/TheWidlarzGroup/react-native-video.git", :tag => "v#{s.version}" }
   s.platforms      = { :ios => "13.0", :tvos => "13.0", :visionos => "1.0" }
 
+  s.source 'https://cdn.cocoapods.org'
+  s.source 'https://repo.plugin.npaw.com/release/plugin-ios-cocoapods.git'
+
   s.subspec "Video" do |ss|
     ss.source_files = "ios/Video/**/*.{h,m,swift}"
+
+    ss.dependency 'NpawPluginPkg', '7.2.22'
 
     if defined?($RNVideoUseGoogleIMA)
       Pod::UI.puts "RNVideo: enable IMA SDK"
