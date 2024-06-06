@@ -4,12 +4,9 @@ import Foundation
 #if USE_GOOGLE_IMA
     import GoogleInteractiveMediaAds
 #endif
-import React
-
 // Dani Youbora
-#if USE_YOUBORA
-    import NpawPlugin
-#endif
+import NpawPlugin
+import React
 
 // MARK: - RCTVideo
 
@@ -29,10 +26,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _localSourceEncryptionKeyScheme: String?
     
     /* Dani Youbora */
-    #if USE_YOUBORA
-        private var _youbora:YouboraParams?
-        private var _videoAdapter:VideoAdapter?
-    #endif
+    private var _youbora:YouboraParams?
+    private var _videoAdapter:VideoAdapter!
 
     /* Required to publish events */
     private var _eventDispatcher: RCTEventDispatcher?
@@ -259,21 +254,17 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     deinit {
         // Dani Youbora
-        #if USE_YOUBORA
-            _videoAdapter?.playerAdapter.fireStop()
-        #endif
+        _videoAdapter?.playerAdapter.fireStop()
         
         NotificationCenter.default.removeObserver(self)
         self.removePlayerLayer()
         _playerObserver.clearPlayer()
         
         // Dani Youbora
-        #if USE_YOUBORA
-            guard let npawPlugin = NpawPluginProvider.shared else { return }
-          
-            npawPlugin.removeAdapter(adapter: self._videoAdapter!)
-            NpawPluginProvider.destroy()
-        #endif
+        guard let npawPlugin = NpawPluginProvider.shared else { return }
+        
+        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
+        NpawPluginProvider.destroy()
 
         if let player = _player {
             NowPlayingInfoCenterManager.shared.removePlayer(player: player)
@@ -474,54 +465,52 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
           DANI: Youbora
          */
 
-        #if USE_YOUBORA
-            if (self._youbora?.accountCode != nil) {
+        if (self._youbora?.accountCode != nil) {
+        
+            let analyticsOptions = AnalyticsOptions()
             
-                let analyticsOptions = AnalyticsOptions()
-              
-                analyticsOptions.contentTransactionCode = self._youbora?.contentTransactionCode
-                analyticsOptions.userName = self._youbora?.username
-                analyticsOptions.contentId = self._youbora?.contentId
-                analyticsOptions.contentType = self._youbora?.contentType
-                analyticsOptions.contentTitle = self._youbora?.contentTitle
-                analyticsOptions.program = self._youbora?.contentTitle2
-                //analyticsOptions.live = (self._youbora?.contentIsLive != nil && self._youbora?.contentIsLive == true) ? 1 as NSValue : 0 as NSValue
-                analyticsOptions.contentSaga = self._youbora?.contentSaga
-                analyticsOptions.contentTvShow = self._youbora?.contentTvShow
-                analyticsOptions.contentPlaybackType = self._youbora?.contentPlaybackType
-                analyticsOptions.contentSeason = self._youbora?.contentSeason
-                analyticsOptions.contentEpisodeTitle = self._youbora?.contentEpisodeTitle
-                analyticsOptions.contentLanguage = self._youbora?.contentLanguage
+            analyticsOptions.contentTransactionCode = self._youbora?.contentTransactionCode
+            analyticsOptions.userName = self._youbora?.username
+            analyticsOptions.contentId = self._youbora?.contentId
+            analyticsOptions.contentType = self._youbora?.contentType
+            analyticsOptions.contentTitle = self._youbora?.contentTitle
+            analyticsOptions.program = self._youbora?.contentTitle2
+            //analyticsOptions.live = (self._youbora?.contentIsLive != nil && self._youbora?.contentIsLive == true) ? 1 as NSValue : 0 as NSValue
+            analyticsOptions.contentSaga = self._youbora?.contentSaga
+            analyticsOptions.contentTvShow = self._youbora?.contentTvShow
+            analyticsOptions.contentPlaybackType = self._youbora?.contentPlaybackType
+            analyticsOptions.contentSeason = self._youbora?.contentSeason
+            analyticsOptions.contentEpisodeTitle = self._youbora?.contentEpisodeTitle
+            analyticsOptions.contentLanguage = self._youbora?.contentLanguage
+            
+            analyticsOptions.contentCustomDimension1 = self._youbora?.extraparam1
+            analyticsOptions.contentCustomDimension2 = self._youbora?.extraparam2
+            analyticsOptions.contentCustomDimension3 = self._youbora?.extraparam3
+            analyticsOptions.contentCustomDimension4 = self._youbora?.extraparam4
+            analyticsOptions.contentCustomDimension5 = self._youbora?.extraparam5
+            analyticsOptions.contentCustomDimension6 = self._youbora?.extraparam6
+            analyticsOptions.contentCustomDimension7 = self._youbora?.extraparam7
+            analyticsOptions.contentCustomDimension8 = self._youbora?.extraparam8
+            analyticsOptions.contentCustomDimension9 = self._youbora?.extraparam9
+            analyticsOptions.contentCustomDimension10 = self._youbora?.extraparam10
+            
+            NpawPluginProvider.initialize(
+                accountCode: (self._youbora?.accountCode)!,
+                analyticsOptions: analyticsOptions,
+                balancerOptions: nil,
+                diagnosticOptions: nil,
+                logLevel: .debug
+            )
+            
+            guard let npawPlugin = NpawPluginProvider.shared else { return }
+            
+            _videoAdapter = npawPlugin.videoBuilder()
+                .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
+                .build()
                 
-                analyticsOptions.contentCustomDimension1 = self._youbora?.extraparam1
-                analyticsOptions.contentCustomDimension2 = self._youbora?.extraparam2
-                analyticsOptions.contentCustomDimension3 = self._youbora?.extraparam3
-                analyticsOptions.contentCustomDimension4 = self._youbora?.extraparam4
-                analyticsOptions.contentCustomDimension5 = self._youbora?.extraparam5
-                analyticsOptions.contentCustomDimension6 = self._youbora?.extraparam6
-                analyticsOptions.contentCustomDimension7 = self._youbora?.extraparam7
-                analyticsOptions.contentCustomDimension8 = self._youbora?.extraparam8
-                analyticsOptions.contentCustomDimension9 = self._youbora?.extraparam9
-                analyticsOptions.contentCustomDimension10 = self._youbora?.extraparam10
-              
-                NpawPluginProvider.initialize(
-                  accountCode: (self._youbora?.accountCode)!,
-                    analyticsOptions: analyticsOptions,
-                    balancerOptions: nil,
-                    diagnosticOptions: nil,
-                    logLevel: .debug
-                )
-              
-                guard let npawPlugin = NpawPluginProvider.shared else { return }
-              
-                _videoAdapter = npawPlugin.videoBuilder()
-                  .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-                  .build()
-                  
-                _videoAdapter?.fireInit()
-            
-            }
-        #endif
+            _videoAdapter?.fireInit()
+        
+        }
     
         /*
           End
@@ -642,9 +631,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     @objc
     func setYoubora(_ youbora:NSDictionary) {
-        #if USE_YOUBORA
-            _youbora = YouboraParams(youbora)
-        #endif
+        _youbora = YouboraParams(youbora)
     }
 
     /*
