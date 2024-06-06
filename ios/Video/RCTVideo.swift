@@ -10,9 +10,6 @@ import React
 #if USE_YOUBORA
     import NpawPlugin
 #endif
-#if USE_YOUBORA_IMA
-    import NpawPluginIMAAdapter
-#endif
 
 // MARK: - RCTVideo
 
@@ -519,14 +516,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
               
                 _videoAdapter = npawPlugin.videoBuilder()
                   .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-                
-                #if USE_YOUBORA_IMA
-                    if (_imaAdsManager != nil){
-                        _videoAdapter.setAdAdapter(adAdapter: _imaAdsManager)
-                    }
-                #endif
-                
-                _videoAdapter.build()
+                  .build()
+                  
                 _videoAdapter?.fireInit()
             
             }
