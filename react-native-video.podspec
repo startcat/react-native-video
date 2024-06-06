@@ -22,9 +22,22 @@ Pod::Spec.new do |s|
   s.subspec "Video" do |ss|
     ss.source_files = "ios/Video/**/*.{h,m,swift}"
 
-    ss.dependency 'NpawPluginPkg', '7.2.22'
-    ss.dependency 'NpawPluginIMAAdapter', '1.1.7'
+    if defined?($RNVideoUseYoubora)
+      Pod::UI.puts "RNVideo: enable Youbora SDK"
 
+      ss.dependency 'NpawPluginPkg', '7.2.22'
+      ss.pod_target_xcconfig = {
+        'OTHER_SWIFT_FLAGS' => '$(inherited) -D USE_YOUBORA'
+      }
+    end
+    if defined?($RNVideoUseYouboraIMA)
+      Pod::UI.puts "RNVideo: enable Youbora IMA Adapter"
+
+      ss.dependency 'NpawPluginIMAAdapter', '1.1.7'
+      ss.pod_target_xcconfig = {
+        'OTHER_SWIFT_FLAGS' => '$(inherited) -D USE_YOUBORA_IMA'
+      }
+    end
     if defined?($RNVideoUseGoogleIMA)
       Pod::UI.puts "RNVideo: enable IMA SDK"
 
