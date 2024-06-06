@@ -8,9 +8,6 @@ buildscript {
 
     repositories {
         mavenCentral()
-        maven {
-            url "https://artifact.plugin.npaw.com/artifactory/plugins/android"
-        }
     }
 
     dependencies {
@@ -170,22 +167,11 @@ def reactNativeArchitectures() {
     return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
 }
 
-allprojects {
-    repositories {
-        maven {
-            url "https://artifact.plugin.npaw.com/artifactory/plugins/android"
-        }
-    }
-}
-
 repositories {
     google()
     maven {
         // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
         url "$rootDir/../node_modules/react-native/android"
-    }
-    maven {
-        url "https://artifact.plugin.npaw.com/artifactory/plugins/android"
     }
     mavenCentral()
 }
