@@ -7,8 +7,12 @@ import Foundation
 import React
 
 // Dani Youbora
-import NpawPlugin
-import NpawPluginIMAAdapter
+#if USE_YOUBORA
+    import NpawPlugin
+#endif
+#if USE_YOUBORA_IMA
+    import NpawPluginIMAAdapter
+#endif
 
 // MARK: - RCTVideo
 
@@ -468,53 +472,60 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
           DANI: Youbora
          */
 
-        if (self._youbora?.accountCode != nil) {
-        
-            let analyticsOptions = AnalyticsOptions()
-          
-            analyticsOptions.contentTransactionCode = self._youbora?.contentTransactionCode
-            analyticsOptions.userName = self._youbora?.username
-            analyticsOptions.contentId = self._youbora?.contentId
-            analyticsOptions.contentType = self._youbora?.contentType
-            analyticsOptions.contentTitle = self._youbora?.contentTitle
-            analyticsOptions.program = self._youbora?.contentTitle2
-            //analyticsOptions.live = (self._youbora?.contentIsLive != nil && self._youbora?.contentIsLive == true) ? 1 as NSValue : 0 as NSValue
-            analyticsOptions.contentSaga = self._youbora?.contentSaga
-            analyticsOptions.contentTvShow = self._youbora?.contentTvShow
-            analyticsOptions.contentPlaybackType = self._youbora?.contentPlaybackType
-            analyticsOptions.contentSeason = self._youbora?.contentSeason
-            analyticsOptions.contentEpisodeTitle = self._youbora?.contentEpisodeTitle
-            analyticsOptions.contentLanguage = self._youbora?.contentLanguage
+        #if USE_YOUBORA
+            if (self._youbora?.accountCode != nil) {
             
-            analyticsOptions.contentCustomDimension1 = self._youbora?.extraparam1
-            analyticsOptions.contentCustomDimension2 = self._youbora?.extraparam2
-            analyticsOptions.contentCustomDimension3 = self._youbora?.extraparam3
-            analyticsOptions.contentCustomDimension4 = self._youbora?.extraparam4
-            analyticsOptions.contentCustomDimension5 = self._youbora?.extraparam5
-            analyticsOptions.contentCustomDimension6 = self._youbora?.extraparam6
-            analyticsOptions.contentCustomDimension7 = self._youbora?.extraparam7
-            analyticsOptions.contentCustomDimension8 = self._youbora?.extraparam8
-            analyticsOptions.contentCustomDimension9 = self._youbora?.extraparam9
-            analyticsOptions.contentCustomDimension10 = self._youbora?.extraparam10
-          
-            NpawPluginProvider.initialize(
-              accountCode: (self._youbora?.accountCode)!,
-                analyticsOptions: analyticsOptions,
-                balancerOptions: nil,
-                diagnosticOptions: nil,
-                logLevel: .debug
-            )
-          
-            guard let npawPlugin = NpawPluginProvider.shared else { return }
-          
-            _videoAdapter = npawPlugin.videoBuilder()
-              .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-              .setAdAdapter(adAdapter: ImaAdapter(adsManager: adsManager))
-              .build()
-          
-          _videoAdapter?.fireInit()
-        
-        }
+                let analyticsOptions = AnalyticsOptions()
+              
+                analyticsOptions.contentTransactionCode = self._youbora?.contentTransactionCode
+                analyticsOptions.userName = self._youbora?.username
+                analyticsOptions.contentId = self._youbora?.contentId
+                analyticsOptions.contentType = self._youbora?.contentType
+                analyticsOptions.contentTitle = self._youbora?.contentTitle
+                analyticsOptions.program = self._youbora?.contentTitle2
+                //analyticsOptions.live = (self._youbora?.contentIsLive != nil && self._youbora?.contentIsLive == true) ? 1 as NSValue : 0 as NSValue
+                analyticsOptions.contentSaga = self._youbora?.contentSaga
+                analyticsOptions.contentTvShow = self._youbora?.contentTvShow
+                analyticsOptions.contentPlaybackType = self._youbora?.contentPlaybackType
+                analyticsOptions.contentSeason = self._youbora?.contentSeason
+                analyticsOptions.contentEpisodeTitle = self._youbora?.contentEpisodeTitle
+                analyticsOptions.contentLanguage = self._youbora?.contentLanguage
+                
+                analyticsOptions.contentCustomDimension1 = self._youbora?.extraparam1
+                analyticsOptions.contentCustomDimension2 = self._youbora?.extraparam2
+                analyticsOptions.contentCustomDimension3 = self._youbora?.extraparam3
+                analyticsOptions.contentCustomDimension4 = self._youbora?.extraparam4
+                analyticsOptions.contentCustomDimension5 = self._youbora?.extraparam5
+                analyticsOptions.contentCustomDimension6 = self._youbora?.extraparam6
+                analyticsOptions.contentCustomDimension7 = self._youbora?.extraparam7
+                analyticsOptions.contentCustomDimension8 = self._youbora?.extraparam8
+                analyticsOptions.contentCustomDimension9 = self._youbora?.extraparam9
+                analyticsOptions.contentCustomDimension10 = self._youbora?.extraparam10
+              
+                NpawPluginProvider.initialize(
+                  accountCode: (self._youbora?.accountCode)!,
+                    analyticsOptions: analyticsOptions,
+                    balancerOptions: nil,
+                    diagnosticOptions: nil,
+                    logLevel: .debug
+                )
+              
+                guard let npawPlugin = NpawPluginProvider.shared else { return }
+              
+                _videoAdapter = npawPlugin.videoBuilder()
+                  .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
+                
+                #if USE_YOUBORA_IMA
+                    if (_imaAdsManager != nil){
+                        _videoAdapter.setAdAdapter(adAdapter: _imaAdsManager)
+                    }
+                #endif
+                
+                _videoAdapter.build()
+                _videoAdapter?.fireInit()
+            
+            }
+        #endif
     
         /*
           End
