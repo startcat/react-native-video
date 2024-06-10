@@ -78,6 +78,8 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
       poster,
       fullscreen,
       drm,
+      youbora,
+      playOffline,
       textTracks,
       selectedVideoTrack,
       selectedAudioTrack,
@@ -187,6 +189,46 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
         useExternalGetLicense: !!drm.getLicense,
       };
     }, [drm]);
+
+    const _youbora = useMemo(() => {
+      if (!youbora) {
+        return;
+      }
+
+      return {
+        accountCode: youbora.accountCode,
+        contentTransactionCode: youbora.contentTransactionCode,
+        username: youbora.username?.toString(),
+        contentId: youbora.contentId?.toString(),
+        seriesId: youbora.seriesId?.toString(),
+        contentType: youbora.contentType?.toString(),
+        contentTitle: youbora.contentTitle?.toString(),
+        contentTitle2: youbora.contentTitle2?.toString(),
+        contentIsLive: !!youbora.contentIsLive,
+        contentPlaybackType: youbora.contentPlaybackType?.toString(),
+        contentTvShow: youbora.contentTvShow?.toString(),
+        contentSeason:youbora.contentSeason?.toString(),
+        contentEpisodeTitle: youbora.contentEpisodeTitle?.toString(),
+        contentLanguage: youbora.contentLanguage?.toString(),
+        extraparam1: youbora.extraparam1?.toString(),
+        extraparam2: youbora.extraparam2?.toString(),
+        extraparam3: youbora.extraparam3?.toString(),
+        extraparam4: youbora.extraparam4?.toString(),
+        extraparam5: youbora.extraparam5?.toString(),
+        extraparam6: youbora.extraparam6?.toString(),
+        extraparam7: youbora.extraparam7?.toString(),
+        extraparam8: youbora.extraparam8?.toString(),
+        extraparam9: youbora.extraparam9?.toString(),
+        extraparam10: youbora.extraparam10?.toString()
+      };
+    }, [youbora]);
+
+    const _playOffline = useMemo(() => {
+      if (!playOffline) {
+        return false;
+      }
+      return !!playOffline;
+    }, [playOffline]);
 
     const _selectedTextTrack = useMemo(() => {
       if (!selectedTextTrack) {
@@ -538,7 +580,9 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
           ref={nativeRef}
           {...rest}
           src={src}
+          youbora={_youbora}
           drm={_drm}
+          playOffline={_playOffline}
           style={StyleSheet.absoluteFill}
           resizeMode={resizeMode}
           fullscreen={isFullscreen}
