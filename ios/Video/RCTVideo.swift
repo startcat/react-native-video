@@ -22,6 +22,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     /* DRM */
     private var _drm: DRMParams?
+    private var _playOffline:Bool = false
 
     private var _localSourceEncryptionKeyScheme: String?
     
