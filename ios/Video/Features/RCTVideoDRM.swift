@@ -20,9 +20,20 @@ enum RCTVideoDRM {
             throw RCTVideoErrorHandler.licenseRequestNotOk(httpResponse.statusCode)
         }
 
+        /*
+            Begin Modification
+            DANI: Axinom Response
+
         guard let decodedData = Data(base64Encoded: data, options: []) else {
             throw RCTVideoErrorHandler.noDataFromLicenseRequest
         }
+        */
+
+        let decodedData = data
+        
+        /*
+            End
+         */
 
         return decodedData
     }
@@ -45,6 +56,10 @@ enum RCTVideoDRM {
             }
         }
 
+        /*
+            Begin Modification
+            DANI: Axinom License
+
         let spcEncoded = spcData?.base64EncodedString(options: [])
         let spcUrlEncoded = CFURLCreateStringByAddingPercentEscapes(
             kCFAllocatorDefault,
@@ -56,6 +71,15 @@ enum RCTVideoDRM {
         let post = String(format: "spc=%@&%@", spcUrlEncoded as! CVarArg, contentId)
         let postData = post.data(using: String.Encoding.utf8, allowLossyConversion: true)
         request.httpBody = postData
+
+        */
+
+        request.setValue("", forHTTPHeaderField: "X-AxDRM-Message")
+        request.httpBody = spcData
+        
+        /*
+            End
+         */
 
         return request
     }
