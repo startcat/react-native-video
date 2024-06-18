@@ -19,6 +19,7 @@ Pod::Spec.new do |s|
 
   s.subspec "Video" do |ss|
     ss.source_files = "ios/Video/**/*.{h,m,swift}"
+    ss.dependency 'PromisesSwift', '2.4.0'
 
     if defined?($RNVideoUseYoubora)
       Pod::UI.puts "RNVideo: enable Youbora SDK"
