@@ -68,6 +68,35 @@ export type Drm = Readonly<{
   /* eslint-enable @typescript-eslint/no-unused-vars */
 }>;
 
+export type Youbora = Readonly<{
+	accountCode: string;
+	contentTransactionCode?: string;
+	transactionCode?: string;
+	username?: string;
+	contentId?: string;
+	seriesId?: string;
+	contentType?: string;
+	contentTitle?: string;
+	contentTitle2?: string;
+	contentIsLive?: boolean;
+	contentPlaybackType?: string;
+	contentSaga?: string;
+	contentTvShow?: string;
+	contentSeason?: string;
+	contentEpisodeTitle?: string;
+	contentLanguage?: string;
+	extraparam1?: string;
+	extraparam2?: string;
+	extraparam3?: string;
+	extraparam4?: string;
+	extraparam5?: string;
+	extraparam6?: string;
+	extraparam7?: string;
+	extraparam8?: string;
+	extraparam9?: string;
+	extraparam10?: string;
+}>;
+
 export enum BufferingStrategyType {
   DEFAULT = 'Default',
   DISABLE_BUFFERING = 'DisableBuffering',
@@ -210,6 +239,8 @@ export type ControlsStyles = {
 export interface ReactVideoProps extends ReactVideoEvents, ViewProps {
   source?: ReactVideoSource;
   drm?: Drm;
+  youbora?: Youbora;
+  playOffline?: boolean;
   style?: StyleProp<ViewStyle>;
   adTagUrl?: string;
   audioOutput?: AudioOutput; // Mobile
