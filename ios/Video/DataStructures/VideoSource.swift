@@ -1,6 +1,10 @@
 struct VideoSource {
     let type: String?
     let uri: String?
+    // Dani - Añadimos campos para el offline
+    let id: String?
+    let title: String?
+    // Fin
     let isNetwork: Bool
     let isAsset: Bool
     let shouldCache: Bool
@@ -17,6 +21,12 @@ struct VideoSource {
             self.json = nil
             self.type = nil
             self.uri = nil
+
+            // Dani - Añadimos campos para el offline
+            self.title = nil
+            self.id = nil
+            // Fin
+
             self.isNetwork = false
             self.isAsset = false
             self.shouldCache = false
@@ -30,6 +40,12 @@ struct VideoSource {
         self.json = json
         self.type = json["type"] as? String
         self.uri = json["uri"] as? String
+
+        // Dani - Añadimos campos para el offline
+        self.id = json["id"] as? String
+        self.title = json["title"] as? String
+        // Fin
+
         self.isNetwork = json["isNetwork"] as? Bool ?? false
         self.isAsset = json["isAsset"] as? Bool ?? false
         self.shouldCache = json["shouldCache"] as? Bool ?? false

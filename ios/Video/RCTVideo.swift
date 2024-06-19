@@ -464,7 +464,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
       
         var localAsset: Asset
 
-                // Using downloaded asset, if exists
+        // Using downloaded asset, if exists
         if (self._playOffline == true){
           
             if let downloadedAsset = downloader.downloadedAsset(withName: (self._source?.title)!) {
