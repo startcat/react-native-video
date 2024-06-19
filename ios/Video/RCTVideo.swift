@@ -114,6 +114,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     #if os(iOS)
         private var _pip: RCTPictureInPicture?
     #endif
+    
+    // Asset downloader
+    fileprivate var downloader: AssetDownloader = AssetDownloader.sharedDownloader
 
     // Events
     @objc var onVideoLoadStart: RCTDirectEventBlock?
