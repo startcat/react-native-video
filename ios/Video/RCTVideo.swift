@@ -452,6 +452,61 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             )
         }
 
+        /*
+            Begin Modification
+            DANI: Offline
+         */
+
+        let isProtectedPlayback = self._drm != nil
+      
+        var localAsset: Asset
+
+                // Using downloaded asset, if exists
+        if (self._playOffline == true){
+          
+            if let downloadedAsset = downloader.downloadedAsset(withName: (self._source?.title)!) {
+                RCTLog("OFFLINE PLAYBACK")
+                RCTLog("Using AVURLAsset from \(String(describing: downloadedAsset.urlAsset?.url))")
+              
+                // Creting Content Key Session
+                ContentKeyManager.sharedManager.createContentKeySession()
+                ContentKeyManager.sharedManager.downloadRequestedByUser = true
+              
+                localAsset = downloadedAsset
+                
+                // Using different AVURLAsset to allow simultaneous playback and download
+                localAsset.createUrlAsset()
+              
+                if (isProtectedPlayback) {
+                    // Making the asset a Content Key Session recepient
+                    localAsset.addAsContentKeyRecipient()
+                  
+                    // Licensing Service Url
+                    ContentKeyManager.sharedManager.licensingServiceUrl = (self._drm?.licenseServer)!
+                    
+                    // Licensing Token
+                    ContentKeyManager.sharedManager.licensingToken = ""
+                    
+                    // Certificate Url
+                    ContentKeyManager.sharedManager.fpsCertificateUrl = (self._drm?.certificateUrl)!
+                  
+                    // Assigning chosen asset to Content Key Session manager
+                    // Is used to request Persistable Content Keys and writing them to disk
+                    ContentKeyManager.sharedManager.asset = localAsset
+                    ContentKeyManager.sharedManager.requestPersistableContentKeys(forAsset: localAsset)
+                  
+                }
+            
+                return AVPlayerItem(asset: localAsset.urlAsset)
+              
+            }
+          
+        }
+
+        /*
+            End
+        */
+
         return await playerItemPrepareText(asset: asset, assetOptions: assetOptions, uri: source.uri ?? "")
     }
 
