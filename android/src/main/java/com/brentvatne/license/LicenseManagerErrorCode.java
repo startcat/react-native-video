@@ -2,7 +2,7 @@ package com.brentvatne.license;
 
 import androidx.annotation.StringRes;
 
-import com.brentvatne.R;
+import com.brentvatne.react.R;
 
 /**
  * Player error codes
