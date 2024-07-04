@@ -24,7 +24,7 @@ public class OfflineLicenseManager {
     private Context mContext;
     private IOfflineLicenseManagerListener mListener;
     private final InternalListener mInternalListener;
-    public static final long LICENSE_MIN_EXPIRE_SECONDS = 30; //2629743; //
+    public static final long LICENSE_MIN_EXPIRE_SECONDS = 2629743;
 
     private LicenceDownloadTask mDownloadTask;
     private LicenseCheckTask mCheckTask;

@@ -25,6 +25,7 @@ import java.util.List;
  */
 public class AxDownloadService extends DownloadService {
 
+    private static Context mContext;
     private static final String CHANNEL_ID = "download_channel";
     private static final int JOB_ID = 1;
     private static final int FOREGROUND_NOTIFICATION_ID = 1;
@@ -60,6 +61,7 @@ public class AxDownloadService extends DownloadService {
     @Override
     public void onCreate() {
         super.onCreate();
+        mContext = getApplicationContext();
         init();
 
     }
@@ -93,7 +95,7 @@ public class AxDownloadService extends DownloadService {
     // A method that sends a notification
     private void sendNotification(int progress, String content_id) {
         Intent intent = new Intent(NOTIFICATION);
-        intent.setPackage("eus.eitb.primeran");
+        intent.setPackage(mContext.getPackageName());
         intent.putExtra(PROGRESS, progress);
         intent.putExtra(KEY_CONTENT_ID, content_id);
         sendBroadcast(intent);

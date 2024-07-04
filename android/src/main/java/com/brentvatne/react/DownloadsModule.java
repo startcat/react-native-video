@@ -96,8 +96,8 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
                 int progress = bundle.getInt(AxDownloadService.PROGRESS);
                 String contentID = bundle.getString(AxDownloadService.KEY_CONTENT_ID);
 
-                //Log.d(TAG, "+++ [Downloads] BroadcastReceiver: " + progress);
-                //Log.d(TAG, "+++ [Downloads] BroadcastReceiver contentID: " + contentID);
+                Log.d(TAG, "+++ [Downloads] BroadcastReceiver: " + progress);
+                Log.d(TAG, "+++ [Downloads] BroadcastReceiver contentID: " + contentID);
                 WritableMap params = Arguments.createMap();
                 params.putInt("percent", progress);
                 params.putString("id", contentID);
