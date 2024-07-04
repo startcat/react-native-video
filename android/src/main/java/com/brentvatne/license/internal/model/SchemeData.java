@@ -18,7 +18,7 @@ package com.brentvatne.license.internal.model;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import com.brentvatne.BuildConfig;
+import com.brentvatne.react.BuildConfig;
 import com.brentvatne.license.internal.utils.LicenseManagerUtils;
 import androidx.media3.common.C;
 

@@ -15,7 +15,7 @@
  */
 package com.brentvatne.license.internal.utils;
 
-import com.brentvatne.BuildConfig;
+import com.brentvatne.react.BuildConfig;
 
 /**
  * Wraps a byte array, providing methods that allow it to be read as a bitstream.
