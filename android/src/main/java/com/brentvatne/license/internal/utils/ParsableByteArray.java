@@ -15,7 +15,7 @@
  */
 package com.brentvatne.license.internal.utils;
 
-import com.brentvatne.BuildConfig;
+import com.brentvatne.react.BuildConfig;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
