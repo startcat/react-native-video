@@ -353,7 +353,9 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
         }
 
         // Download a license if the content is protected
-        downloadLicenseWithResult(mediaItem);
+        if (drm != null){
+            downloadLicenseWithResult(mediaItem);
+        }
 
         if (mAxDownloadTracker != null){
             mAxDownloadTracker.clearDownloadHelper();

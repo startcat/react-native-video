@@ -67,7 +67,7 @@ class DownloadsModule: RCTEventEmitter {
   }
   
   @objc(pause:drm:resolver:rejecter:)
-  func pause(_ src: NSDictionary, drm: NSDictionary, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
+  func pause(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
       
       let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
       downloader.pauseDownloadOfAsset(asset: asset)
@@ -76,7 +76,7 @@ class DownloadsModule: RCTEventEmitter {
   }
 
   @objc(resume:drm:resolver:rejecter:)
-  func resume(_ src: NSDictionary, drm: NSDictionary, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
+  func resume(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
       let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
       downloader.resumeDownloadOfAsset(asset: asset)
@@ -90,11 +90,11 @@ class DownloadsModule: RCTEventEmitter {
   }
 
   @objc(addItem:drm:resolver:rejecter:)
-  func addItem(_ src: NSDictionary, drm: NSDictionary, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
+  func addItem(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
     let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
     
-    var chosenStream: StreamData = StreamData(title: src.value(forKey: "title") as! String, videoUrl: src.value(forKey: "uri") as! String, licenseServer: drm.value(forKey: "licenseServer") as! String, fpsCertificateUrl: drm.value(forKey: "certificateUrl") as! String, licenseToken: "")
+    var chosenStream: StreamData = StreamData(title: src.value(forKey: "title") as! String, videoUrl: src.value(forKey: "uri") as! String, licenseServer: drm?.value(forKey: "licenseServer") as! String, fpsCertificateUrl: drm?.value(forKey: "certificateUrl") as! String, licenseToken: "")
     
     // Assume that only protected streams will have Licensing Server Url in Streams.json
     let isProtectedPlayback = !chosenStream.licenseServer.isEmpty
@@ -145,7 +145,7 @@ class DownloadsModule: RCTEventEmitter {
   }
 
   @objc(removeItem:drm:resolver:rejecter:)
-  func removeItem(_ src: NSDictionary, drm: NSDictionary, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
+  func removeItem(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
     let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
     

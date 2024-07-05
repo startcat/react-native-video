@@ -14,12 +14,12 @@ RCT_EXTERN_METHOD(resumeAll:(RCTPromiseResolveBlock)resolve
         rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(pause:(NSDictionary *)src
-                  drm:(NSDictionary *)drm
+                  drm:(nullable NSDictionary *)drm
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(resume:(NSDictionary *)src
-                  drm:(NSDictionary *)drm
+                  drm:(nullable NSDictionary *)drm
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
@@ -27,12 +27,12 @@ RCT_EXTERN_METHOD(getList:(RCTPromiseResolveBlock)resolve
         rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(addItem:(NSDictionary *)src
-                  drm:(NSDictionary *)drm
+                  drm:(nullable NSDictionary *)drm
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(removeItem:(NSDictionary *)src
-                  drm:(NSDictionary *)drm
+                  drm:(nullable NSDictionary *)drm
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
