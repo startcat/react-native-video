@@ -286,6 +286,13 @@ public class ReactExoplayerView extends FrameLayout implements
 	// Dani Offline
 	private boolean playOffline = false;
 
+    // Dani - Manager class for offline licenses
+    private OfflineLicenseManager mOfflineLicenseManager;
+    private DownloadRequest mDownloadRequest;
+    private DataSource.Factory mMediaDataSourceFactory;
+    private DefaultDrmSessionManager mDrmSessionManager;
+    private MediaItem mMediaItem;
+
     private void updateProgress() {
         if (player != null) {
             if (playerControlView != null && isPlayingAd() && controls) {
@@ -605,6 +612,105 @@ public class ReactExoplayerView extends FrameLayout implements
         }
     }
 
+    /*
+     * Dani - License Downloader Interface
+     * 
+     */
+
+    @Override
+    public void onLicenseDownloaded(String manifestUrl) {
+
+    }
+
+    @Override
+    public void onLicenseDownloadedWithResult(String manifestUrl, byte[] keyIds) {
+        onOfflineLicenseAcquired(manifestUrl, keyIds);
+    }
+
+    @Override
+    public void onLicenseDownloadFailed(int code, String description, String manifestUrl) {
+        Log.i("Downloads", "onLicenseDownloadFailed for manifest: " + manifestUrl + " code: " + code);
+    }
+
+    @Override
+    public void onLicenseCheck(boolean isValid, String manifestUrl) {
+
+    }
+
+    @Override
+    public void onLicenseCheckFailed(int code, String description, String manifestUrl) {
+
+    }
+
+    @Override
+    public void onLicenseReleased(String manifestUrl) {
+
+    }
+
+    @Override
+    public void onLicenseReleaseFailed(int code, String description, String manifestUrl) {
+
+    }
+
+    @Override
+    public void onLicenseKeysRestored(String manifestUrl, byte[] keyIds) {
+        Log.i("Downloads", "onLicenseKeysRestored() called with: manifestUrl = [" + manifestUrl + "]");
+        onOfflineLicenseAcquired(manifestUrl, keyIds);
+    }
+
+    @Override
+    public void onLicenseRestoreFailed(int code, String description, String manifestUrl) {
+        Log.i("Downloads", "License restore failed for manifest: " + manifestUrl + " code: " + code);
+        onNoOfflineLicenseFound(manifestUrl, code);
+    }
+
+    @Override
+    public void onAllLicensesReleased() {
+
+    }
+
+    @Override
+    public void onAllLicensesReleaseFailed(int code, String description) {
+
+    }
+
+    // Called when offline license is acquired. Player can now be properly prepared
+    @SuppressWarnings("unused")
+    public void onOfflineLicenseAcquired(String manifestUrl, byte[] keyIds) {
+        Log.i("Downloads", "Offline license acquired.");
+        // Offline license acquired. Starting in MODE_QUERY
+        try {
+            mDrmSessionManager.setMode(DefaultDrmSessionManager.MODE_QUERY, keyIds);
+        } catch (Exception ex){
+
+        }
+
+        //startPlayerLocalPrepare();
+        //initializePlayerSource(this, mDrmSessionManager);
+        initializePlayer();
+    }
+
+    // Called when no offline license is found.
+    public void onNoOfflineLicenseFound(String manifestUrl, int licenseErrorCode) {
+        Log.i("Downloads", "No offline license found.");
+        DrmMessage drmMessage = null;
+        MediaItem.DrmConfiguration drmConfiguration = Utility.getDrmConfiguration(mMediaItem);
+        if (drmConfiguration != null) {
+            drmMessage = DrmUtils.parseDrmString(drmConfiguration.licenseRequestHeaders.get("X-AxDRM-Message"));
+
+        }
+
+        Log.i("Downloads", "Trying to download and save license.");
+        mOfflineLicenseManager.downloadLicenseWithResult(String.valueOf(drmConfiguration.licenseUri),
+                manifestUrl, drmConfiguration.licenseRequestHeaders.get("X-AxDRM-Message"), true);
+
+    }
+
+    /*
+     * End
+     * 
+     */
+
     private class RNVLoadControl extends DefaultLoadControl {
         private final int availableHeapInBytes;
         private final Runtime runtime;
@@ -762,12 +868,24 @@ public class ReactExoplayerView extends FrameLayout implements
             mediaSourceFactory.setLocalAdInsertionComponents(unusedAdTagUri -> adsLoader, exoPlayerView);
         }
 
-        player = new ExoPlayer.Builder(getContext(), renderersFactory)
-                .setTrackSelector(self.trackSelector)
-                .setBandwidthMeter(bandwidthMeter)
-                .setLoadControl(loadControl)
-                .setMediaSourceFactory(mediaSourceFactory)
-                .build();
+        // Dani - Modify the Builder when playing offline
+        if (!self.playOffline){
+            player = new ExoPlayer.Builder(getContext(), renderersFactory)
+                    .setTrackSelector(self.trackSelector)
+                    .setBandwidthMeter(bandwidthMeter)
+                    .setLoadControl(loadControl)
+                    .setMediaSourceFactory(mediaSourceFactory)
+                    .build();
+        } else {
+            player = new ExoPlayer.Builder(getContext(), renderersFactory)
+                    .setTrackSelector(self.trackSelector)
+                    .setBandwidthMeter(bandwidthMeter)
+                    .setLoadControl(loadControl)
+                    //.setMediaSourceFactory(mediaSourceFactory)
+                    .build();
+        }
+        // End
+
         refreshDebugState();
         player.addListener(self);
         player.setVolume(muted ? 0.f : audioVolume * 1);
@@ -789,12 +907,62 @@ public class ReactExoplayerView extends FrameLayout implements
         }
     }
 
+    /*
+     * Dani Offline (B)
+     * A method for building DrmSessionManager
+     * Begin
+     */
+
+    private DefaultDrmSessionManager buildLocalDrmSessionManager(String licenseUrl, String drmToken) {
+
+        HttpMediaDrmCallback drmCallback = new HttpMediaDrmCallback(licenseUrl,
+                buildHttpDataSourceFactory(true));
+        // Here the license token is attached to license request
+        drmCallback.setKeyRequestProperty("X-AxDRM-Message", "");
+
+        return new DefaultDrmSessionManager.Builder()
+                .setUuidAndExoMediaDrmProvider(C.WIDEVINE_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                .setMultiSession(true)
+                .build(drmCallback);
+
+    }
+
+    /*
+     * End
+     * 
+     */
+
     private DrmSessionManager initializePlayerDrm(ReactExoplayerView self) {
         DrmSessionManager drmSessionManager = null;
+
         if (self.drmUUID != null) {
             try {
                 drmSessionManager = self.buildDrmSessionManager(self.drmUUID, self.drmLicenseUrl,
                         self.drmLicenseHeader);
+
+                /*
+                 * Dani Offline (A)
+                 * Get offline license
+                 * 
+                 */
+
+                if (self.playOffline) {
+                    mDrmSessionManager = buildLocalDrmSessionManager(self.drmLicenseUrl, "");
+
+                    Log.i("Downloads", "DrmSessionManager " + self.srcUri.toString());
+                    mOfflineLicenseManager = new OfflineLicenseManager(getContext());
+                    mOfflineLicenseManager.setEventListener(this);
+                    mOfflineLicenseManager.getLicenseKeys(self.srcUri.toString());
+
+                    mMediaItem = createOfflineMediaItem(self.srcUri, mDrmSessionManager);
+
+                }
+
+                /*
+                 * End
+                 * 
+                 */
+
             } catch (UnsupportedDrmException e) {
                 int errorStringId = Util.SDK_INT < 18 ? R.string.error_drm_not_supported
                         : (e.reason == UnsupportedDrmException.REASON_UNSUPPORTED_SCHEME
@@ -803,6 +971,7 @@ public class ReactExoplayerView extends FrameLayout implements
                 return null;
             }
         }
+
         return drmSessionManager;
     }
 
@@ -1014,6 +1183,42 @@ public class ReactExoplayerView extends FrameLayout implements
         }
     }
 
+    /*
+     * Dani MediaItem Offline (C)
+     * 
+     */
+
+    private MediaItem createOfflineMediaItem(Uri uri, DrmSessionManager drmSessionManager) {
+
+        MediaItem.Builder mediaItemBuilder = new MediaItem.Builder();
+
+        mediaItemBuilder.setUri(uri);
+
+        if (drmSessionManager != null) {
+            MediaItem.DrmConfiguration.Builder drmConfigurationBuilder
+                    = new MediaItem.DrmConfiguration.Builder(drmUUID);
+
+            drmConfigurationBuilder.setLicenseUri(drmLicenseUrl);
+
+            Map<String, String> requestHeaders = new HashMap<>();
+            requestHeaders.put("X-AxDRM-Message", "");
+            drmConfigurationBuilder.setLicenseRequestHeaders(requestHeaders);
+
+            mediaItemBuilder.setDrmConfiguration(drmConfigurationBuilder.build());
+
+        }
+
+        MediaItem mediaItem = mediaItemBuilder.build();
+
+        return mediaItem;
+
+    }
+
+    /*
+     * End
+     * 
+     */
+
     private MediaSource buildMediaSource(Uri uri, String overrideExtension, DrmSessionManager drmSessionManager, long cropStartMs, long cropEndMs) {
         if (uri == null) {
             throw new IllegalStateException("Invalid video uri");
@@ -1052,70 +1257,90 @@ public class ReactExoplayerView extends FrameLayout implements
             drmProvider = new DefaultDrmSessionManagerProvider();
         }
 
-        switch (type) {
-            case CONTENT_TYPE_SS:
-                if(!BuildConfig.USE_EXOPLAYER_SMOOTH_STREAMING) {
-                    DebugLog.e("Exo Player Exception", "Smooth Streaming is not enabled!");
-                    throw new IllegalStateException("Smooth Streaming is not enabled!");
-                }
+        /*
+         * Dani Offline DRM
+         * 
+         */
 
-                mediaSourceFactory = new SsMediaSource.Factory(
-                        new DefaultSsChunkSource.Factory(mediaDataSourceFactory),
-                        buildDataSourceFactory(false)
-                );
-                break;
-            case CONTENT_TYPE_DASH:
-                if(!BuildConfig.USE_EXOPLAYER_DASH) {
-                    DebugLog.e("Exo Player Exception", "DASH is not enabled!");
-                    throw new IllegalStateException("DASH is not enabled!");
-                }
+        if (playOffline) {
 
-                mediaSourceFactory = new DashMediaSource.Factory(
-                        new DefaultDashChunkSource.Factory(mediaDataSourceFactory),
-                        buildDataSourceFactory(false)
-                );
-                break;
-            case CONTENT_TYPE_HLS:
-                if (!BuildConfig.USE_EXOPLAYER_HLS) {
-                    DebugLog.e("Exo Player Exception", "HLS is not enabled!");
-                    throw new IllegalStateException("HLS is not enabled!");
-                }
+            mMediaDataSourceFactory = buildLocalDataSourceFactory(false);
 
-                mediaSourceFactory = new HlsMediaSource.Factory(
-                        mediaDataSourceFactory
-                );
-                break;
-            case CONTENT_TYPE_OTHER:
-                if ("asset".equals(uri.getScheme())) {
-                    try {
-                        DataSource.Factory assetDataSourceFactory = buildAssetDataSourceFactory(themedReactContext, uri);
-                        mediaSourceFactory = new ProgressiveMediaSource.Factory(assetDataSourceFactory);
-                    } catch (Exception e) {
-                        throw new IllegalStateException("cannot open input file" + uri);
+            if (mDownloadRequest != null) { // ---> Esto es null!
+                Log.i("Downloads", "Playing offline!");
+                return DownloadHelper.createMediaSource(mDownloadRequest, mMediaDataSourceFactory, mDrmSessionManager);
+            }
+            return null;
+
+        } else {
+            Log.i("Downloads", "Playing online");
+
+            switch (type) {
+                case CONTENT_TYPE_SS:
+                    if(!BuildConfig.USE_EXOPLAYER_SMOOTH_STREAMING) {
+                        DebugLog.e("Exo Player Exception", "Smooth Streaming is not enabled!");
+                        throw new IllegalStateException("Smooth Streaming is not enabled!");
                     }
-                } else if ("file".equals(uri.getScheme()) ||
-                        !useCache) {
-                    mediaSourceFactory = new ProgressiveMediaSource.Factory(
+
+                    mediaSourceFactory = new SsMediaSource.Factory(
+                            new DefaultSsChunkSource.Factory(mediaDataSourceFactory),
+                            buildDataSourceFactory(false)
+                    );
+                    break;
+                case CONTENT_TYPE_DASH:
+                    if(!BuildConfig.USE_EXOPLAYER_DASH) {
+                        DebugLog.e("Exo Player Exception", "DASH is not enabled!");
+                        throw new IllegalStateException("DASH is not enabled!");
+                    }
+
+                    mediaSourceFactory = new DashMediaSource.Factory(
+                            new DefaultDashChunkSource.Factory(mediaDataSourceFactory),
+                            buildDataSourceFactory(false)
+                    );
+                    break;
+                case CONTENT_TYPE_HLS:
+                    if (!BuildConfig.USE_EXOPLAYER_HLS) {
+                        DebugLog.e("Exo Player Exception", "HLS is not enabled!");
+                        throw new IllegalStateException("HLS is not enabled!");
+                    }
+
+                    mediaSourceFactory = new HlsMediaSource.Factory(
                             mediaDataSourceFactory
                     );
-                } else {
-                    mediaSourceFactory = new ProgressiveMediaSource.Factory(
-                            RNVSimpleCache.INSTANCE.getCacheFactory(buildHttpDataSourceFactory(true))
-                    );
+                    break;
+                case CONTENT_TYPE_OTHER:
+                    if ("asset".equals(uri.getScheme())) {
+                        try {
+                            DataSource.Factory assetDataSourceFactory = buildAssetDataSourceFactory(themedReactContext, uri);
+                            mediaSourceFactory = new ProgressiveMediaSource.Factory(assetDataSourceFactory);
+                        } catch (Exception e) {
+                            throw new IllegalStateException("cannot open input file" + uri);
+                        }
+                    } else if ("file".equals(uri.getScheme()) ||
+                            !useCache) {
+                        mediaSourceFactory = new ProgressiveMediaSource.Factory(
+                                mediaDataSourceFactory
+                        );
+                    } else {
+                        mediaSourceFactory = new ProgressiveMediaSource.Factory(
+                                RNVSimpleCache.INSTANCE.getCacheFactory(buildHttpDataSourceFactory(true))
+                        );
 
-                }
-                break;
-            case CONTENT_TYPE_RTSP:
-                if (!BuildConfig.USE_EXOPLAYER_RTSP) {
-                    DebugLog.e("Exo Player Exception", "RTSP is not enabled!");
-                    throw new IllegalStateException("RTSP is not enabled!");
-                }
+                    }
+                    break;
+                case CONTENT_TYPE_RTSP:
+                    if (!BuildConfig.USE_EXOPLAYER_RTSP) {
+                        DebugLog.e("Exo Player Exception", "RTSP is not enabled!");
+                        throw new IllegalStateException("RTSP is not enabled!");
+                    }
 
-                mediaSourceFactory = new RtspMediaSource.Factory();
-                break;
-            default: {
-                throw new IllegalStateException("Unsupported type: " + type);
+                    mediaSourceFactory = new RtspMediaSource.Factory();
+                    break;
+                default: {
+                    throw new IllegalStateException("Unsupported type: " + type);
+                }
             }
+
         }
 
         MediaItem mediaItem = mediaItemBuilder.setStreamKeys(streamKeys).build();
