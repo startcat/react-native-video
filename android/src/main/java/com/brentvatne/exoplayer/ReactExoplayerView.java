@@ -176,6 +176,7 @@ public class ReactExoplayerView extends FrameLayout implements
         BandwidthMeter.EventListener,
         BecomingNoisyListener,
         DrmSessionEventListener,
+        IOfflineLicenseManagerListener,
         AdEvent.AdEventListener,
         AdErrorEvent.AdErrorListener {
 
