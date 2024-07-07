@@ -2642,7 +2642,7 @@ public class ReactExoplayerView extends FrameLayout implements
 					accountCode);
 
 			builder.setAnalyticsOptions(youboraOptions);
-			builder.setLogLevel(Log.Level.DEBUG);
+			builder.setLogLevel(com.npaw.core.util.extensions.Log.Level.DEBUG);
 
 			NpawPluginProvider.initialize(builder);
 
