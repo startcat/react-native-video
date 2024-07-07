@@ -688,9 +688,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
         }
 
-        //startPlayerLocalPrepare();
-        //initializePlayerSource(this, mDrmSessionManager);
-        initializePlayer();
+        initializePlayerSource(mDrmSessionManager);
     }
 
     // Called when no offline license is found.
@@ -806,7 +804,7 @@ public class ReactExoplayerView extends FrameLayout implements
                         activity.runOnUiThread(() -> {
                             try {
                                 // Source initialization must run on the main thread
-                                initializePlayerSource();
+                                initializePlayerSource(null);
                             } catch (Exception ex) {
                                 self.playerNeedsSource = true;
                                 DebugLog.e(TAG, "Failed to initialize Player!");
@@ -817,7 +815,7 @@ public class ReactExoplayerView extends FrameLayout implements
                         });
                     });
                 } else if (source.getUri() != null) {
-                    initializePlayerSource();
+                    initializePlayerSource(null);
                 }
             } catch (Exception ex) {
                 self.playerNeedsSource = true;
@@ -978,11 +976,30 @@ public class ReactExoplayerView extends FrameLayout implements
         return drmSessionManager;
     }
 
-    private void initializePlayerSource() {
+    private void initializePlayerSource(DefaultDrmSessionManager mDrmSessionManager) {
         if (source.getUri() == null) {
             return;
         }
-        DrmSessionManager drmSessionManager = initializePlayerDrm(this);
+
+        /*
+         * Dani - If we have the offline keys, we use them
+         *
+         */
+
+        //DrmSessionManager drmSessionManager = initializePlayerDrm(this);
+        DrmSessionManager drmSessionManager;
+        if (mDrmSessionManager != null){
+            drmSessionManager = mDrmSessionManager;
+        } else {
+            drmSessionManager = initializePlayerDrm(this);
+        }
+
+        /*
+         * End
+         *
+         */
+
+
         if (drmSessionManager == null && drmUUID != null) {
             // Failed to intialize DRM session manager - cannot continue
             DebugLog.e(TAG, "Failed to initialize DRM Session Manager Framework!");
