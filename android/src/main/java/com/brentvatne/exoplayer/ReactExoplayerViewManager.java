@@ -26,6 +26,7 @@ import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.ViewGroupManager;
 import com.facebook.react.uimanager.annotations.ReactProp;
 
+import java.util.HashMap; // Dani
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
@@ -511,5 +512,5 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 	 * End
 	 *
 	 */
-    
+
 }
