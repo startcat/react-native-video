@@ -157,6 +157,8 @@ import com.npaw.media3.exoplayer.*;
 
 // Dani Offline
 import android.util.Log;
+import java.util.HashMap;
+import java.util.Map;
 import androidx.media3.exoplayer.offline.DownloadHelper;
 import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.datasource.DefaultDataSource;
@@ -1570,6 +1572,31 @@ public class ReactExoplayerView extends FrameLayout implements
     private HttpDataSource.Factory buildHttpDataSourceFactory(boolean useBandwidthMeter) {
         return DataSourceUtil.getDefaultHttpDataSourceFactory(this.themedReactContext, useBandwidthMeter ? bandwidthMeter : null, source.getHeaders());
     }
+
+    /*
+     * Dani - buildLocalDataSourceFactory
+     * 
+     */
+
+    private DataSource.Factory buildLocalDataSourceFactory(boolean useBandwidthMeter) {
+
+        Log.i("Downloads", "buildLocalDataSourceFactory " + source.getUri().toString());
+        AxDownloadTracker axDownloadTracker = AxOfflineManager.getInstance().getDownloadTracker();
+
+        if (axDownloadTracker != null) {
+            mDownloadRequest = axDownloadTracker.getDownloadRequest(source.getUri());
+            if (mDownloadRequest != null) {
+                return AxOfflineManager.getInstance().buildDataSourceFactory(this.themedReactContext);
+            }
+        }
+
+        return null;
+
+    }
+
+    /*
+     * End
+     */
 
     // AudioBecomingNoisyListener implementation
     @Override
