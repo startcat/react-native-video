@@ -94,7 +94,13 @@ class DownloadsModule: RCTEventEmitter {
     
     let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
     
-    var chosenStream: StreamData = StreamData(title: src.value(forKey: "title") as! String, videoUrl: src.value(forKey: "uri") as! String, licenseServer: drm?.value(forKey: "licenseServer") as! String, fpsCertificateUrl: drm?.value(forKey: "certificateUrl") as! String, licenseToken: "")
+    let chosenStream: StreamData
+      
+    if (drm == nil){
+      chosenStream = StreamData(title: src.value(forKey: "title") as! String, videoUrl: src.value(forKey: "uri") as! String, licenseServer: "", fpsCertificateUrl: "", licenseToken: "")
+    } else {
+      chosenStream = StreamData(title: src.value(forKey: "title") as! String, videoUrl: src.value(forKey: "uri") as! String, licenseServer: drm?.value(forKey: "licenseServer") as! String, fpsCertificateUrl: drm?.value(forKey: "certificateUrl") as! String, licenseToken: "")
+    }
     
     // Assume that only protected streams will have Licensing Server Url in Streams.json
     let isProtectedPlayback = !chosenStream.licenseServer.isEmpty
@@ -114,6 +120,13 @@ class DownloadsModule: RCTEventEmitter {
       
       ContentKeyManager.sharedManager.downloadRequestedByUser = true
       
+      asset.createUrlAsset()
+      asset.addAsContentKeyRecipient()
+      ContentKeyManager.sharedManager.asset = asset
+
+    } else {
+      ContentKeyManager.sharedManager.createContentKeySession()
+      ContentKeyManager.sharedManager.downloadRequestedByUser = true
       asset.createUrlAsset()
       asset.addAsContentKeyRecipient()
       ContentKeyManager.sharedManager.asset = asset
