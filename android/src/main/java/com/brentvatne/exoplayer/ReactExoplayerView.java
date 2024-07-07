@@ -156,6 +156,19 @@ import com.npaw.core.options.AnalyticsOptions;
 import com.npaw.core.util.extensions.Log;
 import com.npaw.media3.exoplayer.*;
 
+// Dani Offline
+import androidx.media3.exoplayer.offline.DownloadHelper;
+import androidx.media3.exoplayer.offline.DownloadRequest;
+import androidx.media3.datasource.DefaultDataSource;
+import com.brentvatne.license.LicenseManagerErrorCode;
+import com.brentvatne.license.OfflineLicenseManager;
+import com.brentvatne.license.interfaces.IOfflineLicenseManagerListener;
+import com.brentvatne.license.internal.model.DrmMessage;
+import com.brentvatne.license.internal.utils.DrmUtils;
+import com.brentvatne.offline.AxDownloadTracker;
+import com.brentvatne.offline.AxOfflineManager;
+import com.brentvatne.util.Utility;
+
 @SuppressLint("ViewConstructor")
 public class ReactExoplayerView extends FrameLayout implements
         LifecycleEventListener,
@@ -2426,5 +2439,5 @@ public class ReactExoplayerView extends FrameLayout implements
 	 * End
 	 *
 	 */
-    
+
 }
