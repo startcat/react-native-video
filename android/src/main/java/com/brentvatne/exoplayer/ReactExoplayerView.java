@@ -153,7 +153,6 @@ import com.npaw.NpawPlugin;
 import com.npaw.NpawPluginProvider;
 import com.npaw.analytics.video.VideoAdapter;
 import com.npaw.core.options.AnalyticsOptions;
-import com.npaw.core.util.extensions.Log;
 import com.npaw.media3.exoplayer.*;
 
 // Dani Offline
@@ -951,12 +950,12 @@ public class ReactExoplayerView extends FrameLayout implements
                 if (self.playOffline) {
                     mDrmSessionManager = buildLocalDrmSessionManager(self.drmLicenseUrl, "");
 
-                    Log.i("Downloads", "DrmSessionManager " + self.srcUri.toString());
+                    Log.i("Downloads", "DrmSessionManager " + source.getUri().toString());
                     mOfflineLicenseManager = new OfflineLicenseManager(getContext());
                     mOfflineLicenseManager.setEventListener(this);
-                    mOfflineLicenseManager.getLicenseKeys(self.srcUri.toString());
+                    mOfflineLicenseManager.getLicenseKeys(source.getUri().toString());
 
-                    mMediaItem = createOfflineMediaItem(self.srcUri, mDrmSessionManager);
+                    mMediaItem = createOfflineMediaItem(source.getUri(), mDrmSessionManager);
 
                 }
 
