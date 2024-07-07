@@ -148,6 +148,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+// Dani Youbora
+import com.npaw.NpawPlugin;
+import com.npaw.NpawPluginProvider;
+import com.npaw.analytics.video.VideoAdapter;
+import com.npaw.core.options.AnalyticsOptions;
+import com.npaw.core.util.extensions.Log;
+import com.npaw.media3.exoplayer.*;
+
 @SuppressLint("ViewConstructor")
 public class ReactExoplayerView extends FrameLayout implements
         LifecycleEventListener,
@@ -257,6 +265,13 @@ public class ReactExoplayerView extends FrameLayout implements
     private long lastPos = -1;
     private long lastBufferDuration = -1;
     private long lastDuration = -1;
+
+	// Dani Youbora
+	private NpawPlugin npawPlugin = null;
+	private VideoAdapter videoAdapter = null;
+
+	// Dani Offline
+	private boolean playOffline = false;
 
     private void updateProgress() {
         if (player != null) {
@@ -842,6 +857,28 @@ public class ReactExoplayerView extends FrameLayout implements
         } else {
             player.setMediaSource(mediaSource, true);
         }
+
+		/*
+		 * Dani Youbora
+		 * Begin
+		 *
+		 */
+
+		npawPlugin = NpawPluginProvider.getInstance();
+
+		if (npawPlugin != null) {
+			videoAdapter = npawPlugin.videoBuilder()
+					.setPlayerAdapter(new Media3ExoPlayerAdapter(this.themedReactContext, player))
+					.build();
+			videoAdapter.getPlayerAdapter().fireStart();
+
+		}
+
+		/*
+		 * End
+		 * 
+		 */
+
         player.prepare();
         playerNeedsSource = false;
 
@@ -1076,6 +1113,7 @@ public class ReactExoplayerView extends FrameLayout implements
                 )
                 .createMediaSource(mediaItem);
 
+        // Dani: Potser cal commentar els crops
         if (cropStartMs >= 0 && cropEndMs >= 0) {
             return new ClippingMediaSource(mediaSource, cropStartMs * 1000, cropEndMs * 1000);
         } else if (cropStartMs >= 0) {
@@ -1141,6 +1179,9 @@ public class ReactExoplayerView extends FrameLayout implements
         progressHandler.removeMessages(SHOW_PROGRESS);
         audioBecomingNoisyReceiver.removeListener();
         bandwidthMeter.removeEventListener(this);
+
+        // Dani Youbora
+		clearYoubora();
 
         if (mainHandler != null && mainRunnable != null) {
             mainHandler.removeCallbacks(mainRunnable);
@@ -2347,4 +2388,43 @@ public class ReactExoplayerView extends FrameLayout implements
         controlsConfig = controlsStyles;
         refreshProgressBarVisibility();
     }
+
+	/*
+	 * Dani Youbora
+	 * Begin
+	 *
+	 */
+
+	public void setYoubora(String accountCode, AnalyticsOptions youboraOptions) {
+		if (youboraOptions != null) {
+			NpawPlugin.Builder builder = new NpawPlugin.Builder(
+					this.themedReactContext.getCurrentActivity(),
+					accountCode);
+
+			builder.setAnalyticsOptions(youboraOptions);
+			builder.setLogLevel(Log.Level.DEBUG);
+
+			NpawPluginProvider.initialize(builder);
+
+		}
+	}
+
+	public void clearYoubora() {
+
+		if (videoAdapter != null) {
+			videoAdapter.destroy();
+			videoAdapter = null;
+		}
+
+	}
+
+	public void setPlayOffline(boolean playOffline) {
+		this.playOffline = playOffline;
+	}
+
+	/*
+	 * End
+	 *
+	 */
+    
 }
