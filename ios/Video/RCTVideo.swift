@@ -534,7 +534,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             analyticsOptions.contentType = self._youbora?.contentType
             analyticsOptions.contentTitle = self._youbora?.contentTitle
             analyticsOptions.program = self._youbora?.contentTitle2
-            //analyticsOptions.live = (self._youbora?.contentIsLive != nil && self._youbora?.contentIsLive == true) ? 1 as NSValue : 0 as NSValue
+            analyticsOptions.live = (self._youbora?.contentIsLive != nil && self._youbora?.contentIsLive == true) ? 1 as NSNumber : 0 as NSNumber
             analyticsOptions.contentSaga = self._youbora?.contentSaga
             analyticsOptions.contentTvShow = self._youbora?.contentTvShow
             analyticsOptions.contentPlaybackType = self._youbora?.contentPlaybackType
@@ -685,12 +685,17 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     /*
       Begin Modification
-      DANI: Youbora
+      DANI: Youbora & Offline
      */
 
     @objc
     func setYoubora(_ youbora:NSDictionary) {
         _youbora = YouboraParams(youbora)
+    }
+
+    @objc
+    func setPlayOffline(_ playOffline:Bool) {
+        _playOffline = playOffline
     }
 
     /*
