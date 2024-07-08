@@ -6,7 +6,9 @@ import { EventRegister } from 'react-native-event-listeners';
 
 import type {
     ConfigDownloads,
-    NetworkState
+    NetworkState,
+    ReadDirItem,
+    DownloadItem
 } from './types';
 
 
@@ -29,10 +31,12 @@ class Singleton {
     static networkState: NetworkState | null = null;
 
     private savedDownloads = [];
-
-    private isStarted: boolean = false;
     private firstMounted: boolean = false;
-    private size: number = 0;
+    private download_just_wifi: boolean = true;
+    private log_key: string = `[Downloads]`;
+
+    public isStarted: boolean = false;
+    public size: number = 0;
 
     // Events
     unsubscribeNetworkListener = null;
@@ -67,6 +71,13 @@ class Singleton {
     }
 
     public init (config: ConfigDownloads): Promise<void> {
+
+        this.download_just_wifi = !!config.download_just_wifi;
+
+        if (config.log_key){
+            this.log_key = config.log_key;
+
+        }
 
         return new Promise((resolve, reject) => {
             AsyncStorage.getItem(DOWNLOADS_KEY, async (err, result: string) => {
@@ -107,7 +118,7 @@ class Singleton {
                     DownloadsModule.moduleInit().then(() => {
 
                         this.unsubscribeNetworkListener = NetInfo.addEventListener(state => {
-                            console.log(`[Downloads] getNetworkInfo update - isConnected? ${state?.isConnected} (${state?.type})`);
+                            console.log(`${this.log_key} getNetworkInfo update - isConnected? ${state?.isConnected} (${state?.type})`);
 
                             this.networkState = state;
 
@@ -141,7 +152,7 @@ class Singleton {
 
                         this.listToConsole();
 
-                        console.log(`[Downloads] Initialized`);
+                        console.log(`${this.log_key} Initialized`);
                         
                         return resolve(this.savedDownloads);
 
@@ -257,20 +268,21 @@ class Singleton {
          *
          */
 
-        return new Promise((resolve, reject) => {
-            NetInfo.fetch().then(state => {
-                console.log(`[Downloads] getNetworkInfo - isConnected? ${state?.isConnected} (${state?.type})`);
-                this.networkState = state;
-
-                resolve({
+        return new Promise((resolve) => {
+            NetInfo.fetch().then((state: any) => {
+                console.log(`${log_key} getNetworkInfo - isConnected? ${state?.isConnected} (${state?.type})`);
+                
+                Singleton.networkState = {
                     isConnected: state?.isConnected,
                     isInternetReachable: state?.isInternetReachable,
                     isWifiEnabled: state?.isWifiEnabled,
                     type: state?.type
-                });
+                };
 
-            }).catch(error => {
-                console.log(`[Downloads] getNetworkInfo error ${JSON.stringify(error)}`);
+                resolve(Singleton.networkState);
+
+            }).catch(() => {
+
                 resolve({
                     isConnected: true,
                     isInternetReachable: false,
@@ -283,61 +295,15 @@ class Singleton {
 
     }
 
-    downloadMedia (obj) {
-
-        return new Promise(async (resolve, reject) => {
-
-            //console.log(`[Downloads] downloadMedia ${JSON.stringify(obj)}`);
-
-            // Download player media
-            apiFetch({
-                uri: `/v1/media/${obj?.slug || obj?.id}`,
-                offlineKey: `off_/v1/media_${obj?.slug || obj?.id}_${require('~/api/common').getLangCode()}`,
-            }).then(res => {
-                resolve(res);
-
-            }).catch(err => {
-                reject(err);
-
-            });
-
-        });
-
-    }
-
 
 
     // List Methods
-    async checkRestartItems () {
+    public async checkRestartItems (): Promise<void> {
 
-        for (const downloadItem of this.savedDownloads) {
-            
-            if (downloadItem?.offlineData?.profiles?.includes(this.session.id) && downloadItem?.offlineData?.state === 'RESTART'){
-
-                await DownloadsModule.addItem(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
-                    console.log(`[Downloads] ${downloadItem?.offlineData?.source?.uri} Restarting.`);
-
-            
-                }).catch(async err => {
-                    console.log(`[Downloads] ${downloadItem?.offlineData?.source?.uri} Coudn't restart: ${err.message}`);
-
-                    if (err.message){
-                        await this.onDownloadStateChanged({
-                            id: downloadItem?.offlineData?.source?.uri,
-                            state: err.message
-                        });
-
-                    }
-
-                });
-
-            }
-            
-        }
 
     }
 
-    checkItem (uri) {
+    public checkItem (uri: string): Promise<DownloadItem | null | Error> {
         return new Promise(async (resolve, reject) => {
 
             if (DISABLED){
@@ -345,18 +311,18 @@ class Singleton {
 
             }
 
-            //console.log(`[Downloads] checkItem ${JSON.stringify(uri)}`);
+            //console.log(`${this.log_key} checkItem ${JSON.stringify(uri)}`);
 
             if (!uri){
                 return reject(`Incomplete media data`);
             }
 
             await DownloadsModule.getItem(uri).then(res => {
-                //console.log(`[Downloads] checkItem (${uri}) ${JSON.stringify(res)}`);
+                //console.log(`${this.log_key} checkItem (${uri}) ${JSON.stringify(res)}`);
                 resolve(res);
 
             }).catch(err => {
-                console.log(`[Downloads] checkItem  error (${uri}) ${JSON.stringify(err)}`);
+                console.log(`${this.log_key} checkItem  error (${uri}) ${JSON.stringify(err)}`);
                 reject(err);
 
             });
@@ -365,301 +331,84 @@ class Singleton {
         
     }
 
-    addItem (obj) {
+    public addItem (obj: DownloadItem): Promise<void | Error> {
 
         return new Promise(async (resolve, reject) => {
 
-            if (DISABLED){
-                return reject();
-
-            }
-
-            console.log(`[Downloads] Add (${obj.offlineData?.source?.uri}) ${JSON.stringify(obj)}`);
-
-            if (!obj){
-                return reject(`Incomplete media data`);
-            }
-
-            this.getItemBySrc(obj.offlineData?.source?.uri).then(res => {
-
-                console.log(`[Downloads] Add: Already in the list`);
-
-                if (!res?.item?.profiles?.includes(this.session.id)){
-
-                    console.log(`[Downloads] Add: Already in the list -> Not for this profile`);
-                    if (!res?.item?.profiles){
-                        res.item.profiles = [];
-                    }
-
-                    res?.item?.profiles?.push(this.session.id);
-
-                    this.savedDownloads.splice(res.index, 1, res.item);
-
-                    this.save().then( async () => {
-                        this.listToConsole();
-                        EventRegister.emit('downloadsList', {});
-                        this.checkDownloadsStatus();
-                        return resolve();
-
-                    }).catch(err => {
-                        this.checkDownloadsStatus();
-                        return reject(err);
-
-                    });
-
-                }
-
-                return resolve();
-
-            }).catch(async () => {
-
-                console.log(`[Downloads] Add (${obj.offlineData?.source?.uri}) Not found...`);
-
-                this.downloadMedia(obj).then(async (mediaObj) => {
-
-                    let manifest, source, drm;
-
-                    manifest = mediaObj.manifests?.find(item => {
-
-                        if (Platform.OS === 'ios' && !!item.drmConfig){
-                            return item.type === 'hls' && item.drmConfig.type === 'fairplay';
-            
-                        } else if (Platform.OS === 'ios'){
-                            return item.type === 'hls';
-            
-                        } else if (Platform.OS === 'android' && !!item.drmConfig){
-                            return item.type === 'dash' && item.drmConfig.type === 'widevine';
-            
-                        } else if (Platform.OS === 'android'){
-                            return item.type === 'dash';
-            
-                        }
-            
-                    });
-            
-                    if (!!manifest){
-            
-                        source = { 
-                            id: mediaObj?.id?.toString(),
-                            uri: require('~/api/common').SITE_URL + manifest?.manifestURL,
-                            type: (Platform.OS === 'ios') ? 'm3u8' : 'mpd'
-                        };
-            
-                        if (manifest?.drmConfig?.type === 'fairplay'){
-                            drm = {
-                                type: 'fairplay',
-                                licenseServer: require('~/api/common').SITE_URL + manifest?.drmConfig?.licenseAcquisitionURL,
-                                certificateUrl: manifest?.drmConfig?.certificateURL
-                            };
-            
-                        } else if (manifest?.drmConfig?.type === 'widevine'){
-                            drm = {
-                                drmScheme: 'widevine',
-                                licenseServer: require('~/api/common').SITE_URL + manifest?.drmConfig?.licenseAcquisitionURL,
-                            };
-            
-                        }
-
-                        if (drm?.licenseServer && drm?.licenseServer?.includes('?')){
-                            drm.licenseServer += '&offline=true';
-
-                        } else if (drm?.licenseServer && !drm?.licenseServer?.includes('?')){
-                            drm.licenseServer += '?offline=true';
-
-                        }
-                        
-                        console.log(`[Downloads] DRM ${JSON.stringify(drm)}`);
-
-                        const newItem = {
-                            ...mediaObj,
-                            offlineData: {
-                                //datum: new Date(),
-                                profiles:[this.session.id],
-                                source: {
-                                    ...source,
-                                    title: mediaObj.title
-                                },
-                                state: 'RESTART',
-                                drm: drm
-                            }
-                        };
-
-                        this.savedDownloads.push(newItem);
-
-                        DownloadsModule.addItem(newItem?.offlineData?.source, newItem?.offlineData?.drm).then(() => {
-
-                            this.save().then( async () => {
-                                this.listToConsole();
-                                EventRegister.emit('downloadsList', {});
-                                this.checkDownloadsStatus();
-                                this.checkTotalSize();
-                                return resolve();
-        
-                            }).catch(err => {
-                                this.checkDownloadsStatus();
-                                return reject(err);
-        
-                            });
-                    
-                        }).catch(err => {
-                            return reject(err);
-
-                        });
-
-                    } else {
-                        return reject(`No valid manifest found.`);
-    
-                    }
-
-                }).catch(err => {
-                    return reject(err);
-
-                });
-
-            });
-
         });
 
     }
 
-    removeItem (obj) {
+    public removeItem (obj: DownloadItem): Promise<void | Error> {
 
         return new Promise(async (resolve, reject) => {
 
-            if (DISABLED || !obj.offlineData){
-                return reject();
-                
-            }
-
-            DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm).then(() => {
-
-                this.getItemIndex(obj).then(index => {
-
-                    this.savedDownloads.splice(index, 1);
-
-                    this.save().then( async () => {
-                        this.listToConsole();
-                        EventRegister.emit('downloadsList', {});
-                        this.checkDownloadsStatus();
-                        this.checkTotalSize();
-                        return resolve();
-
-                    }).catch(err => {
-                        EventRegister.emit('downloadsList', {});
-                        this.checkDownloadsStatus();
-                        return reject(err);
-
-                    });
-
-                }).catch(err => {
-                    return resolve();
-
-                });
+        });
         
-            }).catch(err => {
-                return reject(err);
+    }
 
-            });
+    public getItem (): Promise<DownloadItem | null | Error> {
+
+        return new Promise(async (resolve, reject) => {
 
         });
         
     }
 
-    getItem (obj) {
-
-        //console.log(`[Downloads] getItem - id ${obj.id} / Profile ${this.session.id}`);
-        //console.log(`[Downloads] getItem - ${JSON.stringify(this.savedDownloads)}`);
-
-        //this.savedDownloads?.forEach(item => {
-            //console.log(`[Downloads] forEach item - id ${item.id} / Profile ${item.offlineData?.profiles}`);
-        //});
-
-        return this.savedDownloads?.find(item => item.id === obj.id && item.offlineData?.profiles?.includes(this.session.id));
-        
-    }
-
-    getItemBySrc (src) {
+    public getItemBySrc (src: string): Promise<DownloadItem | null | Error> {
 
         return new Promise((resolve, reject) => {
 
-            const foundItem = this.savedDownloads?.find(item => item.offlineData?.source?.uri === src);
-            const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === src);
-
-            if (!!foundItem){
-                resolve({
-                    item: foundItem,
-                    index: foundAtIndex
-                });
-
-            } else {
-                reject();
-
-            }
 
         });
         
     }
 
-    getItemIndex (obj) {
+    public getItemIndex (obj: DownloadItem): Promise<number | Error> {
 
         return new Promise((resolve, reject) => {
 
-            if (!obj){
-                return reject(`[Downloads] [getItemIndex] Incomplete item data`);
-            }
-
-            const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === obj.offlineData?.source?.uri);
-
-            if (foundAtIndex !== undefined && foundAtIndex !== null){
-                resolve(foundAtIndex);
-
-            } else {
-                reject();
-
-            }
 
         });
         
     }
 
-    getList () {
-
-        return this.savedDownloads;
+    public getList (): Array<DownloadItem> {
+        return [];
         
     }
 
-    readDirectory = (dir) => {
+    // Directories
+    public readDirectory (dir: string): Promise<number | Error>  {
 
         return new Promise((resolve, reject) => {
 
             let dirSize = 0;
 
-            //console.log(`[Files] ----- readDirectory ${dir}`);
-
-            RNFS.readDir(dir).then(async (result) => {
-                //console.log('[Files] GOT RESULT', result);
+            RNFS.readDir(dir).then(async (result: ReadDirItem[]): Promise<void> => {
 
                 for (const item of result) {
 
                     if (item.isDirectory()){
                         await this.readDirectory(item.path).then(size => {
-                            dirSize = size + dirSize;
+
+                            if (typeof(size) === 'number'){
+                                dirSize = size + dirSize;
+                            }
+                            
                         });
 
                     } else if (item.isFile()){
                         dirSize = dirSize + item.size;
-                        //console.log(`[Files] ${item.path} ${item.size}`);
 
                     }
 
                 }
 
-                //console.log(`[Files] ----- readDirectory ${dir} ---> ${dirSize}`);
                 resolve(dirSize);
 
-            }).catch((err) => {
-                console.log(err.message, err.code);
-                resolve(dirSize);
+            }).catch((err: any) => {
+                reject(err);
 
             });
 
@@ -667,13 +416,13 @@ class Singleton {
 
     }
 
-    getAppleDownloadsDirectory = (dir) => {
+    private getAppleDownloadsDirectory (dir: string): Promise<string | Error> {
 
         return new Promise((resolve, reject) => {
 
             let path = '';
 
-            RNFS.readDir(dir).then(async (result) => {
+            RNFS.readDir(dir).then(async (result: ReadDirItem[]) => {
 
                 for (const item of result) {
 
@@ -683,7 +432,7 @@ class Singleton {
 
                 }
 
-                if (!!path  && false){
+                if (!!path){
                     resolve(path);
 
                 } else {
@@ -691,11 +440,67 @@ class Singleton {
 
                 }
 
-            }).catch((err) => {
-                console.log(err.message, err.code);
-                resolve(path);
+            }).catch((err: any) => {
+                reject(err);
 
             });
+
+        });
+
+    }
+
+    private checkTotalSize (): Promise<void | Error> {
+
+        return new Promise((resolve, reject) => {
+
+            if (Platform.OS === 'ios'){
+
+                this.getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
+
+                    if (typeof(path) === 'string'){
+
+                        this.readDirectory(path).then(size => {
+
+                            if (typeof(size) === 'number'){
+                                this.size = size;
+                                console.log(`${this.log_key} Total size ${this.size} --> ${this.formatBytes(this.size)}`);
+                                EventRegister.emit('downloadsSize', { size:this.size });
+
+                            }
+
+                            resolve();
+
+                        }). catch(err => {
+                            reject(err);
+
+                        });
+
+                    }
+
+                }). catch(err => {
+                    reject(err);
+
+                });
+
+            } else {
+
+                this.readDirectory(DOWNLOADS_DIR).then(size => {
+
+                    if (typeof(size) === 'number'){
+                        this.size = size;
+                        console.log(`${this.log_key} Total size ${this.size} --> ${this.formatBytes(this.size)}`);
+                        EventRegister.emit('downloadsSize', { size:this.size });
+
+                    }
+
+                    resolve();
+
+                }). catch(err => {
+                    reject(err);
+
+                });
+
+            }
 
         });
 
@@ -703,150 +508,94 @@ class Singleton {
 
 
     // Events
-    async onProgress (data) {
-
-        //console.log(`[Downloads] onProgress ${JSON.stringify(data)}`);
-
-        this.getItemBySrc(data.id).then(obj => {
-
-            if (!!obj.item && obj.item?.offlineData?.percent !== data?.percent && data?.percent > 0){
-                //console.log(`[Downloads] onProgress ${JSON.stringify(data)}`);
-                obj.item.offlineData.percent = data?.percent;
-                this.updateItem(obj.index, obj.item);
-    
-            }
-
-        }).catch(ex => {
-
-
-
-        });
+    private async onProgress (data: any): Promise<void> {
+        console.log(`${this.log_key} onProgress ${JSON.stringify(data)}`);
 
     }
 
-    async onLicenseDownloaded (data) {
-        console.log(`[Downloads] onLicenseDownloaded ${JSON.stringify(data)}`);
+    private async onLicenseDownloaded (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseDownloaded ${JSON.stringify(data)}`);
 
     }
 
-    async onLicenseDownloadFailed (data) {
-        console.log(`[Downloads] onLicenseDownloadFailed ${JSON.stringify(data)}`);
+    private async onLicenseDownloadFailed (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseDownloadFailed ${JSON.stringify(data)}`);
 
     }
 
-    async onLicenseCheck (data) {
-        console.log(`[Downloads] onLicenseCheck ${JSON.stringify(data)}`);
+    private async onLicenseCheck (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseCheck ${JSON.stringify(data)}`);
 
     }
     
-    async onLicenseCheckFailed (data) {
-        console.log(`[Downloads] onLicenseCheckFailed ${JSON.stringify(data)}`);
+    private async onLicenseCheckFailed (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseCheckFailed ${JSON.stringify(data)}`);
 
     }
     
-    async onLicenseReleased (data) {
-        console.log(`[Downloads] onLicenseReleased ${JSON.stringify(data)}`);
+    private async onLicenseReleased (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseReleased ${JSON.stringify(data)}`);
 
     }
     
-    async onLicenseReleaseFailed (data) {
-        console.log(`[Downloads] onLicenseReleaseFailed ${JSON.stringify(data)}`);
+    private async onLicenseReleaseFailed (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseReleaseFailed ${JSON.stringify(data)}`);
 
     }
     
-    async onLicenseKeysRestored (data) {
-        console.log(`[Downloads] onLicenseKeysRestored ${JSON.stringify(data)}`);
+    private async onLicenseKeysRestored (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseKeysRestored ${JSON.stringify(data)}`);
 
     }
     
-    async onLicenseRestoreFailed (data) {
-        console.log(`[Downloads] onLicenseRestoreFailed ${JSON.stringify(data)}`);
+    private async onLicenseRestoreFailed (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseRestoreFailed ${JSON.stringify(data)}`);
 
     }
     
-    async onAllLicensesReleased (data) {
-        console.log(`[Downloads] onAllLicensesReleased ${JSON.stringify(data)}`);
+    private async onAllLicensesReleased (data: any): Promise<void> {
+        console.log(`${this.log_key} onAllLicensesReleased ${JSON.stringify(data)}`);
 
     }
     
-    async onAllLicensesReleaseFailed (data) {
-        console.log(`[Downloads] onAllLicensesReleaseFailed ${JSON.stringify(data)}`);
+    private async onAllLicensesReleaseFailed (data: any): Promise<void> {
+        console.log(`${this.log_key} onAllLicensesReleaseFailed ${JSON.stringify(data)}`);
 
     }
     
-    async onPrepared (data) {
-        console.log(`[Downloads] onPrepared ${JSON.stringify(data)}`);
+    private async onPrepared (data: any): Promise<void> {
+        console.log(`${this.log_key} onPrepared ${JSON.stringify(data)}`);
 
     }
     
-    async onPrepareError (data) {
-        console.log(`[Downloads] onPrepareError ${JSON.stringify(data)}`);
+    private async onPrepareError (data: any): Promise<void> {
+        console.log(`${this.log_key} onPrepareError ${JSON.stringify(data)}`);
 
     }
     
-    async onDownloadStateChanged (data) {
-
-        //console.log(`[Downloads] onDownloadStateChanged ${JSON.stringify(data)}`);
-        
-        this.getItemBySrc(data.id).then(obj => {
-
-            if (!!obj.item && obj.item?.offlineData?.state !== data?.state){
-                //console.log(`[Downloads] onDownloadStateChanged ${JSON.stringify(data)}`);
-                obj.item.offlineData.state = data?.state;
-                this.updateItem(obj.index, obj.item);
-    
-            }
-
-        }).catch(ex => {
-
-
-
-        });
-
-        if (data?.state === 'COMPLETED'){
-            this.checkTotalSize();
-
-        }
+    private async onDownloadStateChanged (data: any): Promise<void> {
+        console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
 
     }
 
-    async onCompleted (data) {
-        console.log(`[Downloads] onCompleted ${JSON.stringify(data)}`);
+    private async onCompleted (data: any): Promise<void> {
+        console.log(`${this.log_key} onCompleted ${JSON.stringify(data)}`);
 
     }
 
-    async onRemoved (data) {
-        console.log(`[Downloads] onRemoved ${JSON.stringify(data)}`);
+    private async onRemoved (data: any): Promise<void> {
+        console.log(`${this.log_key} onRemoved ${JSON.stringify(data)}`);
 
     }
 
 
 
     // Actions
-    checkDownloadsStatus () {
-
-        let pendingItems = 0;
-
-        for (const downloadItem of this.savedDownloads) {
-            
-            console.log(`Downloads - checkDownloadsStatus downloadItem?.offlineData?.state ${downloadItem?.offlineData?.state}`);
-            if (downloadItem?.offlineData?.profiles?.includes(this.session.id) && downloadItem?.offlineData?.state !== 'COMPLETED' || !downloadItem?.offlineData){
-                pendingItems++;
-
-            }
-            
-        }
-
-        console.log(`Downloads - Pending items ${pendingItems} / isStarted ${this.isStarted}`);
-
-        EventRegister.emit('downloads', { 
-            isStarted: (pendingItems > 0 && !!this.isStarted),
-            pending: !!pendingItems
-        });
+    public checkDownloadsStatus (): void {
 
     }
 
-    download (id) {
+    public download (id: string): Promise<void> {
 
         return new Promise((resolve, reject) => {
 
@@ -856,80 +605,14 @@ class Singleton {
 
     }
 
-    remove (path) {
+    public remove (path: string) {
 
         return RNFS.unlink(path);
 
     }
 
-    getIsStarted () {
-        return !!this.isStarted;
-    }
-
-    getCanDownload () {
-        return (this.networkState.isConnected && (!this.session.download_just_wifi || this.networkState.type === 'wifi'));
-
-    }
-
-    getTotalSize () {
-        return new Promise((resolve, reject) => {
-
-            if (Platform.OS === 'ios'){
-
-                this.getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
-    
-                    if (!!path){
-                        this.readDirectory(path).then(size => {
-                            this.size = size;
-                            console.log(`[Files] ----- Total size ${this.size} --> ${this.formatBytes(this.size)}`);
-                            resolve(this.size);
-                        });
-
-                    }
-    
-                });
-    
-            } else {
-    
-                this.readDirectory(DOWNLOADS_DIR).then(size => {
-                    this.size = size;
-                    console.log(`[Files] ----- Total size ${this.size} --> ${this.formatBytes(this.size)}`);
-                    resolve(this.size);
-                });
-    
-            }
-
-        });
-        
-    }
-
-    checkTotalSize () {
-
-        if (Platform.OS === 'ios'){
-
-            this.getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
-
-                if (!!path){
-
-                    this.readDirectory(path).then(size => {
-                        this.size = size;
-                        console.log(`[Files] ----- Total size ${this.size} --> ${this.formatBytes(this.size)}`);
-                        EventRegister.emit('downloadsSize', { size:this.size });
-                    });
-
-                }
-
-            });
-
-        } else {
-
-            this.readDirectory(DOWNLOADS_DIR).then(size => {
-                this.size = size;
-                console.log(`[Files] ----- Total size ${this.size} --> ${this.formatBytes(this.size)}`);
-                EventRegister.emit('downloadsSize', { size:this.size });
-            });
-
-        }
+    get canDownload (): boolean {
+        return (!!Singleton.networkState?.isConnected && (!this.download_just_wifi || Singleton.networkState?.type === 'wifi'));
 
     }
 
