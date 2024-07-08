@@ -158,8 +158,14 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
         )
       );
 
+      // DANI - Añadimos el ID y el TITLE
+      const id = resolvedSource?.id?.toString() || '';
+      const title = resolvedSource?.title || '';
+
       return {
         uri,
+        id,
+        title,
         isNetwork,
         isAsset,
         shouldCache: resolvedSource.shouldCache || false,
