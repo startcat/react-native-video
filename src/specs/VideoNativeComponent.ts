@@ -26,8 +26,11 @@ type VideoMetadata = Readonly<{
   imageUri?: string;
 }>;
 
+// DANI - Añadimos el ID y el TITLE
 export type VideoSrc = Readonly<{
   uri?: string;
+  id?: string;
+  title?: string;
   isNetwork?: boolean;
   isAsset?: boolean;
   shouldCache?: boolean;

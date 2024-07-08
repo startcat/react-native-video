@@ -10,8 +10,11 @@ export type EnumValues<T extends string | number> = T extends string
   ? `${T}` | T
   : T;
 
+// DANI - Añadimos el ID y el TITLE
 export type ReactVideoSourceProperties = {
   uri?: string;
+  id?: string;
+  title?: string;
   isNetwork?: boolean;
   isAsset?: boolean;
   shouldCache?: boolean;
