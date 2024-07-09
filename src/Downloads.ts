@@ -8,8 +8,27 @@ import type {
     ConfigDownloads,
     NetworkState,
     ReadDirItem,
-    DownloadItem
+    DownloadItem,
+
+    OnDownloadProgressData,
+    OnDownloadStateChangedData,
+    OnDownloadCompletedData,
+    OnDownloadRemovedData,
+    OnLicenseDownloadedData,
+    OnLicenseDownloadFailedData,
+    OnLicenseCheckData,
+    OnLicenseCheckFailedData,
+    OnLicenseReleaseData,
+    OnLicenseReleaseFailedData,
+    OnLicenseKeysRestoredData,
+    OnLicenseRestoreFailedData,
+    OnAllLicensesReleasedData,
+    OnAllLicensesReleaseFailedData,
+    OnPreparedData,
+    OnPrepareErrorData
 } from './types';
+
+import { DownloadStates } from './types';
 
 
 
@@ -18,8 +37,6 @@ import type {
  *  Interface for the native downloads module
  * 
  */
-
-const DISABLED = false;
 
 const { DownloadsModule } = NativeModules;
 const DOWNLOADS_KEY = 'off_downloads';
@@ -30,8 +47,9 @@ class Singleton {
     static #instance: Singleton;
     static networkState: NetworkState | null = null;
 
-    private savedDownloads = [];
+    private savedDownloads: DownloadItem[] = [];
     private firstMounted: boolean = false;
+    private disabled: boolean = false;
     private download_just_wifi: boolean = true;
     private log_key: string = `[Downloads]`;
 
@@ -39,24 +57,24 @@ class Singleton {
     public size: number = 0;
 
     // Events
-    unsubscribeNetworkListener = null;
+    unsubscribeNetworkListener: any = null;
 
-    onProgressListener = null;
-    onLicenseDownloadedListener = null;
-    onLicenseDownloadFailedListener = null;
-    onLicenseCheckListener = null;
-    onLicenseCheckFailedListener = null;
-    onLicenseReleaseListener = null;
-    onLicenseReleaseFailedListener = null;
-    onLicenseKeysRestoredListener = null;
-    onLicenseRestoreFailedListener = null;
-    onAllLicensesReleasedListener = null;
-    onAllLicensesReleaseFailedListener = null;
-    onPreparedListener = null;
-    onPrepareErrorListener = null;
-    onDownloadStateChangedListener = null;
-    onCompletedListener = null;
-    onRemovedListener = null;
+    onProgressListener: any = null;
+    onLicenseDownloadedListener: any = null;
+    onLicenseDownloadFailedListener: any = null;
+    onLicenseCheckListener: any = null;
+    onLicenseCheckFailedListener: any = null;
+    onLicenseReleaseListener: any = null;
+    onLicenseReleaseFailedListener: any = null;
+    onLicenseKeysRestoredListener: any = null;
+    onLicenseRestoreFailedListener: any = null;
+    onAllLicensesReleasedListener: any = null;
+    onAllLicensesReleaseFailedListener: any = null;
+    onPreparedListener: any = null;
+    onPrepareErrorListener: any = null;
+    onDownloadStateChangedListener: any = null;
+    onCompletedListener: any = null;
+    onRemovedListener: any = null;
 
     private constructor() { }
 
@@ -70,39 +88,43 @@ class Singleton {
 
     }
 
-    public init (config: ConfigDownloads): Promise<void> {
-
-        this.download_just_wifi = !!config.download_just_wifi;
-
-        if (config.log_key){
-            this.log_key = config.log_key;
-
-        }
+    public init (config: ConfigDownloads): Promise<DownloadItem[]> {
 
         return new Promise((resolve, reject) => {
-            AsyncStorage.getItem(DOWNLOADS_KEY, async (err, result: string) => {
 
-                if (err) {
-                    return reject(err);
-                }
+            this.disabled = !!config.disabled;
+            this.download_just_wifi = !!config.download_just_wifi;
 
-                try {
-                    this.savedDownloads = JSON.parse(result);
+            if (config.log_key){
+                this.log_key = config.log_key;
+    
+            }
 
-                    if (!result){
-                        this.savedDownloads = [];
+            AsyncStorage.getItem(DOWNLOADS_KEY).then(async (result: string | null) => {
 
+                if (typeof(result) === 'string'){
+                    try {
+                        this.savedDownloads = JSON.parse(result);
+
+                        if (!result){
+                            this.savedDownloads = [];
+
+                        }
+
+                    } catch(ex: any){
+                        console.error(ex?.message);
                     }
 
-                } catch(ex){
-                    console.error(ex.message);
+                } else {
+                    this.savedDownloads = [];
+
                 }
 
                 if (Platform.OS === 'ios'){
-                    this.savedDownloads = this.savedDownloads.map(item => {
+                    this.savedDownloads = this.savedDownloads.map((item: DownloadItem) => {
 
-                        if (!item.offlineData?.state || item.offlineData?.state !== 'COMPLETED'){
-                            item.offlineData.state = 'RESTART';
+                        if (!item.offlineData?.state || item.offlineData?.state !== DownloadStates.COMPLETED){
+                            item.offlineData.state = DownloadStates.RESTART;
 
                         }
 
@@ -114,18 +136,23 @@ class Singleton {
 
                 this.getNetworkInfo();
 
-                if (!DISABLED){
+                if (!this.disabled){
                     DownloadsModule.moduleInit().then(() => {
 
-                        this.unsubscribeNetworkListener = NetInfo.addEventListener(state => {
+                        this.unsubscribeNetworkListener = NetInfo.addEventListener((state: any) => {
                             console.log(`${this.log_key} getNetworkInfo update - isConnected? ${state?.isConnected} (${state?.type})`);
 
-                            this.networkState = state;
+                            Singleton.networkState = {
+                                isConnected: state?.isConnected,
+                                isInternetReachable: state?.isInternetReachable,
+                                isWifiEnabled: state?.isWifiEnabled,
+                                type: state?.type
+                            };
 
-                            EventRegister.emit('downloadsEnable', { enabled:this.getCanDownload() });
+                            EventRegister.emit('downloadsEnable', { enabled:this.canDownload });
 
                             if (this.firstMounted){
-                                this.resume(state);
+                                this.resume();
 
                             }
 
@@ -133,22 +160,22 @@ class Singleton {
 
                         const emitter = Platform.OS === 'ios' ? new NativeEventEmitter(NativeModules.DownloadsModule) : DeviceEventEmitter
 
-                        this.onProgressListener = emitter.addListener('downloadProgress', (data) => this.onProgress(data));
-                        this.onLicenseDownloadedListener = emitter.addListener('onLicenseDownloaded', (data) => this.onLicenseDownloaded(data));
-                        this.onLicenseDownloadFailedListener = emitter.addListener('onLicenseDownloadFailed', (data) => this.onLicenseDownloadFailed(data));
-                        this.onLicenseCheckListener = emitter.addListener('onLicenseCheck', (data) => this.onLicenseCheck(data));
-                        this.onLicenseCheckFailedListener = emitter.addListener('onLicenseCheckFailed', (data) => this.onLicenseCheckFailed(data));
-                        this.onLicenseReleasedListener = emitter.addListener('onLicenseReleased', (data) => this.onLicenseReleased(data));
-                        this.onLicenseReleaseFailedListener = emitter.addListener('onLicenseReleaseFailed', (data) => this.onLicenseReleaseFailed(data));
-                        this.onLicenseKeysRestoredListener = emitter.addListener('onLicenseKeysRestored', (data) => this.onLicenseKeysRestored(data));
-                        this.onLicenseRestoreFailedListener = emitter.addListener('onLicenseRestoreFailed', (data) => this.onLicenseRestoreFailed(data));
-                        this.onAllLicensesReleasedListener = emitter.addListener('onAllLicensesReleased', (data) => this.onAllLicensesReleased(data));
-                        this.onAllLicensesReleaseFailedListener = emitter.addListener('onAllLicensesReleaseFailed', (data) => this.onAllLicensesReleaseFailed(data));
-                        this.onPreparedListener = emitter.addListener('onPrepared', (data) => this.onPrepared(data));
-                        this.onPrepareErrorListener = emitter.addListener('onPrepareError', (data) => this.onPrepareError(data));
-                        this.onDownloadStateChangedListener = emitter.addListener('onDownloadStateChanged', (data) => this.onDownloadStateChanged(data));
-                        this.onCompletedListener = emitter.addListener('downloadCompleted', (data) => this.onCompleted(data));
-                        this.onRemovedListener = emitter.addListener('downloadRemoved', (data) => this.onRemoved(data));
+                        this.onProgressListener = emitter.addListener('downloadProgress', (data: OnDownloadProgressData) => this.onProgress(data));
+                        this.onLicenseDownloadedListener = emitter.addListener('onLicenseDownloaded', (data: OnLicenseDownloadedData) => this.onLicenseDownloaded(data));
+                        this.onLicenseDownloadFailedListener = emitter.addListener('onLicenseDownloadFailed', (data: OnLicenseDownloadFailedData) => this.onLicenseDownloadFailed(data));
+                        this.onLicenseCheckListener = emitter.addListener('onLicenseCheck', (data: OnLicenseCheckData) => this.onLicenseCheck(data));
+                        this.onLicenseCheckFailedListener = emitter.addListener('onLicenseCheckFailed', (data: OnLicenseCheckFailedData) => this.onLicenseCheckFailed(data));
+                        this.onLicenseReleaseListener = emitter.addListener('onLicenseReleased', (data: OnLicenseReleaseData) => this.onLicenseReleased(data));
+                        this.onLicenseReleaseFailedListener = emitter.addListener('onLicenseReleaseFailed', (data: OnLicenseReleaseFailedData) => this.onLicenseReleaseFailed(data));
+                        this.onLicenseKeysRestoredListener = emitter.addListener('onLicenseKeysRestored', (data: OnLicenseKeysRestoredData) => this.onLicenseKeysRestored(data));
+                        this.onLicenseRestoreFailedListener = emitter.addListener('onLicenseRestoreFailed', (data: OnLicenseRestoreFailedData) => this.onLicenseRestoreFailed(data));
+                        this.onAllLicensesReleasedListener = emitter.addListener('onAllLicensesReleased', (data: OnAllLicensesReleasedData) => this.onAllLicensesReleased(data));
+                        this.onAllLicensesReleaseFailedListener = emitter.addListener('onAllLicensesReleaseFailed', (data: OnAllLicensesReleaseFailedData) => this.onAllLicensesReleaseFailed(data));
+                        this.onPreparedListener = emitter.addListener('onPrepared', (data: OnPreparedData) => this.onPrepared(data));
+                        this.onPrepareErrorListener = emitter.addListener('onPrepareError', (data: OnPrepareErrorData) => this.onPrepareError(data));
+                        this.onDownloadStateChangedListener = emitter.addListener('onDownloadStateChanged', (data: OnDownloadStateChangedData) => this.onDownloadStateChanged(data));
+                        this.onCompletedListener = emitter.addListener('downloadCompleted', (data: OnDownloadCompletedData) => this.onCompleted(data));
+                        this.onRemovedListener = emitter.addListener('downloadRemoved', (data: OnDownloadRemovedData) => this.onRemoved(data));
 
                         this.listToConsole();
 
@@ -156,7 +183,7 @@ class Singleton {
                         
                         return resolve(this.savedDownloads);
 
-                    }).catch((err) => {
+                    }).catch((err: any) => {
                         return reject(err);
 
                     });
@@ -172,7 +199,26 @@ class Singleton {
 
     removeEvents () {
 
+        this.onLicenseDownloadedListener?.remove();
+        this.onLicenseDownloadFailedListener?.remove();
+        this.onLicenseCheckListener?.remove();
+        this.onLicenseCheckFailedListener?.remove();
+        this.onLicenseReleaseListener?.remove();
+        this.onLicenseReleaseFailedListener?.remove();
+        this.onLicenseKeysRestoredListener?.remove();
+        this.onLicenseRestoreFailedListener?.remove();
+        this.onAllLicensesReleasedListener?.remove();
+        this.onAllLicensesReleaseFailedListener?.remove();
+        this.onPreparedListener?.remove();
+        this.onPrepareErrorListener?.remove();
+        this.onDownloadStateChangedListener?.remove();
+        this.onProgressListener?.remove();
+        this.onCompletedListener?.remove();
+        this.onRemovedListener?.remove();
 
+        if (this.unsubscribeNetworkListener){
+            this.unsubscribeNetworkListener();
+        }
         
     }
 
@@ -270,7 +316,7 @@ class Singleton {
 
         return new Promise((resolve) => {
             NetInfo.fetch().then((state: any) => {
-                console.log(`${log_key} getNetworkInfo - isConnected? ${state?.isConnected} (${state?.type})`);
+                console.log(`${this.log_key} getNetworkInfo - isConnected? ${state?.isConnected} (${state?.type})`);
                 
                 Singleton.networkState = {
                     isConnected: state?.isConnected,
@@ -303,10 +349,10 @@ class Singleton {
 
     }
 
-    public checkItem (uri: string): Promise<DownloadItem | null | Error> {
+    public checkItem (uri: string): Promise<DownloadItem | null> {
         return new Promise(async (resolve, reject) => {
 
-            if (DISABLED){
+            if (this.disabled){
                 return reject();
 
             }
@@ -379,7 +425,7 @@ class Singleton {
     }
 
     // Directories
-    public readDirectory (dir: string): Promise<number | Error>  {
+    public readDirectorySize (dir: string): Promise<number>  {
 
         return new Promise((resolve, reject) => {
 
@@ -390,7 +436,7 @@ class Singleton {
                 for (const item of result) {
 
                     if (item.isDirectory()){
-                        await this.readDirectory(item.path).then(size => {
+                        await this.readDirectorySize(item.path).then(size => {
 
                             if (typeof(size) === 'number'){
                                 dirSize = size + dirSize;
@@ -416,7 +462,7 @@ class Singleton {
 
     }
 
-    private getAppleDownloadsDirectory (dir: string): Promise<string | Error> {
+    private getAppleDownloadsDirectory (dir: string): Promise<string> {
 
         return new Promise((resolve, reject) => {
 
@@ -449,7 +495,7 @@ class Singleton {
 
     }
 
-    private checkTotalSize (): Promise<void | Error> {
+    private checkTotalSize (): Promise<void> {
 
         return new Promise((resolve, reject) => {
 
@@ -459,7 +505,7 @@ class Singleton {
 
                     if (typeof(path) === 'string'){
 
-                        this.readDirectory(path).then(size => {
+                        this.readDirectorySize(path).then(size => {
 
                             if (typeof(size) === 'number'){
                                 this.size = size;
@@ -484,7 +530,7 @@ class Singleton {
 
             } else {
 
-                this.readDirectory(DOWNLOADS_DIR).then(size => {
+                this.readDirectorySize(DOWNLOADS_DIR).then(size => {
 
                     if (typeof(size) === 'number'){
                         this.size = size;
