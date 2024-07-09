@@ -14,6 +14,7 @@ export enum DownloadStates {
 
 export type ConfigDownloads = {
   disabled?: boolean;
+  user_required?: boolean;
   download_just_wifi?: boolean;
   log_key?: string;
 };
@@ -38,13 +39,15 @@ export type ReadDirItem = {
 export type DownloadItem = {
   media: any;
   offlineData: {
-      session_ids:Array<string>;
-      source: {
-          ...source,
-          title: string;
-      },
-      state: DownloadStates;
-      drm: Drm;
+    session_ids:Array<string>;
+    source: {
+      id: string;
+      title: string;
+      uri: string;
+      dvrWindowMinutes?:number;
+    },
+    state: DownloadStates;
+    drm: Drm;
   }
 };
 
