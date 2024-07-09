@@ -929,62 +929,62 @@ class Singleton {
 
     }
 
-    private async onLicenseDownloaded (data: any): Promise<void> {
+    private async onLicenseDownloaded (data: OnLicenseDownloadedData): Promise<void> {
         console.log(`${this.log_key} onLicenseDownloaded ${JSON.stringify(data)}`);
 
     }
 
-    private async onLicenseDownloadFailed (data: any): Promise<void> {
+    private async onLicenseDownloadFailed (data: OnLicenseDownloadFailedData): Promise<void> {
         console.log(`${this.log_key} onLicenseDownloadFailed ${JSON.stringify(data)}`);
 
     }
 
-    private async onLicenseCheck (data: any): Promise<void> {
+    private async onLicenseCheck (data: OnLicenseCheckData): Promise<void> {
         console.log(`${this.log_key} onLicenseCheck ${JSON.stringify(data)}`);
 
     }
     
-    private async onLicenseCheckFailed (data: any): Promise<void> {
+    private async onLicenseCheckFailed (data: OnLicenseCheckFailedData): Promise<void> {
         console.log(`${this.log_key} onLicenseCheckFailed ${JSON.stringify(data)}`);
 
     }
     
-    private async onLicenseReleased (data: any): Promise<void> {
+    private async onLicenseReleased (data: OnLicenseReleasedData): Promise<void> {
         console.log(`${this.log_key} onLicenseReleased ${JSON.stringify(data)}`);
 
     }
     
-    private async onLicenseReleasedFailed (data: any): Promise<void> {
+    private async onLicenseReleasedFailed (data: OnLicenseReleasedFailedData): Promise<void> {
         console.log(`${this.log_key} onLicenseReleasedFailed ${JSON.stringify(data)}`);
 
     }
     
-    private async onLicenseKeysRestored (data: any): Promise<void> {
+    private async onLicenseKeysRestored (data: OnLicenseKeysRestoredData): Promise<void> {
         console.log(`${this.log_key} onLicenseKeysRestored ${JSON.stringify(data)}`);
 
     }
     
-    private async onLicenseRestoreFailed (data: any): Promise<void> {
+    private async onLicenseRestoreFailed (data: OnLicenseRestoreFailedData): Promise<void> {
         console.log(`${this.log_key} onLicenseRestoreFailed ${JSON.stringify(data)}`);
 
     }
     
-    private async onAllLicensesReleased (data: any): Promise<void> {
+    private async onAllLicensesReleased (data: OnAllLicensesReleasedData): Promise<void> {
         console.log(`${this.log_key} onAllLicensesReleased ${JSON.stringify(data)}`);
 
     }
     
-    private async onAllLicensesReleaseFailed (data: any): Promise<void> {
+    private async onAllLicensesReleaseFailed (data: OnAllLicensesReleaseFailedData): Promise<void> {
         console.log(`${this.log_key} onAllLicensesReleaseFailed ${JSON.stringify(data)}`);
 
     }
     
-    private async onPrepared (data: any): Promise<void> {
+    private async onPrepared (data: OnPreparedData): Promise<void> {
         console.log(`${this.log_key} onPrepared ${JSON.stringify(data)}`);
 
     }
     
-    private async onPrepareError (data: any): Promise<void> {
+    private async onPrepareError (data: OnPrepareErrorData): Promise<void> {
         console.log(`${this.log_key} onPrepareError ${JSON.stringify(data)}`);
 
     }
@@ -1010,12 +1010,12 @@ class Singleton {
 
     }
 
-    private async onCompleted (data: any): Promise<void> {
+    private async onCompleted (data: OnDownloadCompletedData): Promise<void> {
         console.log(`${this.log_key} onCompleted ${JSON.stringify(data)}`);
 
     }
 
-    private async onRemoved (data: any): Promise<void> {
+    private async onRemoved (data: OnDownloadRemovedData): Promise<void> {
         console.log(`${this.log_key} onRemoved ${JSON.stringify(data)}`);
 
     }
