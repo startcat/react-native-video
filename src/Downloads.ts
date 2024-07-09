@@ -726,6 +726,7 @@ class Singleton {
         
     }
 
+    /*
     public getItem (): Promise<DownloadItem | null> {
 
         return new Promise(async (resolve, reject) => {
@@ -733,6 +734,7 @@ class Singleton {
         });
         
     }
+    */
 
     public getItemBySrc (src: string): Promise<SearchDownloadItem> {
 
@@ -1047,6 +1049,7 @@ class Singleton {
 
     }
 
+    /*
     public download (id: string): Promise<void> {
 
         return new Promise((resolve, reject) => {
@@ -1056,6 +1059,7 @@ class Singleton {
         });
 
     }
+    */
 
     public remove (path: string): Promise<void> {
 
