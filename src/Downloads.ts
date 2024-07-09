@@ -144,7 +144,9 @@ class Singleton {
 
                 }
 
-                this.getNetworkInfo();
+                await this.getNetworkInfo();
+
+                await this.checkTotalSize();
 
                 if (!this.disabled){
                     DownloadsModule.moduleInit().then(() => {
@@ -246,7 +248,7 @@ class Singleton {
 
     }
 
-    public resume (): void {
+    public async resume (): Promise<void> {
 
         console.log(`${this.log_key} Resume - isStarted ${this.isStarted}`);
         console.log(`${this.log_key} Resume - isConnected ${Singleton.networkState?.isConnected} (Network type ${Singleton.networkState?.type})`);
@@ -256,7 +258,7 @@ class Singleton {
 
             if (Platform.OS === 'android'){
 
-                DownloadsModule.resumeAll().then(() => {
+                await DownloadsModule.resumeAll().then(() => {
                     this.isStarted = true;
                     console.log(`${this.log_key} Resumed.`);
                     this.checkDownloadsStatus();
@@ -280,13 +282,13 @@ class Singleton {
 
     }
 
-    public pause (): void {
+    public async pause (): Promise<void> {
 
         if (!this.disabled && this.isStarted){
 
             if (Platform.OS === 'android'){
 
-                DownloadsModule.pauseAll().then(() => {
+                await DownloadsModule.pauseAll().then(() => {
                     this.isStarted = false;
                     console.log(`${this.log_key} Paused all.`);
                     this.checkDownloadsStatus();
@@ -726,15 +728,11 @@ class Singleton {
         
     }
 
-    /*
-    public getItem (): Promise<DownloadItem | null> {
+    public getItemById (id: string): DownloadItem | undefined {
 
-        return new Promise(async (resolve, reject) => {
-            //return this.savedDownloads?.find(item => item.id === obj.id && item.offlineData?.profiles?.includes(this.session.id));
-        });
+        return this.savedDownloads?.find(item => item.offlineData.source.id === id && item.offlineData?.session_ids?.includes(this.user_id));
         
     }
-    */
 
     public getItemBySrc (src: string): Promise<SearchDownloadItem> {
 
