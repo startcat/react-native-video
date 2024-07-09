@@ -37,7 +37,7 @@ export type ReadDirItem = {
 }
 
 export type DownloadItem = {
-  media: any;
+  media?: any;
   offlineData: {
     session_ids:Array<string>;
     source: {
@@ -47,9 +47,30 @@ export type DownloadItem = {
       dvrWindowMinutes?:number;
     },
     state: DownloadStates;
-    drm: Drm;
+    drm?: Drm;
+    percent?: number;
   }
 };
+
+export type NewDownloadItem = {
+  media?: any;
+  offlineData: {
+    session_ids?:Array<string>;
+    source: {
+      id: string;
+      title: string;
+      uri: string;
+      dvrWindowMinutes?:number;
+    },
+    state?: DownloadStates;
+    drm?: Drm;
+  }
+};
+
+export type SearchDownloadItem = {
+  item: DownloadItem;
+  index: number;
+}
 
 // Downloads Actions Events
 
