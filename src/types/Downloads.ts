@@ -6,10 +6,11 @@ export enum DownloadStates {
   RESTART = 'RESTART',
   RESTARTING = 'RESTARTING',
   FAILED = 'FAILED',
-  COMPLETED = 'COMPLETED',
   REMOVING = 'REMOVING',
+  STOPPED = 'STOPPED',
   DOWNLOADING = 'DOWNLOADING',
-  STOPPED = 'STOPPED'
+  NOT_DOWNLOADED = 'NOT_DOWNLOADED',
+  COMPLETED = 'COMPLETED'
 };
 
 export type ConfigDownloads = {
@@ -75,11 +76,13 @@ export type SearchDownloadItem = {
 // Downloads Actions Events
 
 export type OnDownloadProgressData = Readonly<{
-
+  id: string;
+  percent: number;
 }>;
 
 export type OnDownloadStateChangedData = Readonly<{
-
+  id: string;
+  state: DownloadStates
 }>;
 
 export type OnDownloadCompletedData = Readonly<{
@@ -93,26 +96,31 @@ export type OnDownloadRemovedData = Readonly<{
 // License Events
 
 export type OnLicenseDownloadedData = Readonly<{
-
+  manifest: string;
 }>;
 
 export type OnLicenseDownloadFailedData = Readonly<{
-
+  manifest: string;
+  error?: string;
+  code?: number;
 }>;
 
 export type OnLicenseCheckData = Readonly<{
-
+  manifest: string;
+  isValid: boolean;
 }>;
 
 export type OnLicenseCheckFailedData = Readonly<{
-
+  manifest: string;
+  error?: string;
+  code?: number;
 }>;
 
-export type OnLicenseReleaseData = Readonly<{
-
+export type OnLicenseReleasedData = Readonly<{
+  manifest: string;
 }>;
 
-export type OnLicenseReleaseFailedData = Readonly<{
+export type OnLicenseReleasedFailedData = Readonly<{
 
 }>;
 

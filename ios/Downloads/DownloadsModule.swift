@@ -35,7 +35,7 @@ class DownloadsModule: RCTEventEmitter {
   @objc var onLicenseCheck: RCTDirectEventBlock?
   @objc var onLicenseCheckFailed: RCTDirectEventBlock?
   @objc var onLicenseReleased: RCTDirectEventBlock?
-  @objc var onLicenseReleaseFailed: RCTDirectEventBlock?
+  @objc var onLicenseReleasedFailed: RCTDirectEventBlock?
   @objc var onLicenseKeysRestored: RCTDirectEventBlock?
   @objc var onLicenseRestoreFailed: RCTDirectEventBlock?
   @objc var onAllLicensesReleased: RCTDirectEventBlock?
@@ -216,7 +216,7 @@ class DownloadsModule: RCTEventEmitter {
   }
   
   @objc open override func supportedEvents() -> [String] {
-    return ["onDownloadStateChanged", "downloadProgress", "onLicenseDownloaded", "onLicenseDownloadFailed", "onLicenseCheck", "onLicenseCheckFailed", "onLicenseReleased", "onLicenseReleaseFailed", "onLicenseKeysRestored", "onLicenseRestoreFailed", "onAllLicensesReleased", "onAllLicensesReleaseFailed", "onPrepared", "onPrepareError", "downloadCompleted", "downloadRemoved"]
+    return ["onDownloadStateChanged", "downloadProgress", "onLicenseDownloaded", "onLicenseDownloadFailed", "onLicenseCheck", "onLicenseCheckFailed", "onLicenseReleased", "onLicenseReleasedFailed", "onLicenseKeysRestored", "onLicenseRestoreFailed", "onAllLicensesReleased", "onAllLicensesReleaseFailed", "onPrepared", "onPrepareError", "downloadCompleted", "downloadRemoved"]
     
   }
   

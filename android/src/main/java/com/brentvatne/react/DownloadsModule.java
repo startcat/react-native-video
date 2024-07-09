@@ -628,7 +628,7 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
         params.putString("error", description);
         params.putInt("code", code);
         getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                .emit("onLicenseReleaseFailed", params);
+                .emit("onLicenseReleasedFailed", params);
     }
 
     @Override
