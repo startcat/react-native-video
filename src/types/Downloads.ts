@@ -121,15 +121,19 @@ export type OnLicenseReleasedData = Readonly<{
 }>;
 
 export type OnLicenseReleasedFailedData = Readonly<{
-
+  manifest: string;
+  error?: string;
+  code?: number;
 }>;
 
 export type OnLicenseKeysRestoredData = Readonly<{
-
+  manifest: string;
 }>;
 
 export type OnLicenseRestoreFailedData = Readonly<{
-
+  manifest: string;
+  error?: string;
+  code?: number;
 }>;
 
 export type OnAllLicensesReleasedData = Readonly<{
@@ -137,13 +141,15 @@ export type OnAllLicensesReleasedData = Readonly<{
 }>;
 
 export type OnAllLicensesReleaseFailedData = Readonly<{
-
+  error?: string;
+  code?: number;
 }>;
 
 export type OnPreparedData = Readonly<{
-
+  mediaId: string;
 }>;
 
 export type OnPrepareErrorData = Readonly<{
-
+  mediaId: string;
+  error?: string;
 }>;
