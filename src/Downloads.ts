@@ -20,8 +20,8 @@ import type {
     OnLicenseDownloadFailedData,
     OnLicenseCheckData,
     OnLicenseCheckFailedData,
-    OnLicenseReleaseData,
-    OnLicenseReleaseFailedData,
+    OnLicenseReleasedData,
+    OnLicenseReleasedFailedData,
     OnLicenseKeysRestoredData,
     OnLicenseRestoreFailedData,
     OnAllLicensesReleasedData,
@@ -69,8 +69,8 @@ class Singleton {
     onLicenseDownloadFailedListener: any = null;
     onLicenseCheckListener: any = null;
     onLicenseCheckFailedListener: any = null;
-    onLicenseReleaseListener: any = null;
-    onLicenseReleaseFailedListener: any = null;
+    onLicenseReleasedListener: any = null;
+    onLicenseReleasedFailedListener: any = null;
     onLicenseKeysRestoredListener: any = null;
     onLicenseRestoreFailedListener: any = null;
     onAllLicensesReleasedListener: any = null;
@@ -175,8 +175,8 @@ class Singleton {
                         this.onLicenseDownloadFailedListener = emitter.addListener('onLicenseDownloadFailed', (data: OnLicenseDownloadFailedData) => this.onLicenseDownloadFailed(data));
                         this.onLicenseCheckListener = emitter.addListener('onLicenseCheck', (data: OnLicenseCheckData) => this.onLicenseCheck(data));
                         this.onLicenseCheckFailedListener = emitter.addListener('onLicenseCheckFailed', (data: OnLicenseCheckFailedData) => this.onLicenseCheckFailed(data));
-                        this.onLicenseReleaseListener = emitter.addListener('onLicenseReleased', (data: OnLicenseReleaseData) => this.onLicenseReleased(data));
-                        this.onLicenseReleaseFailedListener = emitter.addListener('onLicenseReleaseFailed', (data: OnLicenseReleaseFailedData) => this.onLicenseReleaseFailed(data));
+                        this.onLicenseReleasedListener = emitter.addListener('onLicenseReleased', (data: OnLicenseReleasedData) => this.onLicenseReleased(data));
+                        this.onLicenseReleasedFailedListener = emitter.addListener('onLicenseReleasedFailed', (data: OnLicenseReleasedFailedData) => this.onLicenseReleasedFailed(data));
                         this.onLicenseKeysRestoredListener = emitter.addListener('onLicenseKeysRestored', (data: OnLicenseKeysRestoredData) => this.onLicenseKeysRestored(data));
                         this.onLicenseRestoreFailedListener = emitter.addListener('onLicenseRestoreFailed', (data: OnLicenseRestoreFailedData) => this.onLicenseRestoreFailed(data));
                         this.onAllLicensesReleasedListener = emitter.addListener('onAllLicensesReleased', (data: OnAllLicensesReleasedData) => this.onAllLicensesReleased(data));
@@ -213,8 +213,8 @@ class Singleton {
         this.onLicenseDownloadFailedListener?.remove();
         this.onLicenseCheckListener?.remove();
         this.onLicenseCheckFailedListener?.remove();
-        this.onLicenseReleaseListener?.remove();
-        this.onLicenseReleaseFailedListener?.remove();
+        this.onLicenseReleasedListener?.remove();
+        this.onLicenseReleasedFailedListener?.remove();
         this.onLicenseKeysRestoredListener?.remove();
         this.onLicenseRestoreFailedListener?.remove();
         this.onAllLicensesReleasedListener?.remove();
@@ -914,7 +914,7 @@ class Singleton {
 
 
     // Events
-    private async onProgress (data: any): Promise<void> {
+    private async onProgress (data: OnDownloadProgressData): Promise<void> {
         console.log(`${this.log_key} onProgress ${JSON.stringify(data)}`);
 
         this.getItemBySrc(data?.id).then(obj => {
@@ -954,8 +954,8 @@ class Singleton {
 
     }
     
-    private async onLicenseReleaseFailed (data: any): Promise<void> {
-        console.log(`${this.log_key} onLicenseReleaseFailed ${JSON.stringify(data)}`);
+    private async onLicenseReleasedFailed (data: any): Promise<void> {
+        console.log(`${this.log_key} onLicenseReleasedFailed ${JSON.stringify(data)}`);
 
     }
     
@@ -989,7 +989,7 @@ class Singleton {
 
     }
     
-    private async onDownloadStateChanged (data: any): Promise<void> {
+    private async onDownloadStateChanged (data: OnDownloadStateChangedData): Promise<void> {
         console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
 
         this.getItemBySrc(data?.id).then(obj => {
