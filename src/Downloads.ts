@@ -9,6 +9,8 @@ import type {
     NetworkState,
     ReadDirItem,
     DownloadItem,
+    NewDownloadItem,
+    SearchDownloadItem,
 
     OnDownloadProgressData,
     OnDownloadStateChangedData,
@@ -555,15 +557,127 @@ class Singleton {
         
     }
 
-    public addItem (obj: DownloadItem): Promise<void | Error> {
+    private setItemToLocal (obj: NewDownloadItem): Promise<void> {
 
         return new Promise(async (resolve, reject) => {
+
+            const newItem: DownloadItem = {
+                media: obj.media,
+                offlineData: {
+                    session_ids:[this.user_id],
+                    source: obj.offlineData.source,
+                    state: DownloadStates.RESTART,
+                    drm: obj.offlineData.drm
+                }
+            };
+
+            this.savedDownloads.push(newItem);
+
+            DownloadsModule.addItem(newItem?.offlineData?.source, newItem?.offlineData?.drm).then(() => {
+
+                this.save().then( async () => {
+                    this.listToConsole();
+                    EventRegister.emit('downloadsList', {});
+                    this.checkDownloadsStatus();
+                    this.checkTotalSize();
+                    return resolve();
+
+                }).catch((err: any) => {
+                    this.checkDownloadsStatus();
+                    return reject(err);
+
+                });
+        
+            }).catch((err: any) => {
+                return reject(err);
+
+            });
 
         });
 
     }
 
-    public removeItem (obj: DownloadItem): Promise<void | Error> {
+    public addItem (obj: NewDownloadItem): Promise<void | Error> {
+
+        return new Promise(async (resolve, reject) => {
+
+            if (this.disabled){
+                return reject();
+
+            }
+
+            console.log(`${this.log_key} Add ${obj?.offlineData?.source?.title} (${obj.offlineData?.source?.uri}): ${JSON.stringify(obj)}`);
+
+            if (!obj){
+                return reject(`Incomplete media data`);
+            }
+
+            this.getItemBySrc(obj.offlineData?.source?.uri).then(async (res) => {
+
+                if (res !== null && res.index > -1){
+                    console.log(`${this.log_key} Add ${obj?.offlineData?.source?.title} (${obj.offlineData?.source?.uri}): Already in the list`);
+
+                    // Miramos de incluir el ID de usuario en la lista de usuarios que han descargado este item
+                    if (!res?.item?.offlineData?.session_ids?.includes(this.user_id)){
+
+                        console.log(`${this.log_key} Add: Already in the list -> Adding user ID to the list of this item`);
+                        if (!res?.item?.offlineData?.session_ids){
+                            res.item.offlineData.session_ids = [];
+                        }
+
+                        res.item.offlineData.session_ids.push(this.user_id);
+
+                        this.savedDownloads.splice(res.index, 1, res.item);
+
+                        this.save().then( async () => {
+                            this.listToConsole();
+                            EventRegister.emit('downloadsList', {});
+                            this.checkDownloadsStatus();
+                            return resolve();
+
+                        }).catch(err => {
+                            this.checkDownloadsStatus();
+                            return reject(err);
+
+                        });
+
+                    }
+
+                } else {
+
+                    console.log(`${this.log_key} Add ${obj?.offlineData?.source?.title} (${obj.offlineData?.source?.uri}): Not found...`);
+
+                    try {
+                        await this.setItemToLocal(obj);
+                        return resolve();
+
+                    } catch(ex: any){
+                        return reject(ex?.message);
+
+                    }
+
+                }
+
+            }).catch(async () => {
+
+                console.log(`${this.log_key} Add ${obj?.offlineData?.source?.title} (${obj.offlineData?.source?.uri}): Not found...`);
+
+                try {
+                    await this.setItemToLocal(obj);
+                    return resolve();
+
+                } catch(ex: any){
+                    return reject(ex?.message);
+
+                }
+
+            });
+
+        });
+
+    }
+
+    public removeItem (obj: DownloadItem): Promise<void> {
 
         return new Promise(async (resolve, reject) => {
 
@@ -612,34 +726,61 @@ class Singleton {
         
     }
 
-    public getItem (): Promise<DownloadItem | null | Error> {
+    public getItem (): Promise<DownloadItem | null> {
 
         return new Promise(async (resolve, reject) => {
+            //return this.savedDownloads?.find(item => item.id === obj.id && item.offlineData?.profiles?.includes(this.session.id));
+        });
+        
+    }
+
+    public getItemBySrc (src: string): Promise<SearchDownloadItem> {
+
+        return new Promise((resolve, reject) => {
+
+            const foundItem = this.savedDownloads?.find(item => item.offlineData?.source?.uri === src);
+            const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === src);
+
+            if (!!foundItem){
+                resolve({
+                    item: foundItem,
+                    index: foundAtIndex
+                });
+
+            } else {
+                reject();
+
+            }
 
         });
         
     }
 
-    public getItemBySrc (src: string): Promise<DownloadItem | null | Error> {
+    public getItemIndex (obj: DownloadItem): Promise<number> {
 
         return new Promise((resolve, reject) => {
 
+            if (!obj){
+                return reject(`${this.log_key} getItemIndex: Incomplete item data`);
 
-        });
-        
-    }
+            }
 
-    public getItemIndex (obj: DownloadItem): Promise<number | Error> {
+            const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === obj.offlineData?.source?.uri);
 
-        return new Promise((resolve, reject) => {
+            if (foundAtIndex !== undefined && foundAtIndex !== null){
+                resolve(foundAtIndex);
 
+            } else {
+                reject();
+
+            }
 
         });
         
     }
 
     public getList (): Array<DownloadItem> {
-        return [];
+        return this.savedDownloads;
         
     }
 
@@ -776,6 +917,16 @@ class Singleton {
     private async onProgress (data: any): Promise<void> {
         console.log(`${this.log_key} onProgress ${JSON.stringify(data)}`);
 
+        this.getItemBySrc(data?.id).then(obj => {
+
+            if (!!obj.item && obj.item?.offlineData?.percent !== data?.percent && data?.percent > 0){
+                obj.item.offlineData.percent = data?.percent;
+                this.updateItem(obj.index, obj.item);
+    
+            }
+
+        });
+
     }
 
     private async onLicenseDownloaded (data: any): Promise<void> {
@@ -841,6 +992,22 @@ class Singleton {
     private async onDownloadStateChanged (data: any): Promise<void> {
         console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
 
+        this.getItemBySrc(data?.id).then(obj => {
+
+            if (!!obj.item && obj.item?.offlineData?.state !== data?.state){
+                console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
+                obj.item.offlineData.state = data?.state;
+                this.updateItem(obj.index, obj.item);
+    
+            }
+
+        });
+
+        if (data?.state === DownloadStates.COMPLETED){
+            this.checkTotalSize();
+
+        }
+
     }
 
     private async onCompleted (data: any): Promise<void> {
@@ -858,6 +1025,26 @@ class Singleton {
     // Actions
     public checkDownloadsStatus (): void {
 
+        let pendingItems = 0;
+
+        for (const downloadItem of this.savedDownloads) {
+            
+            console.log(`${this.log_key} checkDownloadsStatus ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}): ${downloadItem?.offlineData?.state}`);
+
+            if (downloadItem?.offlineData?.session_ids?.includes(this.user_id) && downloadItem?.offlineData?.state !== DownloadStates.COMPLETED){
+                pendingItems++;
+
+            }
+            
+        }
+
+        console.log(`${this.log_key} Pending items for this user id: ${pendingItems} / isStarted ${this.isStarted}`);
+
+        EventRegister.emit('downloads', { 
+            isStarted: (pendingItems > 0 && !!this.isStarted),
+            pending: !!pendingItems
+        });
+
     }
 
     public download (id: string): Promise<void> {
@@ -870,7 +1057,7 @@ class Singleton {
 
     }
 
-    public remove (path: string) {
+    public remove (path: string): Promise<void> {
 
         return RNFS.unlink(path);
 
