@@ -50,11 +50,14 @@ class Singleton {
     private savedDownloads: DownloadItem[] = [];
     private firstMounted: boolean = false;
     private disabled: boolean = false;
+    private user_required: boolean = true;
     private download_just_wifi: boolean = true;
     private log_key: string = `[Downloads]`;
 
     public isStarted: boolean = false;
     public size: number = 0;
+    public user_isLogged: boolean = false;
+    public user_id: string = '';
 
     // Events
     unsubscribeNetworkListener: any = null;
@@ -98,6 +101,11 @@ class Singleton {
             if (config.log_key){
                 this.log_key = config.log_key;
     
+            }
+
+            if (config.user_required !== undefined && config.user_required !== null){
+                this.user_required = config.user_required;
+
             }
 
             AsyncStorage.getItem(DOWNLOADS_KEY).then(async (result: string | null) => {
@@ -222,56 +230,173 @@ class Singleton {
         
     }
 
-    resumeWithCheck () {
-
-        
-
-    }
-
     initialStart () {
-
-
-    }
-
-    public retryStart (): void {
+        this.firstMounted = true;
+        this.resume();
 
     }
 
-    public retryStop (): void {
+    private retryStart (): void {
+
+    }
+
+    private retryStop (): void {
 
     }
 
     public resume (): void {
 
+        console.log(`${this.log_key} Resume - isStarted ${this.isStarted}`);
+        console.log(`${this.log_key} Resume - isConnected ${Singleton.networkState?.isConnected} (Network type ${Singleton.networkState?.type})`);
+        console.log(`${this.log_key} Resume - canDownload ${this.canDownload}`);
+        
+        if (this.canDownload){
+
+            if (Platform.OS === 'android'){
+
+                DownloadsModule.resumeAll().then(() => {
+                    this.isStarted = true;
+                    console.log(`${this.log_key} Resumed.`);
+                    this.checkDownloadsStatus();
+
+                }).catch((err: any) => {
+                    console.log(`${this.log_key} Couldn't start: ${err?.message}`);
+                    this.retryStart();
+
+                });                
+
+            } else {
+                console.log(`${this.log_key} Resume all.`);
+                this.resumeAll();
+
+            }            
+
+        } else {
+            this.pause();
+
+        }
+
     }
 
     public pause (): void {
+
+        if (!this.disabled && this.isStarted){
+
+            if (Platform.OS === 'android'){
+
+                DownloadsModule.pauseAll().then(() => {
+                    this.isStarted = false;
+                    console.log(`${this.log_key} Paused all.`);
+                    this.checkDownloadsStatus();
+
+                }).catch((err: any) => {
+                    console.log(`${this.log_key} Couldn't pause downloads: ${err?.message}`);
+                    this.retryStop();
+
+                });
+
+            } else {
+                console.log(`${this.log_key} Pause all.`);
+                this.pauseAll();
+
+            }
+
+        } else if (!this.disabled){
+
+            console.log(`${this.log_key} Paused but it wasn't started...`);
+            this.checkDownloadsStatus();
+
+        }
 
     }
 
     public async resumeAll (): Promise<void> {
 
+        for (const downloadItem of this.savedDownloads) {
+            
+            if (downloadItem?.offlineData?.session_ids?.includes(this.user_id) && downloadItem?.offlineData?.state !== DownloadStates.COMPLETED){
+                await DownloadsModule.resume(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
+                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Resumed.`);
+    
+                }).catch((err: any) => {
+                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Couldn't start: ${err?.message}`);
+    
+                });
+            }
+
+        }
+
+        this.isStarted = true;
+        this.checkRestartItems();
+        this.checkDownloadsStatus();
+
     }
 
     public async pauseAll (): Promise<void> {
+
+        for (const downloadItem of this.savedDownloads) {
+
+            console.log(`${this.log_key} pauseAll: Item ${downloadItem?.offlineData?.source?.title} state ${downloadItem?.offlineData?.state}`)
+            
+            if (downloadItem?.offlineData?.session_ids?.includes(this.user_id) && downloadItem?.offlineData?.state !== DownloadStates.COMPLETED){
+                await DownloadsModule.pause(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
+                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Resumed.`);
+    
+                }).catch((err: any) => {
+                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Couldn't pause: ${err?.message}`);
+    
+                });
+            }
+            
+        }
+
+        this.isStarted = false;
+        this.checkDownloadsStatus();
 
     }
 
 
 
     // Local Settings
-    private save (): Promise<void> {
+    private save (): Promise<DownloadItem[]> {
 
         return new Promise((resolve, reject) => {
+            AsyncStorage.setItem(DOWNLOADS_KEY, JSON.stringify(this.savedDownloads), (err: any) => {
 
+                if (err) {
+                    return reject(err);
+
+                }
+
+                return resolve(this.savedDownloads);
+
+            });
         });
 
     }
 
-    private updateItem (index: number, obj: any): Promise<void> {
+    private updateItem (index: number, obj: DownloadItem): Promise<void> {
 
         return new Promise((resolve, reject) => {
 
+            if (index > -1 && this.savedDownloads?.length > index){
+                this.savedDownloads.splice(index, 1, obj);
+                this.save().then(() => {
+                    EventRegister.emit('offlineData', { index:index, item:obj });
+                    this.checkDownloadsStatus();
+                    resolve();
+
+                }).catch(err => {
+                    console.log(`${this.log_key} updateItem error: ${JSON.stringify(err)}`);
+                    this.checkDownloadsStatus();
+                    reject(err);
+
+                });
+
+            } else {
+                console.log(`${this.log_key} updateItem error: No item at ${index}`);
+                reject(`No current item index`);
+            }
 
         });
 
@@ -300,7 +425,38 @@ class Singleton {
 
     }
 
+    private cleanLocalList (): void {
+
+        let pendingRemove: number[] = [];
+
+        this.savedDownloads?.forEach((item, index) => {
+
+            if (item?.offlineData?.state === DownloadStates.REMOVING){
+                pendingRemove.push(index);
+
+            }
+
+        });
+
+        if (pendingRemove.length > 0){
+            this.savedDownloads.splice(pendingRemove.shift()!, 1);
+            this.save().then(() => {
+                this.cleanLocalList();
+            });
+
+        }
+
+    }
+
     public listToConsole (): void {
+
+        this.savedDownloads?.forEach(item => {
+
+            console.log(`${this.log_key} --- [${item?.media?.collection}] ${item?.media?.slug}: ${item?.media?.title} ${JSON.stringify(item?.offlineData)}`);
+
+        });
+
+        console.log(`${this.log_key} Found ${this.savedDownloads?.length} items.`);
 
     }
 
@@ -346,6 +502,29 @@ class Singleton {
     // List Methods
     public async checkRestartItems (): Promise<void> {
 
+        for (const downloadItem of this.savedDownloads) {
+            
+            if (downloadItem?.offlineData?.session_ids?.includes(this.user_id) && downloadItem?.offlineData?.state === DownloadStates.RESTART){
+
+                await DownloadsModule.addItem(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
+                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.uri} Restarting.`);
+            
+                }).catch(async (err: any) => {
+                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.uri} Coudn't restart: ${err?.message}`);
+
+                    if (err){
+                        await this.onDownloadStateChanged({
+                            id: downloadItem?.offlineData?.source?.uri,
+                            state: err?.message
+                        });
+
+                    }
+
+                });
+
+            }
+            
+        }
 
     }
 
@@ -357,17 +536,16 @@ class Singleton {
 
             }
 
-            //console.log(`${this.log_key} checkItem ${JSON.stringify(uri)}`);
-
             if (!uri){
                 return reject(`Incomplete media data`);
+
             }
 
-            await DownloadsModule.getItem(uri).then(res => {
-                //console.log(`${this.log_key} checkItem (${uri}) ${JSON.stringify(res)}`);
+            await DownloadsModule.getItem(uri).then((res: DownloadItem | null) => {
+                console.log(`${this.log_key} checkItem (${uri}) ${JSON.stringify(res)}`);
                 resolve(res);
 
-            }).catch(err => {
+            }).catch((err: any) => {
                 console.log(`${this.log_key} checkItem  error (${uri}) ${JSON.stringify(err)}`);
                 reject(err);
 
@@ -388,6 +566,47 @@ class Singleton {
     public removeItem (obj: DownloadItem): Promise<void | Error> {
 
         return new Promise(async (resolve, reject) => {
+
+            if (this.disabled){
+                return reject();
+                
+            }
+
+            DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm).then(() => {
+
+                this.getItemIndex(obj).then(index => {
+
+                    if (typeof(index) === 'number'){
+                        this.savedDownloads.splice(index, 1);
+
+                        this.save().then( async () => {
+                            this.listToConsole();
+                            EventRegister.emit('downloadsList', {});
+                            this.checkDownloadsStatus();
+                            this.checkTotalSize();
+                            return resolve();
+
+                        }).catch((err: any) => {
+                            EventRegister.emit('downloadsList', {});
+                            this.checkDownloadsStatus();
+                            return reject(err);
+
+                        });
+
+                    } else {
+                        return resolve();
+
+                    }
+
+                }).catch(() => {
+                    return resolve();
+
+                });
+        
+            }).catch((err: any) => {
+                return reject(err);
+
+            });
 
         });
         
@@ -658,7 +877,7 @@ class Singleton {
     }
 
     get canDownload (): boolean {
-        return (!!Singleton.networkState?.isConnected && (!this.download_just_wifi || Singleton.networkState?.type === 'wifi'));
+        return (!this.disabled && !!Singleton.networkState?.isConnected && (!this.download_just_wifi || Singleton.networkState?.type === 'wifi') && (!this.user_required || this.user_isLogged));
 
     }
 
