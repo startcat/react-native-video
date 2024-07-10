@@ -41,7 +41,8 @@ import { DownloadStates } from './types';
  */
 
 const { DownloadsModule } = NativeModules;
-const DOWNLOADS_KEY = 'off_downloads';
+const DOWNLOADS_OLDKEY = 'off_downloads';
+const DOWNLOADS_KEY = 'off_downloads_v2';
 const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS.LibraryDirectoryPath : RNFS.DocumentDirectoryPath + '/downloads';
 
 class Singleton {
@@ -413,11 +414,27 @@ class Singleton {
     // From old versions
     private async refactorOldEntries (): Promise<void> {
 
-        for (const downloadItem of this.savedDownloads) {
-            
-            console.log(`${this.log_key} refactorOldEntries: ${JSON.stringify(downloadItem)}`);
-            
-        }
+        AsyncStorage.getItem(DOWNLOADS_OLDKEY).then(async (result: string | null) => {
+
+            if (typeof(result) === 'string'){
+
+                const oldDownloads = JSON.parse(result);
+
+                if (Array.isArray(oldDownloads)){
+
+                    for (const oldItem of oldDownloads) {
+                        
+                        console.log(`${this.log_key} refactorOldEntries: ${JSON.stringify(oldItem)}`);
+                        
+                    }
+
+                }
+
+            }
+
+        });
+
+
 
     }
 
