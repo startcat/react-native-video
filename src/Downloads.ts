@@ -414,6 +414,8 @@ class Singleton {
     // From old versions
     private async refactorOldEntries (): Promise<void> {
 
+        const avoidMediaFields = ['offlineData', 'theme'];
+
         AsyncStorage.getItem(DOWNLOADS_OLDKEY).then(async (result: string | null) => {
 
             if (typeof(result) === 'string'){
@@ -424,7 +426,27 @@ class Singleton {
 
                     for (const oldItem of oldDownloads) {
                         
-                        console.log(`${this.log_key} refactorOldEntries: ${JSON.stringify(oldItem)}`);
+                        console.log(`${this.log_key} refactorOldEntries (old): ${JSON.stringify(oldItem)}`);
+                        const newItem: DownloadItem = {
+                            media: {},
+                            offlineData: {
+                                session_ids: [...oldItem?.offlineData?.profiles],
+                                source: oldItem?.offlineData?.source,
+                                state: oldItem?.offlineData?.state,
+                                drm: oldItem?.offlineData?.drm,
+                                percent: oldItem?.offlineData?.percent || 0
+                            }
+                        }
+
+                        for (const key in oldItem){
+
+                            if (!avoidMediaFields.includes(key)){
+                                newItem.media[key] = oldItem[key];
+                            }
+
+                        }
+
+                        console.log(`${this.log_key} refactorOldEntries (new): ${JSON.stringify(newItem)}`);
                         
                     }
 
