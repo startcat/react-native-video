@@ -789,9 +789,9 @@ class Singleton {
 
     public getItemById (id: string): DownloadItem | undefined {
 
-        console.log(`${this.log_key} getItemById: ${id} / Length ${this.savedDownloads?.length}`);
+        console.log(`${this.log_key} getItemById: ${id} / Length ${this.savedDownloads?.length} / user_id ${this.user_id}`);
         return this.savedDownloads?.find(item => {
-            console.log(`${this.log_key} getItemById: ${id} <> ${item.offlineData.source.id}`);
+            console.log(`${this.log_key} getItemById - ${item.offlineData.source.id} - ${JSON.stringify(item.offlineData?.session_ids)}`);
 
             return item.offlineData.source.id === id && item.offlineData?.session_ids?.includes(this.user_id);
         });
