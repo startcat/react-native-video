@@ -45,6 +45,7 @@ export type DownloadItem = {
       id: string;
       title: string;
       uri: string;
+      type?: string;
       dvrWindowMinutes?:number;
     },
     state: DownloadStates;
