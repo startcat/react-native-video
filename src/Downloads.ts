@@ -148,6 +148,8 @@ class Singleton {
 
                 await this.checkTotalSize();
 
+                await this.refactorOldEntries();
+
                 if (!this.disabled){
                     DownloadsModule.moduleInit().then(() => {
 
@@ -403,6 +405,19 @@ class Singleton {
             }
 
         });
+
+    }
+
+
+
+    // From old versions
+    private async refactorOldEntries (): Promise<void> {
+
+        for (const downloadItem of this.savedDownloads) {
+            
+            console.log(`${this.log_key} refactorOldEntries: ${JSON.stringify(downloadItem)}`);
+            
+        }
 
     }
 
