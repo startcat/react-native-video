@@ -789,7 +789,12 @@ class Singleton {
 
     public getItemById (id: string): DownloadItem | undefined {
 
-        return this.savedDownloads?.find(item => item.offlineData.source.id === id && item.offlineData?.session_ids?.includes(this.user_id));
+        console.log(`${this.log_key} getItemById: ${id} / Length ${this.savedDownloads?.length}`);
+        return this.savedDownloads?.find(item => {
+            console.log(`${this.log_key} getItemById: ${id} <> ${item.offlineData.source.id}`);
+
+            return item.offlineData.source.id === id && item.offlineData?.session_ids?.includes(this.user_id);
+        });
         
     }
 
