@@ -422,11 +422,10 @@ class Singleton {
 
                 const oldDownloads = JSON.parse(result);
 
-                if (Array.isArray(oldDownloads)){
+                if (Array.isArray(oldDownloads) && oldDownloads?.length > 0){
 
                     for (const oldItem of oldDownloads) {
                         
-                        console.log(`${this.log_key} refactorOldEntries (old): ${JSON.stringify(oldItem)}`);
                         const newItem: DownloadItem = {
                             media: {},
                             offlineData: {
@@ -446,8 +445,16 @@ class Singleton {
 
                         }
 
-                        console.log(`${this.log_key} refactorOldEntries (new): ${JSON.stringify(newItem)}`);
+                        this.savedDownloads.push(newItem);
                         
+                    }
+
+                    try {
+                        await this.save();
+                        AsyncStorage.removeItem(DOWNLOADS_OLDKEY);
+
+                    } catch (ex: any){
+                        console.log(`${this.log_key} refactorOldEntries error: ${ex?.message}`);
                     }
 
                 }
@@ -455,8 +462,6 @@ class Singleton {
             }
 
         });
-
-
 
     }
 
