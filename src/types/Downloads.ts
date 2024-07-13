@@ -46,6 +46,7 @@ export type DownloadItem = {
       title: string;
       uri: string;
       type?: string;
+      drmScheme?: string;
       dvrWindowMinutes?:number;
     },
     state: DownloadStates;
@@ -62,6 +63,7 @@ export type NewDownloadItem = {
       id: string;
       title: string;
       uri: string;
+      drmScheme: string;
       dvrWindowMinutes?:number;
     },
     state?: DownloadStates;
