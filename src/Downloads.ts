@@ -751,6 +751,8 @@ class Singleton {
 
                 }
 
+                resolve();
+
                 /*
                 const index = await this.getItemIndex(obj);
 
