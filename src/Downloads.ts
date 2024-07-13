@@ -264,6 +264,7 @@ class Singleton {
                 await DownloadsModule.resumeAll().then(() => {
                     this.isStarted = true;
                     console.log(`${this.log_key} Resumed.`);
+                    this.checkRestartItems();
                     this.checkDownloadsStatus();
 
                 }).catch((err: any) => {
@@ -667,7 +668,7 @@ class Singleton {
 
             }
 
-            console.log(`${this.log_key} Add ${obj?.offlineData?.source?.title} (${obj.offlineData?.source?.uri}): ${JSON.stringify(obj)}`);
+            console.log(`${this.log_key} Add ${obj?.offlineData?.source?.title} (${obj.offlineData?.source?.uri})`);
 
             if (!obj){
                 return reject(`Incomplete media data`);
@@ -697,6 +698,7 @@ class Singleton {
                             return resolve();
 
                         }).catch(err => {
+                            EventRegister.emit('downloadsList', {});
                             this.checkDownloadsStatus();
                             return reject(err);
 
@@ -747,41 +749,39 @@ class Singleton {
                 
             }
 
-            DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm).then(() => {
+            try {
 
-                this.getItemIndex(obj).then(index => {
+                if (obj?.offlineData?.source?.uri){
+                    await DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm);
 
-                    if (typeof(index) === 'number'){
-                        this.savedDownloads.splice(index, 1);
+                }
 
-                        this.save().then( async () => {
-                            this.listToConsole();
-                            EventRegister.emit('downloadsList', {});
-                            this.checkDownloadsStatus();
-                            this.checkTotalSize();
-                            return resolve();
+                const index = await this.getItemIndex(obj);
 
-                        }).catch((err: any) => {
-                            EventRegister.emit('downloadsList', {});
-                            this.checkDownloadsStatus();
-                            return reject(err);
+                if (typeof(index) === 'number'){
 
-                        });
+                    this.savedDownloads.splice(index, 1);
 
-                    } else {
+                    this.save().then( async () => {
+                        this.listToConsole();
+                        EventRegister.emit('downloadsList', {});
+                        this.checkDownloadsStatus();
+                        this.checkTotalSize();
                         return resolve();
 
-                    }
+                    }).catch((err: any) => {
+                        EventRegister.emit('downloadsList', {});
+                        this.checkDownloadsStatus();
+                        return reject(err);
 
-                }).catch(() => {
-                    return resolve();
+                    });
 
-                });
-        
-            }).catch((err: any) => {
-                return reject(err);
+                }
 
-            });
+            } catch(ex:any){
+                return reject(ex?.message);
+
+            }
 
         });
         
