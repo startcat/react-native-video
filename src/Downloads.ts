@@ -751,9 +751,6 @@ class Singleton {
 
                 }
 
-                resolve();
-
-                /*
                 const index = await this.getItemIndex(obj);
 
                 if (typeof(index) === 'number'){
@@ -770,7 +767,6 @@ class Singleton {
                     });
 
                 }
-                */
 
             } catch(ex:any){
                 return reject(ex?.message);
