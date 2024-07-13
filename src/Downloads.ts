@@ -389,15 +389,10 @@ class Singleton {
 
             if (index > -1 && this.savedDownloads?.length > index){
                 this.savedDownloads.splice(index, 1, obj);
-                this.save().then(() => {
+                this.save().finally(() => {
                     EventRegister.emit('offlineData', { index:index, item:obj });
                     this.checkDownloadsStatus();
                     resolve();
-
-                }).catch(err => {
-                    console.log(`${this.log_key} updateItem error: ${JSON.stringify(err)}`);
-                    this.checkDownloadsStatus();
-                    reject(err);
 
                 });
 
@@ -756,27 +751,24 @@ class Singleton {
 
                 }
 
+                /*
                 const index = await this.getItemIndex(obj);
 
                 if (typeof(index) === 'number'){
 
                     this.savedDownloads.splice(index, 1);
 
-                    this.save().then( async () => {
+                    this.save().finally(() => {
                         this.listToConsole();
                         EventRegister.emit('downloadsList', {});
                         this.checkDownloadsStatus();
                         this.checkTotalSize();
                         return resolve();
 
-                    }).catch((err: any) => {
-                        EventRegister.emit('downloadsList', {});
-                        this.checkDownloadsStatus();
-                        return reject(err);
-
                     });
 
                 }
+                */
 
             } catch(ex:any){
                 return reject(ex?.message);
