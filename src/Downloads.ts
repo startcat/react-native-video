@@ -751,22 +751,7 @@ class Singleton {
 
                 }
 
-                const index = await this.getItemIndex(obj);
-
-                if (typeof(index) === 'number'){
-
-                    this.savedDownloads.splice(index, 1);
-
-                    this.save().finally(() => {
-                        this.listToConsole();
-                        EventRegister.emit('downloadsList', {});
-                        this.checkDownloadsStatus();
-                        this.checkTotalSize();
-                        return resolve();
-
-                    });
-
-                }
+                return resolve();
 
             } catch(ex:any){
                 return reject(ex?.message);
@@ -974,6 +959,9 @@ class Singleton {
     
             }
 
+        }).catch(() => {
+            console.log(`${this.log_key} onProgress: Item not found (${data?.id})`);
+
         });
 
     }
@@ -1043,19 +1031,35 @@ class Singleton {
 
         this.getItemBySrc(data?.id).then(obj => {
 
-            if (!!obj.item && obj.item?.offlineData?.state !== data?.state){
+            if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state !== DownloadStates.REMOVING){
                 console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
                 obj.item.offlineData.state = data?.state;
                 this.updateItem(obj.index, obj.item);
+
+                if (data?.state === DownloadStates.COMPLETED){
+                    this.checkTotalSize();
+        
+                }
     
+            } else if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state === DownloadStates.REMOVING){
+
+                // Lo eliminamos del listado
+                this.savedDownloads.splice(obj.index, 1);
+
+                this.save().finally(() => {
+                    this.listToConsole();
+                    EventRegister.emit('downloadsList', {});
+                    this.checkDownloadsStatus();
+                    this.checkTotalSize();
+
+                });
+
             }
 
+        }).catch(() => {
+            console.log(`${this.log_key} onDownloadStateChanged: Item not found (${data?.id})`);
+
         });
-
-        if (data?.state === DownloadStates.COMPLETED){
-            this.checkTotalSize();
-
-        }
 
     }
 
@@ -1095,18 +1099,6 @@ class Singleton {
         });
 
     }
-
-    /*
-    public download (id: string): Promise<void> {
-
-        return new Promise((resolve, reject) => {
-
-
-
-        });
-
-    }
-    */
 
     public remove (path: string): Promise<void> {
 
