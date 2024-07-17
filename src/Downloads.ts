@@ -56,6 +56,7 @@ class Singleton {
     private user_required: boolean = true;
     private download_just_wifi: boolean = true;
     private log_key: string = `[Downloads]`;
+    private initialized: boolean = false;
 
     public isStarted: boolean = false;
     public size: number = 0;
@@ -151,7 +152,7 @@ class Singleton {
 
                 await this.refactorOldEntries();
 
-                if (!this.disabled){
+                if (!this.disabled && !this.initialized){
                     DownloadsModule.moduleInit().then(() => {
 
                         this.unsubscribeNetworkListener = NetInfo.addEventListener((state: any) => {
@@ -193,7 +194,8 @@ class Singleton {
                         this.onRemovedListener = emitter.addListener('downloadRemoved', (data: OnDownloadRemovedData) => this.onRemoved(data));
 
                         this.listToConsole();
-
+                        this.initialized = true;
+                        
                         console.log(`${this.log_key} Initialized`);
                         
                         return resolve(this.savedDownloads);
@@ -910,15 +912,15 @@ class Singleton {
 
                             resolve();
 
-                        }). catch(err => {
-                            reject(err);
+                        }). catch(() => {
+                            resolve();
 
                         });
 
                     }
 
-                }). catch(err => {
-                    reject(err);
+                }). catch(() => {
+                    resolve();
 
                 });
 
@@ -935,8 +937,8 @@ class Singleton {
 
                     resolve();
 
-                }). catch(err => {
-                    reject(err);
+                }). catch(() => {
+                    resolve();
 
                 });
 
