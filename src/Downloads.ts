@@ -195,7 +195,7 @@ class Singleton {
 
                         this.listToConsole();
                         this.initialized = true;
-                        
+
                         console.log(`${this.log_key} Initialized`);
                         
                         return resolve(this.savedDownloads);
@@ -893,7 +893,7 @@ class Singleton {
 
     private checkTotalSize (): Promise<void> {
 
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
 
             if (Platform.OS === 'ios'){
 
