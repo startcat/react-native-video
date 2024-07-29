@@ -151,11 +151,6 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
             // If currently selected video is downloaded:
 
             if (mAxDownloadTracker.isDownloaded(String.valueOf(Utility.getPlaybackProperties(currentMediaItem).uri))) {
-                // Hide the "Download" button
-                //mButtonDownload.setVisibility(View.GONE);
-                // Show the "Delete" button
-                //mButtonDelete.setVisibility(View.VISIBLE);
-
                 Log.d(TAG, "+++ [Downloads] checkCurrentDownloadStatus: is downloaded.");
 
                 // If the selected video is protected, check if the license is also valid
@@ -163,32 +158,11 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
                     Log.d(TAG, "+++ [Downloads] checkCurrentDownloadStatus: is protected. Checking if license is valid...");
                     mLicenseManager.checkLicenseValid(String.valueOf(Utility.getPlaybackProperties(currentMediaItem).uri));
 
-                } else {
-                    //mButtonSave.setVisibility(View.GONE);
-                    //mButtonPlayOffline.setVisibility(View.VISIBLE);
-                    //mButtonRemoveLicense.setVisibility(View.GONE);
-                    //mButtonRemoveAll.setVisibility(View.GONE);
-                    //mOfflineAvailability.setTextColor(Color.GREEN);
-                    //mOfflineAvailability.setText(getResources().getString(R.string.available_offline_not_protected));
                 }
+
             } else {
                 Log.d(TAG, "+++ [Downloads] checkCurrentDownloadStatus: is NOT downloaded.");
-                // If currently selected video is not downloaded show the "Download" button
-                //mButtonDownload.setVisibility(View.VISIBLE);
-                // Hide the "Delete" button
-                //mButtonDelete.setVisibility(View.GONE);
-                // Hide the "Request license" button
-                //mButtonSave.setVisibility(View.GONE);
-                // Hide the "Play offline" button
-                //mButtonPlayOffline.setVisibility(View.GONE);
-                // Hide the "Remove license" button
-                //mButtonRemoveLicense.setVisibility(View.GONE);
-                // Hide the "Remove all licenses" button
-                //mButtonRemoveAll.setVisibility(View.GONE);
-                // Change offline availability text color to red to indicate an issue
-                //mOfflineAvailability.setTextColor(Color.RED);
-                // Set text to offline availability TextView to show that selected video is not downloaded
-                //mOfflineAvailability.setText(getResources().getString(R.string.not_available_offline_not_downloaded));
+
             }
         }
     }
