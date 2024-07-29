@@ -37,10 +37,10 @@ public class AxDownloadService extends DownloadService {
 
     public AxDownloadService() {
         super(FOREGROUND_NOTIFICATION_ID,
-                DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,
-                CHANNEL_ID,
-				androidx.media3.exoplayer.R.string.exo_download_notification_channel_name,
-                0);
+            DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,
+            CHANNEL_ID,
+            androidx.media3.exoplayer.R.string.exo_download_notification_channel_name,
+            0);
     }
 
     private void init(){
@@ -51,9 +51,7 @@ public class AxDownloadService extends DownloadService {
         DownloadManager downloadManager = AxOfflineManager.getInstance().getDownloadManager();
 
         if (downloadManager != null) {
-            downloadManager.addListener(
-                    new TerminalStateNotificationHelper(
-                            this, notificationHelper, FOREGROUND_NOTIFICATION_ID + 1));
+            downloadManager.addListener(new TerminalStateNotificationHelper(this, notificationHelper, FOREGROUND_NOTIFICATION_ID + 1));
         }
 
     }
@@ -81,8 +79,8 @@ public class AxDownloadService extends DownloadService {
     @Override
     protected Notification getForegroundNotification(List<Download> downloads, int i) {
 
-        Notification notification = notificationHelper.buildProgressNotification(this,
-                R.drawable.ic_download, null, null, downloads, i);
+        Notification notification = notificationHelper.buildProgressNotification(this, R.drawable.ic_download, null, null, downloads, i);
+
         if (notification != null && notification.extras != null && i < downloads.size()) {
             // Notification about download progress is sent here
             sendNotification(notification.extras.getInt(Notification.EXTRA_PROGRESS), downloads.get(i).request.id);
@@ -94,6 +92,8 @@ public class AxDownloadService extends DownloadService {
 
     // A method that sends a notification
     private void sendNotification(int progress, String content_id) {
+
+        Log.d("Downloads", "+++ [AxDownloadService] sendNotification " + content_id + " " + progress);
         Intent intent = new Intent(NOTIFICATION);
         intent.setPackage(mContext.getPackageName());
         intent.putExtra(PROGRESS, progress);
@@ -108,8 +108,7 @@ public class AxDownloadService extends DownloadService {
         private final DownloadNotificationHelper notificationHelper;
         private int nextNotificationId;
 
-        public TerminalStateNotificationHelper(
-                Context context, DownloadNotificationHelper notificationHelper, int firstNotificationId) {
+        public TerminalStateNotificationHelper(Context context, DownloadNotificationHelper notificationHelper, int firstNotificationId) {
             this.context = context.getApplicationContext();
             this.notificationHelper = notificationHelper;
             nextNotificationId = firstNotificationId;
@@ -137,6 +136,7 @@ public class AxDownloadService extends DownloadService {
             NotificationUtil.setNotification(context, nextNotificationId++, notification);
 
         }
+
     }
 
 }
