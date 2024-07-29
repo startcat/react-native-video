@@ -368,7 +368,7 @@ class Singleton {
 
 
     // Local Settings
-    private save (): Promise<DownloadItem[]> {
+    private saveRefList (): Promise<DownloadItem[]> {
 
         return new Promise((resolve, reject) => {
             AsyncStorage.setItem(DOWNLOADS_KEY, JSON.stringify(this.savedDownloads), (err: any) => {
@@ -385,13 +385,13 @@ class Singleton {
 
     }
 
-    private updateItem (index: number, obj: DownloadItem): Promise<void> {
+    private updateRefListItem (index: number, obj: DownloadItem): Promise<void> {
 
         return new Promise((resolve, reject) => {
 
             if (index > -1 && this.savedDownloads?.length > index){
                 this.savedDownloads.splice(index, 1, obj);
-                this.save().finally(() => {
+                this.saveRefList().finally(() => {
                     EventRegister.emit('offlineData', { index:index, item:obj });
                     this.checkDownloadsStatus();
                     resolve();
@@ -399,7 +399,29 @@ class Singleton {
                 });
 
             } else {
-                console.log(`${this.log_key} updateItem error: No item at ${index}`);
+                console.log(`${this.log_key} updateRefListItem error: No item at ${index}`);
+                reject(`No current item index`);
+            }
+
+        });
+
+    }
+
+    private removeRefListItem (index: number): Promise<void> {
+
+        return new Promise((resolve, reject) => {
+
+            if (index > -1 && this.savedDownloads?.length > index){
+                this.savedDownloads.splice(index, 1);
+                this.saveRefList().finally(() => {
+                    EventRegister.emit('downloadsList', {});
+                    this.checkDownloadsStatus();
+                    resolve();
+
+                });
+
+            } else {
+                console.log(`${this.log_key} removeRefListItem error: No item at ${index}`);
                 reject(`No current item index`);
             }
 
@@ -448,7 +470,7 @@ class Singleton {
                     }
 
                     try {
-                        await this.save();
+                        await this.saveRefList();
                         AsyncStorage.removeItem(DOWNLOADS_OLDKEY);
 
                     } catch (ex: any){
@@ -501,7 +523,7 @@ class Singleton {
 
         if (pendingRemove.length > 0){
             this.savedDownloads.splice(pendingRemove.shift()!, 1);
-            this.save().then(() => {
+            this.saveRefList().then(() => {
                 this.cleanLocalList();
             });
 
@@ -634,7 +656,7 @@ class Singleton {
 
             DownloadsModule.addItem(newItem?.offlineData?.source, newItem?.offlineData?.drm).then(() => {
 
-                this.save().then( async () => {
+                this.saveRefList().then( async () => {
                     this.listToConsole();
                     EventRegister.emit('downloadsList', {});
                     this.checkDownloadsStatus();
@@ -688,7 +710,7 @@ class Singleton {
 
                         this.savedDownloads.splice(res.index, 1, res.item);
 
-                        this.save().then( async () => {
+                        this.saveRefList().then( async () => {
                             this.listToConsole();
                             EventRegister.emit('downloadsList', {});
                             this.checkDownloadsStatus();
@@ -750,6 +772,17 @@ class Singleton {
 
                 if (obj?.offlineData?.source?.uri){
                     await DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm);
+
+                    if (Platform.OS !== 'android') {
+
+                        const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === obj?.offlineData?.source?.uri);
+
+                        if (foundAtIndex !== undefined && foundAtIndex !== null){
+                            this.removeRefListItem(foundAtIndex);
+                
+                        }
+
+                    }
 
                 }
 
@@ -957,7 +990,7 @@ class Singleton {
 
             if (!!obj.item && obj.item?.offlineData?.percent !== data?.percent && data?.percent > 0){
                 obj.item.offlineData.percent = data?.percent;
-                this.updateItem(obj.index, obj.item);
+                this.updateRefListItem(obj.index, obj.item);
     
             }
 
@@ -990,6 +1023,13 @@ class Singleton {
     
     private async onLicenseReleased (data: OnLicenseReleasedData): Promise<void> {
         console.log(`${this.log_key} onLicenseReleased ${JSON.stringify(data)}`);
+
+        const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === data?.manifest);
+
+        if (foundAtIndex !== undefined && foundAtIndex !== null){
+            this.removeRefListItem(foundAtIndex);
+
+        }
 
     }
     
@@ -1036,7 +1076,7 @@ class Singleton {
             if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state !== DownloadStates.REMOVING){
                 console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
                 obj.item.offlineData.state = data?.state;
-                this.updateItem(obj.index, obj.item);
+                this.updateRefListItem(obj.index, obj.item);
 
                 if (data?.state === DownloadStates.COMPLETED){
                     this.checkTotalSize();
@@ -1048,7 +1088,7 @@ class Singleton {
                 // Lo eliminamos del listado
                 this.savedDownloads.splice(obj.index, 1);
 
-                this.save().finally(() => {
+                this.saveRefList().finally(() => {
                     this.listToConsole();
                     EventRegister.emit('downloadsList', {});
                     this.checkDownloadsStatus();
