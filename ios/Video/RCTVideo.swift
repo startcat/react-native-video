@@ -564,20 +564,16 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             
             guard let npawPlugin = NpawPluginProvider.shared else { return }
             
-            if (_imaAdsManager != null){
+            #if USE_GOOGLE_IMA
                 _videoAdapter = npawPlugin.videoBuilder()
                     .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-                    .setAdAdapter(adAdapter: ImaAdapter(adsManager: _imaAdsManager)) 
+                    .setAdAdapter(adAdapter: ImaAdapter(adsManager: _imaAdsManager))
                     .build()
-
-            } else {
+            #else
                 _videoAdapter = npawPlugin.videoBuilder()
                     .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
                     .build()
-
-            }
-
-            _videoAdapter.enableLegacyBufferBehaviour(true)
+            #endif
 
             _videoAdapter?.fireInit()
         
@@ -1402,6 +1398,29 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     // MARK: - Lifecycle
 
     override func removeFromSuperview() {
+
+        /*
+            Begin Modification
+            DANI: Release Youbora
+        */
+        
+        _videoAdapter?.playerAdapter.fireStop()
+        
+        // Dani Youbora
+        guard let npawPlugin = NpawPluginProvider.shared else { return }
+        
+        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
+        NpawPluginProvider.destroy()
+        
+        if let player = _player {
+            player.pause()
+            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
+        }
+
+        /*
+            End
+         */
+
         if let player = _player {
             player.pause()
             NowPlayingInfoCenterManager.shared.removePlayer(player: player)
