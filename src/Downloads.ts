@@ -43,7 +43,7 @@ import { DownloadStates } from './types';
 const { DownloadsModule } = NativeModules;
 const DOWNLOADS_OLDKEY = 'off_downloads';
 const DOWNLOADS_KEY = 'off_downloads_v2';
-const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS.LibraryDirectoryPath : RNFS.DocumentDirectoryPath + '/downloads';
+const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS?.LibraryDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
 
 class Singleton {
 
@@ -860,7 +860,11 @@ class Singleton {
 
             let dirSize = 0;
 
-            RNFS.readDir(dir).then(async (result: ReadDirItem[]): Promise<void> => {
+            if (!RNFS){
+                reject('No react-native-fs module');
+            }
+
+            RNFS?.readDir(dir).then(async (result: ReadDirItem[]): Promise<void> => {
 
                 for (const item of result) {
 
@@ -897,7 +901,11 @@ class Singleton {
 
             let path = '';
 
-            RNFS.readDir(dir).then(async (result: ReadDirItem[]) => {
+            if (!RNFS){
+                reject('No react-native-fs module');
+            }
+
+            RNFS?.readDir(dir).then(async (result: ReadDirItem[]) => {
 
                 for (const item of result) {
 
@@ -1144,7 +1152,7 @@ class Singleton {
 
     public remove (path: string): Promise<void> {
 
-        return RNFS.unlink(path);
+        return RNFS?.unlink(path);
 
     }
 

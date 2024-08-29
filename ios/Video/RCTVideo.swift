@@ -3,6 +3,7 @@ import AVKit
 import Foundation
 #if USE_GOOGLE_IMA
     import GoogleInteractiveMediaAds
+    import NpawPluginIMAAdapter
 #endif
 // Dani Youbora
 import NpawPlugin
@@ -563,10 +564,21 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             
             guard let npawPlugin = NpawPluginProvider.shared else { return }
             
-            _videoAdapter = npawPlugin.videoBuilder()
-                .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-                .build()
-                
+            if (_imaAdsManager != null){
+                _videoAdapter = npawPlugin.videoBuilder()
+                    .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
+                    .setAdAdapter(adAdapter: ImaAdapter(adsManager: _imaAdsManager)) 
+                    .build()
+
+            } else {
+                _videoAdapter = npawPlugin.videoBuilder()
+                    .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
+                    .build()
+
+            }
+
+            _videoAdapter.enableLegacyBufferBehaviour(true)
+
             _videoAdapter?.fireInit()
         
         }
