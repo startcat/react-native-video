@@ -534,14 +534,21 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             analyticsOptions.contentId = self._youbora?.contentId
             analyticsOptions.contentType = self._youbora?.contentType
             analyticsOptions.contentTitle = self._youbora?.contentTitle
+
+            if (self._youbora?.program != nil){
+                analyticsOptions.program = self._youbora?.program
+            } else {
+                analyticsOptions.program = self._youbora?.contentTitle2
+            }
+
             analyticsOptions.program = self._youbora?.contentTitle2
             analyticsOptions.live = (self._youbora?.contentIsLive != nil && self._youbora?.contentIsLive == true) ? 1 as NSNumber : 0 as NSNumber
-            analyticsOptions.contentSaga = self._youbora?.contentSaga
             analyticsOptions.contentTvShow = self._youbora?.contentTvShow
             analyticsOptions.contentPlaybackType = self._youbora?.contentPlaybackType
             analyticsOptions.contentSeason = self._youbora?.contentSeason
             analyticsOptions.contentEpisodeTitle = self._youbora?.contentEpisodeTitle
             analyticsOptions.contentLanguage = self._youbora?.contentLanguage
+            analyticsOptions.contentChannel = self._youbora?.contentChannel
             
             analyticsOptions.contentCustomDimension1 = self._youbora?.extraparam1
             analyticsOptions.contentCustomDimension2 = self._youbora?.extraparam2
@@ -1403,7 +1410,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             Begin Modification
             DANI: Release Youbora
         */
-        
+
         _videoAdapter?.playerAdapter.fireStop()
         
         // Dani Youbora
