@@ -423,9 +423,15 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 				analyticsOptions.setContentTitle(youbora.getString("contentTitle"));
 			}
 
-			if (youbora.hasKey("contentTitle2")) {
+            if (youbora.hasKey("program")) {
+				analyticsOptions.setProgram(youbora.getString("program"));
+			} else if (youbora.hasKey("contentTitle2")) {
 				analyticsOptions.setProgram(youbora.getString("contentTitle2"));
 			}
+
+            if (youbora.hasKey("contentChannel")) {
+                analyticsOptions.setContentChannel(youbora.getString("contentChannel"));
+            }
 
 			if (youbora.hasKey("contentIsLive")) {
 				analyticsOptions.setLive(youbora.getBoolean("contentIsLive"));
@@ -453,22 +459,22 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 
 			if (youbora.hasKey("extraparam1")) {
 				analyticsOptions.setContentCustomDimension1(youbora.getString("extraparam1"));
-				metadata.put("appMode", youbora.getString("extraparam1"));
+				//metadata.put("appMode", youbora.getString("extraparam1"));
 			}
 
 			if (youbora.hasKey("extraparam2")) {
 				analyticsOptions.setContentCustomDimension2(youbora.getString("extraparam2"));
-				metadata.put("sessionId", youbora.getString("extraparam2"));
+				//metadata.put("sessionId", youbora.getString("extraparam2"));
 			}
 
 			if (youbora.hasKey("extraparam3")) {
 				analyticsOptions.setContentCustomDimension3(youbora.getString("extraparam3"));
-				metadata.put("id", youbora.getString("extraparam3"));
+				//metadata.put("id", youbora.getString("extraparam3"));
 			}
 
 			if (youbora.hasKey("extraparam4")) {
 				analyticsOptions.setContentCustomDimension4(youbora.getString("extraparam4"));
-				metadata.put("seriesId", youbora.getString("extraparam4"));
+				//metadata.put("seriesId", youbora.getString("extraparam4"));
 			}
 
 			if (youbora.hasKey("extraparam5")) {
@@ -495,7 +501,7 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 				analyticsOptions.setContentCustomDimension10(youbora.getString("extraparam10"));
 			}
 
-			analyticsOptions.setContentMetadata(metadata);
+			//analyticsOptions.setContentMetadata(metadata);
 
 			videoView.setYoubora(accountCode, analyticsOptions);
 

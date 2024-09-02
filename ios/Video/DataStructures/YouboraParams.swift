@@ -7,11 +7,13 @@ struct YouboraParams {
     let contentType: String?
     let contentTitle: String?
     let contentTitle2: String?
+    let program: String?
     let contentIsLive: Bool
     let contentPlaybackType: String?
     let contentSaga: String?
     let contentTvShow: String?
     let contentSeason: String?
+    let contentChannel: String?
     let contentEpisodeTitle: String?
     let contentLanguage: String?
     let extraparam1: String?
@@ -33,19 +35,20 @@ struct YouboraParams {
             self.json = nil
             self.accountCode = nil
             self.contentTransactionCode = nil
-            self.transactionCode = nil
             self.username = nil
             self.contentId = nil
             self.contentType = nil
             self.contentTitle = nil
             self.contentTitle2 = nil
+            self.program = nil
+            self.contentChannel = nil
             self.contentIsLive = false
-            self.contentPlaybackType = "online"
-            self.contentSaga = nil
+            self.contentPlaybackType = nil
             self.contentTvShow = nil
             self.contentSeason = nil
             self.contentEpisodeTitle = nil
             self.contentLanguage = nil
+            self.contentChannel = nil
           
             self.extraparam1 = nil
             self.extraparam2 = nil
@@ -69,13 +72,15 @@ struct YouboraParams {
         self.contentType = json["contentType"] as? String
         self.contentTitle = json["contentTitle"] as? String
         self.contentTitle2 = json["contentTitle2"] as? String
+        self.program = json["program"] as? String
+        self.contentChannel = json["contentChannel"] as? String
         self.contentIsLive = (json["contentIsLive"] as? Bool)!
         self.contentPlaybackType = json["contentPlaybackType"] as? String
-        self.contentSaga = json["contentSaga"] as? String
         self.contentTvShow = json["contentTvShow"] as? String
         self.contentSeason = json["contentSeason"] as? String
         self.contentEpisodeTitle = json["contentEpisodeTitle"] as? String
         self.contentLanguage = json["contentLanguage"] as? String
+        self.contentChannel = json["contentChannel"] as? String
       
         self.extraparam1 = json["extraparam1"] as? String
         self.extraparam2 = json["extraparam2"] as? String
