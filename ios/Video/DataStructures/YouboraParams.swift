@@ -1,7 +1,6 @@
 struct YouboraParams {
     let accountCode: String?
     let contentTransactionCode: String?
-    let transactionCode: String?
     let username: String?
     let contentId: String?
     let contentType: String?
@@ -10,7 +9,6 @@ struct YouboraParams {
     let program: String?
     let contentIsLive: Bool
     let contentPlaybackType: String?
-    let contentSaga: String?
     let contentTvShow: String?
     let contentSeason: String?
     let contentChannel: String?
@@ -48,7 +46,6 @@ struct YouboraParams {
             self.contentSeason = nil
             self.contentEpisodeTitle = nil
             self.contentLanguage = nil
-            self.contentChannel = nil
           
             self.extraparam1 = nil
             self.extraparam2 = nil
@@ -66,7 +63,6 @@ struct YouboraParams {
         self.json = json
         self.accountCode = json["accountCode"] as? String
         self.contentTransactionCode = json["contentTransactionCode"] as? String
-        self.transactionCode = json["transactionCode"] as? String
         self.username = json["username"] as? String
         self.contentId = json["contentId"] as? String
         self.contentType = json["contentType"] as? String
@@ -80,7 +76,6 @@ struct YouboraParams {
         self.contentSeason = json["contentSeason"] as? String
         self.contentEpisodeTitle = json["contentEpisodeTitle"] as? String
         self.contentLanguage = json["contentLanguage"] as? String
-        self.contentChannel = json["contentChannel"] as? String
       
         self.extraparam1 = json["extraparam1"] as? String
         self.extraparam2 = json["extraparam2"] as? String
