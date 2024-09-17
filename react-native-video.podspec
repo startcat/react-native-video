@@ -30,15 +30,7 @@ Pod::Spec.new do |s|
         'OTHER_SWIFT_FLAGS' => '$(inherited) -D USE_YOUBORA'
       }
     end
-    if defined?($RNVideoUseGoogleIMA)
-      Pod::UI.puts "RNVideo: enable IMA SDK"
 
-      ss.ios.dependency 'GoogleAds-IMA-iOS-SDK', '~> 3.22.1'
-      ss.tvos.dependency 'GoogleAds-IMA-tvOS-SDK', '~> 4.2'
-      ss.pod_target_xcconfig = {
-        'OTHER_SWIFT_FLAGS' => '$(inherited) -D USE_GOOGLE_IMA'
-      }
-    end
     if defined?($RNVideoUseVideoCaching)
       Pod::UI.puts "RNVideo: enable Video caching"
       ss.dependency "SPTPersistentCache", "~> 1.1.0"
@@ -48,6 +40,17 @@ Pod::Spec.new do |s|
         'OTHER_SWIFT_FLAGS' => '$(inherited) -D USE_VIDEO_CACHING'
       }
     end
+
+    if defined?($RNVideoUseGoogleIMA)
+      Pod::UI.puts "RNVideo: enable IMA SDK"
+
+      ss.ios.dependency 'GoogleAds-IMA-iOS-SDK', '~> 3.22.1'
+      ss.tvos.dependency 'GoogleAds-IMA-tvOS-SDK', '~> 4.2'
+      ss.pod_target_xcconfig = {
+        'OTHER_SWIFT_FLAGS' => '$(inherited) -D RNUSE_GOOGLE_IMA'
+      }
+    end
+    
   end
 
   # Use install_modules_dependencies helper to install the dependencies if React Native version >=0.71.0.

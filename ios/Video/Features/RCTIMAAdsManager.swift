@@ -1,4 +1,4 @@
-#if USE_GOOGLE_IMA
+#if RNUSE_GOOGLE_IMA
     import Foundation
     import GoogleInteractiveMediaAds
 
