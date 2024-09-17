@@ -1,7 +1,7 @@
 import AVFoundation
 import AVKit
 import Foundation
-#if USE_GOOGLE_IMA
+#if RNUSE_GOOGLE_IMA
     import GoogleInteractiveMediaAds
     import NpawPluginIMAAdapter
 #endif
@@ -97,7 +97,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     /* IMA Ads */
     private var _adTagUrl: String?
-    #if USE_GOOGLE_IMA
+    #if RNUSE_GOOGLE_IMA
         private var _imaAdsManager: RCTIMAAdsManager!
         /* Playhead used by the SDK to track content video progress and insert mid-rolls. */
         private var _contentPlayhead: IMAAVPlayerContentPlayhead?
@@ -195,7 +195,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     init(eventDispatcher: RCTEventDispatcher!) {
         super.init(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
-        #if USE_GOOGLE_IMA
+        #if RNUSE_GOOGLE_IMA
             _imaAdsManager = RCTIMAAdsManager(video: self, pipEnabled: isPipEnabled)
         #endif
 
@@ -252,7 +252,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
-        #if USE_GOOGLE_IMA
+        #if RNUSE_GOOGLE_IMA
             _imaAdsManager = RCTIMAAdsManager(video: self, pipEnabled: isPipEnabled)
         #endif
     }
@@ -333,7 +333,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     // MARK: - Progress
 
     func sendProgressUpdate(didEnd: Bool = false) {
-        #if !USE_GOOGLE_IMA
+        #if !RNUSE_GOOGLE_IMA
             // If we dont use Ads and onVideoProgress is not defined we dont need to run this code
             guard onVideoProgress != nil else { return }
         #endif
@@ -361,7 +361,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         }
 
         if currentTimeSecs >= 0 {
-            #if USE_GOOGLE_IMA
+            #if RNUSE_GOOGLE_IMA
                 if !_didRequestAds && currentTimeSecs >= 0.0001 && _adTagUrl != nil {
                     _imaAdsManager.requestAds()
                     _didRequestAds = true
@@ -571,10 +571,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             
             guard let npawPlugin = NpawPluginProvider.shared else { return }
             
-            #if USE_GOOGLE_IMA
+            #if RNUSE_GOOGLE_IMA
                 _videoAdapter = npawPlugin.videoBuilder()
                     .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-                    .setAdAdapter(adAdapter: ImaAdapter(adsManager: _imaAdsManager))
+                    .setAdAdapter(adAdapter: ImaAdapter(adsManager: _imaAdsManager.getAdsManager()))
                     .build()
             #else
                 _videoAdapter = npawPlugin.videoBuilder()
@@ -623,7 +623,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             setAutomaticallyWaitsToMinimizeStalling(_automaticallyWaitsToMinimizeStalling)
         }
 
-        #if USE_GOOGLE_IMA
+        #if RNUSE_GOOGLE_IMA
             if _adTagUrl != nil {
                 // Set up your content playhead and contentComplete callback.
                 _contentPlayhead = IMAAVPlayerContentPlayhead(avPlayer: _player!)
@@ -878,7 +878,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     func setPaused(_ paused: Bool) {
         if paused {
             if _adPlaying {
-                #if USE_GOOGLE_IMA
+                #if RNUSE_GOOGLE_IMA
                     _imaAdsManager.getAdsManager()?.pause()
                 #endif
             } else {
@@ -889,7 +889,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             RCTPlayerOperations.configureAudio(ignoreSilentSwitch: _ignoreSilentSwitch, mixWithOthers: _mixWithOthers, audioOutput: _audioOutput)
 
             if _adPlaying {
-                #if USE_GOOGLE_IMA
+                #if RNUSE_GOOGLE_IMA
                     _imaAdsManager.getAdsManager()?.resume()
                 #endif
             } else {
@@ -1355,7 +1355,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         _adTagUrl = adTagUrl
     }
 
-    #if USE_GOOGLE_IMA
+    #if RNUSE_GOOGLE_IMA
         func getContentPlayhead() -> IMAAVPlayerContentPlayhead? {
             return _contentPlayhead
         }
@@ -1437,7 +1437,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         _resouceLoaderDelegate = nil
         _playerObserver.clearPlayer()
 
-        #if USE_GOOGLE_IMA
+        #if RNUSE_GOOGLE_IMA
             _imaAdsManager.releaseAds()
         #endif
 
@@ -1759,7 +1759,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     func handlePlayerItemDidReachEnd(notification: NSNotification!) {
         sendProgressUpdate(didEnd: true)
         onVideoEnd?(["target": reactTag as Any])
-        #if USE_GOOGLE_IMA
+        #if RNUSE_GOOGLE_IMA
             if notification.object as? AVPlayerItem == _player?.currentItem {
                 _imaAdsManager.getAdsLoader()?.contentComplete()
             }
