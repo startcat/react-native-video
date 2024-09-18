@@ -180,6 +180,7 @@ def media3_version = safeExtGet('media3Version')
 def kotlin_version = safeExtGet('kotlinVersion')
 def androidxCore_version = safeExtGet('androidxCoreVersion')
 def androidxActivity_version = safeExtGet('androidxActivityVersion')
+def ima_version = "3.30.3"
 
 dependencies {
     // For < 0.71, this will be from the local maven repo
@@ -237,5 +238,5 @@ dependencies {
     // Youbora
     implementation 'com.npaw.plugin:plugin:7.2.14'
     implementation "com.npaw.plugin:plugin-media3-exoplayer:$media3_version-7.2.14"
-    implementation "com.npaw.plugin:plugin-ima:$media3_version-7.2.37"
+    implementation "com.npaw.plugin:plugin-ima:$ima_version-7.2.37"
 }
