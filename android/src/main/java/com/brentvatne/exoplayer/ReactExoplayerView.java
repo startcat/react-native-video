@@ -2699,6 +2699,10 @@ public class ReactExoplayerView extends FrameLayout implements
 			videoAdapter = null;
 		}
 
+        if (npawPlugin != null) {
+            npawPlugin.destroy();
+        }
+
 	}
 
 	public void setPlayOffline(boolean playOffline) {
