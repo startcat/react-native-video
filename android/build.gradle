@@ -237,4 +237,5 @@ dependencies {
     // Youbora
     implementation 'com.npaw.plugin:plugin:7.2.14'
     implementation "com.npaw.plugin:plugin-media3-exoplayer:$media3_version-7.2.14"
+    implementation "com.npaw.plugin:plugin-ima:$media3_version-7.2.37"
 }
