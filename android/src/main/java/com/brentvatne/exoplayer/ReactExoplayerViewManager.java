@@ -393,11 +393,12 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 	@ReactProp(name = PROP_YOUBORA)
 	public void setYoubora(final ReactExoplayerView videoView, @Nullable ReadableMap youbora) {
 
+        videoView.clearYoubora();
+
 		String accountCode = youbora.hasKey("accountCode") ? youbora.getString("accountCode") : null;
 		Map<String, String> metadata = new HashMap<String, String>();
 
 		if (TextUtils.isEmpty(accountCode)) {
-			videoView.clearYoubora();
 			return;
 		} else {
 
