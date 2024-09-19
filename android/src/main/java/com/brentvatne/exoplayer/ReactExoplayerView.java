@@ -2692,6 +2692,15 @@ public class ReactExoplayerView extends FrameLayout implements
 		}
 	}
 
+    public void clearYouboraAdapter() {
+
+        if (videoAdapter != null) {
+            videoAdapter.destroy();
+            videoAdapter = null;
+        }
+
+    }
+
 	public void clearYoubora() {
 
 		if (videoAdapter != null) {
