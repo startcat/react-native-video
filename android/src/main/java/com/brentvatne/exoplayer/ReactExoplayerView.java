@@ -2679,24 +2679,33 @@ public class ReactExoplayerView extends FrameLayout implements
 	 */
 
 	public void setYoubora(String accountCode, AnalyticsOptions youboraOptions) {
+
 		if (youboraOptions != null) {
-			NpawPlugin.Builder builder = new NpawPlugin.Builder(
-					this.themedReactContext.getCurrentActivity(),
-					accountCode);
 
-			builder.setAnalyticsOptions(youboraOptions);
-			builder.setLogLevel(com.npaw.core.util.extensions.Log.Level.DEBUG);
+            if (npawPlugin != null) {
+                this.clearYoubora();
+            }
 
-			NpawPluginProvider.initialize(builder);
+            if (npawPlugin == null){
+                NpawPlugin.Builder builder = new NpawPlugin.Builder(
+                        this.themedReactContext.getCurrentActivity(),
+                        accountCode);
+
+                builder.setAnalyticsOptions(youboraOptions);
+                builder.setLogLevel(com.npaw.core.util.extensions.Log.Level.DEBUG);
+
+                NpawPluginProvider.initialize(builder);
+            }
 
 		}
+        
 	}
 
-    public void clearYouboraAdapter() {
+    public void stopYouboraAdapter() {
 
         if (videoAdapter != null) {
-            videoAdapter.destroy();
-            videoAdapter = null;
+            videoAdapter.getPlayerAdapter().fireStop();
+
         }
 
     }
@@ -2710,6 +2719,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
         if (npawPlugin != null) {
             npawPlugin.destroy();
+            npawPlugin = null;
         }
 
 	}
