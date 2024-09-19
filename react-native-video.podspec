@@ -45,7 +45,7 @@ Pod::Spec.new do |s|
 
       ss.ios.dependency 'GoogleAds-IMA-iOS-SDK', '~> 3.22.1'
       ss.tvos.dependency 'GoogleAds-IMA-tvOS-SDK', '~> 4.2'
-      ss.dependency 'NpawPluginIMAAdapter', '1.1.11'
+      #ss.dependency 'NpawPluginIMAAdapter', '1.1.11'
       ss.pod_target_xcconfig = {
         'OTHER_SWIFT_FLAGS' => '$(inherited) -D RNUSE_GOOGLE_IMA'
       }

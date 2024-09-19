@@ -154,6 +154,7 @@ import com.npaw.NpawPluginProvider;
 import com.npaw.analytics.video.VideoAdapter;
 import com.npaw.core.options.AnalyticsOptions;
 import com.npaw.media3.exoplayer.*;
+//import com.npaw.ima.ImaAdapter;
 
 // Dani Offline
 import android.util.Log;
@@ -285,6 +286,7 @@ public class ReactExoplayerView extends FrameLayout implements
 	// Dani Youbora
 	private NpawPlugin npawPlugin = null;
 	private VideoAdapter videoAdapter = null;
+    //private ImaAdapter imaAdapter = null;
 
 	// Dani Offline
 	private boolean playOffline = false;
@@ -2698,7 +2700,7 @@ public class ReactExoplayerView extends FrameLayout implements
             }
 
 		}
-        
+
 	}
 
     public void stopYouboraAdapter() {

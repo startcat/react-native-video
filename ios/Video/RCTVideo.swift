@@ -3,7 +3,7 @@ import AVKit
 import Foundation
 #if RNUSE_GOOGLE_IMA
     import GoogleInteractiveMediaAds
-    import NpawPluginIMAAdapter
+    //import NpawPluginIMAAdapter
 #endif
 // Dani Youbora
 import NpawPlugin
