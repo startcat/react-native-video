@@ -574,7 +574,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             #if RNUSE_GOOGLE_IMA
                 _videoAdapter = npawPlugin.videoBuilder()
                     .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-                    .setAdAdapter(adAdapter: ImaAdapter(adsManager: _imaAdsManager.getAdsManager()))
+                    //.setAdAdapter(adAdapter: ImaAdapter(adsManager: _imaAdsManager.getAdsManager()))
                     .build()
             #else
                 _videoAdapter = npawPlugin.videoBuilder()
