@@ -9,3 +9,4 @@ export * from './video';
 export * from '../specs/VideoNativeComponent';
 
 export * from './Downloads';
+export * from '../player/types';
