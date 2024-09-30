@@ -52,7 +52,8 @@
         "@ui-kitten/components": "^5.3.1",
         "react-native-haptic-feedback": "2.2.0",
         "@react-navigation/native": "^6.1.17",
-        "react-native-fast-image": "^8.6.3"
+        "react-native-fast-image": "^8.6.3",
+        "axios": "^1.7.3"
     },
     "peerDependencies": {
         "react": "*",
