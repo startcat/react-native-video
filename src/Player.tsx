@@ -69,7 +69,7 @@ interface Props {
 
 export const Player = (props: Props) => {
 
-    const currentTime = useRef<number>(props.startPosition!);
+    const currentTime = useRef<number>(props.startPosition || 0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
 
