@@ -18,7 +18,6 @@ import {
     type IMappedYoubora,
 } from './player/types';
 
-
 interface Props {
     id?:number,
     title?:string;

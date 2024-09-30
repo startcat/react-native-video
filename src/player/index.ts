@@ -1,23 +1,4 @@
-import {
-    VODSlider, 
-    DVRSlider,
-    ThumbnailsContainer,
-    Timeline,
-    Controls,
-    Buttons,
-    Overlay,
-    Menu,
-    Mosca
-} from './overlay';
-
-export {
-    VODSlider, 
-    DVRSlider,
-    ThumbnailsContainer,
-    Timeline,
-    Controls,
-    Buttons,
-    Overlay,
-    Menu,
-    Mosca
-};
+export * from './components';
+export * from './overlay';
+export * from './utils';
+export * from './flavours';
