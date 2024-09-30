@@ -1,0 +1,53 @@
+{
+    "backgrounds": {
+        "window":       "#FFFFFF",
+        "cell":         "#D6D6D6",
+        "bottomNavi":   "#000000",
+        "tabbar":       "#000000",
+        "focus":        "#F0F0F0",
+        "puller":       "#D6D6D6",
+        "overViewDark": "rgba(0, 0, 0, 0.90)"
+    },
+    "dividers": {
+        "main":         "rgba(0, 0, 0, 0.10)",
+        "overDark":     "rgba(255, 255, 255, 0.3)"
+    },
+    "theme": {
+        "main":         "#14BED6",
+        "accent":       "#FF5400",
+        "c01":          "#FFC578",
+        "c02":          "#ff8a8a",
+        "c03":          "#d78aff",
+        "c04":          "#10dd99",
+        "c05":          "#4ae2ed"
+    },
+    "texts": {
+        "main":         "#000000",
+        "secondary":    "#999999",
+        "disabled":     "#888B8B",
+        "error":        "#D20A11",
+        "success":      "#35CE4F"
+    },
+    "basic": {
+        "white":        "#FFFFFF",
+        "black":        "#000000",
+        "red":          "#D20A11",
+        "lightGrey":    "#BDBDBD",
+        "transparent":  "transparent"
+    },
+    "grey":             "#303030",
+    "lightGrey":        "#BDBDBD",
+    "backgroundL5":     "#242424",
+    "backgroundL10":    "#313131",
+    "backgroundL15":    "#3D3D3D",
+    "backgroundL20":    "#4A4A4A",
+    "black":            "#000000",
+    "white":            "#FFFFFF",
+    "divider":          "rgba(48, 48, 48, 0.25)",
+    "dividerDark":      "rgba(0, 0, 0, 0.7)",
+    "puller":           "rgba(255, 255, 255, 0.3)",
+    "barTranslucent":   "rgba(0, 0, 0, 0.85)",
+    "barBottomDivider": "#303030",
+    "gradientMaskColor":"rgba(29, 29, 27, 0.7)",
+    "epgMask":          "rgba(0, 0, 0, 0.75)"
+}
