@@ -26,7 +26,7 @@ const getTrackId = (type:string, index:number, menuData?:Array<IPlayerMenuData>)
 
 export const invokePlayerAction = async (castClient: RemoteMediaClient | null, castSession: CastSession | null, id: CONTROL_ACTION, value?:any, currentTime?:number, isLive?:boolean, menuData?:Array<IPlayerMenuData>) => {
 
-    console.log(`invokePlayerAction (${castClient}): ${id} / ${value}`);
+    console.log(`[Player] (Cast Actions) invokePlayerAction: ${id} / ${value}`);
 
     if (castClient && id === CONTROL_ACTION.PAUSE && !value){
         castClient.play();
@@ -65,14 +65,14 @@ export const changeActiveTracks = async (castClient: RemoteMediaClient | null, m
         }
 
         if (activeTracks.length){
-            console.log(`[changeActiveTracks] ${JSON.stringify(activeTracks)}`);
+            console.log(`[Player] (Cast Actions) changeActiveTracks ${JSON.stringify(activeTracks)}`);
             await castClient.setActiveTrackIds(activeTracks);
         } else {
-            console.log(`[changeActiveTracks] empty ids... ${JSON.stringify(activeTracks)}`);
+            console.log(`[Player] (Cast Actions) changeActiveTracks empty ids... ${JSON.stringify(activeTracks)}`);
         }
 
     } else {
-        console.log(`[changeActiveTracks] No objects - ${castClient} / ${menuData}`);
+        console.log(`[Player] (Cast Actions) changeActiveTracks without objects: castClient ${!!castClient} / menuData ${!!menuData}`);
     }
 
 }
