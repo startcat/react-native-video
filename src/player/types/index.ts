@@ -72,7 +72,7 @@ export interface IThumbnailMetadata {
 	height: number;
 	imageWidth: number;
 	imageHeight: number;
-};
+}
 
 export interface IManifest {
 	manifestURL: string;
@@ -86,7 +86,7 @@ export interface IManifest {
 		licenseAcquisitionURL: string;
 		certificateURL?: string;
 	};
-};
+}
 
 export interface IThumbnail {
     gridSecond: number;
@@ -151,7 +151,7 @@ type YouboraCustomDimensions = {
 	8?: string;
 	9?: string;
 	10?: string;
-};
+}
 
 type YouboraContent = {
 	transactionCode?: string;
@@ -166,7 +166,7 @@ type YouboraContent = {
 	episodeTitle?: string;
 	channel?: string;
 	customDimension?: YouboraCustomDimensions;
-};
+}
 
 export type IYoubora = {
 	accountCode: string;
@@ -174,6 +174,11 @@ export type IYoubora = {
 	content?: YouboraContent;
 	offline?: boolean;
 	userObfuscateIp?: boolean;
-};
+}
 
 export type IYouboraSettingsFormat = YOUBORA_FORMAT;
+
+export interface GetYouboraOptionsProps {
+    data: IYoubora,
+	format?: IYouboraSettingsFormat
+}

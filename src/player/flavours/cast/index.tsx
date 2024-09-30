@@ -14,11 +14,9 @@ import { BackgroundPoster } from '../../components/poster';
 
 import { 
     getBestManifest,
-    getYouboraOptions,
     getSourceMessageForCast,
     getDRM,
     mergeCastMenuData,
-    type IYoubora
 } from '../../utils';
 
 import {
@@ -30,12 +28,15 @@ import { styles } from '../styles';
 
 import { 
     type IManifest, 
-    type IMappedYoubora, 
+    type IMappedYoubora,
+    type IYouboraSettingsFormat,
     type IDrm,
     type ICommonData,
     type IPlayerMenuData,
     type ILanguagesMapping,
-    CONTROL_ACTION
+    type IYoubora,
+    CONTROL_ACTION,
+    YOUBORA_FORMAT
 } from '../../types';
 
 interface Props {
@@ -62,6 +63,11 @@ interface Props {
     languagesMapping?:ILanguagesMapping;
 
     header?: React.ReactNode | undefined;
+
+    // Utils
+    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+
+    // Events
     onChangeCommonData?: (data: ICommonData) => void;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
@@ -118,7 +124,10 @@ export const CastFlavour = (props: Props) => {
         drm.current = getDRM(currentManifest.current!);
 
         // Preparamos los datos de Youbora
-        youboraForVideo.current = getYouboraOptions(props.youbora!, 'cast');
+        if (props.getYouboraOptions){
+            youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.CAST);
+
+        }
 
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
         if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
