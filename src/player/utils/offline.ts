@@ -1,4 +1,4 @@
-import { Downloads } from 'react-native-video';
+import { default as Downloads } from '../../Downloads';
 
 export const getContentIdIsDownloaded = (id: number): boolean => {
 

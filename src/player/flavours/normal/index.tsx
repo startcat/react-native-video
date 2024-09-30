@@ -23,13 +23,10 @@ import {
     getBestManifest,
     getManifestSourceType,
     getVideoSourceUri,
-    getYouboraOptions, 
     getDRM,
     onAdStarted,
     mergeMenuData,
-    getTudumManifest,
     getHlsQualities,
-    type IYoubora,
 } from '../../utils';
 
 import {
@@ -46,8 +43,11 @@ import {
     type ICommonData,
     type IPlayerMenuData,
     type ILanguagesMapping,
+    type IYouboraSettingsFormat,
+    type IYoubora,
     CONTROL_ACTION,
-    STREAM_FORMAT_TYPE
+    STREAM_FORMAT_TYPE,
+    YOUBORA_FORMAT
 } from '../../types';
 
 interface Props {
@@ -76,6 +76,12 @@ interface Props {
     languagesMapping?:ILanguagesMapping;
 
     header?: React.ReactNode | undefined;
+
+    // Utils
+    getTudumManifest?: () => IManifest | undefined;
+    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+
+    // Events
     onChangeCommonData?: (data: ICommonData) => void;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
@@ -117,8 +123,8 @@ export const NormalFlavour = (props: Props) => {
 
     useEffect(() => {
 
-        if (isPlayingExternalTudum){
-            let tudumManifest = getTudumManifest();
+        if (isPlayingExternalTudum && props.getTudumManifest){
+            let tudumManifest = props.getTudumManifest();
 
             drm.current = getDRM(tudumManifest!);
 
@@ -165,7 +171,10 @@ export const NormalFlavour = (props: Props) => {
         isHLS.current = currentManifest.current?.type === STREAM_FORMAT_TYPE.HLS;
 
         // Preparamos los datos de Youbora
-        youboraForVideo.current = getYouboraOptions(props.youbora!, 'mobile');
+        if (props.getYouboraOptions){
+            youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+
+        }
 
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
         if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){

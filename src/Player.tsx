@@ -13,7 +13,9 @@ import {
     type ICommonData,
     type IManifest,
     type ILanguagesMapping,
-    type IYoubora
+    type IYoubora,
+    type IYouboraSettingsFormat,
+    type IMappedYoubora,
 } from './player/types';
 
 
@@ -38,11 +40,18 @@ interface Props {
     header?: React.ReactNode | undefined;
     languagesMapping?:ILanguagesMapping;
 
+    // Utils
+    getTudumManifest?: () => IManifest | undefined;
+    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+
+    // Events
     onError?: () => void;
     onNext?: () => void;
     onProgress?: (value: number) => void;
     onExit?: () => void;
     onEnd?: () => void;
+
+
 }
 
 
@@ -180,6 +189,11 @@ export const Player = (props: Props) => {
                 currentTime={currentTime.current}
                 audioIndex={currentAudioIndex}
                 subtitleIndex={currentSubtitleIndex}
+
+                // Utils
+                getYouboraOptions={props.getYouboraOptions}
+
+                // Events
                 onChangeCommonData={changeCommonData}
                 onNext={props.onNext}
             />
@@ -209,6 +223,11 @@ export const Player = (props: Props) => {
                 currentTime={currentTime.current}
                 audioIndex={currentAudioIndex}
                 subtitleIndex={currentSubtitleIndex}
+
+                // Utils
+                getYouboraOptions={props.getYouboraOptions}
+
+                // Events
                 onChangeCommonData={changeCommonData}
                 onNext={props.onNext}
             />
