@@ -23,8 +23,7 @@ interface Props {
     preloading?: boolean;
     hasNext?: boolean;
     thumbnailsMetadata?: IThumbnailMetadata;
-    controlsHeader?: React.ReactNode | undefined;
-    mosca?: React.ReactNode | undefined;
+    
     alwaysVisible?: boolean;
     
     isLive?: boolean;
@@ -37,6 +36,11 @@ interface Props {
     subtitleIndex?: number;
     speedRate?: number;
 
+    // Components
+    mosca?: React.ReactNode;
+    controlsHeader?: React.ReactNode;
+
+    // Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;

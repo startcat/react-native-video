@@ -62,7 +62,9 @@ interface Props {
     subtitleIndex?: number;
     languagesMapping?:ILanguagesMapping;
 
-    header?: React.ReactNode | undefined;
+    // Components
+    mosca?: React.ReactNode
+    header?: React.ReactNode;
 
     // Utils
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
@@ -152,7 +154,7 @@ export const CastFlavour = (props: Props) => {
         });
 
         if (castState === CastState.CONNECTED && castClient){
-            console.log(`[Cast Flavour] CONNECTED - loading media after creating castMessage: ${JSON.stringify(castMessage.current)}`);
+            console.log(`[Player] (Cast Flavour) Loading media after creating castMessage: ${JSON.stringify(castMessage.current)}`);
             castClient?.loadMedia(castMessage.current!);
 
         }
@@ -210,11 +212,10 @@ export const CastFlavour = (props: Props) => {
 
         async function getCurrentMediaStatus(){
             const mediaStatus = await castClient?.getMediaStatus();
-            console.log(`Current Media Status: ${JSON.stringify(mediaStatus?.mediaInfo)}`);
 
             // @ts-ignore
             if (mediaStatus?.mediaInfo?.contentId !== castMessage.current?.mediaInfo?.contentId){
-                console.log(`[Cast Flavour] CONNECTED - loading media: ${JSON.stringify(castMessage.current)}`);
+                console.log(`[Player] (Cast Flavour) Different content so loading media: ${JSON.stringify(castMessage.current)}`);
                 castClient?.loadMedia(castMessage.current!);
 
             } else {
@@ -231,7 +232,7 @@ export const CastFlavour = (props: Props) => {
                 getCurrentMediaStatus();
                 
             } catch (reason){
-                console.log(`[Cast Flavour] loading media error: ${JSON.stringify(reason)}`);
+                console.log(`[Player] (Cast Flavour) Loading media error: ${JSON.stringify(reason)}`);
             }
             
         }
@@ -345,7 +346,7 @@ export const CastFlavour = (props: Props) => {
             return false;
         }
 
-        console.log(`[onControlsPress Cast Flavour] ${id} (${value})`);
+        console.log(`[Player] (Cast Flavour) onControlsPress: ${id} (${value})`);
 
         // State Actions
         if (id === CONTROL_ACTION.NEXT){
@@ -445,12 +446,15 @@ export const CastFlavour = (props: Props) => {
 
                 alwaysVisible={true}
 
-                // controlsHeader?: React.ReactNode | undefined;
-                // mosca?: React.ReactNode | undefined;
                 isLive={props?.isLive}
                 isDVR={isDVR.current}
                 isContentLoaded={isContentLoaded}
 
+                // Components
+                mosca={props.mosca}
+                controlsHeader={props.header}
+
+                // Events
                 onPress={onControlsPress}
                 // onSlidingStart={onSlidingStart}
                 // onSlidingMove={onSlidingMove}

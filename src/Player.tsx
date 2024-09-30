@@ -37,8 +37,11 @@ interface Props {
     liveStartDate?:string;
     hasNext?: boolean;
 
-    header?: React.ReactNode | undefined;
     languagesMapping?:ILanguagesMapping;
+
+    // Components
+    mosca?: React.ReactNode
+    header?: React.ReactNode;
 
     // Utils
     getTudumManifest?: () => IManifest | undefined;
@@ -102,7 +105,7 @@ export const Player = (props: Props) => {
         // También detenemos las posibles descargas para mejorar la calidad de reproducción
         stopDownloads();
 
-        console.log(`[New Player] Player ${JSON.stringify(props.manifests)}`);
+        console.log(`[Player] Manifests ${JSON.stringify(props.manifests)}`);
     
         return () => {
 
@@ -168,7 +171,7 @@ export const Player = (props: Props) => {
 
 
     if (castState === CastState.CONNECTING || castState === CastState.CONNECTED){
-        console.log(`Mounting CastFlavour...`);
+        console.log(`[Player] Mounting CastFlavour...`);
         return (
             <CastFlavour
                 id={props.id}
@@ -190,6 +193,10 @@ export const Player = (props: Props) => {
                 audioIndex={currentAudioIndex}
                 subtitleIndex={currentSubtitleIndex}
 
+                // Components
+                mosca={props.mosca}
+                header={props.header}
+
                 // Utils
                 getYouboraOptions={props.getYouboraOptions}
 
@@ -200,7 +207,7 @@ export const Player = (props: Props) => {
         );
 
     } else {
-        console.log(`Mounting NormalFlavour...`);
+        console.log(`[Player] Mounting NormalFlavour...`);
         return (
             <NormalFlavour
                 id={props.id}
@@ -223,6 +230,10 @@ export const Player = (props: Props) => {
                 currentTime={currentTime.current}
                 audioIndex={currentAudioIndex}
                 subtitleIndex={currentSubtitleIndex}
+
+                // Components
+                mosca={props.mosca}
+                header={props.header}
 
                 // Utils
                 getYouboraOptions={props.getYouboraOptions}

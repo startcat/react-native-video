@@ -75,7 +75,9 @@ interface Props {
     subtitleIndex?: number;
     languagesMapping?:ILanguagesMapping;
 
-    header?: React.ReactNode | undefined;
+    // Components
+    mosca?: React.ReactNode
+    header?: React.ReactNode;
 
     // Utils
     getTudumManifest?: () => IManifest | undefined;
@@ -231,7 +233,7 @@ export const NormalFlavour = (props: Props) => {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'audioIndex', 'subtitleIndex'];
 
-        console.log(`[onControlsPress Normal Flavour] ${id} (${value})`);
+        console.log(`[Player] (Normal Flavour) onControlsPress: ${id} (${value})`);
 
         // State Actions
         if (id === CONTROL_ACTION.PAUSE){
@@ -304,7 +306,7 @@ export const NormalFlavour = (props: Props) => {
 
         let hlsQualities;
 
-        console.log(`[onLoad] ${JSON.stringify(e)}`);
+        console.log(`[Player] (Normal Flavour) onLoad ${JSON.stringify(e)}`);
 
         if (!isPlayingExternalTudum && !isContentLoaded){
 
@@ -367,8 +369,6 @@ export const NormalFlavour = (props: Props) => {
     }
 
     const onProgress = (e: OnProgressData) => {
-
-        //console.log(`[onProgress] ${e.currentTime} / ${e.playableDuration} (${e.seekableDuration})`);
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             setCurrentTimeWithValidation(e.currentTime);
@@ -522,13 +522,16 @@ export const NormalFlavour = (props: Props) => {
                         menuData={menuData}
 
                         alwaysVisible={isAirplayConnected}
-
-                        // controlsHeader?: React.ReactNode | undefined;
-                        // mosca?: React.ReactNode | undefined;
+                        
                         isLive={props?.isLive}
                         isDVR={isDVR.current}
                         isContentLoaded={isContentLoaded}
 
+                        // Components
+                        mosca={props.mosca}
+                        controlsHeader={props.header}
+
+                        // Events
                         onPress={onControlsPress}
                         // onSlidingStart={onSlidingStart}
                         // onSlidingMove={onSlidingMove}
