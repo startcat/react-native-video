@@ -1,5 +1,5 @@
 import { type RefObject } from 'react';
-import { type VideoRef } from 'react-native-video';
+import { type VideoRef } from '../../../Video';
 import { CONTROL_ACTION } from '../../types';
 
 

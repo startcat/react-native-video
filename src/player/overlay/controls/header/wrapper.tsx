@@ -6,7 +6,6 @@ import { useNavigation } from '@react-navigation/native';
 import { Spinner } from '@ui-kitten/components';
 import { SmallButton, AirplayButton, CastButton } from '../buttons';
 import { CONTROL_ACTION } from '../../../types';
-import { i18n } from 'locales';
 import { styles } from './styles';
 
 const ANIMATION_SPEED = 150;
@@ -38,7 +37,6 @@ export const HeaderBar = (props: Props) => {
         <SmallButton
             id={CONTROL_ACTION.BACK}
             iconName='chevron-back-outline'
-            accessibilityLabel={ i18n.t('back') }
             onPress={onBack}
         />
     );

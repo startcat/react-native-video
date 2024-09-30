@@ -10,7 +10,6 @@ import {
     IPlayerMenuData,
     CONTROL_ACTION 
 } from '../types';
-import { i18n } from 'locales';
 import { styles } from './styles';
 
 interface Props {
@@ -194,7 +193,6 @@ export const Overlay = (props: Props) => {
             onPress={onToggle} 
             style={styles.container} 
             accessible={!avoidDissapear && !visibleControls && !visibleMenu} 
-            accessibilityLabel={i18n.t('accesibilidad_player_overlay')} 
         >
 
             {

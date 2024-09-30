@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { MediumButton, BigButton } from '../buttons';
 import { CONTROL_ACTION } from '../../../types';
-import { i18n } from 'locales';
+import { i18n } from '../../../locales';
 import { styles } from './styles';
 
 type Props = {
