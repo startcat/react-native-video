@@ -235,6 +235,7 @@ export const Player = (props: Props) => {
                 header={props.header}
 
                 // Utils
+                getTudumManifest={props.getTudumManifest}
                 getYouboraOptions={props.getYouboraOptions}
 
                 // Events
