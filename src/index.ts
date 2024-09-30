@@ -1,5 +1,9 @@
 import Video from './Video';
-export { Player } from './Player'
+export { Player } from './Player';
+export * from './player/components';
+export * from './player/overlay';
+export * from './player/utils';
+export * from './player/flavours';
 export { default as Downloads } from './Downloads';
 export {VideoDecoderProperties} from './specs/VideoNativeComponent';
 export * from './types';
