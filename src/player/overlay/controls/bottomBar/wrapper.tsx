@@ -3,7 +3,6 @@ import { View } from 'react-native';
 import { SmallButton, LiveButton } from '../buttons';
 import { Text } from '@ui-kitten/components';
 import { CONTROL_ACTION } from '../../../types';
-import { i18n } from 'locales';
 import { styles } from './styles';
 
 interface Props {
@@ -54,7 +53,6 @@ export const BottomBar = (props: Props) => {
         <SmallButton
             id={CONTROL_ACTION.MENU}
             iconName='chatbox-ellipses-outline'
-            accessibilityLabel={ i18n.t('accesibilidad_player_menu') }
             disabled={!props.isContentLoaded}
             onPress={props?.onPress}
         />
@@ -64,7 +62,6 @@ export const BottomBar = (props: Props) => {
         <SmallButton
             id={CONTROL_ACTION.SETTINGS_MENU}
             iconName='settings-outline'
-            accessibilityLabel={ i18n.t('accesibilidad_player_menu') }
             disabled={!props.isContentLoaded}
             onPress={props?.onPress}
         />
@@ -74,7 +71,6 @@ export const BottomBar = (props: Props) => {
         <SmallButton
             id={CONTROL_ACTION.MUTE}
             iconName={ (isMuted) ? 'volume-mute-outline' : 'volume-high-outline'}
-            accessibilityLabel={ (isMuted) ? i18n.t('accesibilidad_player_unmute') : i18n.t('accesibilidad_player_mute') }
             value={!isMuted}
             onPress={props?.onPress}
         />
@@ -84,7 +80,6 @@ export const BottomBar = (props: Props) => {
         <SmallButton
             id={CONTROL_ACTION.VOLUME}
             iconName='volume-high-outline'
-            accessibilityLabel={ i18n.t('accesibilidad_player_menu') }
             value={currentVolume}
             onPress={props?.onPress}
         />
@@ -94,7 +89,6 @@ export const BottomBar = (props: Props) => {
         <SmallButton
             id={CONTROL_ACTION.NEXT}
             iconName='play-skip-forward-outline'
-            accessibilityLabel={ i18n.t('accesibilidad_player_next') }
             disabled={!props.isContentLoaded}
             onPress={props?.onPress}
         />
@@ -104,7 +98,6 @@ export const BottomBar = (props: Props) => {
         <SmallButton
             id={CONTROL_ACTION.SEEK}
             iconName='refresh-outline'
-            accessibilityLabel={ i18n.t('player_restart') }
             value={0}
             disabled={!props.isContentLoaded}
             onPress={props?.onPress}

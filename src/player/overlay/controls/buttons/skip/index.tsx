@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { TouchableOpacity } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Text } from '@ui-kitten/components';
-import { i18n } from 'locales';
 import { styles } from './styles';
 import { CONTROL_ACTION } from '../../../../types';
 
@@ -51,7 +50,6 @@ export const SkipButton = (props: ButtonProps) => {
             onPress={onPress} 
             accessible={true} 
             accessibilityRole='button' 
-            accessibilityLabel={i18n.t('goToLive')}
             pressRetentionOffset={5}
             disabled={props.disabled}
         >

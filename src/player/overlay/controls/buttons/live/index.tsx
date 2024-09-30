@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Text } from '@ui-kitten/components';
-import { i18n } from 'locales';
+import { i18n } from '../../../../locales';
 import { styles } from './styles';
 import { CONTROL_ACTION } from '../../../../types';
 

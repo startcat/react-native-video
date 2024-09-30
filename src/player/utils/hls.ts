@@ -5,10 +5,11 @@
  */
 
 import Config from 'react-native-config';
-import { i18n } from 'locales';
+import { i18n } from '../locales';
 
 import { 
-    IPlayerMenuData
+    type IPlayerMenuData,
+    PLAYER_MENU_DATA_TYPE
 } from '../types';
 
 // Check Absolute or relative URI
@@ -50,7 +51,7 @@ export const getHlsQualities = async (mainHls:string) => {
             let entries = scheme.split('\n');
 
             qualities.push({
-                type: 'video',
+                type: PLAYER_MENU_DATA_TYPE.VIDEO,
                 index: -1,
                 code: completeUrl,
                 label: i18n.t('player_quality_auto')
@@ -68,7 +69,7 @@ export const getHlsQualities = async (mainHls:string) => {
                     }
 
                     qualities.push({
-                        type: 'video',
+                        type: PLAYER_MENU_DATA_TYPE.VIDEO,
                         index: qualities.length,
                         code: `${baseUrl}${entries[index + 1]}`,
                         label: `${resolution.substring(resolution.indexOf('x') + 1)}p`

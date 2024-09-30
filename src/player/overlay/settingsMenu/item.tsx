@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { TouchableOpacity } from 'react-native';
 import { Text, Icon } from '@ui-kitten/components';
-import { i18n } from 'locales';
+import { i18n } from '../../locales';
 import { 
     IPlayerMenuData,
     CONTROL_ACTION

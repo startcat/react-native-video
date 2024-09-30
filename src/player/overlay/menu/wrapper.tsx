@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, Pressable, ScrollView } from 'react-native';
 import { Text, Button } from '@ui-kitten/components';
 import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
-import { i18n } from 'locales';
+import { i18n } from '../../locales';
 import { MenuItem } from './item';
 import { 
     IPlayerMenuData,

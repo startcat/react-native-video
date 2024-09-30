@@ -1,16 +1,17 @@
-import { i18n } from 'locales';
+import { i18n } from '../locales';
 
 import { 
-    OnLoadData
-} from 'react-native-video';
+    type OnLoadData
+} from '../../types';
 
 import { 
     MediaTrack
 } from 'react-native-google-cast';
 
 import { 
-    ILanguagesMapping,
-    IPlayerMenuData
+    type ILanguagesMapping,
+    type IPlayerMenuData,
+    PLAYER_MENU_DATA_TYPE
 } from '../types';
 
 const sortByIndex = (a: IPlayerMenuData, b: IPlayerMenuData) => {
@@ -44,35 +45,35 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
 
     // Añadimos las velocidades manualmente
     menuData.push({
-        type: 'rate',
+        type: PLAYER_MENU_DATA_TYPE.RATE,
         index: 0,
         id:0.25,
         label: '0.25x'
     });
 
     menuData.push({
-        type: 'rate',
+        type: PLAYER_MENU_DATA_TYPE.RATE,
         index: 1,
         id:0.5,
         label: '0.5x'
     });
 
     menuData.push({
-        type: 'rate',
+        type: PLAYER_MENU_DATA_TYPE.RATE,
         index: 2,
         id:1,
         label: 'Normal'
     });
 
     menuData.push({
-        type: 'rate',
+        type: PLAYER_MENU_DATA_TYPE.RATE,
         index: 3,
         id:1.5,
         label: '1.5x'
     });
 
     menuData.push({
-        type: 'rate',
+        type: PLAYER_MENU_DATA_TYPE.RATE,
         index: 4,
         id:2,
         label: '2x'
@@ -85,7 +86,7 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
     } else {
         // Añadimos una opción de calidad que indique "Auto"
         menuData.push({
-            type: 'video',
+            type: PLAYER_MENU_DATA_TYPE.VIDEO,
             index: -1,
             code: 'none',
             label: i18n.t('player_quality_auto')
@@ -95,7 +96,7 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
             loadedData.videoTracks.forEach(item => {
 
                 menuData.push({
-                    type: 'video',
+                    type: PLAYER_MENU_DATA_TYPE.VIDEO,
                     index: item.index,
                     label: `${item.height}p`
                 });
@@ -109,7 +110,7 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
         loadedData.audioTracks.forEach(item => {
 
             menuData.push({
-                type: 'audio',
+                type: PLAYER_MENU_DATA_TYPE.AUDIO,
                 index: item.index,
                 code: item.language,
                 label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] : item.title || item.index.toString()
@@ -120,7 +121,7 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
 
     // Añadimos una opción de subtítulo que indique "Ninguno"
     menuData.push({
-        type: 'text',
+        type: PLAYER_MENU_DATA_TYPE.TEXT,
         index: -1,
         code: 'none',
         label: i18n.t('language_none')
@@ -130,7 +131,7 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
         loadedData.textTracks.forEach(item => {
 
             menuData.push({
-                type: 'text',
+                type: PLAYER_MENU_DATA_TYPE.TEXT,
                 index: item.index,
                 code: item.language,
                 label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] : item.title || item.index.toString()
@@ -154,7 +155,7 @@ export const mergeCastMenuData = (loadedData: Array<MediaTrack> | undefined, lan
         totalTexts = 0;
 
     menuData.push({
-        type: 'text',
+        type: PLAYER_MENU_DATA_TYPE.TEXT,
         index: -1,
         code: 'none',
         label: i18n.t('language_none')
@@ -167,7 +168,7 @@ export const mergeCastMenuData = (loadedData: Array<MediaTrack> | undefined, lan
             if (item.type === 'audio' && item.language !== 'un'){
 
                 menuData.push({
-                    type: 'audio',
+                    type: PLAYER_MENU_DATA_TYPE.AUDIO,
                     id: item.id,
                     index: totalAudios,
                     code: item.language,
@@ -179,7 +180,7 @@ export const mergeCastMenuData = (loadedData: Array<MediaTrack> | undefined, lan
             } else if (item.type === 'text'){
 
                 menuData.push({
-                    type: 'text',
+                    type: PLAYER_MENU_DATA_TYPE.TEXT,
                     id: item.id,
                     index: totalTexts,
                     code: item.language,
