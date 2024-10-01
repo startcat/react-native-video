@@ -235,25 +235,25 @@ export const NormalFlavour = (props: Props) => {
 
         console.log(`[Player] (Normal Flavour) onControlsPress: ${id} (${value})`);
 
-        // State Actions
         if (id === CONTROL_ACTION.PAUSE){
             setPaused(!!value);
-
-        } else if (id === CONTROL_ACTION.MUTE){
-            setMuted(!!value);
-
+        }
         
-        } else if (id === CONTROL_ACTION.NEXT){
-            if (props.onNext){
-                setIsContentLoaded(false);
-                props.onNext();
-            }
-
-        } else if (isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
+        if (id === CONTROL_ACTION.MUTE){
+            setMuted(!!value);
+        }
+        
+        if (id === CONTROL_ACTION.NEXT && props.onNext){
+            setIsContentLoaded(false);
+            props.onNext();
+        }
+        
+        if (isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
             // Cambio de calidad con HLS
             changeHlsVideoQuality(value);
-
-        } else if (id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
+        }
+        
+        if (!isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
             // Cambio de calidad sin HLS
             if (value === -1){
                 setSelectedVideoTrack({
@@ -268,19 +268,20 @@ export const NormalFlavour = (props: Props) => {
 
             }
 
-        } else if (id === CONTROL_ACTION.SPEED_RATE && typeof(value) === 'number'){
+        }
+        
+        if (id === CONTROL_ACTION.SPEED_RATE && typeof(value) === 'number'){
             setSpeedRate(value);
+        }
 
-        // Actions to invoke on player
-        } else {
-
+        if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
-            if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number'){
-                setDvrTimeValue(value);
-            }
-
+            setDvrTimeValue(value);
+        }
+        
+        if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
+            // Actions to invoke on player
             invokePlayerAction(refVideoPlayer, id, value, currentTime);
-
         }
 
         // Actions to be saved between flavours
@@ -444,9 +445,7 @@ export const NormalFlavour = (props: Props) => {
                 videoSource.current ?
                     <View style={{
                         ...styles.playerWrapper,
-                        //paddingTop:insets.top,
                         paddingHorizontal:Math.max(insets.left, insets.right),
-                        //paddingBottom:insets.bottom
                     }}>
                         <Video
                             // @ts-ignore
