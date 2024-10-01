@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, EdgeInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { 
     type SelectedTrack,
@@ -162,7 +162,7 @@ export const NormalFlavour = (props: Props) => {
 
     }, [props.subtitleIndex]);
 
-    const checkIfPlayerIsLandscape = (height, width, insets) => {
+    const checkIfPlayerIsLandscape = (height: number, width: number, insets: EdgeInsets): boolean => {
 
         // Calculamos una dimension del player
         const margins = Math.max(insets.left, insets.right);

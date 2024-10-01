@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import DeviceInfo from 'react-native-device-info';
 import { activateKeepAwake, deactivateKeepAwake} from '@sayem314/react-native-keep-awake';
-import Orientation from 'react-native-orientation-locker';
+import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
 import AudioSession from 'react-native-audio-session';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { CastState, useCastState } from 'react-native-google-cast';
@@ -81,7 +81,18 @@ export const Player = (props: Props) => {
     const [currentAudioIndex, setCurrentAudioIndex] = useState<number>();
     const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>();
 
+    const [hasRotated, setHasRotated] = useState<boolean>(DeviceInfo.isTablet());
+
     const castState = useCastState();
+
+    useOrientationChange((o) => {
+        // Pequeño apaño para el lock de rotación
+        setTimeout(() => {
+            setHasRotated(true);
+
+        }, 300);
+        
+    });
 
     React.useEffect(() => {
 
@@ -196,7 +207,7 @@ export const Player = (props: Props) => {
     }
 
 
-    if (castState === CastState.CONNECTING || castState === CastState.CONNECTED){
+    if (hasRotated && (castState === CastState.CONNECTING || castState === CastState.CONNECTED)){
         console.log(`[Player] Mounting CastFlavour...`);
         isCasting.current = true;
         return (
@@ -233,7 +244,7 @@ export const Player = (props: Props) => {
             />
         );
 
-    } else {
+    } else if (hasRotated){
         console.log(`[Player] Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
@@ -273,6 +284,9 @@ export const Player = (props: Props) => {
             />
         );
 
+    } else {
+        return null;
+        
     }
 
 };
