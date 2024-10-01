@@ -38,7 +38,7 @@ interface Props {
 
     // Components
     mosca?: React.ReactNode;
-    controlsHeader?: React.ReactNode;
+    controlsHeaderMetadata?: React.ReactNode;
 
     // Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
@@ -222,7 +222,8 @@ export const Overlay = (props: Props) => {
                         duration={props?.duration}
                         dvrTimeValue={dvrTimeValue}
                         title={props?.title}
-                        header={props?.controlsHeader}
+                        
+                        controlsHeaderMetadata={props?.controlsHeaderMetadata}
 
                         thumbnailsMetadata={props?.thumbnailsMetadata}
 
