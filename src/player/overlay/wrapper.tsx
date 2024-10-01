@@ -200,10 +200,8 @@ export const Overlay = (props: Props) => {
         >
 
             {
-                !visibleMenu && !visibleControls ?
-                    <Mosca>
-                        { props?.mosca }
-                    </Mosca>
+                !visibleMenu && !visibleControls && props?.mosca ?
+                    props?.mosca
                 : null
             }
 

@@ -13,7 +13,6 @@ export const styles = StyleSheet.create({
         backgroundColor:'black'
     },
     player:{
-        flex:1,
         alignSelf:'center',
         aspectRatio:16/9,
         backgroundColor:'black'
