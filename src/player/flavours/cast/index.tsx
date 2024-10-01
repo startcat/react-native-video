@@ -64,7 +64,7 @@ interface Props {
 
     // Components
     mosca?: React.ReactNode
-    header?: React.ReactNode;
+    controlsHeaderMetadata?: React.ReactNode;
 
     // Utils
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
@@ -452,7 +452,7 @@ export const CastFlavour = (props: Props) => {
 
                 // Components
                 mosca={props.mosca}
-                controlsHeader={props.header}
+                controlsHeaderMetadata={props.controlsHeaderMetadata}
 
                 // Events
                 onPress={onControlsPress}

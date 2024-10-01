@@ -26,9 +26,6 @@ export const styles = StyleSheet.create({
         position:'absolute',
         top:SPACING['0.5x'],
         left:SPACING['0.5x'] + 50,
-        backgroundColor:'purple',
-        width:120,
-        height:80
     },
     otherButtons:{
         flex:1,

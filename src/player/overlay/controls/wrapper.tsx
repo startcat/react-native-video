@@ -26,7 +26,9 @@ interface Props {
     isLive?: boolean;
     isDVR?: boolean;
     isContentLoaded?: boolean;
-    header?: React.ReactNode | undefined;
+
+    controlsHeaderMetadata?: React.ReactNode;
+
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
@@ -58,13 +60,13 @@ export const Controls = (props: Props) => {
             <View style={styles.mask} />
 
             {
-                props?.header ?
+                props?.controlsHeaderMetadata ?
                     <View style={{
                         ...styles.floatingHeader,
                         top: styles.floatingHeader.top + insets?.top,
                         left: styles.floatingHeader.left + Math.max(insets.left, insets.right),
                     }}>
-                        { props?.header }
+                        { props?.controlsHeaderMetadata }
                     </View>
                 : null
             }

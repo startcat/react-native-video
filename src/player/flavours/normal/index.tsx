@@ -78,7 +78,7 @@ interface Props {
 
     // Components
     mosca?: React.ReactNode
-    header?: React.ReactNode;
+    controlsHeaderMetadata?: React.ReactNode;
 
     // Utils
     getTudumManifest?: () => IManifest | undefined;
@@ -556,7 +556,7 @@ export const NormalFlavour = (props: Props) => {
 
                         // Components
                         mosca={props.mosca}
-                        controlsHeader={props.header}
+                        controlsHeaderMetadata={props.controlsHeaderMetadata}
 
                         // Events
                         onPress={onControlsPress}

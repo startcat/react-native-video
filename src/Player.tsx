@@ -40,7 +40,7 @@ interface Props {
 
     // Components
     mosca?: React.ReactNode
-    header?: React.ReactNode;
+    controlsHeaderMetadata?: React.ReactNode;
 
     // Utils
     watchingProgressInterval?: number;
@@ -233,7 +233,7 @@ export const Player = (props: Props) => {
 
                 // Components
                 mosca={props.mosca}
-                header={props.header}
+                controlsHeaderMetadata={props.controlsHeaderMetadata}
 
                 // Utils
                 getYouboraOptions={props.getYouboraOptions}
@@ -272,7 +272,7 @@ export const Player = (props: Props) => {
 
                 // Components
                 mosca={props.mosca}
-                header={props.header}
+                controlsHeaderMetadata={props.controlsHeaderMetadata}
 
                 // Utils
                 getTudumManifest={props.getTudumManifest}
