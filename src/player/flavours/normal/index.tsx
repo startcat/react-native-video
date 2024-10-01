@@ -80,6 +80,8 @@ interface Props {
     header?: React.ReactNode;
 
     // Utils
+    watchingProgressInterval?: number;
+    addContentProgress?: (data: any, currentTime: number, duration: number) => null;
     getTudumManifest?: () => IManifest | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
@@ -326,6 +328,12 @@ export const NormalFlavour = (props: Props) => {
 
             } else if (typeof(e.duration) === 'number' && e.duration && duration !== e.duration){
                 setDuration(e.duration);
+
+                if (!props?.isLive && props?.onChangeCommonData){
+                    props.onChangeCommonData({
+                        duration: e.duration
+                    });
+                }
 
             }
 
