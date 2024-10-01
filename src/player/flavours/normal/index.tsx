@@ -245,6 +245,7 @@ export const NormalFlavour = (props: Props) => {
         
         } else if (id === CONTROL_ACTION.NEXT){
             if (props.onNext){
+                setIsContentLoaded(false);
                 props.onNext();
             }
 
