@@ -29,6 +29,7 @@ interface Props {
     youbora?: IYoubora;
     adTagUrl?: string;
     poster?: string;
+    startPosition?: number;
 
     playOffline?: boolean;
     isLive?: boolean;
@@ -70,7 +71,7 @@ interface Props {
 
 export const Player = (props: Props) => {
 
-    const currentTime = useRef<number>(0);
+    const currentTime = useRef<number>(props.startPosition || 0);
     const duration = useRef<number>(0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);

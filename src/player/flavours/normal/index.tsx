@@ -80,8 +80,6 @@ interface Props {
     header?: React.ReactNode;
 
     // Utils
-    watchingProgressInterval?: number;
-    addContentProgress?: (data: any, currentTime: number, duration: number) => null;
     getTudumManifest?: () => IManifest | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
