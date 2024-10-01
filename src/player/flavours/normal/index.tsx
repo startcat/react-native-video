@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { 
@@ -105,7 +105,6 @@ export const NormalFlavour = (props: Props) => {
     const videoSource = useRef<IVideoSource>();
     const isDVR = useRef<boolean>();
     const isHLS = useRef<boolean>();
-    const isLandscapePlayer = useRef<boolean>(true);
     const dvrWindowSeconds = useRef<number>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
@@ -163,21 +162,21 @@ export const NormalFlavour = (props: Props) => {
 
     }, [props.subtitleIndex]);
 
-    useEffect(() => {
+    const checkIfPlayerIsLandscape = (height, width, insets) => {
 
         // Calculamos una dimension del player
         const margins = Math.max(insets.left, insets.right);
         const playerAspectRatio = 16/9;
         const windowAspectRatio = (width - margins) / height;
 
-        if (windowAspectRatio >= playerAspectRatio){
-            isLandscapePlayer.current = true;
+        return (windowAspectRatio >= playerAspectRatio);
 
-        } else {
-            isLandscapePlayer.current = false;
-        }
+    }
 
-    }, [height, width]);
+    const isLandscapePlayer = useMemo(
+        () => checkIfPlayerIsLandscape(height, width, insets),
+        [height, width, insets]
+    );
 
     // Source Cooking
     const setPlayerSource = async () => {
@@ -471,7 +470,7 @@ export const NormalFlavour = (props: Props) => {
                             ref={refVideoPlayer}
                             style={[
                                 styles.player,
-                                (isLandscapePlayer.current) ? { height:'100%' } : { width:'100%' }
+                                (isLandscapePlayer) ? { height:'100%' } : { width:'100%' }
                             ]}
                             // @ts-ignore
                             source={videoSource.current}
