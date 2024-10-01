@@ -58,6 +58,7 @@ export interface IDrm {
 
 export interface ICommonData {
     time?: number;
+    duration?: number;
     volume?: number;
     muted?: boolean;
     audioIndex?: number;

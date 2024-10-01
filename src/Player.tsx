@@ -42,7 +42,8 @@ interface Props {
     header?: React.ReactNode;
 
     // Utils
-    getContentStartingPoint?: (id: number) => number;
+    watchingProgressInterval?: number;
+    addContentProgress?: (currentTime: number, duration: number, id?:number) => null;
     getTudumManifest?: () => IManifest | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
@@ -70,8 +71,10 @@ interface Props {
 export const Player = (props: Props) => {
 
     const currentTime = useRef<number>(0);
+    const duration = useRef<number>(0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
+    const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
 
     const [currentAudioIndex, setCurrentAudioIndex] = useState<number>();
     const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>();
@@ -104,9 +107,27 @@ export const Player = (props: Props) => {
         // También detenemos las posibles descargas para mejorar la calidad de reproducción
         stopDownloads();
 
+        // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
+        if (typeof(props.watchingProgressInterval) === 'number' && props.watchingProgressInterval > 0 && props.addContentProgress){
+            watchingProgressIntervalObj.current = setInterval(() => {
+
+                // Evitamos mandar el watching progress en directos y en Chromecast
+                if (!props.isLive && castState !== CastState.CONNECTING && castState !== CastState.CONNECTED){
+                    // @ts-ignore
+                    props.addContentProgress(currentTime.current, duration.current, props.id);
+                }
+
+            }, props.watchingProgressInterval);
+
+        }
+
         console.log(`[Player] Manifests ${JSON.stringify(props.manifests)}`);
     
         return () => {
+
+            if (watchingProgressIntervalObj.current){
+                clearInterval(watchingProgressIntervalObj.current);
+            }
 
             deactivateKeepAwake();
 
@@ -148,6 +169,10 @@ export const Player = (props: Props) => {
 
         if (data?.time){
             currentTime.current = data.time;
+        }
+
+        if (data?.duration){
+            duration.current = data.duration;
         }
 
         if (data?.muted !== undefined){
