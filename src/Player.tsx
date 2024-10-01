@@ -75,6 +75,7 @@ export const Player = (props: Props) => {
     const duration = useRef<number>(0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
+    const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
 
     const [currentAudioIndex, setCurrentAudioIndex] = useState<number>();
@@ -113,7 +114,7 @@ export const Player = (props: Props) => {
             watchingProgressIntervalObj.current = setInterval(() => {
 
                 // Evitamos mandar el watching progress en directos y en Chromecast
-                if (!props.isLive && castState !== CastState.CONNECTING && castState !== CastState.CONNECTED){
+                if (!props.isLive && !isCasting.current){
                     // @ts-ignore
                     props.addContentProgress(currentTime.current, duration.current, props.id);
                 }
@@ -197,6 +198,7 @@ export const Player = (props: Props) => {
 
     if (castState === CastState.CONNECTING || castState === CastState.CONNECTED){
         console.log(`[Player] Mounting CastFlavour...`);
+        isCasting.current = true;
         return (
             <CastFlavour
                 id={props.id}
@@ -233,6 +235,7 @@ export const Player = (props: Props) => {
 
     } else {
         console.log(`[Player] Mounting NormalFlavour...`);
+        isCasting.current = false;
         return (
             <NormalFlavour
                 id={props.id}
