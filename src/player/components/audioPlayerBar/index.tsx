@@ -12,7 +12,7 @@ import {
     type ICommonData
 } from '../../types';
 
-const PLAYER_HEIGHT = 80;
+const PLAYER_MAX_HEIGHT = 80;
 
 
 
@@ -24,7 +24,9 @@ const PLAYER_HEIGHT = 80;
 
 export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null {
 
-    const currentTime = useRef<number>(props.startPosition || 0);
+    const playerMaxHeight = useRef<number>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
+
+    const currentTime = useRef<number>(0);
     const duration = useRef<number>(0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
@@ -65,6 +67,10 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             // }
             
         });
+
+        setTimeout(() => {
+            showPlayer();
+        }, 5000);
 
         return (() => {
 
@@ -115,7 +121,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     // }, []);
 
     const showPlayer = () => {
-        audioPlayerHeight.value = withSpring(PLAYER_HEIGHT, {
+        audioPlayerHeight.value = withSpring(playerMaxHeight.current, {
             duration: 800
         });
     }
@@ -156,30 +162,36 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     return (
         <Animated.View style={{
             ...styles.container,
-            height:audioPlayerHeight
+            height:audioPlayerHeight,
+            backgroundColor: props.backgroundColor || styles.container.backgroundColor
         }}>
             
-            <View style={styles.audioPlayerTopDivider} />
+            <View style={{
+                ...styles.audioPlayerTopDivider,
+                backgroundColor: props.backgroundColor || styles.audioPlayerTopDivider.backgroundColor
+            }} />
+
+
 
             {
                 false ?
                     <AudioFlavour
-                        id={props.id}
-                        title={props.title}
-                        subtitle={props.subtitle}
-                        description={props.description}
-                        languagesMapping={props.languagesMapping}
+                        // id={props.id}
+                        // title={props.title}
+                        // subtitle={props.subtitle}
+                        // description={props.description}
+                        // languagesMapping={props.languagesMapping}
 
-                        manifests={props.manifests}
-                        poster={props.poster}
-                        youbora={props.youbora}
-                        hasNext={props.hasNext}
+                        // manifests={props.manifests}
+                        // poster={props.poster}
+                        // youbora={props.youbora}
+                        // hasNext={props.hasNext}
 
-                        playOffline={props.playOffline}
-                        isLive={props.isLive}
-                        liveStartDate={props.liveStartDate}
+                        // playOffline={props.playOffline}
+                        // isLive={props.isLive}
+                        // liveStartDate={props.liveStartDate}
 
-                        currentTime={currentTime.current}
+                        // currentTime={currentTime.current}
 
                         // Components
                         // mosca={props.mosca}
