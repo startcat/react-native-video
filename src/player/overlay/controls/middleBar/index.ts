@@ -1,5 +1,3 @@
-import { MiddleBar } from './wrapper';
-
 export {
-    MiddleBar
-};
+    ControlsMiddleBar
+} from './wrapper';

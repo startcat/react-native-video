@@ -1,21 +1,16 @@
-import {
-    VODSlider, 
-    DVRSlider,
-    ThumbnailsContainer,
-    Timeline,
-} from './timeline';
-
 import * as Buttons from './buttons';
-
-import {
-    Controls
-} from './wrapper';
 
 export {
     VODSlider, 
     DVRSlider,
     ThumbnailsContainer,
     Timeline,
-    Controls,
+} from './timeline';
+
+export {
+    Controls
+} from './wrapper';
+
+export {
     Buttons
 };

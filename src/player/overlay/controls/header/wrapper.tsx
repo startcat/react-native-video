@@ -16,7 +16,7 @@ interface Props {
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
-export const HeaderBar = (props: Props) => {
+export function ControlsHeaderBar (props: Props): React.ReactElement {
 
     const [isPreloading, setIsPreloading] = useState<boolean>(!!props?.preloading);
 

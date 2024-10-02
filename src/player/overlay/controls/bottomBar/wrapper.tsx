@@ -19,7 +19,7 @@ interface Props {
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
-export const BottomBar = (props: Props) => {
+export function ControlsBottomBar (props: Props): React.ReactElement {
 
     const [title, setTitle] = useState<string | undefined>(props?.title);
     const [isMuted, setIsMuted] = useState<boolean>(!!props?.muted);

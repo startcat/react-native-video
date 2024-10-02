@@ -1,3 +1,1 @@
-import { SettingsMenu } from './wrapper';
-
-export { SettingsMenu };
+export { SettingsMenu } from './wrapper';

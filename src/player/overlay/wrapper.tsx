@@ -1,57 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Pressable } from 'react-native';
 import { Controls } from './controls';
-import { Mosca } from './mosca';
 import { Menu } from './menu';
 import { SettingsMenu } from './settingsMenu';
 import { SkipButtons } from './skip';
 import { 
-    IThumbnailMetadata, 
-    IPlayerMenuData,
+    type OverlayProps,
     CONTROL_ACTION 
 } from '../types';
 import { styles } from './styles';
 
-interface Props {
-    title?:string;
-    currentTime?: number;
-    dvrTimeValue?: number;
-    duration?: number;
-    paused?: boolean;
-    muted?: boolean;
-    volume?: number;
-    preloading?: boolean;
-    hasNext?: boolean;
-    thumbnailsMetadata?: IThumbnailMetadata;
-    
-    alwaysVisible?: boolean;
-    
-    isLive?: boolean;
-    isDVR?: boolean;
-    isContentLoaded?: boolean;
-    
-    menuData?: Array<IPlayerMenuData>;
-    videoIndex?: number;
-    audioIndex?: number;
-    subtitleIndex?: number;
-    speedRate?: number;
-
-    // Components
-    mosca?: React.ReactElement | React.ReactNode
-    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
-    sliderVOD?: React.ReactElement;
-    sliderDVR?: React.ReactElement;
-
-    // Events
-    onPress?: (id: CONTROL_ACTION, value?:any) => void;
-    onSlidingStart?: (value: number) => void;
-    onSlidingMove?: (value: number) => void;
-    onSlidingComplete?: (value: number) => void;
-}
-
 const PLAYER_HIDE_CONTROLS = 5000;
 
-export const Overlay = (props: Props) => {
+export function Overlay (props: OverlayProps): React.ReactElement {
 
     const [avoidDissapear, setAvoidDissapear] = useState<boolean>(!!props.alwaysVisible);
     const [visibleControls, setVisibleControls] = useState<boolean>(!!props.alwaysVisible);
@@ -239,6 +200,11 @@ export const Overlay = (props: Props) => {
                         isContentLoaded={props?.isContentLoaded}
                         hasNext={props?.hasNext}
 
+                        // Components
+                        sliderVOD={props.sliderVOD}
+                        sliderDVR={props.sliderDVR}
+
+                        // Events
                         onPress={onPress}
                         onSlidingStart={onSlidingStart}
                         onSlidingMove={onSlidingMove}

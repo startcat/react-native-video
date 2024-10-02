@@ -11,7 +11,7 @@ type Props = {
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
-export const MiddleBar = (props: Props) => {
+export function ControlsMiddleBar (props: Props): React.ReactElement {
 
     const [isPaused, setIsPaused] = useState<boolean>(!!props?.paused);
 

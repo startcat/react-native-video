@@ -1,5 +1,3 @@
-import { HeaderBar } from './wrapper';
-
 export {
-    HeaderBar
-};
+    ControlsHeaderBar
+} from './wrapper';

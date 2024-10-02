@@ -1,4 +1,4 @@
-import {
+export {
     VODSlider, 
     DVRSlider,
     ThumbnailsContainer,
@@ -7,31 +7,18 @@ import {
     Buttons
 } from './controls';
 
-import {
+export {
     Menu
 } from './menu';
 
-import {
+export {
     SettingsMenu
 } from './settingsMenu';
 
-import {
-    Mosca
-} from './mosca';
-
-import {
+export {
     Overlay
 } from './wrapper';
 
 export {
-    VODSlider, 
-    DVRSlider,
-    ThumbnailsContainer,
-    Timeline,
-    Controls,
-    Buttons,
-    Overlay,
-    Menu,
-    SettingsMenu,
-    Mosca
-};
+    SkipButtons
+} from './skip';

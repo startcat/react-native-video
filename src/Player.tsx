@@ -10,55 +10,9 @@ import { NormalFlavour, CastFlavour } from './player/flavours';
 import { default as Downloads } from './Downloads';
 
 import { 
-    type ICommonData,
-    type IManifest,
-    type ILanguagesMapping,
-    type IYoubora,
-    type IYouboraSettingsFormat,
-    type IMappedYoubora,
+    type PlayerProps,
+    type ICommonData
 } from './player/types';
-
-interface Props {
-    id?:number,
-    title?:string;
-    subtitle?:string;
-    description?:string;
-    manifests?:Array<IManifest>,
-    showExternalTudum?:boolean;
-
-    youbora?: IYoubora;
-    adTagUrl?: string;
-    poster?: string;
-    startPosition?: number;
-
-    playOffline?: boolean;
-    isLive?: boolean;
-    liveStartDate?:string;
-    hasNext?: boolean;
-
-    languagesMapping?:ILanguagesMapping;
-
-    // Components
-    mosca?: React.ReactElement | React.ReactNode
-    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
-    sliderVOD?: React.ReactElement;
-    sliderDVR?: React.ReactElement;
-
-    // Utils
-    watchingProgressInterval?: number;
-    addContentProgress?: (currentTime: number, duration: number, id?:number) => null;
-    getTudumManifest?: () => IManifest | undefined;
-    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
-
-    // Events
-    onError?: () => void;
-    onNext?: () => void;
-    onProgress?: (value: number) => void;
-    onExit?: () => void;
-    onEnd?: () => void;
-    onChangeAudioIndex?: (index: number, label?: string) => void;
-    onChangeSubtitleIndex?: (index: number, label?: string) => void;
-}
 
 
 
@@ -71,7 +25,7 @@ interface Props {
  *
  */
 
-export const Player = (props: Props) => {
+export function Player (props: PlayerProps): React.ReactElement | null {
 
     const currentTime = useRef<number>(props.startPosition || 0);
     const duration = useRef<number>(0);

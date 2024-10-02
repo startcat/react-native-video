@@ -6,24 +6,14 @@ import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { i18n } from '../../locales';
 import { MenuItem } from './item';
 import { 
-    IPlayerMenuData,
+    type MenuProps,
     CONTROL_ACTION 
 } from '../../types';
 import { styles } from './styles';
 
-interface Props {
-    menuData?: Array<IPlayerMenuData>;
-    videoIndex?: number;
-    audioIndex?: number;
-    subtitleIndex?: number;
-
-    onPress?: (id: CONTROL_ACTION, value?:any) => void;
-    onClose?: () => void;
-}
-
 const ANIMATION_SPEED = 150;
 
-export const Menu = (props: Props) => {
+export function Menu (props: MenuProps): React.ReactElement {
 
     const insets = useSafeAreaInsets();
     const [selectedVideoIndex, setSelectedVideoIndex] = useState<number>(props.videoIndex || 0);

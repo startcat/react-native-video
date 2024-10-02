@@ -1,3 +1,1 @@
-import { Menu } from './wrapper';
-
-export { Menu };
+export { Menu } from './wrapper';

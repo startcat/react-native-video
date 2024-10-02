@@ -3,21 +3,16 @@ import { Platform, View } from 'react-native';
 import { throttle } from 'lodash';
 import { TimelineText } from '../../texts';
 import Slider from '@react-native-community/slider';
+import {
+    type SliderVODProps
+} from '../../../../../types';
 
 import { COLOR } from '../../../../../theme';
 import { styles } from './styles';
 
 const PLAYER_SLIDER_THROTTLE = 50;
 
-type Props = {
-    currentTime?: number;
-    duration?: number;
-    onSlidingStart?: (value: number) => void;
-    onSlidingMove?: (value: number) => void;
-    onSlidingComplete?: (value: number) => void;
-}
-
-export const VODSlider = (props: Props) => {
+export const VODSlider = (props: SliderVODProps): React.ReactElement | null => {
 
     const [currentTime, setCurrentTime] = useState<number | undefined>(props?.currentTime);
     const [duration, setDuration] = useState<number | undefined>(props?.duration);

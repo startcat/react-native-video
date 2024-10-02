@@ -1,49 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { HeaderBar } from './header';
-import { MiddleBar } from './middleBar';
+import { ControlsHeaderBar } from './header';
+import { ControlsMiddleBar } from './middleBar';
 import { Timeline } from './timeline';
-import { BottomBar } from './bottomBar';
+import { ControlsBottomBar } from './bottomBar';
 import { 
-    type IThumbnailMetadata,
+    type ControlsProps,
     CONTROL_ACTION 
 } from '../../types';
 import { styles } from './styles';
 
-interface Props {
-    title?:string;
-    currentTime?: number;
-    dvrTimeValue?: number;
-    duration?: number;
-    paused?: boolean;
-    muted?: boolean;
-    volume?: number;
-    preloading?: boolean;
-    hasNext?: boolean;
-    thumbnailsMetadata?: IThumbnailMetadata;
-    isLive?: boolean;
-    isDVR?: boolean;
-    isContentLoaded?: boolean;
-
-    // Components
-    mosca?: React.ReactElement | React.ReactNode
-    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
-    sliderVOD?: React.ReactElement;
-    sliderDVR?: React.ReactElement;
-
-    onPress?: (id: CONTROL_ACTION, value?:any) => void;
-    onSlidingStart?: (value: number) => void;
-    onSlidingMove?: (value: number) => void;
-    onSlidingComplete?: (value: number) => void;
-}
-
 const ANIMATION_SPEED = 150;
 
-export const Controls = (props: Props) => {
+export function Controls (props: ControlsProps): React.ReactElement {
 
-    const [avoidThumbnails, setAvoidThumbnails] = useState<boolean>(false);
     const insets = useSafeAreaInsets();
 
     const onPress = (id: CONTROL_ACTION, value?:any) => {
@@ -75,13 +47,13 @@ export const Controls = (props: Props) => {
                 : null
             }
 
-            <MiddleBar
+            <ControlsMiddleBar
                 paused={props?.paused}
                 isContentLoaded={props?.isContentLoaded}
                 onPress={onPress}
             />
 
-            <HeaderBar 
+            <ControlsHeaderBar 
                 preloading={props?.preloading}
                 isContentLoaded={props?.isContentLoaded}
                 onPress={onPress}
@@ -94,7 +66,7 @@ export const Controls = (props: Props) => {
                 right: styles.bottom.right + Math.max(insets.left, insets.right)
             }}>
 
-                <BottomBar 
+                <ControlsBottomBar 
                     currentTime={props?.currentTime}
                     duration={props?.duration}
                     dvrTimeValue={props?.dvrTimeValue}
@@ -115,7 +87,12 @@ export const Controls = (props: Props) => {
                     isLive={props?.isLive}
                     isDVR={props?.isDVR}
                     thumbnailsMetadata={props?.thumbnailsMetadata}
-                    avoidThumbnails={avoidThumbnails}
+
+                    // Components
+                    sliderVOD={props.sliderVOD}
+                    sliderDVR={props.sliderDVR}
+
+                    // Events
                     onSlidingStart={props?.onSlidingStart}
                     onSlidingMove={props?.onSlidingMove}
                     onSlidingComplete={props?.onSlidingComplete}
