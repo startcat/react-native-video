@@ -78,8 +78,10 @@ interface Props {
     languagesMapping?:ILanguagesMapping;
 
     // Components
-    mosca?: React.ReactNode
-    controlsHeaderMetadata?: React.ReactNode;
+    mosca?: React.ReactElement | React.ReactNode
+    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
+    sliderVOD?: React.ReactElement;
+    sliderDVR?: React.ReactElement;
 
     // Utils
     getTudumManifest?: () => IManifest | undefined;

@@ -27,7 +27,11 @@ interface Props {
     isDVR?: boolean;
     isContentLoaded?: boolean;
 
-    controlsHeaderMetadata?: React.ReactNode;
+    // Components
+    mosca?: React.ReactElement | React.ReactNode
+    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
+    sliderVOD?: React.ReactElement;
+    sliderDVR?: React.ReactElement;
 
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onSlidingStart?: (value: number) => void;
