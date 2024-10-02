@@ -18,6 +18,7 @@ export const styles = StyleSheet.create({
         backgroundColor:'black'
     },
     audioPlayer:{
-        
-    }
+        position:'absolute',
+        bottom:-1000
+    },
 });

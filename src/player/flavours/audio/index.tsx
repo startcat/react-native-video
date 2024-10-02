@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
+import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
     type OnProgressData,
@@ -43,6 +44,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
     const isAirplayConnected = useAirplayConnectivity();
     const insets = useSafeAreaInsets();
+    const audioPlayerHeight = useSharedValue(0);
 
     const currentManifest = useRef<IManifest>();
     const youboraForVideo = useRef<IMappedYoubora>();
@@ -168,8 +170,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onLoad = async (e: OnLoadData) => {
 
-        let hlsQualities;
-
         console.log(`[Player] (Audio Flavour) onLoad ${JSON.stringify(e)}`);
 
         if (!isContentLoaded){
@@ -269,7 +269,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     // }
 
     return (
-        <View style={styles.container}>
+        <Animated.View style={{
+            ...styles.container,
+            height:audioPlayerHeight
+        }}>
 
             {
                 videoSource.current ?
@@ -362,7 +365,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 : null
             } */}
 
-        </View>
+        </Animated.View>
     );
 
 };
