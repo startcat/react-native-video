@@ -186,6 +186,27 @@ export const CastFlavour = (props: Props) => {
             changeActiveTracks(castClient, menuData, audioIndex, subtitleIndex);
         }
 
+        if (menuData && props.onChangeCommonData){
+            // Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
+
+            let data:ICommonData = {};
+
+            if (typeof(audioIndex) === 'number'){
+                data.audioIndex = audioIndex;
+                data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioIndex)?.label;
+            }
+
+            if (typeof(subtitleIndex) === 'number'){
+                data.subtitleIndex = subtitleIndex;
+                data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === subtitleIndex)?.label;
+            }
+        
+            if (data){
+                props.onChangeCommonData(data);
+            }
+
+        }
+
     }, [menuData]);
 
     useEffect(() => {

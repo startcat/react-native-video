@@ -163,6 +163,31 @@ export const NormalFlavour = (props: Props) => {
 
     }, [props.subtitleIndex]);
 
+    useEffect(() => {
+
+        if (menuData && props.onChangeCommonData){
+            // Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
+
+            let data:ICommonData = {};
+
+            if (typeof(selectedAudioTrack?.value) === 'number'){
+                data.audioIndex = selectedAudioTrack?.value;
+                data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === data.audioIndex)?.label;
+            }
+
+            if (typeof(selectedTextTrack?.value) === 'number'){
+                data.subtitleIndex = selectedTextTrack?.value;
+                data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === data.subtitleIndex)?.label;
+            }
+        
+            if (data){
+                props.onChangeCommonData(data);
+            }
+
+        }
+
+    }, [menuData]);
+
     const checkIfPlayerIsLandscape = (height: number, width: number, insets: EdgeInsets): boolean => {
 
         // Calculamos una dimension del player
