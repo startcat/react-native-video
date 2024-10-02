@@ -4,23 +4,17 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Text } from '@ui-kitten/components';
 import { i18n } from '../../../../locales';
 import { styles } from './styles';
-import { CONTROL_ACTION } from '../../../../types';
-
-interface ButtonProps {
-    currentTime?: number;
-    duration?: number;
-    dvrTimeValue?: number;
-    isDVR?: boolean;
-    disabled?: boolean;
-    onPress?: (id: CONTROL_ACTION, value?: any) => void;
-}
+import { 
+    type LiveButtonProps,
+    CONTROL_ACTION 
+} from '../../../../types';
 
 const HAPTIC_OPTIONS = {
     enableVibrateFallback: true,
     ignoreAndroidSystemSettings: true
 };
 
-export const LiveButton = (props: ButtonProps) => {
+export function LiveButton (props: LiveButtonProps): React.ReactElement {
 
     const [isBehindLive, setIsBehindLive] = useState<boolean>();
 
@@ -57,7 +51,7 @@ export const LiveButton = (props: ButtonProps) => {
                 onPress={onPress} 
                 accessible={true} 
                 accessibilityRole='button' 
-                accessibilityLabel={i18n.t('goToLive')}
+                accessibilityLabel={props?.accessibilityLabel || i18n.t('goToLive')}
                 pressRetentionOffset={5}
                 disabled={props.disabled}
             >

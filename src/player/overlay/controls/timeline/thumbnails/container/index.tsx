@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { LayoutChangeEvent } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { ThumbnailCell } from '../cell';
-import { IThumbnailMetadata } from '../../../../../types';
+import { 
+    type ThumbnailsContainerProps 
+} from '../../../../../types';
 import { styles } from './styles';
 
 type InnerViewProps = {
@@ -13,15 +15,10 @@ type InnerViewProps = {
     cellWidth: number;
     offset?: number;
 }
-type Props = {
-    seconds: number | undefined;
-    metadata: IThumbnailMetadata;
-    style?: any;
-}
 
 const ANIMATION_SPEED = 150;
 
-export const ThumbnailsContainer = (props: Props) => {
+export function ThumbnailsContainer (props: ThumbnailsContainerProps): React.ReactElement {
 
     const [mainSecondsPoint, setMainSecondsPoint] = useState<number | undefined>(props?.seconds);
     const [secondsArray, setSecondsArray] = useState<Array<number>>([]);
@@ -41,7 +38,7 @@ export const ThumbnailsContainer = (props: Props) => {
 
         if (viewProps?.sideNumberOfCells && viewProps?.sideNumberOfCells > 0 && props?.metadata?.thumbnailDuration && typeof(mainSecondsPoint) === 'number'){
 
-            let secondsArr = [];
+            let secondsArr:Array<number> = [];
 
             // 1 image every 10 seconds (thumbnail_duration)
 

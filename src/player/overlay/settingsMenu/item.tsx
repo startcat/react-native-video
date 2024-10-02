@@ -3,18 +3,12 @@ import { TouchableOpacity } from 'react-native';
 import { Text, Icon } from '@ui-kitten/components';
 import { i18n } from '../../locales';
 import { 
-    IPlayerMenuData,
+    type MenuItemProps,
     CONTROL_ACTION
 } from '../../types';
 import { styles } from './styles';
 
-interface Props {
-    data: IPlayerMenuData;
-    selected?: boolean;
-    onPress?: (id: CONTROL_ACTION, value?:any) => void;
-}
-
-export const SettingsMenuItem = (props: Props) => {
+export function SettingsMenuItem (props: MenuItemProps): React.ReactElement {
 
     const accessibilityLabel = useRef<string>();
     const controlActionId = useRef<CONTROL_ACTION>(CONTROL_ACTION.VIDEO_INDEX);

@@ -1,5 +1,3 @@
-import { BottomBar } from './wrapper';
-
 export {
-    BottomBar
-};
+    ControlsBottomBar
+} from './wrapper';

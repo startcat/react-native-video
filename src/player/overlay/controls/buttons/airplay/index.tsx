@@ -2,14 +2,12 @@ import React from 'react';
 import { SmallButton } from '../smallButton';
 import { AirplayButton as NativeAirplayButton, showRoutePicker } from 'react-airplay';
 import { COLOR } from '../../../../theme';
-import { CONTROL_ACTION } from '../../../../types';
+import { 
+    type ButtonProps,
+    CONTROL_ACTION
+} from '../../../../types';
 
-interface ButtonProps {
-    disabled?: boolean;
-    onPress?: (id: CONTROL_ACTION) => void;
-}
-
-export const AirplayButton = (props: ButtonProps) => {
+export function AirplayButton (props: ButtonProps): React.ReactElement {
 
     const id = CONTROL_ACTION.AIRPLAY;
     
@@ -22,7 +20,7 @@ export const AirplayButton = (props: ButtonProps) => {
         <SmallButton 
             id={id}
             onPress={onPress} 
-            accessibilityLabel={'Airplay'}
+            accessibilityLabel={props?.accessibilityLabel || 'Airplay'}
             disabled={props.disabled}
         >
             <NativeAirplayButton

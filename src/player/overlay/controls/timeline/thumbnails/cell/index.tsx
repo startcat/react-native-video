@@ -4,20 +4,15 @@ import { View } from 'react-native';
 import { Text } from '@ui-kitten/components';
 
 import { parseToCounter } from '../../../../../utils/time';
-import { IThumbnailMetadata, IThumbnail } from '../../../../../types';
+
+import { 
+    type ThumbnailCellProps, 
+    type IThumbnail 
+} from '../../../../../types';
+
 import { styles } from './styles';
 
-
-type Props = {
-    seconds: number;
-    index?: number;
-    active?: boolean;
-    metadata: IThumbnailMetadata;
-    cell_width?: number;
-    offset?: number;
-}
-
-export const ThumbnailCell = (props: Props) => {
+export function ThumbnailCell (props: ThumbnailCellProps): React.ReactElement {
 
     const [seconds, setSeconds] = useState<number>(props.seconds);
     const [isActive, setIsActive] = useState<boolean>(!!props?.active);

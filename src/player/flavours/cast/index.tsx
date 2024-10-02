@@ -27,59 +27,18 @@ import {
 import { styles } from '../styles';
 
 import { 
+    type CastFlavourProps,
     type IManifest, 
     type IMappedYoubora,
-    type IYouboraSettingsFormat,
     type IDrm,
     type ICommonData,
     type IPlayerMenuData,
-    type ILanguagesMapping,
-    type IYoubora,
     CONTROL_ACTION,
     YOUBORA_FORMAT,
     PLAYER_MENU_DATA_TYPE
 } from '../../types';
 
-interface Props {
-    id?:number;
-    title?:string;
-    subtitle?:string;
-    description?:string;
-    liveStartDate?:string;
-
-    manifests?:Array<IManifest>,
-    youbora?: IYoubora;
-    adTagUrl?: string;
-    poster?: string;
-
-    isLive?: boolean;
-    hasNext?: boolean;
-
-    muted?: boolean;
-    volume?: number;
-
-    currentTime?: number;
-    audioIndex?: number;
-    subtitleIndex?: number;
-    languagesMapping?:ILanguagesMapping;
-
-    // Components
-    mosca?: React.ReactElement | React.ReactNode
-    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
-    sliderVOD?: React.ReactElement;
-    sliderDVR?: React.ReactElement;
-
-    // Utils
-    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
-
-    // Events
-    onChangeCommonData?: (data: ICommonData) => void;
-    onPress?: (id: CONTROL_ACTION, value?:any) => void;
-    onNext?: () => void;
-    onClose?: () => void;
-}
-
-export const CastFlavour = (props: Props) => {
+export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
     const castState = useCastState();
@@ -485,6 +444,8 @@ export const CastFlavour = (props: Props) => {
                 // Components
                 mosca={props.mosca}
                 controlsHeaderMetadata={props.controlsHeaderMetadata}
+                sliderVOD={props.sliderVOD}
+                sliderDVR={props.sliderDVR}
 
                 // Events
                 onPress={onControlsPress}

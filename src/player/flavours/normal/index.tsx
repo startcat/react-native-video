@@ -37,64 +37,20 @@ import {
 import { styles } from '../styles';
 
 import { 
+    type NormalFlavourProps,
     type IManifest, 
     type IMappedYoubora, 
     type IDrm,
     type IVideoSource,
     type ICommonData,
     type IPlayerMenuData,
-    type ILanguagesMapping,
-    type IYouboraSettingsFormat,
-    type IYoubora,
     CONTROL_ACTION,
     STREAM_FORMAT_TYPE,
     YOUBORA_FORMAT,
     PLAYER_MENU_DATA_TYPE
 } from '../../types';
 
-interface Props {
-    id?:number;
-    title?:string;
-    subtitle?:string;
-    description?:string;
-    liveStartDate?:string;
-
-    manifests?:Array<IManifest>,
-    showExternalTudum?: boolean;
-    youbora?: IYoubora;
-    adTagUrl?: string;
-    poster?: string;
-
-    playOffline?: boolean;
-    isLive?: boolean;
-    hasNext?: boolean;
-
-    muted?: boolean;
-    volume?: number;
-
-    currentTime?: number;
-    audioIndex?: number;
-    subtitleIndex?: number;
-    languagesMapping?:ILanguagesMapping;
-
-    // Components
-    mosca?: React.ReactElement | React.ReactNode
-    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
-    sliderVOD?: React.ReactElement;
-    sliderDVR?: React.ReactElement;
-
-    // Utils
-    getTudumManifest?: () => IManifest | undefined;
-    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
-
-    // Events
-    onChangeCommonData?: (data: ICommonData) => void;
-    onPress?: (id: CONTROL_ACTION, value?:any) => void;
-    onNext?: () => void;
-    onClose?: () => void;
-}
-
-export const NormalFlavour = (props: Props) => {
+export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const [isPlayingAd, setIsPlayingAd] = useState<boolean>(false);
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
@@ -594,6 +550,8 @@ export const NormalFlavour = (props: Props) => {
                         // Components
                         mosca={props.mosca}
                         controlsHeaderMetadata={props.controlsHeaderMetadata}
+                        sliderVOD={props.sliderVOD}
+                        sliderDVR={props.sliderDVR}
 
                         // Events
                         onPress={onControlsPress}

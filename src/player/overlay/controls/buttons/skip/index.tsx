@@ -3,21 +3,17 @@ import { TouchableOpacity } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Text } from '@ui-kitten/components';
 import { styles } from './styles';
-import { CONTROL_ACTION } from '../../../../types';
-
-interface ButtonProps {
-    id: CONTROL_ACTION.SKIP_INTRO | CONTROL_ACTION.SKIP_CREDITS;
-    currentTime?: number;
-    disabled?: boolean;
-    onPress?: (id: CONTROL_ACTION, value?: any) => void;
-}
+import { 
+    type SkipButtonProps,
+    CONTROL_ACTION
+} from '../../../../types';
 
 const HAPTIC_OPTIONS = {
     enableVibrateFallback: true,
     ignoreAndroidSystemSettings: true
 };
 
-export const SkipButton = (props: ButtonProps) => {
+export function SkipButton (props: SkipButtonProps): React.ReactElement {
 
     const [isBehindLive, setIsBehindLive] = useState<boolean>(false);
     const [title, setTitle] = useState<string>('');
@@ -50,6 +46,7 @@ export const SkipButton = (props: ButtonProps) => {
             onPress={onPress} 
             accessible={true} 
             accessibilityRole='button' 
+            accessibilityLabel={props?.accessibilityLabel}
             pressRetentionOffset={5}
             disabled={props.disabled}
         >

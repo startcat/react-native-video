@@ -4,21 +4,16 @@ import { throttle } from 'lodash';
 import { TimelineText } from '../../texts';
 import Slider from '@react-native-community/slider';
 import { parseToCounter } from '../../../../../utils/time';
+import {
+    type SliderDVRProps
+} from '../../../../../types';
 
 import { COLOR } from '../../../../../theme';
 import { styles } from './styles';
 
 const PLAYER_SLIDER_THROTTLE = 50;
 
-type Props = {
-    value?: number;
-    liveLoadTime?: number;
-    onSlidingStart?: (value: number) => void;
-    onSlidingMove?: (value: number) => void;
-    onSlidingComplete?: (value: number) => void;
-}
-
-export const DVRSlider = (props: Props) => {
+export function DVRSlider (props: SliderDVRProps): React.ReactElement | null {
 
     const [value, setValue] = useState<number | undefined>(props?.value);
     const [liveLoadTime, setLiveLoadTime] = useState<number | undefined>(props?.liveLoadTime);

@@ -2,16 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { styles } from './styles';
-
 import { parseToCounter } from '../../../../utils/time';
+import {
+    type TimelineTextProps
+} from '../../../../types';
 
-type Props = {
-    value?: number | string;
-    align?: 'center' | 'left' | 'right';
-    style?: any;
-}
-
-export const TimelineText = (props: Props) => {
+export function TimelineText (props: TimelineTextProps): React.ReactElement | null {
 
     const [value, setValue] = useState<number | string | undefined>(props?.value);
 

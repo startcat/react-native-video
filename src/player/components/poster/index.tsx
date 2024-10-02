@@ -1,13 +1,11 @@
 import React from 'react';
 import { View, Image } from 'react-native';
+import {
+    type BackgroundPosterProps
+} from '../../types';
 import { styles } from './styles';
 
-interface Props {
-    poster?: string;
-    children?: React.ReactNode | undefined;
-}
-
-export const BackgroundPoster = (props: Props) => {
+export function BackgroundPoster (props: BackgroundPosterProps): React.ReactElement {
 
     return (
         <View style={styles.container}>

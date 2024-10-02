@@ -1,14 +1,12 @@
 import React from 'react';
 import { SmallButton } from '../smallButton';
 import { CastButton as NativeCastButton, CastContext, CastState, useCastState } from 'react-native-google-cast';
-import { CONTROL_ACTION } from '../../../../types';
+import { 
+    type ButtonProps,
+    CONTROL_ACTION
+} from '../../../../types';
 
-interface ButtonProps {
-    disabled?: boolean;
-    onPress?: (id: CONTROL_ACTION) => void;
-}
-
-export const CastButton = (props: ButtonProps) => {
+export function CastButton(props: ButtonProps): React.ReactElement | null {
     
     const id = CONTROL_ACTION.CAST;
     const castState = useCastState();
@@ -38,7 +36,7 @@ export const CastButton = (props: ButtonProps) => {
             <SmallButton 
                 id={id}
                 onPress={onPress} 
-                accessibilityLabel={'Chromecast'}
+                accessibilityLabel={props?.accessibilityLabel || 'Chromecast'}
                 disabled={props.disabled}
             >
                 <NativeCastButton tintColor='white' style={{width: 22, height: 22, tintColor:'white'}}/>

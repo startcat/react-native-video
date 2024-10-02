@@ -3,24 +3,16 @@ import { TouchableOpacity } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Icon } from '@ui-kitten/components';
 import { styles } from './styles';
-import { CONTROL_ACTION } from '../../../../types';
-
-interface ButtonProps {
-    id: CONTROL_ACTION;
-    iconName?: string;
-    value?: boolean | number;
-    accessibilityLabel?: string;
-    disabled?: boolean;
-    children?: React.ReactNode | undefined;
-    onPress?: (id: CONTROL_ACTION, value?: any) => void;
-}
+import { 
+    type ButtonProps
+} from '../../../../types';
 
 const HAPTIC_OPTIONS = {
     enableVibrateFallback: true,
     ignoreAndroidSystemSettings: true
 };
 
-export const MediumButton = (props: ButtonProps) => {
+export function MediumButton (props: ButtonProps): React.ReactElement {
 
     const [iconName, setIconName] = useState<string | undefined>(props?.iconName);
 
