@@ -198,6 +198,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 // Components
                 mosca={props.mosca}
                 controlsHeaderMetadata={props.controlsHeaderMetadata}
+                sliderVOD={props.sliderVOD}
+                sliderDVR={props.sliderDVR}
 
                 // Utils
                 getYouboraOptions={props.getYouboraOptions}
@@ -237,6 +239,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 // Components
                 mosca={props.mosca}
                 controlsHeaderMetadata={props.controlsHeaderMetadata}
+                sliderVOD={props.sliderVOD}
+                sliderDVR={props.sliderDVR}
 
                 // Utils
                 getTudumManifest={props.getTudumManifest}

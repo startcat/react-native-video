@@ -403,7 +403,7 @@ export interface NormalFlavourProps {
     sliderDVR?: FunctionComponent<SliderDVRProps>;
 
     // Utils
-    getTudumManifest?: () => IManifest;
+    getTudumManifest?: () => IManifest | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
