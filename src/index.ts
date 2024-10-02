@@ -1,5 +1,6 @@
 import Video from './Video';
 export { Player } from './Player';
+export { AudioPlayer } from './player/components/audioPlayerBar';
 export * from './player/components';
 export * from './player/overlay';
 export * from './player/utils';
