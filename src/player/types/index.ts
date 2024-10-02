@@ -528,22 +528,9 @@ export interface PlayerProps {
 }
 
 export interface AudioPlayerProps {
-    id?:number,
-    title?:string;
-    subtitle?:string;
-    description?:string;
-    manifests?:Array<IManifest>,
-
-    youbora?: IYoubora;
-    poster?: string;
-    startPosition?: number;
-
-    playOffline?: boolean;
-    isLive?: boolean;
-    liveStartDate?:string;
-    hasNext?: boolean;
-
-    languagesMapping?:ILanguagesMapping;
+    playerMaxHeight?: number;
+    backgroundColor?: string;
+    topDividerColor?: string;
 
     // Components
 
