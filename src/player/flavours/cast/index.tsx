@@ -189,17 +189,23 @@ export const CastFlavour = (props: Props) => {
         if (menuData && props.onChangeCommonData){
             // Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
 
-            let data:ICommonData = {};
+            let data:ICommonData = {},
+                audioDefaultIndex = 0,
+                textDefaultIndex = -1;
 
             if (typeof(audioIndex) === 'number'){
-                data.audioIndex = audioIndex;
-                data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioIndex)?.label;
+                audioDefaultIndex = audioIndex;
             }
 
             if (typeof(subtitleIndex) === 'number'){
-                data.subtitleIndex = subtitleIndex;
-                data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === subtitleIndex)?.label;
+                textDefaultIndex = subtitleIndex;
             }
+
+            data.audioIndex = audioDefaultIndex;
+            data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioDefaultIndex)?.label;
+
+            data.subtitleIndex = textDefaultIndex;
+            data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex)?.label;
         
             if (data){
                 props.onChangeCommonData(data);

@@ -167,18 +167,25 @@ export const NormalFlavour = (props: Props) => {
 
         if (menuData && props.onChangeCommonData){
             // Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
+            // Lo necesitamos para pintar el idioma por encima del player con componentes externos
 
-            let data:ICommonData = {};
+            let data:ICommonData = {},
+                audioDefaultIndex = 0,
+                textDefaultIndex = -1;
 
             if (typeof(selectedAudioTrack?.value) === 'number'){
-                data.audioIndex = selectedAudioTrack?.value;
-                data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === data.audioIndex)?.label;
+                audioDefaultIndex = selectedAudioTrack?.value;
             }
 
             if (typeof(selectedTextTrack?.value) === 'number'){
-                data.subtitleIndex = selectedTextTrack?.value;
-                data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === data.subtitleIndex)?.label;
+                textDefaultIndex = selectedTextTrack?.value;
             }
+
+            data.audioIndex = audioDefaultIndex;
+            data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioDefaultIndex)?.label;
+
+            data.subtitleIndex = textDefaultIndex;
+            data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex)?.label;
         
             if (data){
                 props.onChangeCommonData(data);
