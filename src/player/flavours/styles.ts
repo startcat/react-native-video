@@ -16,5 +16,8 @@ export const styles = StyleSheet.create({
         alignSelf:'center',
         aspectRatio:16/9,
         backgroundColor:'black'
+    },
+    audioPlayer:{
+        
     }
 });

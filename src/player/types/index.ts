@@ -371,6 +371,39 @@ export interface OverlayProps {
     onSlidingComplete?: (value: number) => void;
 }
 
+export interface AudioFlavourProps {
+    id?:number;
+    title?:string;
+    subtitle?:string;
+    description?:string;
+    liveStartDate?:string;
+
+    manifests?:Array<IManifest>,
+    youbora?: IYoubora;
+    poster?: string;
+
+    playOffline?: boolean;
+    isLive?: boolean;
+    hasNext?: boolean;
+
+    muted?: boolean;
+    volume?: number;
+
+    currentTime?: number;
+    languagesMapping?:ILanguagesMapping;
+
+    // Components
+
+    // Utils
+    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+
+    // Events
+    onChangeCommonData?: (data: ICommonData) => void;
+    onPress?: (id: CONTROL_ACTION, value?:any) => void;
+    onNext?: () => void;
+    onClose?: () => void;
+}
+
 export interface NormalFlavourProps {
     id?:number;
     title?:string;
@@ -492,4 +525,38 @@ export interface PlayerProps {
     onEnd?: () => void;
     onChangeAudioIndex?: (index: number, label?: string) => void;
     onChangeSubtitleIndex?: (index: number, label?: string) => void;
+}
+
+export interface AudioPlayerProps {
+    id?:number,
+    title?:string;
+    subtitle?:string;
+    description?:string;
+    manifests?:Array<IManifest>,
+
+    youbora?: IYoubora;
+    poster?: string;
+    startPosition?: number;
+
+    playOffline?: boolean;
+    isLive?: boolean;
+    liveStartDate?:string;
+    hasNext?: boolean;
+
+    languagesMapping?:ILanguagesMapping;
+
+    // Components
+
+
+    // Utils
+    watchingProgressInterval?: number;
+    addContentProgress?: (currentTime: number, duration: number, id?:number) => null;
+    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+
+    // Events
+    onError?: () => void;
+    onNext?: () => void;
+    onProgress?: (value: number) => void;
+    onExit?: () => void;
+    onEnd?: () => void;
 }
