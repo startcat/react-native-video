@@ -54,8 +54,8 @@ interface Props {
     onProgress?: (value: number) => void;
     onExit?: () => void;
     onEnd?: () => void;
-    onChangeAudioIndex?: (index: number) => void;
-    onChangeSubtitleIndex?: (index: number) => void;
+    onChangeAudioIndex?: (index: number, label?: string) => void;
+    onChangeSubtitleIndex?: (index: number, label?: string) => void;
 }
 
 
@@ -200,7 +200,7 @@ export const Player = (props: Props) => {
             setCurrentAudioIndex(data.audioIndex);
 
             if (props.onChangeAudioIndex){
-                props.onChangeAudioIndex(data?.audioIndex);
+                props.onChangeAudioIndex(data?.audioIndex, data?.audioLabel);
             }
         }
 
@@ -208,7 +208,7 @@ export const Player = (props: Props) => {
             setCurrentSubtitleIndex(data.subtitleIndex);
 
             if (props.onChangeSubtitleIndex){
-                props.onChangeSubtitleIndex(data?.subtitleIndex);
+                props.onChangeSubtitleIndex(data?.subtitleIndex, data?.subtitleLabel);
             }
         }
         

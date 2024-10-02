@@ -48,7 +48,8 @@ import {
     type IYoubora,
     CONTROL_ACTION,
     STREAM_FORMAT_TYPE,
-    YOUBORA_FORMAT
+    YOUBORA_FORMAT,
+    PLAYER_MENU_DATA_TYPE
 } from '../../types';
 
 interface Props {
@@ -313,6 +314,8 @@ export const NormalFlavour = (props: Props) => {
                 data.volume = (id === CONTROL_ACTION.VOLUME) ? value : undefined;
                 data.audioIndex = (id === CONTROL_ACTION.AUDIO_INDEX) ? value : undefined;
                 data.subtitleIndex = (id === CONTROL_ACTION.SUBTITLE_INDEX) ? value : undefined;
+                data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === value)?.label;
+                data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === value)?.label;
                 
             }
             
