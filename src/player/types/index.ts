@@ -63,6 +63,8 @@ export interface ICommonData {
     muted?: boolean;
     audioIndex?: number;
     subtitleIndex?: number;
+    audioLabel?: string;
+    subtitleLabel?: string;
 }
 
 export interface IThumbnailMetadata {
