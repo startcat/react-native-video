@@ -14,6 +14,12 @@ interface Props {
     isDVR?: boolean;
     avoidThumbnails?: boolean;
     thumbnailsMetadata?: IThumbnailMetadata;
+
+    // Components
+    sliderVOD?: React.ReactElement;
+    sliderDVR?: React.ReactElement;
+
+    // Events
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
@@ -75,19 +81,41 @@ export const Timeline = (props: Props) => {
 
     }
 
+    //const SliderVOD = props?.sliderVOD || VODSlider;
+
+    // const SliderVOD = (props?.sliderVOD) ? {
+    //     type: props?.sliderVOD,
+    //     props: {
+    //         currentTime: props?.currentTime,
+    //         duration: props?.duration,
+    //         onSlidingStart: onSlidingStart,
+    //         onSlidingMove: onSlidingMove,
+    //         onSlidingComplete: onSlidingComplete
+    //     }
+    // } : null;
+
+    const SliderVOD = (props?.sliderVOD) ? props.sliderVOD : null;
+
     return (
         <View style={styles.container}>
 
             <View style={styles.barSlider}>
                 {
                     !isLive ?
-                        <VODSlider
+                        <SliderVOD 
                             currentTime={props?.currentTime}
                             duration={props?.duration}
                             onSlidingStart={onSlidingStart}
                             onSlidingMove={onSlidingMove}
                             onSlidingComplete={onSlidingComplete}
                         />
+                        // <VODSlider
+                        //     currentTime={props?.currentTime}
+                        //     duration={props?.duration}
+                        //     onSlidingStart={onSlidingStart}
+                        //     onSlidingMove={onSlidingMove}
+                        //     onSlidingComplete={onSlidingComplete}
+                        // />
                     : null
                 }
 

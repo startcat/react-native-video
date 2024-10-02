@@ -37,8 +37,10 @@ interface Props {
     speedRate?: number;
 
     // Components
-    mosca?: React.ReactNode;
-    controlsHeaderMetadata?: React.ReactNode;
+    mosca?: React.ReactElement | React.ReactNode
+    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
+    sliderVOD?: React.ReactElement;
+    sliderDVR?: React.ReactElement;
 
     // Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
@@ -222,7 +224,7 @@ export const Overlay = (props: Props) => {
                         duration={props?.duration}
                         dvrTimeValue={dvrTimeValue}
                         title={props?.title}
-                        
+
                         controlsHeaderMetadata={props?.controlsHeaderMetadata}
 
                         thumbnailsMetadata={props?.thumbnailsMetadata}

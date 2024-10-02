@@ -5,7 +5,7 @@ import Orientation, { useOrientationChange } from 'react-native-orientation-lock
 import AudioSession from 'react-native-audio-session';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { CastState, useCastState } from 'react-native-google-cast';
-import { Platform } from 'react-native';
+import { Platform,  } from 'react-native';
 import { NormalFlavour, CastFlavour } from './player/flavours';
 import { default as Downloads } from './Downloads';
 
@@ -39,8 +39,10 @@ interface Props {
     languagesMapping?:ILanguagesMapping;
 
     // Components
-    mosca?: React.ReactNode
-    controlsHeaderMetadata?: React.ReactNode;
+    mosca?: React.ReactElement | React.ReactNode
+    controlsHeaderMetadata?: React.ReactElement | React.ReactNode;
+    sliderVOD?: React.ReactElement;
+    sliderDVR?: React.ReactElement;
 
     // Utils
     watchingProgressInterval?: number;
