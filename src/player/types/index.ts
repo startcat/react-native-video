@@ -191,6 +191,28 @@ export interface GetYouboraOptionsProps {
 
 
 /*
+ *  Audio Player Events
+ *  Para invocarlo desde distintos puntos de la app
+ *
+ */
+
+export interface AudioPlayerEventProps {
+    id: number;
+    slug: string;
+}
+
+export interface AudioPlayerActionEventProps {
+    action: CONTROL_ACTION,
+    value?: boolean | number;
+}
+
+export interface AudioPlayerProgressEventProps {
+    
+}
+
+
+
+/*
  *  Props Componentes
  *
  */
@@ -304,6 +326,11 @@ export interface TimelineProps {
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
 
+}
+
+export interface IAudioPlayerContent {
+    current?: AudioPlayerEventProps,
+    next?: AudioPlayerEventProps
 }
 
 export interface ControlsProps {
