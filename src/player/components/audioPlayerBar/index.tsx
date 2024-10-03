@@ -183,9 +183,13 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                 backgroundColor: props.backgroundColor || styles.audioPlayerTopDivider.backgroundColor
             }} />
 
-            <View style={styles.contents}>
-                <Spinner />
-            </View>
+            {
+                !contentId?.current ?
+                    <View style={styles.contents}>
+                        <Spinner />
+                    </View>
+                : null
+            }
 
             {
                 false && contentId?.current ?

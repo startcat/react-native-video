@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { MediumButton, BigButton } from '../buttons';
-import { CONTROL_ACTION } from '../../../types';
+import { Button } from '../buttons';
+import { 
+    CONTROL_ACTION,
+    BUTTON_SIZE 
+} from '../../../types';
 import { i18n } from '../../../locales';
 import { styles } from './styles';
 
@@ -21,8 +24,9 @@ export function ControlsMiddleBar (props: Props): React.ReactElement {
     }, [props?.paused]);
 
     const PlayToggleButton = () => (
-        <BigButton
+        <Button
             id={CONTROL_ACTION.PAUSE}
+            size={BUTTON_SIZE.BIG}
             iconName={ (isPaused) ? 'play-circle-outline' : 'pause-circle-outline' }
             value={!isPaused}
             disabled={!props.isContentLoaded}
@@ -32,8 +36,9 @@ export function ControlsMiddleBar (props: Props): React.ReactElement {
     );
 
     const BackwardButton = () => (
-        <MediumButton
+        <Button
             id={CONTROL_ACTION.BACKWARD}
+            size={BUTTON_SIZE.MEDIUM}
             iconName='play-back-outline'
             value={15}
             disabled={!props.isContentLoaded}
@@ -43,8 +48,9 @@ export function ControlsMiddleBar (props: Props): React.ReactElement {
     );
 
     const ForwardButton = () => (
-        <MediumButton
+        <Button
             id={CONTROL_ACTION.FORWARD}
+            size={BUTTON_SIZE.MEDIUM}
             iconName='play-forward-outline'
             value={15}
             disabled={!props.isContentLoaded}

@@ -1,13 +1,14 @@
 import React from 'react';
-import { SmallButton } from '../smallButton';
+import { Button } from '../button';
 import { AirplayButton as NativeAirplayButton, showRoutePicker } from 'react-airplay';
 import { COLOR } from '../../../../theme';
 import { 
-    type ButtonProps,
+    type AirplayCastButtonProps,
+    BUTTON_SIZE,
     CONTROL_ACTION
 } from '../../../../types';
 
-export function AirplayButton (props: ButtonProps): React.ReactElement {
+export function AirplayButton (props: AirplayCastButtonProps): React.ReactElement {
 
     const id = CONTROL_ACTION.AIRPLAY;
     
@@ -17,11 +18,12 @@ export function AirplayButton (props: ButtonProps): React.ReactElement {
     };
 
     return (
-        <SmallButton 
+        <Button 
             id={id}
             onPress={onPress} 
             accessibilityLabel={props?.accessibilityLabel || 'Airplay'}
             disabled={props.disabled}
+            size={BUTTON_SIZE.SMALL}
         >
             <NativeAirplayButton
                 prioritizesVideoDevices={true}
@@ -29,6 +31,6 @@ export function AirplayButton (props: ButtonProps): React.ReactElement {
                 activeTintColor={COLOR.theme.main}
                 accessibilityRole='button'
             />
-        </SmallButton>
+        </Button>
     );
 };
