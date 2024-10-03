@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { TouchableOpacity, StyleProp, ViewStyle, TextStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { TouchableOpacity } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Icon } from '@ui-kitten/components';
 import { styles } from './styles';
@@ -16,26 +16,24 @@ const HAPTIC_OPTIONS = {
 export function Button (props: ButtonProps): React.ReactElement {
 
     const [iconName, setIconName] = useState<string | undefined>(props?.iconName);
-    const containerStylesWithSize = useRef<StyleProp<ViewStyle>>(styles.container);
-    const iconStylesWithSize = useRef<StyleProp<TextStyle>>(styles.icon);
 
-    useEffect(() => {
-        if (props.size === BUTTON_SIZE.SMALL){
-            containerStylesWithSize.current = [styles.container, styles.small];
-            iconStylesWithSize.current = [styles.icon, styles.iconSmall];
-        }
+    let containerStylesWithSize = styles.container;
+    let iconStylesWithSize = styles.icon;
 
-        if (props.size === BUTTON_SIZE.MEDIUM){
-            containerStylesWithSize.current = [styles.container, styles.medium];
-            iconStylesWithSize.current = [styles.icon, styles.iconMedium];
-        }
+    if (props.size === BUTTON_SIZE.SMALL){
+        containerStylesWithSize = { ...styles.container, ...styles.small };
+        iconStylesWithSize = { ...styles.icon, ...styles.iconSmall };
+    }
 
-        if (props.size === BUTTON_SIZE.BIG){
-            containerStylesWithSize.current = [styles.container, styles.big];
-            iconStylesWithSize.current = [styles.icon, styles.iconBig];
-        }
+    if (props.size === BUTTON_SIZE.MEDIUM){
+        containerStylesWithSize = { ...styles.container, ...styles.medium };
+        iconStylesWithSize = { ...styles.icon, ...styles.iconMedium };
+    }
 
-    }, [props?.size]);
+    if (props.size === BUTTON_SIZE.BIG){
+        containerStylesWithSize = { ...styles.container, ...styles.big };
+        iconStylesWithSize = { ...styles.icon, ...styles.iconBig };
+    }
 
     useEffect(() => {
         setIconName(props?.iconName);
@@ -54,7 +52,7 @@ export function Button (props: ButtonProps): React.ReactElement {
 
     return (
         <TouchableOpacity 
-            style={containerStylesWithSize.current} 
+            style={containerStylesWithSize} 
             onPress={onPress} 
             accessible={!!props?.accessibilityLabel} 
             accessibilityRole='button' 
@@ -66,7 +64,7 @@ export function Button (props: ButtonProps): React.ReactElement {
                 iconName && !props?.children ?
                     <Icon 
                         name={iconName} 
-                        style={ (props.disabled) ? [iconStylesWithSize.current, styles.disabled] : iconStylesWithSize.current} 
+                        style={ (props.disabled) ? [iconStylesWithSize, styles.disabled] : iconStylesWithSize} 
                     />
                 : null
             }
