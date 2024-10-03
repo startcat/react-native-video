@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View } from 'react-native';
-import { SmallButton, LiveButton } from '../buttons';
+import { Button, LiveButton } from '../buttons';
 import { Text } from '@ui-kitten/components';
-import { CONTROL_ACTION } from '../../../types';
+import { 
+    CONTROL_ACTION,
+    BUTTON_SIZE
+} from '../../../types';
 import { styles } from './styles';
 
 interface Props {
@@ -50,8 +53,9 @@ export function ControlsBottomBar (props: Props): React.ReactElement {
     }, [props?.volume]);
 
     const MenuButton = () => (
-        <SmallButton
+        <Button
             id={CONTROL_ACTION.MENU}
+            size={BUTTON_SIZE.SMALL}
             iconName='chatbox-ellipses-outline'
             disabled={!props.isContentLoaded}
             onPress={props?.onPress}
@@ -59,8 +63,9 @@ export function ControlsBottomBar (props: Props): React.ReactElement {
     );
 
     const SettingsMenuButton = () => (
-        <SmallButton
+        <Button
             id={CONTROL_ACTION.SETTINGS_MENU}
+            size={BUTTON_SIZE.SMALL}
             iconName='settings-outline'
             disabled={!props.isContentLoaded}
             onPress={props?.onPress}
@@ -68,8 +73,9 @@ export function ControlsBottomBar (props: Props): React.ReactElement {
     );
 
     const MuteButton = () => (
-        <SmallButton
+        <Button
             id={CONTROL_ACTION.MUTE}
+            size={BUTTON_SIZE.SMALL}
             iconName={ (isMuted) ? 'volume-mute-outline' : 'volume-high-outline'}
             value={!isMuted}
             onPress={props?.onPress}
@@ -77,8 +83,9 @@ export function ControlsBottomBar (props: Props): React.ReactElement {
     );
 
     const VolumeButton = () => (
-        <SmallButton
+        <Button
             id={CONTROL_ACTION.VOLUME}
+            size={BUTTON_SIZE.SMALL}
             iconName='volume-high-outline'
             value={currentVolume}
             onPress={props?.onPress}
@@ -86,8 +93,9 @@ export function ControlsBottomBar (props: Props): React.ReactElement {
     );
 
     const NextButton = () => (
-        <SmallButton
+        <Button
             id={CONTROL_ACTION.NEXT}
+            size={BUTTON_SIZE.SMALL}
             iconName='play-skip-forward-outline'
             disabled={!props.isContentLoaded}
             onPress={props?.onPress}
@@ -95,8 +103,9 @@ export function ControlsBottomBar (props: Props): React.ReactElement {
     );
 
     const RestartButton = () => (
-        <SmallButton
+        <Button
             id={CONTROL_ACTION.SEEK}
+            size={BUTTON_SIZE.SMALL}
             iconName='refresh-outline'
             value={0}
             disabled={!props.isContentLoaded}
