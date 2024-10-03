@@ -1,12 +1,13 @@
 import React from 'react';
-import { SmallButton } from '../smallButton';
+import { Button } from '../button';
 import { CastButton as NativeCastButton, CastContext, CastState, useCastState } from 'react-native-google-cast';
 import { 
-    type ButtonProps,
+    type AirplayCastButtonProps,
+    BUTTON_SIZE,
     CONTROL_ACTION
 } from '../../../../types';
 
-export function CastButton(props: ButtonProps): React.ReactElement | null {
+export function CastButton(props: AirplayCastButtonProps): React.ReactElement | null {
     
     const id = CONTROL_ACTION.CAST;
     const castState = useCastState();
@@ -33,14 +34,15 @@ export function CastButton(props: ButtonProps): React.ReactElement | null {
     } else {
 
         return (
-            <SmallButton 
+            <Button 
                 id={id}
                 onPress={onPress} 
                 accessibilityLabel={props?.accessibilityLabel || 'Chromecast'}
                 disabled={props.disabled}
+                size={BUTTON_SIZE.SMALL}
             >
                 <NativeCastButton tintColor='white' style={{width: 22, height: 22, tintColor:'white'}}/>
-            </SmallButton>
+            </Button>
         );
         
     }

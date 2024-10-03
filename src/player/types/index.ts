@@ -5,11 +5,33 @@ export enum STREAM_FORMAT_TYPE {
 	HLS = 'hls',
 }
 
+export enum STREAM_TYPE {
+	VOD = 'vod',
+	LIVE = 'live',
+}
+
+export enum MEDIA_TYPE {
+	AUDIO = 'audio',
+	VIDEO = 'video',
+}
+
+export enum COLLECTION {
+	MEDIA = 'media',
+	STREAM = 'stream',
+	SERIES = 'series',
+}
+
 export enum DRM_TYPE {
 	WIDEVINE = 'widevine',
 	PLAYREADY = 'playready',
     CLEARKEY = "clearkey",
 	FAIRPLAY = 'fairplay',
+}
+
+export enum BUTTON_SIZE {
+	SMALL = 'small',
+	MEDIUM = 'medium',
+    BIG = 'big',
 }
 
 export enum CONTROL_ACTION {
@@ -207,7 +229,7 @@ export interface AudioPlayerActionEventProps {
 }
 
 export interface AudioPlayerProgressEventProps {
-    
+
 }
 
 
@@ -221,9 +243,17 @@ export interface ButtonProps {
     id: CONTROL_ACTION;
     iconName?: string;
     value?: boolean | number;
+    size?: BUTTON_SIZE;
     disabled?: boolean;
     accessibilityLabel?: string;
     children?: React.ReactNode;
+    onPress?: (id: CONTROL_ACTION, value?: any) => void;
+}
+
+export interface AirplayCastButtonProps {
+    iconName?: string;
+    disabled?: boolean;
+    accessibilityLabel?: string;
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
@@ -554,6 +584,19 @@ export interface PlayerProps {
     onChangeSubtitleIndex?: (index: number, label?: string) => void;
 }
 
+export interface AudioPlayerContentsDpo {
+    collection: COLLECTION;
+	id: number;
+	slug: string;
+	title: string;
+    subtitle?: string
+    description?: string;
+	media_type?: MEDIA_TYPE;
+    type?: STREAM_TYPE;
+    poster?: string;
+    isLive?: boolean;
+}
+
 export interface AudioPlayerProps {
     playerMaxHeight?: number;
     backgroundColor?: string;
@@ -563,6 +606,7 @@ export interface AudioPlayerProps {
 
 
     // Utils
+    fetchContentData?: (id?: number, slug?:string, type?:MEDIA_TYPE, collection?: COLLECTION) => AudioPlayerContentsDpo;
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => null;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;

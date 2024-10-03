@@ -4,8 +4,11 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Spinner } from '@ui-kitten/components';
-import { SmallButton, AirplayButton, CastButton } from '../buttons';
-import { CONTROL_ACTION } from '../../../types';
+import { Button, AirplayButton, CastButton } from '../buttons';
+import { 
+    CONTROL_ACTION,
+    BUTTON_SIZE
+} from '../../../types';
 import { styles } from './styles';
 
 const ANIMATION_SPEED = 150;
@@ -34,10 +37,11 @@ export function ControlsHeaderBar (props: Props): React.ReactElement {
     }
 
     const BackButton = () => (
-        <SmallButton
+        <Button
             id={CONTROL_ACTION.BACK}
             iconName='chevron-back-outline'
             onPress={onBack}
+            size={BUTTON_SIZE.SMALL}
         />
     );
 
