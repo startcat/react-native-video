@@ -4,11 +4,15 @@ import AudioSession from 'react-native-audio-session';
 import { EventRegister } from 'react-native-event-listeners';
 import { SheetManager } from 'react-native-actions-sheet';
 import { View } from 'react-native';
+import { Text, Spinner } from '@ui-kitten/components';
 import { AudioFlavour } from '../../flavours';
 import { styles } from './styles';
 
 import { 
     type AudioPlayerProps,
+    type AudioPlayerEventProps,
+    type AudioPlayerActionEventProps,
+    type IAudioPlayerContent,
     type ICommonData
 } from '../../types';
 
@@ -25,46 +29,43 @@ const PLAYER_MAX_HEIGHT = 80;
 export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null {
 
     const playerMaxHeight = useRef<number>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
+    const audioPlayerHeight = useSharedValue(0);
+
+    const [contentId, setContentId] = useState<IAudioPlayerContent>();
+    
 
     const currentTime = useRef<number>(0);
     const duration = useRef<number>(0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
-    const audioPlayerHeight = useSharedValue(0);
+    
 
     useEffect(() => {
 
-        const changesAudioPlayerListener = EventRegister.addEventListener('audioPlayer', (data) => {
+        const changesAudioPlayerListener = EventRegister.addEventListener('audioPlayer', (data: AudioPlayerEventProps) => {
 
-            // if (this.props?.height && this.props?.height?.value < PLAYER_HEIGHT){
+            if (audioPlayerHeight?.value < playerMaxHeight.current){
+                // Desplegamos el player en formato de barra inferior
+                setContentId({
+                    current: data
+                });
 
-            //     this.setState({
-            //         ...this.state,
-            //         id: data?.id,
-            //         slug: data?.slug
-            //     }, () => {
+                showPlayer();
 
-            //         this.props.height.value = withSpring(PLAYER_HEIGHT, {
-            //             duration: 800
-            //         });
+            } else if (audioPlayerHeight){
+                // Si ya lo teníamos desplegado, cambiamos el ID/Slug del contenido
+                // Para cambiar de contenido, necesitamos desmontarlo
+                setContentId({
+                    next: data
+                });
 
-            //     });
-
-            // } else if (this.props?.height){
-
-            //     this.closePlayer();
-
-            // }
+            }
             
         });
 
-        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data) => {
+        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
 
-            // if (data?.action){
-            //     this.onControlsPress(data?.action, data?.extra);
-
-            // }
             
         });
 
@@ -85,6 +86,17 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         });
 
     }, []);
+
+    useEffect(() => {
+
+        // Hack para desmontar el player y limpiar sus datos al cambiar de contenido
+        if (contentId?.next){
+            setContentId({
+                current: contentId?.next
+            });
+        }
+
+    }, [contentId]);
 
     // React.useEffect(() => {
 
@@ -171,10 +183,12 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                 backgroundColor: props.backgroundColor || styles.audioPlayerTopDivider.backgroundColor
             }} />
 
-
+            <View style={styles.contents}>
+                <Spinner />
+            </View>
 
             {
-                false ?
+                false && contentId?.current ?
                     <AudioFlavour
                         // id={props.id}
                         // title={props.title}

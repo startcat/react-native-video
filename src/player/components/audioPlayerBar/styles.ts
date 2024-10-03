@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { SPACING } from '../../theme';
 
 export const styles = StyleSheet.create({
     container:{
@@ -17,5 +18,11 @@ export const styles = StyleSheet.create({
         height:1,
         width:'100%',
         backgroundColor:'#303030'
-    }
+    },
+    contents:{
+        flex:1,
+        margin:SPACING['0.5x'],
+        justifyContent:'center',
+        alignItems:'center'
+    },
 });
