@@ -17,7 +17,7 @@ function segmentDuration(durationInSeconds: number) {
 
 }
 
-export const parseToCounter = (durationInSeconds: number | string): string => {
+export function parseToCounter (durationInSeconds: number | string): string {
 
     let seconds = 0;
 
@@ -41,7 +41,7 @@ export const parseToCounter = (durationInSeconds: number | string): string => {
 
 };
 
-export const parseToDetails = (durationInSeconds: number | string): string => {
+export function parseToDetails (durationInSeconds: number | string): string {
 
     let seconds = 0;
 
