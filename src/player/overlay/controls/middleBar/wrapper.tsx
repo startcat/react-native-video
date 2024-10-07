@@ -3,18 +3,13 @@ import { View } from 'react-native';
 import { Button } from '../buttons';
 import { 
     CONTROL_ACTION,
-    BUTTON_SIZE 
+    BUTTON_SIZE,
+    type ControlsBarProps
 } from '../../../types';
 import { i18n } from '../../../locales';
 import { styles } from './styles';
 
-type Props = {
-    paused?: boolean;
-    isContentLoaded?: boolean;
-    onPress?: (id: CONTROL_ACTION, value?: any) => void;
-}
-
-export function ControlsMiddleBar (props: Props): React.ReactElement {
+export function ControlsMiddleBar (props: ControlsBarProps): React.ReactElement {
 
     const [isPaused, setIsPaused] = useState<boolean>(!!props?.paused);
 

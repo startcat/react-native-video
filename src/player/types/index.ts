@@ -363,6 +363,23 @@ export interface IAudioPlayerContent {
     next?: AudioPlayerEventProps
 }
 
+export interface ControlsBarProps {
+    title?:string;
+    currentTime?: number;
+    dvrTimeValue?: number;
+    duration?: number;
+    paused?: boolean;
+    muted?: boolean;
+    volume?: number;
+    preloading?: boolean;
+    hasNext?: boolean;
+    isLive?: boolean;
+    isDVR?: boolean;
+    isContentLoaded?: boolean;
+
+    onPress?: (id: CONTROL_ACTION, value?: any) => void;
+}
+
 export interface ControlsProps {
     title?:string;
     currentTime?: number;
@@ -383,6 +400,9 @@ export interface ControlsProps {
     controlsHeaderMetadata?: React.ReactElement;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
+    controlsBottomBar?: FunctionComponent<ControlsBarProps>;
+    controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
+    controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
 
     //Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
@@ -420,6 +440,9 @@ export interface OverlayProps {
     controlsHeaderMetadata?: React.ReactElement;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
+    controlsBottomBar?: FunctionComponent<ControlsBarProps>;
+    controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
+    controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
 
     // Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
@@ -491,6 +514,9 @@ export interface NormalFlavourProps {
     controlsHeaderMetadata?: React.ReactElement;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
+    controlsBottomBar?: FunctionComponent<ControlsBarProps>;
+    controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
+    controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
 
     // Utils
     getTudumManifest?: () => IManifest | undefined;
@@ -531,6 +557,9 @@ export interface CastFlavourProps {
     controlsHeaderMetadata?: React.ReactElement;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
+    controlsBottomBar?: FunctionComponent<ControlsBarProps>;
+    controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
+    controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
 
     // Utils
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
@@ -567,6 +596,9 @@ export interface PlayerProps {
     controlsHeaderMetadata?: React.ReactElement;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
+    controlsBottomBar?: FunctionComponent<ControlsBarProps>;
+    controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
+    controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
 
     // Utils
     watchingProgressInterval?: number;
