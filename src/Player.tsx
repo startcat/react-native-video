@@ -200,6 +200,12 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 controlsHeaderMetadata={props.controlsHeaderMetadata}
                 sliderVOD={props.sliderVOD}
                 sliderDVR={props.sliderDVR}
+                controlsHeaderBar={props.controlsHeaderBar}
+                controlsMiddleBar={props.controlsMiddleBar}
+                controlsBottomBar={props.controlsBottomBar}
+                nextButton={props.nextButton}
+                menu={props.menu}
+                settingsMenu={props.settingsMenu}
 
                 // Utils
                 getYouboraOptions={props.getYouboraOptions}
@@ -245,6 +251,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 controlsMiddleBar={props.controlsMiddleBar}
                 controlsBottomBar={props.controlsBottomBar}
                 nextButton={props.nextButton}
+                menu={props.menu}
+                settingsMenu={props.settingsMenu}
 
                 // Utils
                 getTudumManifest={props.getTudumManifest}
