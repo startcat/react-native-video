@@ -552,6 +552,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         controlsHeaderMetadata={props.controlsHeaderMetadata}
                         sliderVOD={props.sliderVOD}
                         sliderDVR={props.sliderDVR}
+                        controlsHeaderBar={props.controlsHeaderBar}
+                        controlsMiddleBar={props.controlsMiddleBar}
+                        controlsBottomBar={props.controlsBottomBar}
 
                         // Events
                         onPress={onControlsPress}
