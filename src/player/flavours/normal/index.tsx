@@ -555,6 +555,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         controlsHeaderBar={props.controlsHeaderBar}
                         controlsMiddleBar={props.controlsMiddleBar}
                         controlsBottomBar={props.controlsBottomBar}
+                        nextButton={props.nextButton}
 
                         // Events
                         onPress={onControlsPress}

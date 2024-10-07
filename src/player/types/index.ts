@@ -250,6 +250,10 @@ export interface ButtonProps {
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
+export interface NextButtonProps {
+    onPress?: (id: CONTROL_ACTION, value?: any) => void;
+}
+
 export interface AirplayCastButtonProps {
     iconName?: string;
     disabled?: boolean;
@@ -376,7 +380,11 @@ export interface ControlsBarProps {
     isLive?: boolean;
     isDVR?: boolean;
     isContentLoaded?: boolean;
+    
+    // Components
+    nextButton?: FunctionComponent<NextButtonProps>;
 
+    // Events
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
@@ -403,6 +411,7 @@ export interface ControlsProps {
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
+    nextButton?: FunctionComponent<NextButtonProps>;
 
     //Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
@@ -443,6 +452,7 @@ export interface OverlayProps {
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
+    nextButton?: FunctionComponent<NextButtonProps>;
 
     // Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
@@ -517,6 +527,7 @@ export interface NormalFlavourProps {
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
+    nextButton?: FunctionComponent<NextButtonProps>;
 
     // Utils
     getTudumManifest?: () => IManifest | undefined;
@@ -560,6 +571,7 @@ export interface CastFlavourProps {
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
+    nextButton?: FunctionComponent<NextButtonProps>;
 
     // Utils
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
@@ -599,6 +611,7 @@ export interface PlayerProps {
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
+    nextButton?: FunctionComponent<NextButtonProps>;
 
     // Utils
     watchingProgressInterval?: number;

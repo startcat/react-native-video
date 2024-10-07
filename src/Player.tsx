@@ -244,6 +244,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 controlsHeaderBar={props.controlsHeaderBar}
                 controlsMiddleBar={props.controlsMiddleBar}
                 controlsBottomBar={props.controlsBottomBar}
+                nextButton={props.nextButton}
 
                 // Utils
                 getTudumManifest={props.getTudumManifest}
