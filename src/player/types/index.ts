@@ -454,6 +454,8 @@ export interface OverlayProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    menu?: FunctionComponent<MenuProps>;
+    settingsMenu?: FunctionComponent<MenuProps>;
 
     // Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
@@ -529,6 +531,8 @@ export interface NormalFlavourProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    menu?: FunctionComponent<MenuProps>;
+    settingsMenu?: FunctionComponent<MenuProps>;
 
     // Utils
     getTudumManifest?: () => IManifest | undefined;
@@ -573,6 +577,8 @@ export interface CastFlavourProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    menu?: FunctionComponent<MenuProps>;
+    settingsMenu?: FunctionComponent<MenuProps>;
 
     // Utils
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
@@ -613,6 +619,8 @@ export interface PlayerProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    menu?: FunctionComponent<MenuProps>;
+    settingsMenu?: FunctionComponent<MenuProps>;
 
     // Utils
     watchingProgressInterval?: number;

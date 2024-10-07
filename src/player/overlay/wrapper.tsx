@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, createElement } from 'react';
 import { Pressable } from 'react-native';
 import { Controls } from './controls';
 import { Menu } from './menu';
@@ -155,6 +155,29 @@ export function Overlay (props: OverlayProps): React.ReactElement {
 
     }
 
+    // Optional Component Layers
+    const PropMenu = props.menu ? createElement(props.menu, { 
+        menuData: props.menuData,
+        videoIndex: props.videoIndex,
+        audioIndex: props.audioIndex,
+        subtitleIndex: props.subtitleIndex,
+        speedRate: props.speedRate,
+        onPress: onPress,
+        onClose: onCloseMenu
+
+    }) : null;
+
+    const PropSettingsMenu = props.settingsMenu ? createElement(props.settingsMenu, { 
+        menuData: props.menuData,
+        videoIndex: props.videoIndex,
+        audioIndex: props.audioIndex,
+        subtitleIndex: props.subtitleIndex,
+        speedRate: props.speedRate,
+        onPress: onPress,
+        onClose: onCloseMenu
+
+    }) : null;
+
     return (
         <Pressable 
             onPress={onToggle} 
@@ -218,8 +241,13 @@ export function Overlay (props: OverlayProps): React.ReactElement {
             }
 
             {
+                // Player External Menu
+                visibleMenu && PropMenu ? PropMenu : null
+            }
+
+            {
                 // Player Menu
-                visibleMenu ?
+                visibleMenu && !PropMenu ?
                     <Menu
                         videoIndex={props.videoIndex}
                         audioIndex={props.audioIndex}
@@ -233,8 +261,13 @@ export function Overlay (props: OverlayProps): React.ReactElement {
             }
 
             {
+                // Player External Settings Menu
+                visibleSettingsMenu && PropSettingsMenu ? PropSettingsMenu : null
+            }
+
+            {
                 // Player Settings Menu
-                visibleSettingsMenu ?
+                visibleSettingsMenu && !PropSettingsMenu ?
                     <SettingsMenu
                         speedRate={props.speedRate}
                         videoIndex={props.videoIndex}

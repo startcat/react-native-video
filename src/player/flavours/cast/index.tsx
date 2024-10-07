@@ -450,6 +450,8 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 controlsMiddleBar={props.controlsMiddleBar}
                 controlsBottomBar={props.controlsBottomBar}
                 nextButton={props.nextButton}
+                menu={props.menu}
+                settingsMenu={props.settingsMenu}
 
                 // Events
                 onPress={onControlsPress}
