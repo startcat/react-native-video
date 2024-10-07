@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { createElement } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -26,6 +26,60 @@ export function Controls (props: ControlsProps): React.ReactElement {
 
     }
 
+    const HeaderBar = props.controlsHeaderBar ? createElement(props.controlsHeaderBar, { 
+        title: props.title,
+        currentTime: props.currentTime,
+        dvrTimeValue: props.dvrTimeValue,
+        duration: props.duration,
+        paused: props.paused,
+        muted: props.muted,
+        volume: props.volume,
+        preloading: props.preloading,
+        hasNext: props.hasNext,
+        isLive: props.isLive,
+        isDVR: props.isDVR,
+        isContentLoaded: props.isContentLoaded,
+
+        onPress: onPress
+
+    }) : null;
+
+    const MiddleBar = props.controlsMiddleBar ? createElement(props.controlsMiddleBar, { 
+        title: props.title,
+        currentTime: props.currentTime,
+        dvrTimeValue: props.dvrTimeValue,
+        duration: props.duration,
+        paused: props.paused,
+        muted: props.muted,
+        volume: props.volume,
+        preloading: props.preloading,
+        hasNext: props.hasNext,
+        isLive: props.isLive,
+        isDVR: props.isDVR,
+        isContentLoaded: props.isContentLoaded,
+
+        onPress: onPress
+
+    }) : null;
+
+    const BottomBar = props.controlsBottomBar ? createElement(props.controlsBottomBar, { 
+        title: props.title,
+        currentTime: props.currentTime,
+        dvrTimeValue: props.dvrTimeValue,
+        duration: props.duration,
+        paused: props.paused,
+        muted: props.muted,
+        volume: props.volume,
+        preloading: props.preloading,
+        hasNext: props.hasNext,
+        isLive: props.isLive,
+        isDVR: props.isDVR,
+        isContentLoaded: props.isContentLoaded,
+
+        onPress: onPress
+
+    }) : null;
+
     return (
         <Animated.View 
             style={styles.container}
@@ -47,17 +101,24 @@ export function Controls (props: ControlsProps): React.ReactElement {
                 : null
             }
 
-            <ControlsMiddleBar
-                paused={props?.paused}
-                isContentLoaded={props?.isContentLoaded}
-                onPress={onPress}
-            />
+            {
+                MiddleBar ? MiddleBar :
+                    <ControlsMiddleBar
+                        paused={props?.paused}
+                        isContentLoaded={props?.isContentLoaded}
+                        onPress={onPress}
+                    />
+            }
 
-            <ControlsHeaderBar 
-                preloading={props?.preloading}
-                isContentLoaded={props?.isContentLoaded}
-                onPress={onPress}
-            />
+            {
+                HeaderBar ? HeaderBar :
+                    <ControlsHeaderBar 
+                        preloading={props?.preloading}
+                        isContentLoaded={props?.isContentLoaded}
+                        onPress={onPress}
+                    />
+
+            }
 
             <View style={{
                 ...styles.bottom,
@@ -66,19 +127,22 @@ export function Controls (props: ControlsProps): React.ReactElement {
                 right: styles.bottom.right + Math.max(insets.left, insets.right)
             }}>
 
-                <ControlsBottomBar 
-                    currentTime={props?.currentTime}
-                    duration={props?.duration}
-                    dvrTimeValue={props?.dvrTimeValue}
-                    title={props?.title}
-                    muted={props?.muted}
-                    isLive={props?.isLive}
-                    isDVR={props?.isDVR}
-                    isContentLoaded={props?.isContentLoaded}
-                    hasNext={props?.hasNext}
-                    volume={props?.volume}
-                    onPress={onPress}
-                />
+                {
+                    BottomBar ? BottomBar :
+                        <ControlsBottomBar 
+                            currentTime={props?.currentTime}
+                            duration={props?.duration}
+                            dvrTimeValue={props?.dvrTimeValue}
+                            title={props?.title}
+                            muted={props?.muted}
+                            isLive={props?.isLive}
+                            isDVR={props?.isDVR}
+                            isContentLoaded={props?.isContentLoaded}
+                            hasNext={props?.hasNext}
+                            volume={props?.volume}
+                            onPress={onPress}
+                        />
+                }
 
                 <Timeline 
                     currentTime={props?.currentTime}

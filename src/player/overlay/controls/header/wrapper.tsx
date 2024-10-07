@@ -7,19 +7,14 @@ import { Spinner } from '@ui-kitten/components';
 import { Button, AirplayButton, CastButton } from '../buttons';
 import { 
     CONTROL_ACTION,
-    BUTTON_SIZE
+    BUTTON_SIZE,
+    type ControlsBarProps
 } from '../../../types';
 import { styles } from './styles';
 
 const ANIMATION_SPEED = 150;
 
-interface Props {
-    preloading?: boolean;
-    isContentLoaded?: boolean;
-    onPress?: (id: CONTROL_ACTION, value?: any) => void;
-}
-
-export function ControlsHeaderBar (props: Props): React.ReactElement {
+export function ControlsHeaderBar (props: ControlsBarProps): React.ReactElement {
 
     const [isPreloading, setIsPreloading] = useState<boolean>(!!props?.preloading);
 

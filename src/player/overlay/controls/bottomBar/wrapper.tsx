@@ -4,25 +4,12 @@ import { Button, LiveButton } from '../buttons';
 import { Text } from '@ui-kitten/components';
 import { 
     CONTROL_ACTION,
-    BUTTON_SIZE
+    BUTTON_SIZE,
+    type ControlsBarProps
 } from '../../../types';
 import { styles } from './styles';
 
-interface Props {
-    currentTime?: number;
-    duration?: number;
-    dvrTimeValue?: number;
-    title?: string;
-    muted?: boolean;
-    isLive?: boolean;
-    isDVR?: boolean;
-    isContentLoaded?: boolean;
-    hasNext?: boolean;
-    volume?: number;
-    onPress?: (id: CONTROL_ACTION, value?: any) => void;
-}
-
-export function ControlsBottomBar (props: Props): React.ReactElement {
+export function ControlsBottomBar (props: ControlsBarProps): React.ReactElement {
 
     const [title, setTitle] = useState<string | undefined>(props?.title);
     const [isMuted, setIsMuted] = useState<boolean>(!!props?.muted);
