@@ -37,7 +37,13 @@ export function parseToCounter (durationInSeconds: number | string): string {
         seconds: segments.seconds.toFixed(0).padStart(2, '0')
     };
 
-    return `${segmentsToString.hours}:${segmentsToString.minutes}:${segmentsToString.seconds}`;
+    if (segmentsToString.hours === '00'){
+        return `${segmentsToString.minutes}:${segmentsToString.seconds}`;
+
+    } else {
+        return `${segmentsToString.hours}:${segmentsToString.minutes}:${segmentsToString.seconds}`;
+
+    }
 
 };
 
