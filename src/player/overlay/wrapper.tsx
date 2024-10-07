@@ -203,6 +203,9 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                         // Components
                         sliderVOD={props.sliderVOD}
                         sliderDVR={props.sliderDVR}
+                        controlsHeaderBar={props.controlsHeaderBar}
+                        controlsMiddleBar={props.controlsMiddleBar}
+                        controlsBottomBar={props.controlsBottomBar}
 
                         // Events
                         onPress={onPress}

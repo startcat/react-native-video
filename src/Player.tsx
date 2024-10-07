@@ -241,6 +241,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 controlsHeaderMetadata={props.controlsHeaderMetadata}
                 sliderVOD={props.sliderVOD}
                 sliderDVR={props.sliderDVR}
+                controlsHeaderBar={props.controlsHeaderBar}
+                controlsMiddleBar={props.controlsMiddleBar}
+                controlsBottomBar={props.controlsBottomBar}
 
                 // Utils
                 getTudumManifest={props.getTudumManifest}
