@@ -54,7 +54,8 @@ export enum CONTROL_ACTION {
     VIDEO_INDEX = 'videoIndex',
     AUDIO_INDEX = 'audioIndex',
     SUBTITLE_INDEX = 'subtitleIndex',
-    SPEED_RATE = 'speedRate'
+    SPEED_RATE = 'speedRate',
+    CLOSE_NEXT_POPUP = 'closeNextPopup'
 }
 
 export enum PLAYER_MENU_DATA_TYPE {
