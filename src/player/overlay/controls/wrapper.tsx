@@ -39,7 +39,7 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isLive: props.isLive,
         isDVR: props.isDVR,
         isContentLoaded: props.isContentLoaded,
-
+        nextButton: props.nextButton,
         onPress: onPress
 
     }) : null;
@@ -57,7 +57,7 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isLive: props.isLive,
         isDVR: props.isDVR,
         isContentLoaded: props.isContentLoaded,
-
+        nextButton: props.nextButton,
         onPress: onPress
 
     }) : null;
@@ -75,7 +75,7 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isLive: props.isLive,
         isDVR: props.isDVR,
         isContentLoaded: props.isContentLoaded,
-
+        nextButton: props.nextButton,
         onPress: onPress
 
     }) : null;
