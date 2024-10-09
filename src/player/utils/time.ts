@@ -17,6 +17,19 @@ function segmentDuration(durationInSeconds: number) {
 
 }
 
+export function subtractMinutesFromDate(date: Date, min: number): Date { 
+    
+    try {
+        date.setMinutes(date.getMinutes() - min); 
+
+    } catch(ex){
+        console.log(ex.message);
+    }
+    
+    return date;
+
+}
+
 export function parseToCounter (durationInSeconds: number | string): string {
 
     let seconds = 0;

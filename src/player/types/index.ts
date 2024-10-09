@@ -544,9 +544,9 @@ export interface NormalFlavourProps {
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
+    onDVRChange?: (value: number, offset?: number, date?: Date) => void;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
-    onClose?: () => void;
 }
 
 export interface CastFlavourProps {
@@ -589,9 +589,9 @@ export interface CastFlavourProps {
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
+    onDVRChange?: (value: number, offset?: number, date?: Date) => void;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
-    onClose?: () => void;
 }
 
 export interface PlayerProps {
@@ -640,6 +640,7 @@ export interface PlayerProps {
     onEnd?: () => void;
     onChangeAudioIndex?: (index: number, label?: string) => void;
     onChangeSubtitleIndex?: (index: number, label?: string) => void;
+    onDVRChange?: (value: number, offset?: number, date?: Date) => void;
 }
 
 export interface AudioPlayerContentsDpo {

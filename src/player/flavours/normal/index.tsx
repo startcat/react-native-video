@@ -28,6 +28,7 @@ import {
     onAdStarted,
     mergeMenuData,
     getHlsQualities,
+    subtractMinutesFromDate
 } from '../../utils';
 
 import {
@@ -437,17 +438,56 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     // }
 
-    // const onSlidingStart = (value: number) => {
+    const onSlidingStart = (value: number) => {
 
-    // }
+        let secondsToLive,
+            date;
 
-    // const onSlidingMove = (value: number) => {
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
 
-    // }
+        }        
 
-    // const onSlidingComplete = (value: number) => {
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
 
-    // }
+    }
+
+    const onSlidingMove = (value: number) => {
+
+        let secondsToLive,
+            date;
+
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+
+        }        
+
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
+
+    }
+
+    const onSlidingComplete = (value: number) => {
+
+        let secondsToLive,
+            date;
+
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+
+        }        
+
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
+
+    }
 
     return (
         <View style={styles.container}>
@@ -561,9 +601,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
                         // Events
                         onPress={onControlsPress}
-                        // onSlidingStart={onSlidingStart}
-                        // onSlidingMove={onSlidingMove}
-                        // onSlidingComplete={onSlidingComplete}
+                        onSlidingStart={onSlidingStart}
+                        onSlidingMove={onSlidingMove}
+                        onSlidingComplete={onSlidingComplete}
                     />
                 : null
             }
