@@ -41,7 +41,10 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isContentLoaded: props.isContentLoaded,
         nextButton: props.nextButton,
         headerMetadata: props.headerMetadata,
-        onPress: onPress
+        onPress: onPress,
+        onSlidingStart: props.onSlidingStart,
+        onSlidingMove: props.onSlidingMove,
+        onSlidingComplete: props.onSlidingComplete
 
     }) : null;
 
@@ -60,7 +63,10 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isContentLoaded: props.isContentLoaded,
         nextButton: props.nextButton,
         headerMetadata: props.headerMetadata,
-        onPress: onPress
+        onPress: onPress,
+        onSlidingStart: props.onSlidingStart,
+        onSlidingMove: props.onSlidingMove,
+        onSlidingComplete: props.onSlidingComplete
 
     }) : null;
 
@@ -79,7 +85,10 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isContentLoaded: props.isContentLoaded,
         nextButton: props.nextButton,
         headerMetadata: props.headerMetadata,
-        onPress: onPress
+        onPress: onPress,
+        onSlidingStart: props.onSlidingStart,
+        onSlidingMove: props.onSlidingMove,
+        onSlidingComplete: props.onSlidingComplete
 
     }) : null;
 
