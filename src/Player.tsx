@@ -197,7 +197,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
                 // Components
                 mosca={props.mosca}
-                controlsHeaderMetadata={props.controlsHeaderMetadata}
+                headerMetadata={props.headerMetadata}
                 sliderVOD={props.sliderVOD}
                 sliderDVR={props.sliderDVR}
                 controlsHeaderBar={props.controlsHeaderBar}
@@ -244,7 +244,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
                 // Components
                 mosca={props.mosca}
-                controlsHeaderMetadata={props.controlsHeaderMetadata}
+                headerMetadata={props.headerMetadata}
                 sliderVOD={props.sliderVOD}
                 sliderDVR={props.sliderDVR}
                 controlsHeaderBar={props.controlsHeaderBar}

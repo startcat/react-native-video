@@ -40,6 +40,7 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isDVR: props.isDVR,
         isContentLoaded: props.isContentLoaded,
         nextButton: props.nextButton,
+        headerMetadata: props.headerMetadata,
         onPress: onPress
 
     }) : null;
@@ -58,6 +59,7 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isDVR: props.isDVR,
         isContentLoaded: props.isContentLoaded,
         nextButton: props.nextButton,
+        headerMetadata: props.headerMetadata,
         onPress: onPress
 
     }) : null;
@@ -76,6 +78,7 @@ export function Controls (props: ControlsProps): React.ReactElement {
         isDVR: props.isDVR,
         isContentLoaded: props.isContentLoaded,
         nextButton: props.nextButton,
+        headerMetadata: props.headerMetadata,
         onPress: onPress
 
     }) : null;
@@ -88,18 +91,6 @@ export function Controls (props: ControlsProps): React.ReactElement {
         >
 
             <View style={styles.mask} />
-
-            {
-                props?.controlsHeaderMetadata ?
-                    <View style={{
-                        ...styles.floatingHeader,
-                        top: styles.floatingHeader.top + insets?.top,
-                        left: styles.floatingHeader.left + Math.max(insets.left, insets.right),
-                    }}>
-                        { props?.controlsHeaderMetadata }
-                    </View>
-                : null
-            }
 
             {
                 MiddleBar ? MiddleBar :
