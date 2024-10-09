@@ -212,6 +212,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
                 // Events
                 onChangeCommonData={changeCommonData}
+                onDVRChange={props.onDVRChange}
                 onNext={props.onNext}
             />
         );
@@ -260,6 +261,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
                 // Events
                 onChangeCommonData={changeCommonData}
+                onDVRChange={props.onDVRChange}
                 onNext={props.onNext}
             />
         );
