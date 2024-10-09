@@ -296,6 +296,10 @@ export interface MenuItemProps {
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
 }
 
+export interface HeaderMetadataProps {
+    onPress?: (id: CONTROL_ACTION, value?:any) => void;
+}
+
 export interface MenuProps {
     menuData?: Array<IPlayerMenuData>;
     videoIndex?: number;
@@ -383,6 +387,7 @@ export interface ControlsBarProps {
     isContentLoaded?: boolean;
     
     // Components
+    headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
 
     // Events
@@ -405,8 +410,7 @@ export interface ControlsProps {
     isContentLoaded?: boolean;
 
     // Components
-    mosca?: React.ReactElement;
-    controlsHeaderMetadata?: React.ReactElement;
+    headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
@@ -447,7 +451,7 @@ export interface OverlayProps {
 
     // Components
     mosca?: React.ReactElement;
-    controlsHeaderMetadata?: React.ReactElement;
+    headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
@@ -524,7 +528,7 @@ export interface NormalFlavourProps {
 
     // Components
     mosca?: React.ReactElement;
-    controlsHeaderMetadata?: React.ReactElement;
+    headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
@@ -570,7 +574,7 @@ export interface CastFlavourProps {
 
     // Components
     mosca?: React.ReactElement;
-    controlsHeaderMetadata?: React.ReactElement;
+    headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;
@@ -612,7 +616,7 @@ export interface PlayerProps {
 
     // Components
     mosca?: React.ReactElement;
-    controlsHeaderMetadata?: React.ReactElement;
+    headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
     controlsBottomBar?: FunctionComponent<ControlsBarProps>;

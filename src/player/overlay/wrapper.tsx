@@ -209,8 +209,6 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                         dvrTimeValue={dvrTimeValue}
                         title={props?.title}
 
-                        controlsHeaderMetadata={props?.controlsHeaderMetadata}
-
                         thumbnailsMetadata={props?.thumbnailsMetadata}
 
                         paused={props?.paused}
@@ -224,6 +222,7 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                         hasNext={props?.hasNext}
 
                         // Components
+                        headerMetadata={props.headerMetadata}
                         sliderVOD={props.sliderVOD}
                         sliderDVR={props.sliderDVR}
                         controlsHeaderBar={props.controlsHeaderBar}

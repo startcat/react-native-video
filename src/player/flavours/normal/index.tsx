@@ -549,7 +549,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
                         // Components
                         mosca={props.mosca}
-                        controlsHeaderMetadata={props.controlsHeaderMetadata}
+                        headerMetadata={props.headerMetadata}
                         sliderVOD={props.sliderVOD}
                         sliderDVR={props.sliderDVR}
                         controlsHeaderBar={props.controlsHeaderBar}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, createElement } from 'react';
 import { Platform, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -50,6 +50,11 @@ export function ControlsHeaderBar (props: ControlsBarProps): React.ReactElement 
         </Animated.View>
     );
 
+    const HeaderMetadata = props.headerMetadata ? createElement(props.headerMetadata, { 
+        onPress: props.onPress
+
+    }) : null;
+
     return (
         <View style={{
             ...styles.container,
@@ -57,6 +62,10 @@ export function ControlsHeaderBar (props: ControlsBarProps): React.ReactElement 
             left: styles.container.left + Math.max(insets.left, insets.right),
             right: styles.container.right + Math.max(insets.left, insets.right)
         }}>
+
+            {
+                HeaderMetadata
+            }
 
             <View style={styles.left}>
                 <BackButton />
