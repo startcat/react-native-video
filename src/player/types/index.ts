@@ -392,6 +392,9 @@ export interface ControlsBarProps {
 
     // Events
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
+    onSlidingStart?: (value: number) => void;
+    onSlidingMove?: (value: number) => void;
+    onSlidingComplete?: (value: number) => void;
 }
 
 export interface ControlsProps {
