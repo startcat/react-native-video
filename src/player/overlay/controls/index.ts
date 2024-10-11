@@ -1,16 +1,6 @@
-import * as Buttons from './buttons';
-
-export {
-    VODSlider, 
-    DVRSlider,
-    ThumbnailsContainer,
-    Timeline,
-} from './timeline';
-
-export {
-    Controls
-} from './wrapper';
-
-export {
-    Buttons
-};
+export * from './bottomBar';
+export * from './buttons';
+export * from './header';
+export * from './middleBar';
+export * from './timeline';
+export * from './wrapper';

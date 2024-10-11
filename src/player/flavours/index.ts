@@ -1,9 +1,3 @@
-import { NormalFlavour } from './normal';
-import { CastFlavour } from './cast';
-import { AudioFlavour } from './audio';
-
-export {
-    NormalFlavour,
-    CastFlavour,
-    AudioFlavour
-};
+export * from './normal';
+export * from './cast';
+export * from './audio';

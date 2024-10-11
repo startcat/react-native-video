@@ -1,1 +1,2 @@
-export { SettingsMenu } from './wrapper';
+export * from './wrapper';
+export * from './item';

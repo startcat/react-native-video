@@ -1,3 +1,2 @@
-export {
-    BackgroundPoster
-} from './poster';
+export * from './audioPlayerBar';
+export * from './poster';

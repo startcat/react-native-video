@@ -1,3 +1,2 @@
-import { ThumbnailsContainer } from './container';
-
-export { ThumbnailsContainer };
+export * from './container';
+export * from './cell';

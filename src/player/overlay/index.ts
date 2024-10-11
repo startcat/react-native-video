@@ -1,24 +1,5 @@
-export {
-    VODSlider, 
-    DVRSlider,
-    ThumbnailsContainer,
-    Timeline,
-    Controls,
-    Buttons
-} from './controls';
-
-export {
-    Menu
-} from './menu';
-
-export {
-    SettingsMenu
-} from './settingsMenu';
-
-export {
-    Overlay
-} from './wrapper';
-
-export {
-    SkipButtons
-} from './skip';
+export * from './controls';
+export * from './menu';
+export * from './settingsMenu';
+export * from './wrapper';
+export * from './skip';

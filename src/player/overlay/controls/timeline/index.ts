@@ -1,12 +1,4 @@
-import { VODSlider, DVRSlider } from './slider';
-import { ThumbnailsContainer } from './thumbnails';
-import { TimelineText } from './texts';
-import { Timeline } from './wrapper';
-
-export {
-    VODSlider, 
-    DVRSlider,
-    ThumbnailsContainer,
-    TimelineText,
-    Timeline
-};
+export * from './slider';
+export * from './texts';
+export * from './thumbnails';
+export * from './wrapper';

@@ -1,3 +1,1 @@
-export {
-    ControlsMiddleBar
-} from './wrapper';
+export * from './wrapper';

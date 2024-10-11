@@ -1,13 +1,5 @@
-import { Button } from './button';
-import { LiveButton } from './live';
-import { SkipButton } from './skip';
-import { AirplayButton } from './airplay';
-import { CastButton } from './cast';
-
-export {
-    Button,
-    LiveButton,
-    SkipButton,
-    AirplayButton,
-    CastButton
-};
+export * from './button';
+export * from './live';
+export * from './skip';
+export * from './airplay';
+export * from './cast';
