@@ -1,3 +1,1 @@
-export {
-    ControlsHeaderBar
-} from './wrapper';
+export * from './wrapper';
