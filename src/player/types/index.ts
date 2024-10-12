@@ -631,7 +631,7 @@ export interface PlayerProps {
 
     // Utils
     watchingProgressInterval?: number;
-    addContentProgress?: (currentTime: number, duration: number, id?:number) => null;
+    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getTudumManifest?: () => IManifest | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
@@ -670,7 +670,7 @@ export interface AudioPlayerProps {
     // Utils
     fetchContentData?: (id?: number, slug?:string, type?:MEDIA_TYPE, collection?: COLLECTION) => AudioPlayerContentsDpo;
     watchingProgressInterval?: number;
-    addContentProgress?: (currentTime: number, duration: number, id?:number) => null;
+    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
