@@ -428,6 +428,28 @@ export interface ControlsProps {
     onSlidingComplete?: (value: number) => void;
 }
 
+export interface AudioControlsProps {
+    title?:string;
+    currentTime?: number;
+    dvrTimeValue?: number;
+    duration?: number;
+    paused?: boolean;
+    muted?: boolean;
+    volume?: number;
+    preloading?: boolean;
+    hasNext?: boolean;
+    isLive?: boolean;
+    isDVR?: boolean;
+    isContentLoaded?: boolean;
+    speedRate?: number;
+
+    //Events
+    onPress?: (id: CONTROL_ACTION, value?:any) => void;
+    onSlidingStart?: (value: number) => void;
+    onSlidingMove?: (value: number) => void;
+    onSlidingComplete?: (value: number) => void;
+}
+
 export interface OverlayProps {
     title?:string;
     currentTime?: number;
@@ -492,7 +514,12 @@ export interface AudioFlavourProps {
     currentTime?: number;
     languagesMapping?:ILanguagesMapping;
 
+    // Style
+    backgroundColor?: string;
+    topDividerColor?: string;
+
     // Components
+    controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
@@ -665,7 +692,7 @@ export interface AudioPlayerProps {
     topDividerColor?: string;
 
     // Components
-
+    controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
     fetchContentData?: (id?: number, slug?:string, type?:MEDIA_TYPE, collection?: COLLECTION) => AudioPlayerContentsDpo;

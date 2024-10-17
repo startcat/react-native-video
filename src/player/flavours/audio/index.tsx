@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, createElement } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
@@ -256,22 +256,47 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // }
 
-    // const onSlidingStart = (value: number) => {
+    const onSlidingStart = (value: number) => {
 
-    // }
+    }
 
-    // const onSlidingMove = (value: number) => {
+    const onSlidingMove = (value: number) => {
 
-    // }
+    }
 
-    // const onSlidingComplete = (value: number) => {
+    const onSlidingComplete = (value: number) => {
 
-    // }
+    }
+
+    const Controls = props.controls ? createElement(props.controls, { 
+        title: props.title,
+        currentTime: props.currentTime,
+        dvrTimeValue: dvrTimeValue,
+        duration: duration,
+        paused: paused,
+        muted: muted,
+        preloading: preloading,
+        hasNext: props.hasNext,
+        isLive: props.isLive,
+        isDVR: isDVR.current,
+        isContentLoaded: isContentLoaded,
+        speedRate: speedRate,
+    
+        //Events
+        onPress: onControlsPress,
+        onSlidingStart: onSlidingStart,
+        onSlidingMove: onSlidingMove,
+        onSlidingComplete: onSlidingComplete
+
+    }) : null;
 
     return (
         <Animated.View style={{
             ...styles.container,
-            height:audioPlayerHeight
+            height:audioPlayerHeight,
+            backgroundColor: props.backgroundColor || styles.container.backgroundColor,
+            borderColor: props.topDividerColor,
+            borderTopWidth: props.topDividerColor ? 1 : 0
         }}>
 
             {
@@ -324,46 +349,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 : null
             }
 
-            {/* {
-                !isPlayingAd && !isPlayingExternalTudum ?
-                    <Overlay
-                        title={props?.title}
-                        currentTime={currentTime}
-                        duration={duration}
-                        dvrTimeValue={dvrTimeValue}
-
-                        muted={muted}
-                        paused={paused}
-                        preloading={preloading}
-                        hasNext={props?.hasNext}
-                        thumbnailsMetadata={currentManifest.current?.thumbnailMetadata}
-
-                        speedRate={speedRate}
-                        videoIndex={(typeof(selectedVideoTrack?.value) === 'number') ? selectedVideoTrack?.value : -1}
-                        audioIndex={props.audioIndex}
-                        subtitleIndex={props.subtitleIndex}
-                        menuData={menuData}
-
-                        alwaysVisible={isAirplayConnected}
-                        
-                        isLive={props?.isLive}
-                        isDVR={isDVR.current}
-                        isContentLoaded={isContentLoaded}
-
-                        // Components
-                        mosca={props.mosca}
-                        controlsHeaderMetadata={props.controlsHeaderMetadata}
-                        sliderVOD={props.sliderVOD}
-                        sliderDVR={props.sliderDVR}
-
-                        // Events
-                        onPress={onControlsPress}
-                        // onSlidingStart={onSlidingStart}
-                        // onSlidingMove={onSlidingMove}
-                        // onSlidingComplete={onSlidingComplete}
-                    />
-                : null
-            } */}
+            { Controls }
 
         </Animated.View>
     );
