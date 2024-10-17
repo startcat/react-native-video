@@ -446,6 +446,7 @@ export interface AudioControlsProps {
     isDVR?: boolean;
     isContentLoaded?: boolean;
     speedRate?: number;
+    extraData?: any;
 
     //Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
@@ -518,6 +519,9 @@ export interface AudioFlavourProps {
     currentTime?: number;
     languagesMapping?:ILanguagesMapping;
 
+    // Extra data
+    extraData?: any;
+    
     // Style
     backgroundColor?: string;
     topDividerColor?: string;
@@ -692,6 +696,7 @@ export interface AudioPlayerContentsDpo {
     hasNext?: boolean;
     manifests?:Array<IManifest>,
     youbora?: IYoubora;
+    extraData?: any;
 }
 
 export interface AudioPlayerProps {

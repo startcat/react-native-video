@@ -232,6 +232,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         currentTime={currentTime.current}
 
+                        // Extra Data
+                        extraData={dpoData.extraData}
+
                         // Styles
                         backgroundColor={props.backgroundColor}
                         topDividerColor={props.topDividerColor}
