@@ -12,6 +12,7 @@ import {
     type AudioPlayerProps,
     type AudioPlayerEventProps,
     type AudioPlayerActionEventProps,
+    type AudioPlayerContentsDpo,
     type IAudioPlayerContent,
     type ICommonData
 } from '../../types';
@@ -32,6 +33,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const audioPlayerHeight = useSharedValue(0);
 
     const [contentId, setContentId] = useState<IAudioPlayerContent>();
+    const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo>();
 
     const currentTime = useRef<number>(0);
     const duration = useRef<number>(0);
@@ -67,10 +69,6 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             
         });
 
-        setTimeout(() => {
-            showPlayer();
-        }, 5000);
-
         return (() => {
 
             if (typeof(changesAudioPlayerListener) === 'string'){
@@ -87,11 +85,32 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
     useEffect(() => {
 
+        async function fetchDpo(){
+
+            if (props.fetchContentData){
+                try {
+                    const dpo = await props.fetchContentData(contentId?.current!);
+                    setDpoData(dpo);
+
+                } catch(err){
+
+                }
+                
+            }
+
+        }
+
         // Hack para desmontar el player y limpiar sus datos al cambiar de contenido
         if (contentId?.next){
             setContentId({
                 current: contentId?.next
             });
+
+        } else if (contentId?.current){
+
+            // Llamamos la función externa que irá a buscar los datos del contenido solicitado
+            fetchDpo();
+
         }
 
     }, [contentId]);
@@ -184,7 +203,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }} />
 
             {
-                false && !contentId?.current ?
+                !contentId?.current ?
                     <View style={styles.contents}>
                         <Spinner />
                     </View>
@@ -192,24 +211,24 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }
 
             {
-                true || contentId?.current ?
+                contentId?.current && dpoData ?
                     <AudioFlavour
-                        // id={props.id}
-                        // title={props.title}
-                        // subtitle={props.subtitle}
-                        // description={props.description}
+                        id={dpoData.id}
+                        title={dpoData.title}
+                        subtitle={dpoData.subtitle}
+                        description={dpoData.description}
                         // languagesMapping={props.languagesMapping}
 
-                        // manifests={props.manifests}
-                        // poster={props.poster}
-                        // youbora={props.youbora}
-                        // hasNext={props.hasNext}
+                        manifests={dpoData.manifests}
+                        poster={dpoData.poster}
+                        youbora={dpoData.youbora}
+                        hasNext={dpoData.hasNext}
 
-                        // playOffline={props.playOffline}
-                        // isLive={props.isLive}
+                        playOffline={dpoData.playOffline}
+                        isLive={dpoData.isLive}
                         // liveStartDate={props.liveStartDate}
 
-                        // currentTime={currentTime.current}
+                        currentTime={currentTime.current}
 
                         // Styles
                         backgroundColor={props.backgroundColor}
