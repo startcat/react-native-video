@@ -203,7 +203,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }} />
 
             {
-                !contentId?.current ?
+                !contentId?.current || !dpoData ?
                     <View style={styles.contents}>
                         <Spinner />
                     </View>
