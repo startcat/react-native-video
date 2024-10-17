@@ -267,7 +267,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const Controls = props.controls ? createElement(props.controls, { 
         title: props.title,
-        currentTime: props.currentTime,
+        currentTime: currentTime,
         dvrTimeValue: dvrTimeValue,
         duration: duration,
         paused: paused,

@@ -56,6 +56,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             } else if (audioPlayerHeight){
                 // Si ya lo teníamos desplegado, cambiamos el ID/Slug del contenido
                 // Para cambiar de contenido, necesitamos desmontarlo
+                currentTime.current = 0;
+                setDpoData(null);
                 setContentId({
                     next: data
                 });
