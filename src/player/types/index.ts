@@ -222,6 +222,10 @@ export interface GetYouboraOptionsProps {
 export interface AudioPlayerEventProps {
     id: number;
     slug: string;
+    collection?: string;
+    type?: string;
+    media_type?: string;
+    media_format?: string;
 }
 
 export interface AudioPlayerActionEventProps {
@@ -683,7 +687,11 @@ export interface AudioPlayerContentsDpo {
 	media_type?: MEDIA_TYPE;
     type?: STREAM_TYPE;
     poster?: string;
+    playOffline?: boolean;
     isLive?: boolean;
+    hasNext?: boolean;
+    manifests?:Array<IManifest>,
+    youbora?: IYoubora;
 }
 
 export interface AudioPlayerProps {
@@ -695,7 +703,7 @@ export interface AudioPlayerProps {
     controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
-    fetchContentData?: (id?: number, slug?:string, type?:MEDIA_TYPE, collection?: COLLECTION) => AudioPlayerContentsDpo;
+    fetchContentData?: (data: AudioPlayerEventProps) => AudioPlayerContentsDpo;
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;

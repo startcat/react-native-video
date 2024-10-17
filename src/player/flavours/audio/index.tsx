@@ -11,7 +11,6 @@ import {
 import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
 import { useAirplayConnectivity } from 'react-airplay';
-import { Overlay } from '../../overlay';
 import { View } from 'react-native';
 
 import { 
