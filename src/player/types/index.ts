@@ -703,7 +703,7 @@ export interface AudioPlayerProps {
     controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
-    fetchContentData?: (data: AudioPlayerEventProps) => AudioPlayerContentsDpo;
+    fetchContentData?: (data: AudioPlayerEventProps) => Promise<AudioPlayerContentsDpo | null>;
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;

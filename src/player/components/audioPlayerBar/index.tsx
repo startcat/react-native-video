@@ -33,7 +33,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const audioPlayerHeight = useSharedValue(0);
 
     const [contentId, setContentId] = useState<IAudioPlayerContent>();
-    const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo>();
+    const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo | null>(null);
 
     const currentTime = useRef<number>(0);
     const duration = useRef<number>(0);
