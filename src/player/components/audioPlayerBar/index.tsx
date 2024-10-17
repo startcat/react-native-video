@@ -32,14 +32,12 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const audioPlayerHeight = useSharedValue(0);
 
     const [contentId, setContentId] = useState<IAudioPlayerContent>();
-    
 
     const currentTime = useRef<number>(0);
     const duration = useRef<number>(0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
-    
 
     useEffect(() => {
 
@@ -175,7 +173,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         <Animated.View style={{
             ...styles.container,
             height:audioPlayerHeight,
-            backgroundColor: props.backgroundColor || styles.container.backgroundColor
+            backgroundColor: props.backgroundColor || styles.container.backgroundColor,
+            borderColor: props.topDividerColor,
+            borderTopWidth: props.topDividerColor ? 1 : 0
         }}>
             
             <View style={{
@@ -184,7 +184,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }} />
 
             {
-                !contentId?.current ?
+                false && !contentId?.current ?
                     <View style={styles.contents}>
                         <Spinner />
                     </View>
@@ -192,7 +192,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }
 
             {
-                false && contentId?.current ?
+                true || contentId?.current ?
                     <AudioFlavour
                         // id={props.id}
                         // title={props.title}
@@ -211,11 +211,12 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         // currentTime={currentTime.current}
 
+                        // Styles
+                        backgroundColor={props.backgroundColor}
+                        topDividerColor={props.topDividerColor}
+
                         // Components
-                        // mosca={props.mosca}
-                        // controlsHeaderMetadata={props.controlsHeaderMetadata}
-                        // sliderVOD={props.sliderVOD}
-                        // sliderDVR={props.sliderDVR}
+                        controls={props.controls}
 
                         // Utils
                         getYouboraOptions={props.getYouboraOptions}
