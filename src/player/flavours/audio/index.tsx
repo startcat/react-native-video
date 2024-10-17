@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, createElement } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
     type OnProgressData,
     type OnBufferData,
@@ -10,7 +9,6 @@ import {
 } from '../../../types';
 import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
-import { useAirplayConnectivity } from 'react-airplay';
 import { View } from 'react-native';
 
 import { 
@@ -41,8 +39,6 @@ import {
 export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
-    const isAirplayConnected = useAirplayConnectivity();
-    const insets = useSafeAreaInsets();
     const audioPlayerHeight = useSharedValue(0);
 
     const currentManifest = useRef<IManifest>();
@@ -101,6 +97,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
             type: getManifestSourceType(currentManifest.current!)
         };
+
+        setPreloading(!preloading);
 
     }
 
