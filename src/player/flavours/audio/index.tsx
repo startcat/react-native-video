@@ -278,6 +278,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         isDVR: isDVR.current,
         isContentLoaded: isContentLoaded,
         speedRate: speedRate,
+        extraData: props.extraData,
     
         //Events
         onPress: onControlsPress,
