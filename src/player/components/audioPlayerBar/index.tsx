@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, createElement } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
 import AudioSession from 'react-native-audio-session';
 import { EventRegister } from 'react-native-event-listeners';
@@ -190,13 +190,13 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         
     }
 
+    const Loader = props.loader ? createElement(props.loader, {}) : null;
+
     return (
         <Animated.View style={{
             ...styles.container,
             height:audioPlayerHeight,
             backgroundColor: props.backgroundColor || styles.container.backgroundColor,
-            borderColor: props.topDividerColor,
-            borderTopWidth: props.topDividerColor ? 1 : 0
         }}>
             
             <View style={{
@@ -206,6 +206,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
             {
                 !contentId?.current || !dpoData ?
+                    Loader ||
                     <View style={styles.contents}>
                         <Spinner />
                     </View>

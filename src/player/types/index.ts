@@ -521,7 +521,7 @@ export interface AudioFlavourProps {
 
     // Extra data
     extraData?: any;
-    
+
     // Style
     backgroundColor?: string;
     topDividerColor?: string;
@@ -706,6 +706,7 @@ export interface AudioPlayerProps {
 
     // Components
     controls?: FunctionComponent<AudioControlsProps>;
+    loader?: FunctionComponent;
 
     // Utils
     fetchContentData?: (data: AudioPlayerEventProps) => Promise<AudioPlayerContentsDpo | null>;
