@@ -199,10 +199,10 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             backgroundColor: props.backgroundColor || styles.container.backgroundColor,
         }}>
             
-            <View style={{
+            {/* <View style={{
                 ...styles.audioPlayerTopDivider,
                 backgroundColor: props.backgroundColor || styles.audioPlayerTopDivider.backgroundColor
-            }} />
+            }} /> */}
 
             {
                 !contentId?.current || !dpoData ?
