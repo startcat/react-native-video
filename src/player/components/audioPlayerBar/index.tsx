@@ -3,7 +3,7 @@ import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-r
 import AudioSession from 'react-native-audio-session';
 import { EventRegister } from 'react-native-event-listeners';
 import { SheetManager } from 'react-native-actions-sheet';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { Text, Spinner } from '@ui-kitten/components';
 import { AudioFlavour } from '../../flavours';
 import { styles } from './styles';
@@ -92,6 +92,12 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             if (props.fetchContentData){
                 try {
                     const dpo = await props.fetchContentData(contentId?.current!);
+
+                    if (Platform.OS !== 'android'){
+                        AudioSession.setCategory('Playback', 'MixWithOthers');
+        
+                    }
+
                     setDpoData(dpo);
 
                 } catch(err){
@@ -198,11 +204,6 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             height:audioPlayerHeight,
             backgroundColor: props.backgroundColor || styles.container.backgroundColor,
         }}>
-            
-            {/* <View style={{
-                ...styles.audioPlayerTopDivider,
-                backgroundColor: props.backgroundColor || styles.audioPlayerTopDivider.backgroundColor
-            }} /> */}
 
             {
                 !contentId?.current || !dpoData ?
