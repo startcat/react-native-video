@@ -5,6 +5,10 @@ export const styles = StyleSheet.create({
         flex:1,
         backgroundColor:'black'
     },
+    audioContainer:{
+        flex:1,
+        backgroundColor:'transparent'
+    },
     playerWrapper:{
         flex:1,
         justifyContent:'center',
