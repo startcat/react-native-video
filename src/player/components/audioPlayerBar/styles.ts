@@ -4,7 +4,7 @@ import { SPACING } from '../../theme';
 export const styles = StyleSheet.create({
     container:{
         height: 60,
-        backgroundColor:'black'
+        backgroundColor:'transparent'
     },
     inner:{
         flex:1

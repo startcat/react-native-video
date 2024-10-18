@@ -290,7 +290,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     return (
         <Animated.View style={{
-            ...styles.container,
+            ...styles.audioContainer,
             height:audioPlayerHeight,
             backgroundColor: props.backgroundColor || styles.container.backgroundColor,
             borderColor: props.topDividerColor,
