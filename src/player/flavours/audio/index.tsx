@@ -32,6 +32,7 @@ import {
     type IDrm,
     type IVideoSource,
     type ICommonData,
+    type AudioPlayerActionEventProps,
     CONTROL_ACTION,
     STREAM_FORMAT_TYPE,
     YOUBORA_FORMAT,
@@ -60,6 +61,23 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [speedRate, setSpeedRate] = useState<number>(1);
 
     const refVideoPlayer = useRef<VideoRef>(null);
+
+    useEffect(() => {
+
+        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
+            onControlsPress(data.action, data.value);
+            
+        });
+
+        return (() => {
+
+            if (typeof(actionsAudioPlayerListener) === 'string'){
+                EventRegister.removeEventListener(actionsAudioPlayerListener);
+            }
+
+        });
+
+    }, []);
 
     useEffect(() => {
         setPlayerSource();
