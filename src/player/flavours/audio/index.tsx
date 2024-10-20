@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, createElement } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
+import { EventRegister } from 'react-native-event-listeners';
 import { 
     type OnProgressData,
     type OnBufferData,
@@ -64,6 +65,26 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         setPlayerSource();
 
     }, [props.manifests]);
+
+    useEffect(() => {
+        EventRegister.emit('audioPlayerProgress', {
+            title:props.title,
+            currentTime: currentTime,
+            dvrTimeValue: dvrTimeValue,
+            duration: duration,
+            paused: paused,
+            muted: muted,
+            //volume: number;
+            preloading: preloading,
+            hasNext: props.hasNext,
+            isLive: props.isLive,
+            isDVR: isDVR.current,
+            isContentLoaded: isContentLoaded,
+            speedRate: speedRate,
+            extraData: props.extraData
+        });
+
+    }, [currentTime, dvrTimeValue, duration, paused, muted, preloading, isDVR.current, isContentLoaded, speedRate]);
 
     // Source Cooking
     const setPlayerSource = async () => {
