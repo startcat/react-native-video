@@ -11,7 +11,6 @@ import { styles } from './styles';
 import { 
     type AudioPlayerProps,
     type AudioPlayerEventProps,
-    type AudioPlayerActionEventProps,
     type AudioPlayerContentsDpo,
     type IAudioPlayerContent,
     type ICommonData
@@ -66,19 +65,10 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             
         });
 
-        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
-
-            
-        });
-
         return (() => {
 
             if (typeof(changesAudioPlayerListener) === 'string'){
                 EventRegister.removeEventListener(changesAudioPlayerListener);
-            }
-
-            if (typeof(actionsAudioPlayerListener) === 'string'){
-                EventRegister.removeEventListener(actionsAudioPlayerListener);
             }
 
         });
