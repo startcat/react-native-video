@@ -196,7 +196,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         }}>
 
             {
-                !contentId?.current || !dpoData ?
+                (!contentId?.current || !dpoData) && audioPlayerHeight.value > 10 ?
                     Loader ||
                     <View style={styles.contents}>
                         <Spinner />
