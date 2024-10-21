@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo, createElement } from 'react';
+import React, { useEffect, useState, useRef, useMemo, createElement, useCallback } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
 import { EventRegister } from 'react-native-event-listeners';
 import { 
@@ -77,7 +77,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         });
 
-    }, []);
+    }, [currentTime]);
 
     useEffect(() => {
         setPlayerSource();
@@ -153,7 +153,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     }
 
-    const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
+    const onControlsPress = useCallback((id: CONTROL_ACTION, value?:number | boolean) => {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute'];
 
@@ -202,7 +202,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         }
 
-    }
+    }, [currentTime]);
 
     const onLoad = async (e: OnLoadData) => {
 
