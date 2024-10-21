@@ -189,7 +189,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const Loader = props.loader ? createElement(props.loader, {}) : null;
 
     return (
-        <Animated.View style={{
+        <Animated.View style={ props.style ? [props.style, { height:audioPlayerHeight }] : {
             ...styles.container,
             height:audioPlayerHeight,
             backgroundColor: props.backgroundColor || styles.container.backgroundColor,
