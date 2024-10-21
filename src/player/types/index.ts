@@ -333,7 +333,8 @@ export interface SliderDVRProps {
 export interface TimelineTextProps {
     value?: number | string;
     align?: 'center' | 'left' | 'right';
-    style?: any;
+    containerStyle?: any;
+    textStyle?:any;
 }
 
 export interface ThumbnailCellProps {
