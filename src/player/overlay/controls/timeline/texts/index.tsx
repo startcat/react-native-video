@@ -19,14 +19,14 @@ export function TimelineText (props: TimelineTextProps): React.ReactElement | nu
     if (value && typeof(value) === 'string'){
         return (
             <View style={[styles.container, props?.containerStyle]}>
-                <Text category='h5' style={[styles.text, props?.textStyle]}>{ value }</Text>
+                <Text category={props.category || 'h5'} style={[styles.text, props?.textStyle]}>{ value }</Text>
             </View>
         );
 
     } else if (value && typeof(value) === 'number'){
         return (
             <View style={[styles.container, props?.containerStyle]}>
-                <Text category='h5' style={[styles.text, props?.textStyle]}>{ parseToCounter(value) }</Text>
+                <Text category={props.category || 'h5'} style={[styles.text, props?.textStyle]}>{ parseToCounter(value) }</Text>
             </View>
         );
 
