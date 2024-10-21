@@ -705,6 +705,7 @@ export interface AudioPlayerProps {
     playerMaxHeight?: number;
     backgroundColor?: string;
     topDividerColor?: string;
+    style?: any;
 
     // Components
     controls?: FunctionComponent<AudioControlsProps>;
