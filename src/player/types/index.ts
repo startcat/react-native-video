@@ -224,8 +224,17 @@ export interface AudioPlayerEventProps {
     slug: string;
     collection?: string;
     type?: string;
-    media_type?: string;
+    media_type?: MEDIA_TYPE;
     media_format?: string;
+    stream?: {
+        id: number;
+        mpd?: string;
+        m3u8?: string;
+        slug: string;
+        title?: string;
+        station?: number;
+        media_type: MEDIA_TYPE,
+    }
 }
 
 export interface AudioPlayerActionEventProps {
