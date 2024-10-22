@@ -123,6 +123,9 @@ export const getManifestSourceType = (manifest: IManifest): string | undefined =
 
     } else if (manifest?.manifestURL?.includes('.m3u8')){
         type = 'm3u8';
+        
+    } else if (manifest?.manifestURL?.includes('.mp3')){
+        type = 'mp3';
 
     } else {
         type = (Platform.OS === 'ios') ? 'm3u8' : 'mpd';
