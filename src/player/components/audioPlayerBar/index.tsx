@@ -10,10 +10,12 @@ import { styles } from './styles';
 
 import { 
     type AudioPlayerProps,
+    type AudioPlayerActionEventProps,
     type AudioPlayerEventProps,
     type AudioPlayerContentsDpo,
     type IAudioPlayerContent,
-    type ICommonData
+    type ICommonData,
+    CONTROL_ACTION
 } from '../../types';
 
 const PLAYER_MAX_HEIGHT = 80;
@@ -31,7 +33,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const playerMaxHeight = useRef<number>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
     const audioPlayerHeight = useSharedValue(0);
 
-    const [contentId, setContentId] = useState<IAudioPlayerContent>();
+    const [contentId, setContentId] = useState<IAudioPlayerContent | null>();
     const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo | null>(null);
 
     const currentTime = useRef<number>(0);
@@ -65,10 +67,23 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             
         });
 
+        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
+
+            if (data.action === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
+                setContentId(null);
+                hidePlayer();
+            }
+
+        });
+
         return (() => {
 
             if (typeof(changesAudioPlayerListener) === 'string'){
                 EventRegister.removeEventListener(changesAudioPlayerListener);
+            }
+
+            if (typeof(actionsAudioPlayerListener) === 'string'){
+                EventRegister.removeEventListener(actionsAudioPlayerListener);
             }
 
         });

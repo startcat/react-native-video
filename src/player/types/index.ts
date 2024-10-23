@@ -55,7 +55,8 @@ export enum CONTROL_ACTION {
     AUDIO_INDEX = 'audioIndex',
     SUBTITLE_INDEX = 'subtitleIndex',
     SPEED_RATE = 'speedRate',
-    CLOSE_NEXT_POPUP = 'closeNextPopup'
+    CLOSE_NEXT_POPUP = 'closeNextPopup',
+    CLOSE_AUDIO_PLAYER = 'closeAudioPlayer'
 }
 
 export enum PLAYER_MENU_DATA_TYPE {
