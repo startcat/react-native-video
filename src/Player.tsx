@@ -111,6 +111,10 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             // Reanudamos las descargas
             resumeDownloads();
 
+            if (Platform.OS === 'android'){
+                SystemNavigationBar.fullScreen(false);
+            }
+
         };
 
     }, []);
