@@ -69,7 +69,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
 
-            if (data.action === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
+            if (data.action === CONTROL_ACTION.HIDE_AUDIO_PLAYER){
                 setDpoData(null);
                 setContentId({
                     next: null,
