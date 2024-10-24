@@ -164,7 +164,22 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
-            setPaused(true);
+            // Clear workarround
+            videoSource.current = {
+                // @ts-ignore
+                id: null,
+                // @ts-ignore
+                title: null,
+                // @ts-ignore
+                uri: null,
+                // @ts-ignore
+                type: null
+            };
+
+            EventRegister.emit("audioPlayerAction", {
+                action: CONTROL_ACTION.HIDE_AUDIO_PLAYER,
+            });
+
         }
         
         if (id === CONTROL_ACTION.MUTE){
