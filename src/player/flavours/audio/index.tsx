@@ -162,6 +162,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (id === CONTROL_ACTION.PAUSE){
             setPaused(!!value);
         }
+
+        if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
+            setPaused(true);
+        }
         
         if (id === CONTROL_ACTION.MUTE){
             setMuted(!!value);

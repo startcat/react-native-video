@@ -384,8 +384,8 @@ export interface TimelineProps {
 }
 
 export interface IAudioPlayerContent {
-    current?: AudioPlayerEventProps,
-    next?: AudioPlayerEventProps
+    current?: AudioPlayerEventProps | null;
+    next?: AudioPlayerEventProps | null;
 }
 
 export interface ControlsBarProps {
