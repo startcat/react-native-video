@@ -70,7 +70,11 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
 
             if (data.action === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
-                setContentId(null);
+                setDpoData(null);
+                setContentId({
+                    next: null,
+                    current: null
+                });
                 hidePlayer();
             }
 
