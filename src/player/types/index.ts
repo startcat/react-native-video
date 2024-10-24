@@ -530,6 +530,7 @@ export interface AudioFlavourProps {
 
     currentTime?: number;
     languagesMapping?:ILanguagesMapping;
+    mapHlsQualities?: boolean;
 
     // Extra data
     extraData?: any;
@@ -575,6 +576,7 @@ export interface NormalFlavourProps {
     audioIndex?: number;
     subtitleIndex?: number;
     languagesMapping?:ILanguagesMapping;
+    mapHlsQualities?: boolean;
 
     // Components
     mosca?: React.ReactElement;
@@ -621,6 +623,7 @@ export interface CastFlavourProps {
     audioIndex?: number;
     subtitleIndex?: number;
     languagesMapping?:ILanguagesMapping;
+    mapHlsQualities?: boolean;
 
     // Components
     mosca?: React.ReactElement;
@@ -663,6 +666,7 @@ export interface PlayerProps {
     hasNext?: boolean;
 
     languagesMapping?:ILanguagesMapping;
+    mapHlsQualities?: boolean;
 
     // Components
     mosca?: React.ReactElement;

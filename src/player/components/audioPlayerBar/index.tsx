@@ -170,7 +170,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
     const hidePlayer = () => {
         audioPlayerHeight.value = withTiming(0, {
-            duration: 300
+            duration: 200
         });
     }
 

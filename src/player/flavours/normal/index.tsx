@@ -325,7 +325,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         if (!isPlayingExternalTudum && !isContentLoaded){
 
             // En caso de HLS, preparamos las calidades
-            if (isHLS.current){
+            if (isHLS.current && props.mapHlsQualities){
                 hlsQualities = await getHlsQualities(currentManifest.current?.manifestURL!);
 
             }
