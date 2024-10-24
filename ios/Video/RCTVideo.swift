@@ -264,12 +264,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         NotificationCenter.default.removeObserver(self)
         self.removePlayerLayer()
         _playerObserver.clearPlayer()
-        
-        // Dani Youbora
-        guard let npawPlugin = NpawPluginProvider.shared else { return }
-        
-        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
-        NpawPluginProvider.destroy()
 
         if let player = _player {
             NowPlayingInfoCenterManager.shared.removePlayer(player: player)
@@ -278,6 +272,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         #if os(iOS)
             _pip = nil
         #endif
+
+        // Dani Youbora
+        guard let npawPlugin = NpawPluginProvider.shared else { return }
+        
+        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
+        NpawPluginProvider.destroy()
     }
 
     // MARK: - App lifecycle handlers
@@ -1412,17 +1412,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         */
 
         _videoAdapter?.playerAdapter.fireStop()
-        
-        // Dani Youbora
-        guard let npawPlugin = NpawPluginProvider.shared else { return }
-        
-        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
-        NpawPluginProvider.destroy()
-        
-        if let player = _player {
-            player.pause()
-            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
-        }
 
         /*
             End
@@ -1457,6 +1446,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         NotificationCenter.default.removeObserver(self)
 
         super.removeFromSuperview()
+
+        // Dani Youbora
+        guard let npawPlugin = NpawPluginProvider.shared else { return }
+        
+        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
+        NpawPluginProvider.destroy()
     }
 
     // MARK: - Export
