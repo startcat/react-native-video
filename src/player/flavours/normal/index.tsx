@@ -538,9 +538,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             poster={props?.poster}
                             preventsDisplaySleepDuringVideoPlayback={!isAirplayConnected}
                             progressUpdateInterval={1000}
-                            selectedVideoTrack={isPlayingExternalTudum || isHLS.current ? undefined : selectedVideoTrack}
-                            selectedAudioTrack={isPlayingExternalTudum || isHLS.current ? undefined : selectedAudioTrack}
-                            selectedTextTrack={isPlayingExternalTudum || isHLS.current ? undefined : selectedTextTrack}
+                            selectedVideoTrack={isPlayingExternalTudum ? undefined : selectedVideoTrack}
+                            selectedAudioTrack={isPlayingExternalTudum ? undefined : selectedAudioTrack}
+                            selectedTextTrack={isPlayingExternalTudum || (typeof(selectedTextTrack?.value) === 'number' && selectedTextTrack?.value < 0) ? undefined : selectedTextTrack}
 
                             //onVolumeChange={onVolumeChange}
                             onEnd={onEnd}
