@@ -46,7 +46,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const currentManifest = useRef<IManifest>();
     const youboraForVideo = useRef<IMappedYoubora>();
     const drm = useRef<IDrm>();
-    const videoSource = useRef<IVideoSource>();
+    const [videoSource, setVideoSource] = useState<IVideoSource | null>();
     const isDVR = useRef<boolean>();
     const isHLS = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
@@ -83,6 +83,15 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         setPlayerSource();
 
     }, [props.manifests]);
+
+    useEffect(() => {
+        if (videoSource && videoSource?.uri === null){
+            EventRegister.emit("audioPlayerAction", {
+                action: CONTROL_ACTION.HIDE_AUDIO_PLAYER,
+            });
+        }
+
+    }, [videoSource?.uri]);
 
     useEffect(() => {
         EventRegister.emit('audioPlayerProgress', {
@@ -130,12 +139,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         // Montamos el Source para el player
-        videoSource.current = {
+        setVideoSource({
             id: props.id,
             title: props.title,
             uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
             type: getManifestSourceType(currentManifest.current!)
-        };
+        });
 
         setPreloading(!preloading);
 
@@ -165,7 +174,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
             // Clear workarround
-            videoSource.current = {
+            setVideoSource({
                 // @ts-ignore
                 id: null,
                 // @ts-ignore
@@ -174,10 +183,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 uri: null,
                 // @ts-ignore
                 type: null
-            };
-
-            EventRegister.emit("audioPlayerAction", {
-                action: CONTROL_ACTION.HIDE_AUDIO_PLAYER,
             });
 
         }
@@ -356,13 +361,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }}>
 
             {
-                videoSource.current ?
+                videoSource ?
                     <Video
                         // @ts-ignore
                         ref={refVideoPlayer}
                         style={styles.audioPlayer}
                         // @ts-ignore
-                        source={videoSource.current}
+                        source={videoSource}
                         // @ts-ignore
                         drm={drm.current}
                         // @ts-ignore
