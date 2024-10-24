@@ -85,15 +85,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }, [props.manifests]);
 
     useEffect(() => {
-        if (videoSource && videoSource?.uri === null){
-            EventRegister.emit("audioPlayerAction", {
-                action: CONTROL_ACTION.HIDE_AUDIO_PLAYER,
-            });
-        }
-
-    }, [videoSource?.uri]);
-
-    useEffect(() => {
         EventRegister.emit('audioPlayerProgress', {
             title:props.title,
             currentTime: currentTime,
@@ -172,20 +163,20 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setPaused(!!value);
         }
 
-        if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
-            // Clear workarround
-            setVideoSource({
-                // @ts-ignore
-                id: null,
-                // @ts-ignore
-                title: null,
-                // @ts-ignore
-                uri: null,
-                // @ts-ignore
-                type: null
-            });
+        // if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
+        //     // Clear workarround
+        //     setVideoSource({
+        //         // @ts-ignore
+        //         id: null,
+        //         // @ts-ignore
+        //         title: null,
+        //         // @ts-ignore
+        //         uri: null,
+        //         // @ts-ignore
+        //         type: null
+        //     });
 
-        }
+        // }
         
         if (id === CONTROL_ACTION.MUTE){
             setMuted(!!value);
