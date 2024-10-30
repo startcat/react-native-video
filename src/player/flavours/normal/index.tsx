@@ -65,6 +65,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const videoSource = useRef<IVideoSource>();
     const isDVR = useRef<boolean>();
     const isHLS = useRef<boolean>();
+    const isDASH = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
@@ -181,6 +182,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         // Marcamos si es HLS
         isHLS.current = currentManifest.current?.type === STREAM_FORMAT_TYPE.HLS;
+
+        // Marcamos si es DASH
+        isDASH.current = currentManifest.current?.type === STREAM_FORMAT_TYPE.DASH;
 
         // Preparamos los datos de Youbora
         if (props.getYouboraOptions){
@@ -353,7 +357,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 onControlsPress(CONTROL_ACTION.SEEK, currentTime);
             }
 
-            setMenuData(mergeMenuData(e, props.languagesMapping, hlsQualities));
+            setMenuData(mergeMenuData(e, props.languagesMapping, hlsQualities, isDASH.current));
 
         }
 

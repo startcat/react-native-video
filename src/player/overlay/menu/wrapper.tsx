@@ -122,8 +122,8 @@ export function Menu (props: MenuProps): React.ReactElement {
                 </View>
 
                 <View style={styles.bottomContents}>
-                    <Button style={styles.mainButton} status='basic' onPress={onClose} accessoryLeft={require('~/theme/buttonIcons').icon_cancel} accessibilityRole='button'>{ i18n.t('cancel') }</Button>
-                    <Button style={styles.mainButton} status='primary' onPress={onAccept} accessoryLeft={require('~/theme/buttonIcons').icon_ok} accessibilityRole='button'>{ i18n.t('accept') }</Button>
+                    <Button style={styles.mainButton} status='basic' onPress={onClose} accessibilityRole='button'>{ i18n.t('cancel') }</Button>
+                    <Button style={styles.mainButton} status='primary' onPress={onAccept} accessibilityRole='button'>{ i18n.t('accept') }</Button>
                 </View>
 
             </Pressable>
