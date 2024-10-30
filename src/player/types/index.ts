@@ -592,7 +592,7 @@ export interface NormalFlavourProps {
     settingsMenu?: FunctionComponent<MenuProps>;
 
     // Utils
-    getTudumManifest?: () => IManifest | undefined;
+    getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
@@ -684,7 +684,7 @@ export interface PlayerProps {
     // Utils
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
-    getTudumManifest?: () => IManifest | undefined;
+    getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
