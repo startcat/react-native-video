@@ -39,7 +39,7 @@ const sortByIndex = (a: IPlayerMenuData, b: IPlayerMenuData) => {
 
 }
 
-export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguagesMapping, hlsQualities?:Array<IPlayerMenuData>):Array<IPlayerMenuData> => {
+export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguagesMapping, hlsQualities?:Array<IPlayerMenuData>, isDASH?: boolean):Array<IPlayerMenuData> => {
 
     let menuData:Array<IPlayerMenuData> = [];
 
@@ -92,7 +92,7 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
             label: i18n.t('player_quality_auto')
         });
 
-        if (loadedData.videoTracks){
+        if (loadedData.videoTracks && isDASH){
             loadedData.videoTracks.forEach(item => {
 
                 menuData.push({
