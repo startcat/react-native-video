@@ -10,7 +10,8 @@ export enum DownloadStates {
   STOPPED = 'STOPPED',
   DOWNLOADING = 'DOWNLOADING',
   NOT_DOWNLOADED = 'NOT_DOWNLOADED',
-  COMPLETED = 'COMPLETED'
+  COMPLETED = 'COMPLETED',
+  QUEUED = 'QUEUED'
 };
 
 export type ConfigDownloads = {
