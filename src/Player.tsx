@@ -200,6 +200,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 audioIndex={currentAudioIndex}
                 subtitleIndex={currentSubtitleIndex}
 
+                timeMarkers={props.timeMarkers}
+
                 // Components
                 mosca={props.mosca}
                 headerMetadata={props.headerMetadata}
@@ -248,6 +250,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 currentTime={currentTime.current}
                 audioIndex={currentAudioIndex}
                 subtitleIndex={currentSubtitleIndex}
+
+                timeMarkers={props.timeMarkers}
 
                 // Components
                 mosca={props.mosca}

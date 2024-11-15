@@ -27,9 +27,8 @@ export const styles = StyleSheet.create({
         top:SPACING['0.5x'],
         left:SPACING['0.5x'] + 50,
     },
-    otherButtons:{
+    temporalButtonsBar:{
         flex:1,
-        flexDirection:'row',
-        marginBottom:SPACING['0.5x']
+        marginBottom:SPACING['0.5x'],
     }
 });

@@ -470,6 +470,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 preloading={loading || preloading}
                 hasNext={props?.hasNext}
                 thumbnailsMetadata={currentManifest.current?.thumbnailMetadata}
+                timeMarkers={props.timeMarkers}
 
                 audioIndex={audioIndex}
                 subtitleIndex={subtitleIndex}
