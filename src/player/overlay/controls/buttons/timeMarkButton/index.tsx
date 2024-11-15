@@ -4,7 +4,7 @@ import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Text } from '@ui-kitten/components';
 import { styles } from './styles';
 import { 
-    type TimeMarkProps,
+    type TimeMarkButtonProps,
     CONTROL_ACTION
 } from '../../../../types';
 
@@ -13,7 +13,7 @@ const HAPTIC_OPTIONS = {
     ignoreAndroidSystemSettings: true
 };
 
-export function TimeMarkButton (props: TimeMarkProps): React.ReactElement {
+export function TimeMarkButton (props: TimeMarkButtonProps): React.ReactElement {
 
     const onPress = () => {
 

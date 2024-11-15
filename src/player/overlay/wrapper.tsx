@@ -300,6 +300,11 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                             currentTime={props.currentTime}
                             timeMarkers={props.timeMarkers}
 
+                            // Components
+                            skipIntroButton={props.skipIntroButton}
+                            skipRecapButton={props.skipRecapButton}
+                            skipCreditsButton={props.skipCreditsButton}
+                            
                             // Events
                             onPress={onPress}
                         />
