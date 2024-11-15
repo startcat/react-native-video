@@ -279,6 +279,15 @@ export interface ButtonProps {
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
+export interface TimeMarkProps {
+    title: string;
+    id?: CONTROL_ACTION;
+    value?: boolean | number;
+    disabled?: boolean;
+    accessibilityLabel?: string;
+    onPress?: (id: CONTROL_ACTION, value?: any) => void;
+}
+
 export interface NextButtonProps {
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }

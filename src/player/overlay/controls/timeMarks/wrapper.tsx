@@ -1,27 +1,25 @@
 import React, { useEffect, useState, createElement } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from '@ui-kitten/components';
 
 import {
-    Button
+    TimeMarkButton
 } from '../buttons';
 
 import { SPACING } from '../../../theme';
 
 import { 
     CONTROL_ACTION,
-    BUTTON_SIZE,
     TIME_MARK_TYPE,
     type TimeMarksProps
 } from '../../../types';
 
 export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
-    const [sliderValueVOD, setSliderValueVOD] = useState<number | undefined>(props?.currentTime);
+    const [currentTime, setCurrentTime] = useState<number | undefined>(props?.currentTime);
 
 
     useEffect(() => {
-        
+        setCurrentTime(props?.currentTime);
 
     }, [props?.currentTime]);
 
@@ -45,21 +43,19 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
         <View style={styles.container}>
 
             {
-                props.currentTime && props.timeMarkers?.map(item => {
+                props.timeMarkers?.map((item, index) => {
 
-                    if (item && props.currentTime && props.currentTime >= item.start && props.currentTime <= item.end){
+                    if (item && currentTime && currentTime >= item.start && currentTime <= item.end){
 
                         if (item.type === TIME_MARK_TYPE.INTRO){
 
                             return (
-                                <Button
-                                    id={CONTROL_ACTION.SEEK}
+                                <TimeMarkButton
+                                    key={index}
+                                    title='Saltar intro'
                                     value={item.end}
-                                    size={BUTTON_SIZE.SMALL}
                                     onPress={props?.onPress}
-                                >
-                                    <Text category='h5'>Saltar intro</Text>
-                                </Button>
+                                />
                             )
 
                         }
@@ -67,14 +63,12 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                         if (item.type === TIME_MARK_TYPE.RECAP){
                             
                             return (
-                                <Button
-                                    id={CONTROL_ACTION.SEEK}
+                                <TimeMarkButton
+                                    key={index}
+                                    title='Saltar resumen'
                                     value={item.end}
-                                    size={BUTTON_SIZE.SMALL}
                                     onPress={props?.onPress}
-                                >
-                                    <Text category='h5'>Saltar resumen</Text>
-                                </Button>
+                                />
                             )
 
                         }
@@ -82,14 +76,12 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                         if (item.type === TIME_MARK_TYPE.CREDITS){
                             
                             return (
-                                <Button
-                                    id={CONTROL_ACTION.SEEK}
+                                <TimeMarkButton
+                                    key={index}
+                                    title='Saltar créditos'
                                     value={item.end}
-                                    size={BUTTON_SIZE.SMALL}
                                     onPress={props?.onPress}
-                                >
-                                    <Text category='h5'>Saltar créditos</Text>
-                                </Button>
+                                />
                             )
 
                         }
@@ -97,16 +89,17 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                         if (item.type === TIME_MARK_TYPE.NEXT_EPISODE){
                             
                             return (
-                                <Button
+                                <TimeMarkButton
+                                    key={index}
                                     id={CONTROL_ACTION.NEXT}
-                                    size={BUTTON_SIZE.SMALL}
+                                    title='Siguiente capítulo'
                                     onPress={props?.onPress}
-                                >
-                                    <Text category='h5'>Siguiente capítulo</Text>
-                                </Button>
+                                />
                             )
 
                         }
+
+                        return (<></>)
                         
                     } else {
                         return (<></>)
