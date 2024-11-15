@@ -34,7 +34,7 @@ export enum BUTTON_SIZE {
     BIG = 'big',
 }
 
-export enum BUTTON_TIMED_TYPE {
+export enum TIME_MARK_TYPE {
 	INTRO = 'intro',
 	RECAP = 'recap',
     CREDITS = 'credits',
@@ -178,7 +178,7 @@ export interface ICastMetadata {
 }
 
 export interface ITimeMarkers {
-    type: BUTTON_TIMED_TYPE;
+    type: TIME_MARK_TYPE;
     start: number;
     end: number;
 }
@@ -400,7 +400,7 @@ export interface TimelineProps {
 export interface TimeMarksProps {
     currentTime?: number;
     timeMarkers?: Array<ITimeMarkers>;
-    
+
     // Events
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }

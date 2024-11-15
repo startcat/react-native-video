@@ -286,7 +286,7 @@ export function Overlay (props: OverlayProps): React.ReactElement {
 
             {
                 // Timed Buttons (Saltar intro...)
-                !visibleMenu && !visibleSettingsMenu ?
+                !visibleMenu && !visibleSettingsMenu && !visibleControls && !avoidDissapear ?
                     <View 
                         style={{
                             ...styles.temporalButtonsBar,
