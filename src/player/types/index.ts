@@ -34,6 +34,13 @@ export enum BUTTON_SIZE {
     BIG = 'big',
 }
 
+export enum BUTTON_TIMED_TYPE {
+	INTRO = 'intro',
+	RECAP = 'recap',
+    CREDITS = 'credits',
+    NEXT_EPISODE = 'nextEpisode'
+}
+
 export enum CONTROL_ACTION {
     PAUSE = 'pause',
     BACK = 'back',
@@ -168,6 +175,12 @@ export interface ICastMetadata {
     hasNext?: boolean;
 
     startPosition?: number;
+}
+
+export interface ITimeMarkers {
+    type: BUTTON_TIMED_TYPE;
+    start: number;
+    end: number;
 }
 
 type YouboraCustomDimensions = {
@@ -384,6 +397,14 @@ export interface TimelineProps {
 
 }
 
+export interface TimeMarksProps {
+    currentTime?: number;
+    timeMarkers?: Array<ITimeMarkers>;
+    
+    // Events
+    onPress?: (id: CONTROL_ACTION, value?: any) => void;
+}
+
 export interface IAudioPlayerContent {
     current?: AudioPlayerEventProps | null;
     next?: AudioPlayerEventProps | null;
@@ -425,6 +446,7 @@ export interface ControlsProps {
     preloading?: boolean;
     hasNext?: boolean;
     thumbnailsMetadata?: IThumbnailMetadata;
+    timeMarkers?: Array<ITimeMarkers>;
     isLive?: boolean;
     isDVR?: boolean;
     isContentLoaded?: boolean;
@@ -479,6 +501,7 @@ export interface OverlayProps {
     preloading?: boolean;
     hasNext?: boolean;
     thumbnailsMetadata?: IThumbnailMetadata;
+    timeMarkers?: Array<ITimeMarkers>;
     
     alwaysVisible?: boolean;
     
@@ -579,6 +602,8 @@ export interface NormalFlavourProps {
     languagesMapping?:ILanguagesMapping;
     mapHlsQualities?: boolean;
 
+    timeMarkers?: Array<ITimeMarkers>;
+
     // Components
     mosca?: React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
@@ -626,6 +651,8 @@ export interface CastFlavourProps {
     languagesMapping?:ILanguagesMapping;
     mapHlsQualities?: boolean;
 
+    timeMarkers?: Array<ITimeMarkers>;
+
     // Components
     mosca?: React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
@@ -665,6 +692,7 @@ export interface PlayerProps {
     isLive?: boolean;
     liveStartDate?:string;
     hasNext?: boolean;
+    timeMarkers?: Array<ITimeMarkers>;
 
     languagesMapping?:ILanguagesMapping;
     mapHlsQualities?: boolean;

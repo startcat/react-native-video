@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, createElement } from 'react';
-import { Pressable } from 'react-native';
-import { Controls } from './controls';
+import { Pressable, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Controls, TimeMarks } from './controls';
 import { Menu } from './menu';
 import { SettingsMenu } from './settingsMenu';
 import { SkipButtons } from './skip';
@@ -13,6 +14,8 @@ import { styles } from './styles';
 const PLAYER_HIDE_CONTROLS = 5000;
 
 export function Overlay (props: OverlayProps): React.ReactElement {
+
+    const insets = useSafeAreaInsets();
 
     const [avoidDissapear, setAvoidDissapear] = useState<boolean>(!!props.alwaysVisible);
     const [visibleControls, setVisibleControls] = useState<boolean>(!!props.alwaysVisible);
@@ -210,6 +213,7 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                         title={props?.title}
 
                         thumbnailsMetadata={props?.thumbnailsMetadata}
+                        timeMarkers={props.timeMarkers}
 
                         paused={props?.paused}
                         muted={props?.muted}
@@ -253,6 +257,7 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                         subtitleIndex={props.subtitleIndex}
                         menuData={props.menuData}
 
+                        // Events
                         onPress={onPress}
                         onClose={onCloseMenu}
                     />
@@ -272,9 +277,34 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                         videoIndex={props.videoIndex}
                         menuData={props.menuData}
 
+                        // Events
                         onPress={onPress}
                         onClose={onCloseMenu}
                     />
+                : null
+            }
+
+            {
+                // Timed Buttons (Saltar intro...)
+                !visibleMenu && !visibleSettingsMenu ?
+                    <View 
+                        style={{
+                            ...styles.temporalButtonsBar,
+                            bottom: styles.temporalButtonsBar.bottom + insets?.bottom,
+                            left: styles.temporalButtonsBar.left + Math.max(insets.left, insets.right),
+                            right: styles.temporalButtonsBar.right + Math.max(insets.left, insets.right)
+                        }}
+                    >
+
+                        <TimeMarks 
+                            currentTime={props.currentTime}
+                            timeMarkers={props.timeMarkers}
+
+                            // Events
+                            onPress={onPress}
+                        />
+                                            
+                    </View>
                 : null
             }
 

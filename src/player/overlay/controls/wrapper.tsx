@@ -6,6 +6,7 @@ import { ControlsHeaderBar } from './header';
 import { ControlsMiddleBar } from './middleBar';
 import { Timeline } from './timeline';
 import { ControlsBottomBar } from './bottomBar';
+import { TimeMarks } from './timeMarks';
 import { 
     type ControlsProps,
     CONTROL_ACTION 
@@ -161,6 +162,16 @@ export function Controls (props: ControlsProps): React.ReactElement {
                     onSlidingMove={props?.onSlidingMove}
                     onSlidingComplete={props?.onSlidingComplete}
                 />
+
+                <View style={styles.temporalButtonsBar}>
+                    <TimeMarks 
+                        currentTime={props.currentTime}
+                        timeMarkers={props.timeMarkers}
+                        
+                        // Events
+                        onPress={onPress}
+                    />
+                </View>
 
             </View>
 

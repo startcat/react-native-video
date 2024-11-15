@@ -578,6 +578,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         preloading={preloading}
                         hasNext={props?.hasNext}
                         thumbnailsMetadata={currentManifest.current?.thumbnailMetadata}
+                        timeMarkers={props.timeMarkers}
 
                         speedRate={speedRate}
                         videoIndex={(typeof(selectedVideoTrack?.value) === 'number') ? selectedVideoTrack?.value : -1}
