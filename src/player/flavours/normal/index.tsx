@@ -601,6 +601,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         controlsMiddleBar={props.controlsMiddleBar}
                         controlsBottomBar={props.controlsBottomBar}
                         nextButton={props.nextButton}
+                        skipIntroButton={props.skipIntroButton}
+                        skipRecapButton={props.skipRecapButton}
+                        skipCreditsButton={props.skipCreditsButton}
                         menu={props.menu}
                         settingsMenu={props.settingsMenu}
 

@@ -167,6 +167,11 @@ export function Controls (props: ControlsProps): React.ReactElement {
                     <TimeMarks 
                         currentTime={props.currentTime}
                         timeMarkers={props.timeMarkers}
+
+                        // Components
+                        skipIntroButton={props.skipIntroButton}
+                        skipRecapButton={props.skipRecapButton}
+                        skipCreditsButton={props.skipCreditsButton}
                         
                         // Events
                         onPress={onPress}

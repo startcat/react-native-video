@@ -5,8 +5,6 @@ import {
     TimeMarkButton
 } from '../buttons';
 
-import { SPACING } from '../../../theme';
-
 import { 
     CONTROL_ACTION,
     TIME_MARK_TYPE,
@@ -17,27 +15,18 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
     const [currentTime, setCurrentTime] = useState<number | undefined>(props?.currentTime);
 
-
     useEffect(() => {
         setCurrentTime(props?.currentTime);
 
     }, [props?.currentTime]);
 
-    // const SliderVOD = props.sliderVOD ? createElement(props.sliderVOD, { 
-    //     currentTime: props?.currentTime,
-    //     duration: props?.duration,
-    //     onSlidingStart: onSlidingStart,
-    //     onSlidingMove: onSlidingMove,
-    //     onSlidingComplete: onSlidingComplete
-    // }) : null;
+    const onPress = (id: CONTROL_ACTION, value?:any) => {
 
-    // const SliderDVR = props.sliderDVR ? createElement(props.sliderDVR, { 
-    //     value: props?.dvrTimeValue,
-    //     liveLoadTime: props?.duration,
-    //     onSlidingStart: onSlidingStart,
-    //     onSlidingMove: onSlidingMove,
-    //     onSlidingComplete: onSlidingComplete
-    // }) : null;
+        if (props?.onPress){
+            props?.onPress(id, value);
+        }
+
+    }
 
     return (
         <View style={styles.container}>
@@ -49,40 +38,72 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
                         if (item.type === TIME_MARK_TYPE.INTRO){
 
-                            return (
-                                <TimeMarkButton
-                                    key={index}
-                                    title='Saltar intro'
-                                    value={item.end}
-                                    onPress={props?.onPress}
-                                />
-                            )
+                            if (props.skipIntroButton){
+                                return createElement(props.skipIntroButton, { 
+                                    key: index,
+                                    id: CONTROL_ACTION.SEEK,
+                                    value: item.end,
+                                    onPress: onPress
+                                })
+
+                            } else {
+                                return (
+                                    <TimeMarkButton
+                                        key={index}
+                                        title='Saltar intro'
+                                        value={item.end}
+                                        onPress={props?.onPress}
+                                    />
+                                )
+
+                            }
 
                         }
 
                         if (item.type === TIME_MARK_TYPE.RECAP){
                             
-                            return (
-                                <TimeMarkButton
-                                    key={index}
-                                    title='Saltar resumen'
-                                    value={item.end}
-                                    onPress={props?.onPress}
-                                />
-                            )
+                            if (props.skipRecapButton){
+                                return createElement(props.skipRecapButton, { 
+                                    key: index,
+                                    id: CONTROL_ACTION.SEEK,
+                                    value: item.end,
+                                    onPress: onPress
+                                })
+
+                            } else {
+                                return (
+                                    <TimeMarkButton
+                                        key={index}
+                                        title='Saltar resumen'
+                                        value={item.end}
+                                        onPress={props?.onPress}
+                                    />
+                                )
+
+                            }
 
                         }
 
                         if (item.type === TIME_MARK_TYPE.CREDITS){
                             
-                            return (
-                                <TimeMarkButton
-                                    key={index}
-                                    title='Saltar créditos'
-                                    value={item.end}
-                                    onPress={props?.onPress}
-                                />
-                            )
+                            if (props.skipCreditsButton){
+                                return createElement(props.skipCreditsButton, { 
+                                    key: index,
+                                    id: CONTROL_ACTION.SEEK,
+                                    value: item.end,
+                                    onPress: onPress
+                                })
+
+                            } else {
+                                return (
+                                    <TimeMarkButton
+                                        key={index}
+                                        title='Saltar créditos'
+                                        value={item.end}
+                                        onPress={props?.onPress}
+                                    />
+                                )
+                            }
 
                         }
 
@@ -99,10 +120,11 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
                         }
 
-                        return (<></>)
+                        return null;
                         
                     } else {
-                        return (<></>)
+                        return null;
+
                     }
 
                 })
@@ -115,8 +137,8 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
 const styles = StyleSheet.create({
     container:{
-        width:'100%',
-        height:50,
-        backgroundColor:'purple'
+        flex:1,
+        flexDirection:'row',
+        justifyContent:'flex-end'
     },
 });
