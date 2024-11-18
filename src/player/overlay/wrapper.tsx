@@ -233,6 +233,9 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                         controlsMiddleBar={props.controlsMiddleBar}
                         controlsBottomBar={props.controlsBottomBar}
                         nextButton={props.nextButton}
+                        skipIntroButton={props.skipIntroButton}
+                        skipRecapButton={props.skipRecapButton}
+                        skipCreditsButton={props.skipCreditsButton}
 
                         // Events
                         onPress={onPress}

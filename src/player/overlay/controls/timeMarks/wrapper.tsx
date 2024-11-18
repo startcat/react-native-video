@@ -71,8 +71,6 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                             if (props.skipIntroButton){
                                 return createElement(props.skipIntroButton, { 
                                     key: index,
-                                    id: CONTROL_ACTION.SEEK,
-                                    value: item.end,
                                     onPress: onPressSkipIntroExternalComponent
                                 })
 
@@ -95,8 +93,6 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                             if (props.skipRecapButton){
                                 return createElement(props.skipRecapButton, { 
                                     key: index,
-                                    id: CONTROL_ACTION.SEEK,
-                                    value: item.end,
                                     onPress: onPressSkipRecapExternalComponent
                                 })
 
@@ -119,8 +115,6 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                             if (props.skipCreditsButton){
                                 return createElement(props.skipCreditsButton, { 
                                     key: index,
-                                    id: CONTROL_ACTION.SEEK,
-                                    value: item.end,
                                     onPress: onPressSkipCreditsExternalComponent
                                 })
 
