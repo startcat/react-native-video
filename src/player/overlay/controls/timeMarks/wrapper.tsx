@@ -28,6 +28,36 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
     }
 
+    const onPressSkipIntroExternalComponent = () => {
+
+        const timeEntry = props.timeMarkers?.find(item => item.type === TIME_MARK_TYPE.INTRO);
+
+        if (timeEntry){
+            onPress(CONTROL_ACTION.SEEK, timeEntry.end);
+        }
+
+    }
+
+    const onPressSkipRecapExternalComponent = () => {
+
+        const timeEntry = props.timeMarkers?.find(item => item.type === TIME_MARK_TYPE.RECAP);
+
+        if (timeEntry){
+            onPress(CONTROL_ACTION.SEEK, timeEntry.end);
+        }
+
+    }
+
+    const onPressSkipCreditsExternalComponent = () => {
+
+        const timeEntry = props.timeMarkers?.find(item => item.type === TIME_MARK_TYPE.CREDITS);
+
+        if (timeEntry){
+            onPress(CONTROL_ACTION.SEEK, timeEntry.end);
+        }
+
+    }
+
     return (
         <View style={styles.container}>
 
@@ -43,7 +73,7 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                                     key: index,
                                     id: CONTROL_ACTION.SEEK,
                                     value: item.end,
-                                    onPress: onPress
+                                    onPress: onPressSkipIntroExternalComponent
                                 })
 
                             } else {
@@ -67,7 +97,7 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                                     key: index,
                                     id: CONTROL_ACTION.SEEK,
                                     value: item.end,
-                                    onPress: onPress
+                                    onPress: onPressSkipRecapExternalComponent
                                 })
 
                             } else {
@@ -91,7 +121,7 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
                                     key: index,
                                     id: CONTROL_ACTION.SEEK,
                                     value: item.end,
-                                    onPress: onPress
+                                    onPress: onPressSkipCreditsExternalComponent
                                 })
 
                             } else {
