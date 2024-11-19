@@ -322,6 +322,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const Controls = props.controls ? createElement(props.controls, { 
         title: props.title,
+        description: props.description,
         currentTime: currentTime,
         dvrTimeValue: dvrTimeValue,
         duration: duration,
