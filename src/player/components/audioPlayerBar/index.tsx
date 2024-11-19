@@ -107,6 +107,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         
                     }
 
+                    currentTime.current = dpo?.startPosition || 0;
+
                     setDpoData(dpo);
 
                 } catch(err){
@@ -153,8 +155,6 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }, dpoData?.watchingProgressInterval);
 
         }
-
-        currentTime.current = dpoData?.startPosition || 0;
 
         return () => {
 
