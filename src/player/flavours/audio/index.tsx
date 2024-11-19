@@ -87,6 +87,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     useEffect(() => {
         EventRegister.emit('audioPlayerProgress', {
             title:props.title,
+            description:props.description,
             currentTime: currentTime,
             dvrTimeValue: dvrTimeValue,
             duration: duration,
