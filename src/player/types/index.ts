@@ -490,6 +490,7 @@ export interface ControlsProps {
 
 export interface AudioControlsProps {
     title?:string;
+    description?:string;
     currentTime?: number;
     dvrTimeValue?: number;
     duration?: number;
