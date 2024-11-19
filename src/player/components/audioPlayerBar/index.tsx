@@ -154,6 +154,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         }
 
+        currentTime.current = dpoData?.startPosition || 0;
+
         return () => {
 
             if (watchingProgressIntervalObj.current){

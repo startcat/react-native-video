@@ -771,6 +771,7 @@ export interface AudioPlayerContentsDpo {
     description?: string;
 	media_type?: MEDIA_TYPE;
     type?: STREAM_TYPE;
+    startPosition?: number;
     poster?: string;
     playOffline?: boolean;
     isLive?: boolean;
