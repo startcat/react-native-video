@@ -147,7 +147,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                 // Evitamos mandar el watching progress en directos y en Chromecast
                 if (!dpoData?.isLive){
                     // @ts-ignore
-                    props.addContentProgress(currentTime.current, duration.current, props.id);
+                    dpoData.addContentProgress(currentTime.current, duration.current, props.id);
                 }
 
             }, dpoData?.watchingProgressInterval);
