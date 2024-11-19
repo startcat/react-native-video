@@ -132,39 +132,37 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
     }, [contentId]);
 
-    // React.useEffect(() => {
+    React.useEffect(() => {
 
-    //     // Al montar el Player, preparamos la sesión de Audio, el apagado de pantalla y la orientación
+        // Al montar el Player, preparamos la sesión de Audio
 
-    //     if (Platform.OS === 'ios'){
-    //         AudioSession.setCategory('Playback', 'MixWithOthers');
-    //     }
+        if (Platform.OS === 'ios'){
+            AudioSession.setCategory('Playback', 'MixWithOthers');
+        }
 
-    //     // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
-    //     if (typeof(props.watchingProgressInterval) === 'number' && props.watchingProgressInterval > 0 && props.addContentProgress){
-    //         watchingProgressIntervalObj.current = setInterval(() => {
+        // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
+        if (typeof(dpoData?.watchingProgressInterval) === 'number' && dpoData?.watchingProgressInterval > 0 && dpoData?.addContentProgress){
+            watchingProgressIntervalObj.current = setInterval(() => {
 
-    //             // Evitamos mandar el watching progress en directos y en Chromecast
-    //             if (!props.isLive){
-    //                 // @ts-ignore
-    //                 props.addContentProgress(currentTime.current, duration.current, props.id);
-    //             }
+                // Evitamos mandar el watching progress en directos y en Chromecast
+                if (!dpoData?.isLive){
+                    // @ts-ignore
+                    props.addContentProgress(currentTime.current, duration.current, props.id);
+                }
 
-    //         }, props.watchingProgressInterval);
+            }, dpoData?.watchingProgressInterval);
 
-    //     }
+        }
 
-    //     console.log(`[AudioPlayer] Manifests ${JSON.stringify(props.manifests)}`);
-    
-    //     return () => {
+        return () => {
 
-    //         if (watchingProgressIntervalObj.current){
-    //             clearInterval(watchingProgressIntervalObj.current);
-    //         }
+            if (watchingProgressIntervalObj.current){
+                clearInterval(watchingProgressIntervalObj.current);
+            }
 
-    //     };
+        };
 
-    // }, []);
+    }, [dpoData?.id]);
 
     const showPlayer = () => {
         audioPlayerHeight.value = withSpring(playerMaxHeight.current, {
@@ -254,7 +252,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         controls={props.controls}
 
                         // Utils
-                        getYouboraOptions={props.getYouboraOptions}
+                        watchingProgressInterval={dpoData.watchingProgressInterval}
+                        addContentProgress={dpoData.addContentProgress}
+                        getYouboraOptions={dpoData.getYouboraOptions}
 
                         // Events
                         onChangeCommonData={changeCommonData}
