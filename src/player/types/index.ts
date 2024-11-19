@@ -591,6 +591,8 @@ export interface AudioFlavourProps {
     controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
+    watchingProgressInterval?: number;
+    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
@@ -775,6 +777,11 @@ export interface AudioPlayerContentsDpo {
     manifests?:Array<IManifest>,
     youbora?: IYoubora;
     extraData?: any;
+
+    // Utils
+    watchingProgressInterval?: number;
+    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
+    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 }
 
 export interface AudioPlayerProps {
@@ -789,9 +796,6 @@ export interface AudioPlayerProps {
 
     // Utils
     fetchContentData?: (data: AudioPlayerEventProps) => Promise<AudioPlayerContentsDpo | null>;
-    watchingProgressInterval?: number;
-    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
-    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
     onError?: () => void;
