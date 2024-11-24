@@ -352,6 +352,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             }
 
+            // La primera vez, aplicamos la pista de audio por defecto y la pista de subtitulos por defecto (según perfil usuario)
+            if (props.onSetDefaultCommonData){
+                props.onSetDefaultCommonData(e);
+
+            }
+
             // La primera vez, nos movemos al punto donde lo habíamos dejado
             if (!isDVR.current && currentTime > 0){
                 onControlsPress(CONTROL_ACTION.SEEK, currentTime);
