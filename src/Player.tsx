@@ -34,8 +34,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
 
-    const [currentAudioIndex, setCurrentAudioIndex] = useState<number>();
-    const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>();
+    const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(typeof(props.audioIndex) === 'number' ? props.audioIndex : -1);
+    const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>(typeof(props.subtitleIndex) === 'number' ? props.subtitleIndex : -1);
 
     const [hasRotated, setHasRotated] = useState<boolean>(DeviceInfo.isTablet());
 

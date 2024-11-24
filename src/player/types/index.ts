@@ -729,6 +729,8 @@ export interface PlayerProps {
 
     languagesMapping?:ILanguagesMapping;
     mapHlsQualities?: boolean;
+    audioIndex?: number;
+    subtitleIndex?: number;
 
     // Components
     mosca?: React.ReactElement;
