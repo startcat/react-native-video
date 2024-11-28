@@ -41,7 +41,6 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
-    const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
 
@@ -69,20 +68,6 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         });
 
         const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
-
-            if (data.action === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
-                setDpoData(null);
-                setContentId({
-                    next: null,
-                    current: null
-                });
-                hidePlayer();
-            }
-
-            if (data.action === CONTROL_ACTION.SLEEP && data.value && typeof(data.value) === 'number'){
-                refreshSleepTimer(data.value);
-
-            }
 
             if (data.action === CONTROL_ACTION.CANCEL_SLEEP){
                 cancelSleepTimer();
@@ -187,35 +172,6 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         audioPlayerHeight.value = withTiming(0, {
             duration: 200
         });
-    }
-
-    const cancelSleepTimer = () => {
-
-        if (sleepTimerObj.current){
-            clearTimeout(sleepTimerObj.current);
-            sleepTimerObj.current = null;
-
-        }
-
-    }
-
-    const refreshSleepTimer = (value: number) => {
-
-        cancelSleepTimer();
-
-        sleepTimerObj.current = setTimeout(onSleepTimerDone, value);
-
-    }
-
-    const onSleepTimerDone = () => {
-
-        setDpoData(null);
-        setContentId({
-            next: null,
-            current: null
-        });
-        hidePlayer();
-
     }
 
 
