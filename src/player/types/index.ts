@@ -64,7 +64,9 @@ export enum CONTROL_ACTION {
     SPEED_RATE = 'speedRate',
     CLOSE_NEXT_POPUP = 'closeNextPopup',
     CLOSE_AUDIO_PLAYER = 'closeAudioPlayer',
-    HIDE_AUDIO_PLAYER = 'hideAudioPlayer'
+    HIDE_AUDIO_PLAYER = 'hideAudioPlayer',
+    SLEEP = 'sleep',
+    CANCEL_SLEEP = 'sleep_cancel'
 }
 
 export enum PLAYER_MENU_DATA_TYPE {
@@ -294,9 +296,6 @@ export interface TimeMarkExternalButtonProps {
 }
 
 export interface NextButtonProps {
-    secondsToEnd?: number;
-    start?: number;
-    end?: number;
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
