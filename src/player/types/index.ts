@@ -37,8 +37,7 @@ export enum BUTTON_SIZE {
 export enum TIME_MARK_TYPE {
 	INTRO = 'intro',
 	RECAP = 'recap',
-    CREDITS = 'credits',
-    NEXT_EPISODE = 'nextEpisode'
+    CREDITS = 'credits'
 }
 
 export enum CONTROL_ACTION {
@@ -293,6 +292,9 @@ export interface TimeMarkExternalButtonProps {
 }
 
 export interface NextButtonProps {
+    secondsToEnd?: number;
+    start?: number;
+    end?: number;
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
 
@@ -324,11 +326,6 @@ export interface SkipButtonProps {
 export interface BackgroundPosterProps {
     poster?: string;
     children?: React.ReactNode;
-}
-
-export interface SkipButtonsProps {
-    currentTime?: number;
-    onPress?: (id: CONTROL_ACTION, value?:any) => void;
 }
 
 export interface MenuItemProps {
@@ -413,8 +410,10 @@ export interface TimelineProps {
 export interface TimeMarksProps {
     currentTime?: number;
     timeMarkers?: Array<ITimeMarkers>;
+    hasNext?: boolean;
 
     // Components
+    nextButton?: FunctionComponent<NextButtonProps>;
     skipIntroButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipRecapButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipCreditsButton?: FunctionComponent<TimeMarkExternalButtonProps>;
