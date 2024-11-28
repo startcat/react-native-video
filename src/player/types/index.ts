@@ -37,7 +37,8 @@ export enum BUTTON_SIZE {
 export enum TIME_MARK_TYPE {
 	INTRO = 'intro',
 	RECAP = 'recap',
-    CREDITS = 'credits'
+    CREDITS = 'credits',
+    NEXT = 'next'
 }
 
 export enum CONTROL_ACTION {
@@ -179,7 +180,8 @@ export interface ICastMetadata {
 export interface ITimeMarkers {
     type: TIME_MARK_TYPE;
     start: number;
-    end: number;
+    end?: number;
+    secondsToEnd?: number;
 }
 
 type YouboraCustomDimensions = {
@@ -409,6 +411,7 @@ export interface TimelineProps {
 
 export interface TimeMarksProps {
     currentTime?: number;
+    duration?: number;
     timeMarkers?: Array<ITimeMarkers>;
     hasNext?: boolean;
 

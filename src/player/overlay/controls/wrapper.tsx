@@ -166,6 +166,7 @@ export function Controls (props: ControlsProps): React.ReactElement {
                 <View style={styles.temporalButtonsBar}>
                     <TimeMarks 
                         currentTime={props.currentTime}
+                        duration={props.duration}
                         timeMarkers={props.timeMarkers}
                         hasNext={props.hasNext}
 
