@@ -291,6 +291,7 @@ export function Overlay (props: OverlayProps): React.ReactElement {
 
                         <TimeMarks 
                             currentTime={props.currentTime}
+                            duration={props.duration}
                             timeMarkers={props.timeMarkers}
                             hasNext={props.hasNext}
 

@@ -58,13 +58,24 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
     }
 
+    const onPressSkipEpisodeExternalComponent = () => {
+
+        onPress(CONTROL_ACTION.NEXT);
+
+    }
+
     return (
         <View style={styles.container}>
 
             {
                 props.timeMarkers?.map((item, index) => {
 
-                    if (item && currentTime && currentTime >= item.start && currentTime <= item.end){
+                    if (item && currentTime && 
+                        (
+                            (item.secondsToEnd && props.duration && (props.duration - currentTime) >= item.secondsToEnd) ||
+                            (currentTime >= item.start && (!item?.end || currentTime <= item?.end))
+                        )
+                    ){
 
                         if (item.type === TIME_MARK_TYPE.INTRO){
 
@@ -131,6 +142,27 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
                         }
 
+                        if (item.type === TIME_MARK_TYPE.NEXT){
+                            
+                            if (props.nextButton){
+                                return createElement(props.nextButton, { 
+                                    key: index,
+                                    onPress: onPressSkipEpisodeExternalComponent
+                                })
+
+                            } else {
+                                return (
+                                    <TimeMarkButton
+                                        key={index}
+                                        id={CONTROL_ACTION.NEXT}
+                                        title='Saltar episodio'
+                                        onPress={props?.onPress}
+                                    />
+                                )
+                            }
+
+                        }
+
                         return null;
                         
                     } else {
@@ -150,6 +182,7 @@ const styles = StyleSheet.create({
     container:{
         flex:1,
         flexDirection:'row',
-        justifyContent:'flex-end'
+        justifyContent:'flex-end',
+        marginHorizontal: 12
     },
 });
