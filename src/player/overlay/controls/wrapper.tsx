@@ -167,8 +167,10 @@ export function Controls (props: ControlsProps): React.ReactElement {
                     <TimeMarks 
                         currentTime={props.currentTime}
                         timeMarkers={props.timeMarkers}
+                        hasNext={props.hasNext}
 
                         // Components
+                        nextButton={props.nextButton}
                         skipIntroButton={props.skipIntroButton}
                         skipRecapButton={props.skipRecapButton}
                         skipCreditsButton={props.skipCreditsButton}

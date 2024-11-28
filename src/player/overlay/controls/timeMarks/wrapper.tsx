@@ -131,19 +131,6 @@ export function TimeMarks (props: TimeMarksProps): React.ReactElement {
 
                         }
 
-                        if (item.type === TIME_MARK_TYPE.NEXT_EPISODE){
-                            
-                            return (
-                                <TimeMarkButton
-                                    key={index}
-                                    id={CONTROL_ACTION.NEXT}
-                                    title='Siguiente capítulo'
-                                    onPress={props?.onPress}
-                                />
-                            )
-
-                        }
-
                         return null;
                         
                     } else {

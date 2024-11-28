@@ -4,7 +4,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Controls, TimeMarks } from './controls';
 import { Menu } from './menu';
 import { SettingsMenu } from './settingsMenu';
-import { SkipButtons } from './skip';
 import { 
     type OverlayProps,
     CONTROL_ACTION 
@@ -195,15 +194,6 @@ export function Overlay (props: OverlayProps): React.ReactElement {
             }
 
             {
-                false && !visibleControls ?
-                    <SkipButtons 
-                        currentTime={currentTime}
-                        onPress={onPress}
-                    />
-                : null
-            }
-
-            {
                 // Player Controls
                 avoidDissapear || visibleControls ?
                     <Controls 
@@ -302,8 +292,10 @@ export function Overlay (props: OverlayProps): React.ReactElement {
                         <TimeMarks 
                             currentTime={props.currentTime}
                             timeMarkers={props.timeMarkers}
+                            hasNext={props.hasNext}
 
                             // Components
+                            nextButton={props.nextButton}
                             skipIntroButton={props.skipIntroButton}
                             skipRecapButton={props.skipRecapButton}
                             skipCreditsButton={props.skipCreditsButton}
