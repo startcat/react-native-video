@@ -151,7 +151,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             if (!hasBeenLoaded.current){
                 hasBeenLoaded.current = true;
             }
-            
+
         }
 
         if (data?.muted !== undefined){
@@ -230,6 +230,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 onChangeCommonData={changeCommonData}
                 onDVRChange={props.onDVRChange}
                 onNext={props.onNext}
+                onEnd={props.onEnd}
             />
         );
 
@@ -285,6 +286,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 onChangeCommonData={changeCommonData}
                 onDVRChange={props.onDVRChange}
                 onNext={props.onNext}
+                onEnd={props.onEnd}
             />
         );
 
