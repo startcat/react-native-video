@@ -245,11 +245,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             }
 
-            // La primera vez, nos movemos al punto donde lo habíamos dejado
-            // if (!isDVR.current && currentTime > 0){
-            //     onControlsPress(CONTROL_ACTION.SEEK, currentTime);
-            // }
-
         }
 
     }

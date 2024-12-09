@@ -33,6 +33,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const playerMaxHeight = useRef<number>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
     const audioPlayerHeight = useSharedValue(0);
 
+    const hasBeenLoaded = useRef<boolean>(false);
+
     const [contentId, setContentId] = useState<IAudioPlayerContent | null>();
     const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo | null>(null);
 
@@ -115,6 +117,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         }
 
+        hasBeenLoaded.current = false;
+
         // Hack para desmontar el player y limpiar sus datos al cambiar de contenido
         if (contentId?.next){
             setContentId({
@@ -143,7 +147,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             watchingProgressIntervalObj.current = setInterval(() => {
 
                 // Evitamos mandar el watching progress en directos y en Chromecast
-                if (!dpoData?.isLive){
+                if (hasBeenLoaded.current && !dpoData?.isLive){
                     // @ts-ignore
                     dpoData.addContentProgress(currentTime.current, duration.current, props.id);
                 }
@@ -189,6 +193,11 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         if (data?.duration){
             duration.current = data.duration;
+
+            if (!hasBeenLoaded.current){
+                hasBeenLoaded.current = true;
+            }
+            
         }
 
         if (data?.muted !== undefined){
