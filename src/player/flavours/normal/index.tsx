@@ -107,19 +107,32 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     useEffect(() => {
         // Montamos el selector de pista de Audio
-        setSelectedAudioTrack({
-            value:props.audioIndex,
-            type:SelectedTrackType.INDEX
-        });
+        if (typeof(props.audioIndex) === 'number' && props.audioIndex > -1){
+            setSelectedAudioTrack({
+                value:props.audioIndex,
+                type:SelectedTrackType.INDEX
+            });
+
+        }
 
     }, [props.audioIndex]);
 
     useEffect(() => {
         // Montamos el selector de pista de Subtítulo
-        setSelectedTextTrack({
-            value:props.subtitleIndex,
-            type:SelectedTrackType.INDEX
-        });
+        if (typeof(props.audioIndex) === 'number' && props.audioIndex > -1){
+            setSelectedTextTrack({
+                value:props.subtitleIndex,
+                type:SelectedTrackType.INDEX
+            });
+
+        } else if (typeof(props.audioIndex) === 'number' && props.audioIndex === -1){
+            setSelectedTextTrack({
+                //value:props.subtitleIndex,
+                type:SelectedTrackType.DISABLED
+            });
+
+        }
+
 
     }, [props.subtitleIndex]);
 
@@ -353,10 +366,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
             // La primera vez, aplicamos la pista de audio por defecto y la pista de subtitulos por defecto (según perfil usuario)
-            if (props.onSetDefaultCommonData){
-                props.onSetDefaultCommonData(e);
+            // if (props.onSetDefaultCommonData){
+            //     props.onSetDefaultCommonData(e);
 
-            }
+            // }
 
             // La primera vez, nos movemos al punto donde lo habíamos dejado
             if (!isDVR.current && currentTime > 0){
