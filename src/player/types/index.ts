@@ -603,6 +603,7 @@ export interface AudioFlavourProps {
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
     onClose?: () => void;
+    onEnd?: () => void;
 }
 
 export interface NormalFlavourProps {
@@ -657,6 +658,7 @@ export interface NormalFlavourProps {
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
+    onEnd?: () => void;
 }
 
 export interface CastFlavourProps {
@@ -708,6 +710,7 @@ export interface CastFlavourProps {
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
+    onEnd?: () => void;
 }
 
 export interface PlayerProps {

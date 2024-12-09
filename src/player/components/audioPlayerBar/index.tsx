@@ -197,7 +197,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             if (!hasBeenLoaded.current){
                 hasBeenLoaded.current = true;
             }
-            
+
         }
 
         if (data?.muted !== undefined){
@@ -266,6 +266,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         // Events
                         onChangeCommonData={changeCommonData}
                         onNext={props.onNext}
+                        onEnd={props.onEnd}
                     />
                 : null
             }

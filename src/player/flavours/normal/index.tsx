@@ -379,9 +379,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             setPlayerSource();
             setIsPlayingExternalTudum(false);
 
-        } else {
+        } else if (props.onEnd){
             // Termina el contenido
-
+            props.onEnd();
+            
         }
 
     }

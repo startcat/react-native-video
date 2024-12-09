@@ -383,7 +383,12 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     }
 
     const onEnd = () => {
-
+        if (props.onEnd){
+            // Termina el contenido
+            props.onEnd();
+            
+        }
+        
     }
 
     const setCurrentTimeWithValidation = (value: number) => {

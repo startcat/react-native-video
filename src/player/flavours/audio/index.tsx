@@ -251,6 +251,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onEnd = () => {
         // Termina el contenido
+        if (props.onEnd){
+            // Termina el contenido
+            props.onEnd();
+            
+        }
 
     }
 
