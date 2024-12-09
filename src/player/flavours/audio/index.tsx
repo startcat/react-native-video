@@ -135,7 +135,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             id: props.id,
             title: props.title,
             uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
-            type: getManifestSourceType(currentManifest.current!)
+            type: getManifestSourceType(currentManifest.current!),
+            startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined
         });
 
         setPreloading(!preloading);

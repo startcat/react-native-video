@@ -67,14 +67,14 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             
         });
 
-        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
+        // const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
 
-            if (data.action === CONTROL_ACTION.CANCEL_SLEEP){
-                cancelSleepTimer();
+        //     if (data.action === CONTROL_ACTION.CANCEL_SLEEP){
+        //         cancelSleepTimer();
 
-            }
+        //     }
 
-        });
+        // });
 
         return (() => {
 
@@ -82,9 +82,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                 EventRegister.removeEventListener(changesAudioPlayerListener);
             }
 
-            if (typeof(actionsAudioPlayerListener) === 'string'){
-                EventRegister.removeEventListener(actionsAudioPlayerListener);
-            }
+            // if (typeof(actionsAudioPlayerListener) === 'string'){
+            //     EventRegister.removeEventListener(actionsAudioPlayerListener);
+            // }
 
         });
 

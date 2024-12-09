@@ -148,7 +148,8 @@ export interface IVideoSource {
     id?: number,
     title?: string,
     uri: string,
-    type?: string
+    type?: string,
+    startPosition?: number;
 }
 
 export interface IPlayerMenuData {

@@ -217,7 +217,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             id: props.id,
             title: props.title,
             uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
-            type: getManifestSourceType(currentManifest.current!)
+            type: getManifestSourceType(currentManifest.current!),
+            startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined
         };
 
     }
@@ -372,9 +373,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             // }
 
             // La primera vez, nos movemos al punto donde lo habíamos dejado
-            if (!isDVR.current && currentTime > 0){
-                onControlsPress(CONTROL_ACTION.SEEK, currentTime);
-            }
+            // if (!isDVR.current && currentTime > 0){
+            //     onControlsPress(CONTROL_ACTION.SEEK, currentTime);
+            // }
 
             setMenuData(mergeMenuData(e, props.languagesMapping, hlsQualities, isDASH.current));
 
