@@ -33,6 +33,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const isMuted = useRef<boolean>(false);
     const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
+    const hasBeenLoaded = useRef<boolean>(false);
 
     const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(typeof(props.audioIndex) === 'number' ? props.audioIndex : -1);
     const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>(typeof(props.subtitleIndex) === 'number' ? props.subtitleIndex : -1);
@@ -81,7 +82,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             watchingProgressIntervalObj.current = setInterval(() => {
 
                 // Evitamos mandar el watching progress en directos y en Chromecast
-                if (!props.isLive && !isCasting.current){
+                if (hasBeenLoaded.current && !props.isLive && !isCasting.current){
                     // @ts-ignore
                     props.addContentProgress(currentTime.current, duration.current, props.id);
                 }
@@ -146,6 +147,11 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         if (data?.duration){
             duration.current = data.duration;
+
+            if (!hasBeenLoaded.current){
+                hasBeenLoaded.current = true;
+            }
+            
         }
 
         if (data?.muted !== undefined){
