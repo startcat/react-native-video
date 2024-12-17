@@ -241,6 +241,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         poster={dpoData.poster}
                         youbora={dpoData.youbora}
                         hasNext={dpoData.hasNext}
+                        hasPrev={dpoData.hasPrev}
 
                         playOffline={dpoData.playOffline}
                         isLive={dpoData.isLive}
@@ -266,6 +267,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         // Events
                         onChangeCommonData={changeCommonData}
                         onNext={props.onNext}
+                        onPrevious={props.onPrevious}
                         onEnd={props.onEnd}
                     />
                 : null

@@ -96,6 +96,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             //volume: number;
             preloading: preloading,
             hasNext: props.hasNext,
+            hasPrev: props.hasPrev,
             isLive: props.isLive,
             isDVR: isDVR.current,
             isContentLoaded: isContentLoaded,
@@ -187,6 +188,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (id === CONTROL_ACTION.NEXT && props.onNext){
             setIsContentLoaded(false);
             props.onNext();
+        }
+
+        if (id === CONTROL_ACTION.PREVIOUS && props.onPrevious){
+            setIsContentLoaded(false);
+            props.onPrevious();
         }
         
         if (id === CONTROL_ACTION.SPEED_RATE && typeof(value) === 'number'){
@@ -331,6 +337,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         muted: muted,
         preloading: preloading,
         hasNext: props.hasNext,
+        hasPrev: props.hasPrev,
         isLive: props.isLive,
         isDVR: isDVR.current,
         isContentLoaded: isContentLoaded,

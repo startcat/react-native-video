@@ -50,6 +50,7 @@ export enum CONTROL_ACTION {
     SKIP_CREDITS = 'skipCredits',
     SKIP_RECAP = 'skipRecap',
     NEXT = 'next',
+    PREVIOUS = 'previous',
     MUTE = 'mute',
     MENU = 'menu',
     MENU_CLOSE = 'menuClose',
@@ -501,6 +502,7 @@ export interface AudioControlsProps {
     volume?: number;
     preloading?: boolean;
     hasNext?: boolean;
+    hasPrev?: boolean;
     isLive?: boolean;
     isDVR?: boolean;
     isContentLoaded?: boolean;
@@ -575,6 +577,7 @@ export interface AudioFlavourProps {
     playOffline?: boolean;
     isLive?: boolean;
     hasNext?: boolean;
+    hasPrev?: boolean;
 
     muted?: boolean;
     volume?: number;
@@ -602,6 +605,7 @@ export interface AudioFlavourProps {
     onChangeCommonData?: (data: ICommonData) => void;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
+    onPrevious?: () => void;
     onClose?: () => void;
     onEnd?: () => void;
 }
@@ -783,6 +787,7 @@ export interface AudioPlayerContentsDpo {
     playOffline?: boolean;
     isLive?: boolean;
     hasNext?: boolean;
+    hasPrev?: boolean;
     manifests?:Array<IManifest>,
     youbora?: IYoubora;
     extraData?: any;
@@ -809,6 +814,7 @@ export interface AudioPlayerProps {
     // Events
     onError?: () => void;
     onNext?: () => void;
+    onPrevious?: () => void;
     onProgress?: (value: number) => void;
     onExit?: () => void;
     onEnd?: () => void;
