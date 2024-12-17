@@ -603,7 +603,6 @@ export interface AudioFlavourProps {
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
-    onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
     onPrevious?: () => void;
     onClose?: () => void;
@@ -796,6 +795,14 @@ export interface AudioPlayerContentsDpo {
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+
+    // Events
+    onError?: () => void;
+    onProgress?: (value: number) => void;
+    onExit?: () => void;
+    onNext?: () => void;
+    onPrevious?: () => void;
+    onEnd?: () => void;
 }
 
 export interface AudioPlayerProps {
@@ -810,12 +817,4 @@ export interface AudioPlayerProps {
 
     // Utils
     fetchContentData?: (data: AudioPlayerEventProps) => Promise<AudioPlayerContentsDpo | null>;
-
-    // Events
-    onError?: () => void;
-    onNext?: () => void;
-    onPrevious?: () => void;
-    onProgress?: (value: number) => void;
-    onExit?: () => void;
-    onEnd?: () => void;
 }

@@ -69,24 +69,11 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             
         });
 
-        // const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
-
-        //     if (data.action === CONTROL_ACTION.CANCEL_SLEEP){
-        //         cancelSleepTimer();
-
-        //     }
-
-        // });
-
         return (() => {
 
             if (typeof(changesAudioPlayerListener) === 'string'){
                 EventRegister.removeEventListener(changesAudioPlayerListener);
             }
-
-            // if (typeof(actionsAudioPlayerListener) === 'string'){
-            //     EventRegister.removeEventListener(actionsAudioPlayerListener);
-            // }
 
         });
 
@@ -178,6 +165,24 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         });
     }
 
+    /*
+     *  Función al terminar el contenido
+     *
+     */
+
+    const onEnd = () => {
+
+        if (watchingProgressIntervalObj.current){
+            clearInterval(watchingProgressIntervalObj.current);
+        }
+
+        if (dpoData?.onEnd){
+            dpoData?.onEnd();
+
+        }
+
+    }
+
 
 
     /*
@@ -266,9 +271,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         // Events
                         onChangeCommonData={changeCommonData}
-                        onNext={props.onNext}
-                        onPrevious={props.onPrevious}
-                        onEnd={props.onEnd}
+                        onNext={dpoData.onNext}
+                        onPrevious={dpoData.onPrevious}
+                        onEnd={onEnd}
                     />
                 : null
             }
