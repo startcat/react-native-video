@@ -43,6 +43,7 @@
         "react-native-config": "^1.5.1",
         "react-native-event-listeners": "^1.0.7",
         "react-native-device-info": "^11.1.0",
+        "react-native-background-timer": "^2.4.1",
         "@sayem314/react-native-keep-awake": "^1.2.3",
         "react-native-orientation-locker": "^1.7.0",
         "react-native-audio-session": "^0.0.6",
