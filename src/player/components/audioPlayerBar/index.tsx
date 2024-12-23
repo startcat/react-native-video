@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, createElement } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
+import BackgroundTimer from 'react-native-background-timer';
 import AudioSession from 'react-native-audio-session';
 import { EventRegister } from 'react-native-event-listeners';
 import { SheetManager } from 'react-native-actions-sheet';
@@ -131,7 +132,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
         if (typeof(dpoData?.watchingProgressInterval) === 'number' && dpoData?.watchingProgressInterval > 0 && dpoData?.addContentProgress){
-            watchingProgressIntervalObj.current = setInterval(() => {
+            watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
 
                 // Evitamos mandar el watching progress en directos y en Chromecast
                 if (hasBeenLoaded.current && !dpoData?.isLive){
@@ -146,7 +147,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         return () => {
 
             if (watchingProgressIntervalObj.current){
-                clearInterval(watchingProgressIntervalObj.current);
+                BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
             }
 
         };
@@ -173,7 +174,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const onEnd = () => {
 
         if (watchingProgressIntervalObj.current){
-            clearInterval(watchingProgressIntervalObj.current);
+            BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
         }
 
         if (dpoData?.onEnd){
