@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import DeviceInfo from 'react-native-device-info';
 import { activateKeepAwake, deactivateKeepAwake} from '@sayem314/react-native-keep-awake';
 import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
+import BackgroundTimer from 'react-native-background-timer';
 import AudioSession from 'react-native-audio-session';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { CastState, useCastState } from 'react-native-google-cast';
@@ -79,7 +80,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
         if (typeof(props.watchingProgressInterval) === 'number' && props.watchingProgressInterval > 0 && props.addContentProgress){
-            watchingProgressIntervalObj.current = setInterval(() => {
+            watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
 
                 // Evitamos mandar el watching progress en directos y en Chromecast
                 if (hasBeenLoaded.current && !props.isLive && !isCasting.current){
@@ -96,7 +97,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         return () => {
 
             if (watchingProgressIntervalObj.current){
-                clearInterval(watchingProgressIntervalObj.current);
+                BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
             }
 
             deactivateKeepAwake();

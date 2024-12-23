@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo, createElement, useCallback } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
 import { EventRegister } from 'react-native-event-listeners';
+import BackgroundTimer from 'react-native-background-timer';
 import { 
     type OnProgressData,
     type OnBufferData,
@@ -61,6 +62,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [speedRate, setSpeedRate] = useState<number>(1);
 
     const refVideoPlayer = useRef<VideoRef>(null);
+    const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
 
@@ -144,6 +146,36 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     }
 
+    // Sleep Timer
+    const cancelSleepTimer = () => {
+
+        console.log(`[Player] (Audio Flavour) Cancel sleep timer`);
+
+        if (sleepTimerObj.current){
+            BackgroundTimer.clearTimeout(sleepTimerObj.current);
+
+        }
+
+    }
+
+    const refreshSleepTimer = (value: number) => {
+
+        console.log(`[Player] (Audio Flavour) Creating sleep timer for ${value} seconds`);
+
+        if (sleepTimerObj.current){
+            BackgroundTimer.clearTimeout(sleepTimerObj.current);
+
+        }
+
+        sleepTimerObj.current = BackgroundTimer.setTimeout(() => {
+            console.log(`[Player] (Audio Flavour) onSleepTimer Done...`);
+            setPaused(true);
+            cancelSleepTimer();
+
+        }, value * 1000);
+
+    }
+
     // Functions
     const maybeChangeBufferingState = (buffering: boolean) => {
 
@@ -207,6 +239,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
             invokePlayerAction(refVideoPlayer, id, value, currentTime);
+        }
+
+        if (id === CONTROL_ACTION.SLEEP && (value === 0 || !value)){
+            // Desactivamos el sleeper
+            cancelSleepTimer();
+        }
+
+        if (id === CONTROL_ACTION.SLEEP && typeof(value) === 'number' && value > 0){
+            // Activamos el sleeper
+            refreshSleepTimer(value);
         }
 
         // Actions to be saved between flavours
