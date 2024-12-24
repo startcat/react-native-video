@@ -148,8 +148,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // Sleep Timer
     const cancelSleepTimer = () => {
-
-        console.log(`[Player] (Audio Flavour) Cancel sleep timer`);
+        const now = new Date();
+        console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] Cancel sleep timer`);
 
         if (sleepTimerObj.current){
             BackgroundTimer.clearTimeout(sleepTimerObj.current);
@@ -159,8 +159,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const refreshSleepTimer = (value: number) => {
-
-        console.log(`[Player] (Audio Flavour) Creating sleep timer for ${value} seconds`);
+        const now = new Date();
+        console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] Creating sleep timer for ${value} seconds`);
 
         if (sleepTimerObj.current){
             BackgroundTimer.clearTimeout(sleepTimerObj.current);
@@ -168,14 +168,20 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         sleepTimerObj.current = BackgroundTimer.setTimeout(() => {
-            console.log(`[Player] (Audio Flavour) onSleepTimer Done...`);
+            const now = new Date();
+            console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] onSleepTimer Done...`);
             
             if (refVideoPlayer.current){
+                console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] onSleepTimer Done... calling pause`);
                 refVideoPlayer.current?.pause();
+                cancelSleepTimer();
+                setPaused(true);
+
+            } else {
+                console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] onSleepTimer Done... cant acces refVideoPlayer`);
+                refreshSleepTimer(2000);
+
             }
-            
-            cancelSleepTimer();
-            setPaused(true);
 
         }, value * 1000);
 
