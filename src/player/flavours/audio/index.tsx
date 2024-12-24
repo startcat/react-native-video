@@ -139,7 +139,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             title: props.title,
             uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
             type: getManifestSourceType(currentManifest.current!),
-            startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined
+            startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined,
         });
 
         setPreloading(!preloading);
@@ -432,6 +432,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                         //volume={10}
                         controls={false}
                         ignoreSilentSwitch='ignore'
+                        showNotificationControls={true}
                         // @ts-ignore
                         enableMediaSession={true}
                         mediaSessionMetadata={{

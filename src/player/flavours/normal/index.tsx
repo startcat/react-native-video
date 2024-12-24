@@ -532,6 +532,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             //volume={10}
                             controls={false}
                             ignoreSilentSwitch='ignore'
+                            showNotificationControls={true}
                             // @ts-ignore
                             enableMediaSession={true}
                             mediaSessionMetadata={{
