@@ -175,6 +175,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             }
             
             cancelSleepTimer();
+            setPaused(true);
 
         }, value * 1000);
 
