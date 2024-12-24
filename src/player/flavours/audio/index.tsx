@@ -169,7 +169,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         sleepTimerObj.current = BackgroundTimer.setTimeout(() => {
             console.log(`[Player] (Audio Flavour) onSleepTimer Done...`);
-            setPaused(true);
+            
+            if (refVideoPlayer.current){
+                refVideoPlayer.current?.pause();
+            }
+            
             cancelSleepTimer();
 
         }, value * 1000);
