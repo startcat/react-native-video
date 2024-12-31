@@ -611,8 +611,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         } else {
             _player?.replaceCurrentItem(with: playerItem)
 
-            // later we can just call "updateMetadata:
-            NowPlayingInfoCenterManager.shared.updateMetadata()
+            // later we can just call "updateNowPlayingInfo:
+            NowPlayingInfoCenterManager.shared.updateNowPlayingInfo()
         }
 
         _playerObserver.player = _player
@@ -1267,6 +1267,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     @objc
     func setShowNotificationControls(_ showNotificationControls: Bool) {
+        _showNotificationControls = showNotificationControls
+        
         guard let player = _player else {
             return
         }
@@ -1276,8 +1278,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         } else {
             NowPlayingInfoCenterManager.shared.removePlayer(player: player)
         }
-
-        _showNotificationControls = showNotificationControls
     }
 
     @objc
