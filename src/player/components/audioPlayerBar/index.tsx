@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, createElement } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
 import BackgroundTimer from 'react-native-background-timer';
-import AudioSession from 'react-native-audio-session';
+// import AudioSession from 'react-native-audio-session';
 import { EventRegister } from 'react-native-event-listeners';
 import { SheetManager } from 'react-native-actions-sheet';
 import { View, Platform } from 'react-native';
@@ -88,10 +88,10 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                 try {
                     const dpo = await props.fetchContentData(contentId?.current!);
 
-                    if (Platform.OS !== 'android'){
-                        AudioSession.setCategory('Playback', 'MixWithOthers');
+                    // if (Platform.OS !== 'android'){
+                    //     AudioSession.setCategory('Playback', 'MixWithOthers');
         
-                    }
+                    // }
 
                     currentTime.current = dpo?.startPosition || 0;
 
