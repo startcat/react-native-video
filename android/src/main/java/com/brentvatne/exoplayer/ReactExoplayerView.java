@@ -403,10 +403,6 @@ public class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onHostDestroy() {
-        // DANI TEST
-        if (playInBackground) {
-            return;
-        }
         cleanUpResources();
     }
 
