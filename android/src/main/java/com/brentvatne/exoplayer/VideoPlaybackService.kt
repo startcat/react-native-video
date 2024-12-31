@@ -21,6 +21,7 @@ import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
 import com.brentvatne.common.toolbox.DebugLog
 import okhttp3.internal.immutableListOf
+import com.brentvatne.R
 
 class PlaybackServiceBinder(val service: VideoPlaybackService) : Binder()
 
@@ -136,7 +137,7 @@ class VideoPlaybackService : MediaSessionService() {
          */
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             NotificationCompat.Builder(this, NOTIFICATION_CHANEL_ID)
-                .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_circular_play)
+                .setSmallIcon(R.drawable.ic_play)
                 .setStyle(MediaStyleNotificationHelper.MediaStyle(session))
                 .setContentIntent(PendingIntent.getActivity(this, 0, returnToPlayer, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
                 .build()
@@ -182,19 +183,19 @@ class VideoPlaybackService : MediaSessionService() {
             NotificationCompat.Builder(this, NOTIFICATION_CHANEL_ID)
                 // Show controls on lock screen even when user hides sensitive content.
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_circular_play)
+                .setSmallIcon(R.drawable.ic_play)
                 // Add media control buttons that invoke intents in your media service
-                .addAction(androidx.media3.session.R.drawable.media3_icon_rewind, "Seek Backward", seekBackwardPendingIntent) // #0
+                .addAction(R.drawable.ic_prev, "Seek Backward", seekBackwardPendingIntent) // #0
                 .addAction(
                     if (session.player.isPlaying) {
-                        androidx.media3.session.R.drawable.media3_icon_pause
+                        R.drawable.ic_pause
                     } else {
-                        androidx.media3.session.R.drawable.media3_icon_play
+                        R.drawable.ic_play
                     },
                     "Toggle Play",
                     togglePlayPendingIntent
                 ) // #1
-                .addAction(androidx.media3.session.R.drawable.media3_icon_fast_forward, "Seek Forward", seekForwardPendingIntent) // #2
+                .addAction(R.drawable.ic_next, "Seek Forward", seekForwardPendingIntent) // #2
                 // Apply the media style template
                 .setStyle(MediaStyleNotificationHelper.MediaStyle(session).setShowActionsInCompactView(0, 1, 2))
                 .setContentTitle(session.player.mediaMetadata.title)
