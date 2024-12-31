@@ -3,7 +3,6 @@ import DeviceInfo from 'react-native-device-info';
 import { activateKeepAwake, deactivateKeepAwake} from '@sayem314/react-native-keep-awake';
 import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
 import BackgroundTimer from 'react-native-background-timer';
-// import AudioSession from 'react-native-audio-session';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { CastState, useCastState } from 'react-native-google-cast';
 import { Platform,  } from 'react-native';
@@ -59,10 +58,6 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         if (Platform.OS === 'android'){
             SystemNavigationBar.fullScreen(true);
         }
-
-        // if (Platform.OS === 'ios'){
-        //     AudioSession.setCategory('Playback', 'MixWithOthers');
-        // }
 
         if (!DeviceInfo.isTablet()){
             // Bloqueamos a Landscape los móviles

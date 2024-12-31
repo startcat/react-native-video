@@ -46,7 +46,6 @@
         "axios": "^1.7.3",
         "react-airplay": "^1.2.0",
         "react-native-actions-sheet": "^0.9.3",
-        "react-native-audio-session": "^0.0.6",
         "react-native-background-timer": "^2.4.1",
         "react-native-config": "^1.5.1",
         "react-native-device-info": "^11.1.0",
