@@ -126,9 +126,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         // Al montar el Player, preparamos la sesión de Audio
 
-        if (Platform.OS === 'ios'){
-            AudioSession.setCategory('Playback', 'MixWithOthers');
-        }
+        // if (Platform.OS === 'ios'){
+        //     AudioSession.setCategory('Playback', 'MixWithOthers');
+        // }
 
         // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
         if (typeof(dpoData?.watchingProgressInterval) === 'number' && dpoData?.watchingProgressInterval > 0 && dpoData?.addContentProgress){
