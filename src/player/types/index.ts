@@ -151,6 +151,13 @@ export interface IVideoSource {
     uri: string,
     type?: string,
     startPosition?: number;
+    metadata?: {
+        title?: string;
+        subtitle?: string;
+        description?: string;
+        artist?: string;
+        imageUri?: string;
+    }
 }
 
 export interface IPlayerMenuData {

@@ -218,7 +218,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             title: props.title,
             uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
             type: getManifestSourceType(currentManifest.current!),
-            startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined
+            startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined,
+            metadata: {
+                title: props.title,
+                subtitle: props.subtitle,
+                description: props.description,
+                imageUri: props.poster
+            }
         };
 
     }
@@ -245,7 +251,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 id: videoSource.current.id,
                 title: videoSource.current.title,
                 uri: quality.code,
-                type: videoSource.current.type
+                type: videoSource.current.type,
+                metadata: videoSource.current.metadata
             };
 
             setSelectedVideoTrack({
@@ -533,14 +540,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             controls={false}
                             ignoreSilentSwitch='ignore'
                             showNotificationControls={true}
-                            // @ts-ignore
-                            enableMediaSession={true}
-                            mediaSessionMetadata={{
-                                title: props?.title,
-                                subtitle: props?.subtitle,
-                                description: props?.description,
-                                imageUri: props?.poster
-                            }}
                             resizeMode='contain'
                             minLoadRetryCount={3}
                             hideShutterView={true}
