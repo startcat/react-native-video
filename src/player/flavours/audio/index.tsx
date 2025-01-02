@@ -63,6 +63,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const refVideoPlayer = useRef<VideoRef>(null);
     const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
+    const endTimerObj = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
 
@@ -193,6 +194,46 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     }
 
+    // End Background Timer
+    const cancelEndTimer = () => {
+        const now = new Date();
+        console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] Cancel end interval`);
+
+        if (endTimerObj.current){
+            BackgroundTimer.clearInterval(endTimerObj.current);
+
+        }
+
+    }
+
+    const refreshEndTimer = () => {
+        const now = new Date();
+        console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] Creating end interval`);
+
+        if (endTimerObj.current){
+            BackgroundTimer.clearInterval(endTimerObj.current);
+
+        }
+
+        endTimerObj.current = BackgroundTimer.setInterval(() => {
+            const now = new Date();
+
+            if (refVideoPlayer.current && duration && Math.abs(currentTime - duration) < 15){
+
+                console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] onEndTimerObj Done...`);
+
+                if (refVideoPlayer.current && props.onEnd){
+                    console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] onEndTimerObj Done... calling onEnd`);
+                    cancelEndTimer();
+                    props.onEnd();
+
+                }
+            }
+
+        }, 10 * 1000);
+
+    }
+
     // Functions
     const maybeChangeBufferingState = (buffering: boolean) => {
 
@@ -309,6 +350,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 }
 
             }
+
+            refreshEndTimer();
 
         }
 
