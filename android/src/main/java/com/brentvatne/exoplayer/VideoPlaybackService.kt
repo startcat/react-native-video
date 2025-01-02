@@ -38,14 +38,14 @@ class VideoPlaybackService : MediaSessionService() {
     private val seekForwardBtn = CommandButton.Builder()
         .setDisplayName("forward")
         .setSessionCommand(commandSeekForward)
-        .setIconResId(androidx.media3.ui.R.drawable.exo_notification_fastforward)
+        .setIconResId(R.drawable.ic_next)
         .build()
 
     @SuppressLint("PrivateResource")
     private val seekBackwardBtn = CommandButton.Builder()
         .setDisplayName("backward")
         .setSessionCommand(commandSeekBackward)
-        .setIconResId(androidx.media3.ui.R.drawable.exo_notification_rewind)
+        .setIconResId(R.drawable.ic_prev)
         .build()
 
     // Player Registry
