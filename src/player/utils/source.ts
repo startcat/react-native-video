@@ -24,13 +24,13 @@ function log (message: string) {
 const getAbsoluteUri = (uri: string): string => {
 
     if (uri && typeof(uri) === 'string' && uri?.match(/https?:\/\//gi)){
-        return uri;
+        return encodeURI(uri);
 
     } else if (uri && typeof(uri) === 'string'){
-        return Config.SITE_URL + uri;
+        return encodeURI(Config.SITE_URL + uri);
 
     } else {
-        return uri;
+        return encodeURI(uri);
 
     }
 
@@ -106,6 +106,10 @@ export const getBestManifest = (manifests: Array<IManifest>, isCasting?: boolean
             
         }
 
+    }
+
+    if (manifest && manifest?.manifestURL){
+        manifest.manifestURL = encodeURI(manifest.manifestURL);
     }
 
     log(`best manifest: ${JSON.stringify(manifest)}`);
