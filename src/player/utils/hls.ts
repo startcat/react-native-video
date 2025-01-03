@@ -16,13 +16,13 @@ import {
 const getAbsoluteUri = (uri: string): string => {
 
     if (uri && typeof(uri) === 'string' && uri?.match(/https?:\/\//gi)){
-        return encodeURI(uri);
+        return uri;
 
     } else if (uri && typeof(uri) === 'string'){
-        return encodeURI(Config.SITE_URL + uri);
+        return Config.SITE_URL + uri;
 
     } else {
-        return encodeURI(uri);
+        return uri;
 
     }
 
