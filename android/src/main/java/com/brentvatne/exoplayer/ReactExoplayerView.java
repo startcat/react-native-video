@@ -1257,6 +1257,8 @@ public class ReactExoplayerView extends FrameLayout implements
         MediaItem.Builder mediaItemBuilder = new MediaItem.Builder()
                 .setUri(uri);
 
+        // refresh custom Metadata
+        MediaMetadata customMetadata = ConfigurationUtils.buildCustomMetadata(source.getMetadata());
         if (customMetadata != null) {
             mediaItemBuilder.setMediaMetadata(customMetadata);
         }
