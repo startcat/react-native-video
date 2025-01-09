@@ -143,7 +143,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 title: props.title,
                 subtitle: props.subtitle,
                 description: props.description,
-                imageUri: props.poster
+                imageUri: props.squaredPoster || props.poster
             }
         });
 

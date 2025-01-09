@@ -191,6 +191,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
                 manifests={props.manifests}
                 poster={props.poster}
+                squaredPoster={props.squaredPoster}
                 youbora={props.youbora}
                 adTagUrl={props.adTagUrl}
                 hasNext={props.hasNext}
@@ -245,6 +246,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 manifests={props.manifests}
                 showExternalTudum={props.showExternalTudum}
                 poster={props.poster}
+                squaredPoster={props.squaredPoster}
                 youbora={props.youbora}
                 adTagUrl={props.adTagUrl}
                 hasNext={props.hasNext}

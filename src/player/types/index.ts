@@ -180,6 +180,7 @@ export interface ICastMetadata {
     liveStartDate?:string;
     adTagUrl?: string;
     poster?: string;
+    squaredPoster?: string;
 
     isOffline?: boolean;
     isLive?: boolean;
@@ -580,6 +581,7 @@ export interface AudioFlavourProps {
     manifests?:Array<IManifest>,
     youbora?: IYoubora;
     poster?: string;
+    squaredPoster?: string;
 
     playOffline?: boolean;
     isLive?: boolean;
@@ -628,6 +630,7 @@ export interface NormalFlavourProps {
     youbora?: IYoubora;
     adTagUrl?: string;
     poster?: string;
+    squaredPoster?: string;
 
     playOffline?: boolean;
     isLive?: boolean;
@@ -682,6 +685,7 @@ export interface CastFlavourProps {
     youbora?: IYoubora;
     adTagUrl?: string;
     poster?: string;
+    squaredPoster?: string;
 
     isLive?: boolean;
     hasNext?: boolean;
@@ -734,6 +738,7 @@ export interface PlayerProps {
     youbora?: IYoubora;
     adTagUrl?: string;
     poster?: string;
+    squaredPoster?: string;
     startPosition?: number;
 
     playOffline?: boolean;
@@ -790,6 +795,7 @@ export interface AudioPlayerContentsDpo {
     type?: STREAM_TYPE;
     startPosition?: number;
     poster?: string;
+    squaredPoster?: string;
     playOffline?: boolean;
     isLive?: boolean;
     hasNext?: boolean;
