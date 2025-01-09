@@ -233,6 +233,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         manifests={dpoData.manifests}
                         poster={dpoData.poster}
+                        squaredPoster={dpoData.squaredPoster}
                         youbora={dpoData.youbora}
                         hasNext={dpoData.hasNext}
                         hasPrev={dpoData.hasPrev}
