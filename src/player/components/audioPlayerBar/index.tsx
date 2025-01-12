@@ -264,6 +264,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         onNext={dpoData.onNext}
                         onPrevious={dpoData.onPrevious}
                         onEnd={onEnd}
+                        onClose={hidePlayer}
                     />
                 : null
             }
