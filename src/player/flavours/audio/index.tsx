@@ -214,20 +214,25 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setPaused(!!value);
         }
 
-        // if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
-        //     // Clear workarround
-        //     setVideoSource({
-        //         // @ts-ignore
-        //         id: null,
-        //         // @ts-ignore
-        //         title: null,
-        //         // @ts-ignore
-        //         uri: null,
-        //         // @ts-ignore
-        //         type: null
-        //     });
+        if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
+            // Clear workarround
+            setVideoSource({
+                // @ts-ignore
+                id: null,
+                // @ts-ignore
+                title: null,
+                // @ts-ignore
+                uri: null,
+                // @ts-ignore
+                type: null
+            });
 
-        // }
+            if (props.onClose){
+                props.onClose();
+                
+            }
+
+        }
         
         if (id === CONTROL_ACTION.MUTE){
             setMuted(!!value);
