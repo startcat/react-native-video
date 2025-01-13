@@ -584,6 +584,7 @@ export interface AudioFlavourProps {
     squaredPoster?: string;
 
     playOffline?: boolean;
+    multiSession?: boolean;
     isLive?: boolean;
     hasNext?: boolean;
     hasPrev?: boolean;
@@ -633,6 +634,7 @@ export interface NormalFlavourProps {
     squaredPoster?: string;
 
     playOffline?: boolean;
+    multiSession?: boolean;
     isLive?: boolean;
     hasNext?: boolean;
 
@@ -742,6 +744,7 @@ export interface PlayerProps {
     startPosition?: number;
 
     playOffline?: boolean;
+    multiSession?: boolean;
     isLive?: boolean;
     liveStartDate?:string;
     hasNext?: boolean;
@@ -797,6 +800,7 @@ export interface AudioPlayerContentsDpo {
     poster?: string;
     squaredPoster?: string;
     playOffline?: boolean;
+    multiSession?: boolean;
     isLive?: boolean;
     hasNext?: boolean;
     hasPrev?: boolean;

@@ -252,6 +252,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 hasNext={props.hasNext}
 
                 playOffline={props.playOffline}
+                multiSession={props.multiSession}
                 isLive={props.isLive}
                 liveStartDate={props.liveStartDate}
 

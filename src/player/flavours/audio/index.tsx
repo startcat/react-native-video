@@ -229,7 +229,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             if (props.onClose){
                 props.onClose();
-                
+
             }
 
         }
@@ -437,6 +437,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                         // @ts-ignore
                         youbora={youboraForVideo.current}
                         playOffline={props.playOffline}
+                        multiSession={props.multiSession}
 
                         allowsExternalPlayback={true}
                         //volume={10}

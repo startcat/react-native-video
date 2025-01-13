@@ -239,6 +239,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         hasPrev={dpoData.hasPrev}
 
                         playOffline={dpoData.playOffline}
+                        multiSession={dpoData.multiSession}
                         isLive={dpoData.isLive}
                         // liveStartDate={props.liveStartDate}
 

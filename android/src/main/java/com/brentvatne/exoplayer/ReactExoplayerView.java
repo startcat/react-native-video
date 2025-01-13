@@ -291,6 +291,9 @@ public class ReactExoplayerView extends FrameLayout implements
 	// Dani Offline
 	private boolean playOffline = false;
 
+	// Dani DRM Multi Session
+	private boolean multiSession = false;
+
     // Dani - Manager class for offline licenses
     private OfflineLicenseManager mOfflineLicenseManager;
     private DownloadRequest mDownloadRequest;
@@ -1189,7 +1192,7 @@ public class ReactExoplayerView extends FrameLayout implements
             return new DefaultDrmSessionManager.Builder()
                     .setUuidAndExoMediaDrmProvider(uuid, (_uuid) -> mediaDrm)
                     .setKeyRequestParameters(null)
-                    .setMultiSession(false)
+                    .setMultiSession(self.multiSession)
                     .build(drmCallback);
         } catch (UnsupportedDrmException ex) {
             // Unsupported DRM exceptions are handled by the calling method
@@ -2730,6 +2733,10 @@ public class ReactExoplayerView extends FrameLayout implements
 
 	public void setPlayOffline(boolean playOffline) {
 		this.playOffline = playOffline;
+	}
+
+	public void setMultiSession(boolean multiSession) {
+		this.multiSession = multiSession;
 	}
 
 	/*
