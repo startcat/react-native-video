@@ -533,6 +533,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             // @ts-ignore
                             youbora={youboraForVideo.current}
                             playOffline={props.playOffline}
+                            multiSession={props.multiSession}
 
                             adTagUrl={props?.adTagUrl}
                             allowsExternalPlayback={true}

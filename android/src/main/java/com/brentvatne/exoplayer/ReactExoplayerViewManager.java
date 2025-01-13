@@ -87,6 +87,7 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     private static final String PROP_CONTROLS_STYLES = "controlsStyles";
     private static final String PROP_YOUBORA = "youbora"; // Dani Youbora
 	private static final String PROP_PLAY_OFFLINE = "playOffline"; // Dani Offline
+    private static final String PROP_MULTI_SESSION = "multiSession"; // Dani Multi DRM Session
 
     private final ReactExoplayerConfig config;
 
@@ -516,6 +517,11 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 	@ReactProp(name = PROP_PLAY_OFFLINE)
 	public void setPlayOffline(final ReactExoplayerView videoView, final boolean playOffline) {
 		videoView.setPlayOffline(playOffline);
+	}
+
+	@ReactProp(name = PROP_MULTI_SESSION)
+	public void setMultiSession(final ReactExoplayerView videoView, final boolean multiSession) {
+		videoView.setMultiSession(multiSession);
 	}
 
 	/*

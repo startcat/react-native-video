@@ -244,6 +244,7 @@ export interface ReactVideoProps extends ReactVideoEvents, ViewProps {
   drm?: Drm;
   youbora?: Youbora;
   playOffline?: boolean;
+  multiSession?: boolean; // android
   style?: StyleProp<ViewStyle>;
   adTagUrl?: string;
   audioOutput?: AudioOutput; // Mobile

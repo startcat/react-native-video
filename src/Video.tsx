@@ -80,6 +80,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
       drm,
       youbora,
       playOffline,
+      multiSession,
       textTracks,
       selectedVideoTrack,
       selectedAudioTrack,
@@ -235,6 +236,13 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
       }
       return !!playOffline;
     }, [playOffline]);
+
+    const _multiSession = useMemo(() => {
+        if (!multiSession) {
+          return false;
+        }
+        return !!multiSession;
+      }, [multiSession]);
 
     const _selectedTextTrack = useMemo(() => {
       if (!selectedTextTrack) {
@@ -589,6 +597,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
           youbora={_youbora}
           drm={_drm}
           playOffline={_playOffline}
+          multiSession={_multiSession}
           style={StyleSheet.absoluteFill}
           resizeMode={resizeMode}
           fullscreen={isFullscreen}
