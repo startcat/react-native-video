@@ -678,6 +678,10 @@ class Singleton {
             if (newItem.offlineData.isBinary){
                 newItem.offlineData.fileUri = `${DOWNLOADS_BINARY_DIR}/${obj.offlineData.source.id}.mp3`;
 
+                if (Platform.OS === 'ios'){
+                    newItem.offlineData.source.uri = encodeURI(newItem.offlineData.source.uri);
+                }
+
             }
 
             this.savedDownloads.push(newItem);
