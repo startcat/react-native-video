@@ -146,7 +146,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         // Preparamos la URI del contenido
         if (isDownloaded.current && isBinary.current){
             const offlineBinary = getContentById(props.id!);
-            console.log(`[isDownloaded && isBinary] ${JSON.stringify(offlineBinary)}`);
+            console.log(`[Player] (Audio Flavour) isDownloaded && isBinary`);
 
             uri = `file://${offlineBinary?.offlineData.fileUri}`;
 
@@ -154,6 +154,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
 
         }
+
+        console.log(`[Player] (Audio Flavour) uri ${JSON.stringify(uri)}`);
 
         // Montamos el Source para el player
         setVideoSource({
