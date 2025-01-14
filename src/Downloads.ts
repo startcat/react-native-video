@@ -2,7 +2,7 @@ import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
-import { download, completeHandler, directories } from '@kesha-antonov/react-native-background-downloader';
+import { download, completeHandler, checkForExistingDownloads, setConfig } from '@kesha-antonov/react-native-background-downloader';
 import { EventRegister } from 'react-native-event-listeners';
 
 import type {
@@ -114,6 +114,10 @@ class Singleton {
                 this.user_required = config.user_required;
 
             }
+
+            setConfig({
+                isLogsEnabled: true
+            });
 
             AsyncStorage.getItem(DOWNLOADS_KEY).then(async (result: string | null) => {
 
@@ -282,7 +286,21 @@ class Singleton {
                 console.log(`${this.log_key} Resume all.`);
                 this.resumeAll();
 
-            }            
+            }
+
+            try {
+                const tasks = await checkForExistingDownloads();
+                console.log(`${this.log_key} Binary tasks: ${JSON.stringify(tasks)}`);
+          
+                if (tasks.length > 0) {
+                    tasks.map(task => this.process(task));
+
+                    this.binaryTasks = [...this.binaryTasks, ...tasks];
+
+                }
+            } catch (e) {
+                console.warn('checkForExistingDownloads e', e)
+            }
 
         } else {
             this.pause();
@@ -668,7 +686,6 @@ class Singleton {
 
             if (newItem.offlineData.isBinary){
                 // Los binarios los descargamos de forma senzilla con la librería react-native-background-downloader
-                //binaryTasks
                 const downloadId = obj.offlineData.source.id?.toString();
 
                 this.saveRefList().then( async () => {
@@ -682,38 +699,14 @@ class Singleton {
 
                 });
 
-                let task = download({
+                this.process(download({
                     id: downloadId,
                     url: obj.offlineData.source.uri,
                     destination: newItem.offlineData.fileUri!,
                     metadata: {}
-                }).begin(({ expectedBytes, headers }) => {
-                    console.log(`${this.log_key} Going to download ${expectedBytes} bytes!`);
-
-                    newItem.offlineData.state = DownloadStates.DOWNLOADING;
-                    this.updateRefListItem(newItemIndex, newItem);
-
-                }).progress(({ bytesDownloaded, bytesTotal }) => {
-                    
-                    const percent = bytesDownloaded / bytesTotal * 100;
-                    console.log(`${this.log_key} Downloaded: ${percent}%`);
-
-                    this.onBinaryProgress(downloadId, percent);
-
-                }).done(({ bytesDownloaded, bytesTotal }) => {
-                    console.log(`${this.log_key} Download is done!`, { bytesDownloaded, bytesTotal });
+                }));
                 
-                    completeHandler(downloadId);
-                    this.onBinaryCompleted(downloadId);
-
-                    return resolve();
-
-                }).error(({ error, errorCode }) => {
-                    console.log('Download canceled due to error: ', { error, errorCode });
-                    this.onBinaryError(downloadId, error, errorCode);
-                    return reject(error);
-
-                });
+                return resolve();
 
             } else {
                 // Los streams los descargamos con el módulo nativo relacionado con el player
@@ -923,6 +916,59 @@ class Singleton {
     public getList (): Array<DownloadItem> {
         return this.savedDownloads;
         
+    }
+
+    // Binary Tasks
+    private process (task) {
+
+        const { index } = this.getTask(task.id);
+
+        return task
+            .begin(({ expectedBytes, headers }) => {
+                console.log('task: begin', { id: task.id, expectedBytes, headers });
+
+                // @ts-ignore
+                this.binaryTasks[index] = task;
+
+                this.onBinaryStart(task.id);
+
+            }).progress(({ bytesDownloaded, bytesTotal }) => {
+
+                console.log('task: progress', { id: task.id, bytesDownloaded, bytesTotal });
+                const percent = bytesDownloaded / bytesTotal * 100;
+
+                // @ts-ignore
+                this.binaryTasks[index] = task;
+
+                this.onBinaryProgress(task.id, percent);
+
+            }).done(() => {
+                console.log('task: done', { id: task.id });
+                // @ts-ignore
+                this.binaryTasks[index] = task;
+    
+                completeHandler(task.id);
+                this.onBinaryCompleted(task.id);
+
+            }).error(e => {
+                console.error('task: error', { id: task.id, e });
+                // @ts-ignore
+                this.binaryTasks[index] = task;
+    
+                completeHandler(task.id);
+                this.onBinaryError(task.id, e, 0);
+
+            });
+
+    }
+
+    private getTask (id) {
+        
+        // @ts-ignore
+        const index = this.binaryTasks.findIndex(task => task.id === id);
+        const task = this.binaryTasks[index];
+        return { index, task };
+
     }
 
     // Directories
@@ -1198,6 +1244,21 @@ class Singleton {
 
 
     // Binary Events
+    private async onBinaryStart (id: string): Promise<void> {
+        console.log(`${this.log_key} onBinaryStart ${id}`);
+
+        this.getItemBySrc(id).then(obj => {
+
+            obj.item.offlineData.state = DownloadStates.DOWNLOADING;
+            this.updateRefListItem(obj.index, obj.item);
+
+        }).catch(() => {
+            console.log(`${this.log_key} onProgress: Item not found (${id})`);
+
+        });
+
+    }
+
     private async onBinaryProgress (id: string, percent: number): Promise<void> {
         console.log(`${this.log_key} onBinaryProgress ${id} ${percent}%`);
 
@@ -1205,6 +1266,7 @@ class Singleton {
 
             if (!!obj.item && obj.item?.offlineData?.percent !== percent && percent > 0){
                 obj.item.offlineData.percent = percent;
+                obj.item.offlineData.state = DownloadStates.DOWNLOADING;
                 this.updateRefListItem(obj.index, obj.item);
     
             }
