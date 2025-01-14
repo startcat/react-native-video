@@ -2,7 +2,7 @@ import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
-import { download, completeHandler, checkForExistingDownloads, setConfig, type DownloadTask } from '@kesha-antonov/react-native-background-downloader';
+import { download, completeHandler, checkForExistingDownloads, setConfig, directories, type DownloadTask } from '@kesha-antonov/react-native-background-downloader';
 import { EventRegister } from 'react-native-event-listeners';
 
 import type {
@@ -45,7 +45,7 @@ const { DownloadsModule } = NativeModules;
 const DOWNLOADS_OLDKEY = 'off_downloads';
 const DOWNLOADS_KEY = 'off_downloads_v2';
 const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS?.LibraryDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
-const DOWNLOADS_BINARY_DIR = (Platform.OS === 'ios') ? RNFS?.DocumentDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
+const DOWNLOADS_BINARY_DIR = (Platform.OS === 'ios') ? directories.documents : RNFS?.DocumentDirectoryPath + '/downloads';
 
 class Singleton {
 
