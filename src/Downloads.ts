@@ -698,27 +698,19 @@ class Singleton {
                     const percent = bytesDownloaded / bytesTotal * 100;
                     console.log(`${this.log_key} Downloaded: ${percent}%`);
 
-                    if (newItem.offlineData?.percent !== percent && percent > 0){
-                        newItem.offlineData.percent = percent;
-                        this.updateRefListItem(newItemIndex, newItem);
-            
-                    }
+                    this.onBinaryProgress(downloadId, percent);
 
                 }).done(({ bytesDownloaded, bytesTotal }) => {
                     console.log(`${this.log_key} Download is done!`, { bytesDownloaded, bytesTotal });
                 
-                    // PROCESS YOUR STUFF
-                
-                    // FINISH DOWNLOAD JOB
-                    completeHandler(downloadId)
-
-                    newItem.offlineData.state = DownloadStates.COMPLETED;
-                    this.updateRefListItem(newItemIndex, newItem);
+                    completeHandler(downloadId);
+                    this.onBinaryCompleted(downloadId);
 
                     return resolve();
 
                 }).error(({ error, errorCode }) => {
                     console.log('Download canceled due to error: ', { error, errorCode });
+                    this.onBinaryError(downloadId, error, errorCode);
                     return reject(error);
 
                 });
@@ -844,7 +836,14 @@ class Singleton {
             try {
 
                 if (obj?.offlineData?.source?.uri){
-                    await DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm);
+
+                    if (obj?.offlineData?.isBinary){
+                        await RNFS?.unlink(obj?.offlineData?.fileUri!);
+
+                    } else {
+                        await DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm);
+
+                    }
 
                     if (Platform.OS !== 'android') {
 
@@ -1193,6 +1192,64 @@ class Singleton {
 
     private async onRemoved (data: OnDownloadRemovedData): Promise<void> {
         console.log(`${this.log_key} onRemoved ${JSON.stringify(data)}`);
+
+    }
+
+
+
+    // Binary Events
+    private async onBinaryProgress (id: string, percent: number): Promise<void> {
+        console.log(`${this.log_key} onBinaryProgress ${id} ${percent}%`);
+
+        this.getItemBySrc(id).then(obj => {
+
+            if (!!obj.item && obj.item?.offlineData?.percent !== percent && percent > 0){
+                obj.item.offlineData.percent = percent;
+                this.updateRefListItem(obj.index, obj.item);
+    
+            }
+
+        }).catch(() => {
+            console.log(`${this.log_key} onProgress: Item not found (${id})`);
+
+        });
+
+    }
+
+    private async onBinaryCompleted (id: string): Promise<void> {
+        console.log(`${this.log_key} onBinaryCompleted ${id}`);
+
+        this.getItemBySrc(id).then(obj => {
+
+            obj.item.offlineData.state = DownloadStates.COMPLETED;
+            this.updateRefListItem(obj.index, obj.item);
+            this.checkTotalSize();
+
+        }).catch(() => {
+            console.log(`${this.log_key} onDownloadStateChanged: Item not found (${id})`);
+
+        });
+
+    }
+
+    private async onBinaryRemoved (id: string): Promise<void> {
+        console.log(`${this.log_key} onBinaryRemoved ${id}`);
+
+    }
+
+    private async onBinaryError (id: string, err: string, errorCode: number): Promise<void> {
+        console.log(`${this.log_key} onBinaryError (${errorCode}) ${err}`);
+
+        this.getItemBySrc(id).then(obj => {
+
+            obj.item.offlineData.state = DownloadStates.FAILED;
+            this.updateRefListItem(obj.index, obj.item);
+            this.checkTotalSize();
+
+        }).catch(() => {
+            console.log(`${this.log_key} onDownloadStateChanged: Item not found (${id})`);
+
+        });
 
     }
 
