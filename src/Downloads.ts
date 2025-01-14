@@ -2,7 +2,7 @@ import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
-import { download, completeHandler, checkForExistingDownloads, setConfig } from '@kesha-antonov/react-native-background-downloader';
+import { download, completeHandler, checkForExistingDownloads, setConfig, type DownloadTask } from '@kesha-antonov/react-native-background-downloader';
 import { EventRegister } from 'react-native-event-listeners';
 
 import type {
@@ -59,7 +59,7 @@ class Singleton {
     private log_key: string = `[Downloads]`;
     private initialized: boolean = false;
 
-    private binaryTasks = [];
+    private binaryTasks: Array<DownloadTask> = [];
 
     public isStarted: boolean = false;
     public size: number = 0;
@@ -832,13 +832,14 @@ class Singleton {
 
                     if (obj?.offlineData?.isBinary){
                         await RNFS?.unlink(obj?.offlineData?.fileUri!);
+                        this.onBinaryRemoved(obj?.offlineData?.source?.id!);
 
                     } else {
                         await DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm);
 
                     }
 
-                    if (Platform.OS !== 'android') {
+                    if (Platform.OS !== 'android' && !obj?.offlineData?.isBinary) {
 
                         const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === obj?.offlineData?.source?.uri);
 
@@ -874,6 +875,28 @@ class Singleton {
 
             const foundItem = this.savedDownloads?.find(item => item.offlineData?.source?.uri === src);
             const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === src);
+
+            if (!!foundItem){
+                resolve({
+                    item: foundItem,
+                    index: foundAtIndex
+                });
+
+            } else {
+                reject();
+
+            }
+
+        });
+        
+    }
+
+    public getItemByIdAsync (id: string): Promise<SearchDownloadItem> {
+
+        return new Promise((resolve, reject) => {
+
+            const foundItem = this.savedDownloads?.find(item => item.offlineData?.source?.id === id);
+            const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.id === id);
 
             if (!!foundItem){
                 resolve({
@@ -1247,13 +1270,13 @@ class Singleton {
     private async onBinaryStart (id: string): Promise<void> {
         console.log(`${this.log_key} onBinaryStart ${id}`);
 
-        this.getItemBySrc(id).then(obj => {
+        this.getItemByIdAsync(id).then(obj => {
 
             obj.item.offlineData.state = DownloadStates.DOWNLOADING;
             this.updateRefListItem(obj.index, obj.item);
 
         }).catch(() => {
-            console.log(`${this.log_key} onProgress: Item not found (${id})`);
+            console.log(`${this.log_key} onBinaryStart: Item not found (${id})`);
 
         });
 
@@ -1262,7 +1285,7 @@ class Singleton {
     private async onBinaryProgress (id: string, percent: number): Promise<void> {
         console.log(`${this.log_key} onBinaryProgress ${id} ${percent}%`);
 
-        this.getItemBySrc(id).then(obj => {
+        this.getItemByIdAsync(id).then(obj => {
 
             if (!!obj.item && obj.item?.offlineData?.percent !== percent && percent > 0){
                 obj.item.offlineData.percent = percent;
@@ -1272,7 +1295,7 @@ class Singleton {
             }
 
         }).catch(() => {
-            console.log(`${this.log_key} onProgress: Item not found (${id})`);
+            console.log(`${this.log_key} onBinaryProgress: Item not found (${id})`);
 
         });
 
@@ -1281,14 +1304,14 @@ class Singleton {
     private async onBinaryCompleted (id: string): Promise<void> {
         console.log(`${this.log_key} onBinaryCompleted ${id}`);
 
-        this.getItemBySrc(id).then(obj => {
+        this.getItemByIdAsync(id).then(obj => {
 
             obj.item.offlineData.state = DownloadStates.COMPLETED;
             this.updateRefListItem(obj.index, obj.item);
             this.checkTotalSize();
 
         }).catch(() => {
-            console.log(`${this.log_key} onDownloadStateChanged: Item not found (${id})`);
+            console.log(`${this.log_key} onBinaryCompleted: Item not found (${id})`);
 
         });
 
@@ -1297,19 +1320,36 @@ class Singleton {
     private async onBinaryRemoved (id: string): Promise<void> {
         console.log(`${this.log_key} onBinaryRemoved ${id}`);
 
+        this.getItemByIdAsync(id).then(obj => {
+
+            this.savedDownloads.splice(obj.index, 1);
+
+            this.saveRefList().finally(() => {
+                this.listToConsole();
+                EventRegister.emit('downloadsList', {});
+                this.checkDownloadsStatus();
+                this.checkTotalSize();
+
+            });
+
+        }).catch(() => {
+            console.log(`${this.log_key} onBinaryRemoved: Item not found (${id})`);
+
+        });
+
     }
 
     private async onBinaryError (id: string, err: string, errorCode: number): Promise<void> {
         console.log(`${this.log_key} onBinaryError (${errorCode}) ${err}`);
 
-        this.getItemBySrc(id).then(obj => {
+        this.getItemByIdAsync(id).then(obj => {
 
             obj.item.offlineData.state = DownloadStates.FAILED;
             this.updateRefListItem(obj.index, obj.item);
             this.checkTotalSize();
 
         }).catch(() => {
-            console.log(`${this.log_key} onDownloadStateChanged: Item not found (${id})`);
+            console.log(`${this.log_key} onBinaryError: Item not found (${id})`);
 
         });
 
