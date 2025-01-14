@@ -16,6 +16,9 @@ import {
     getBestManifest,
     getManifestSourceType,
     getVideoSourceUri,
+    getContentIdIsDownloaded,
+    getContentIdIsBinary,
+    getContentById,
     getDRM,
 } from '../../utils';
 
@@ -49,6 +52,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [videoSource, setVideoSource] = useState<IVideoSource | null>();
     const isDVR = useRef<boolean>();
     const isHLS = useRef<boolean>();
+    const isDownloaded = useRef<boolean>();
+    const isBinary = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
@@ -110,6 +115,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     // Source Cooking
     const setPlayerSource = async () => {
 
+        let uri;
+
         // Cogemos el manifest adecuado
         currentManifest.current = getBestManifest(props?.manifests!);
 
@@ -118,6 +125,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         // Marcamos si es HLS
         isHLS.current = currentManifest.current?.type === STREAM_FORMAT_TYPE.HLS;
+
+        // Revisamos si se trata de un Binario descargado
+        isDownloaded.current = getContentIdIsDownloaded(props.id!);
+        isBinary.current = getContentIdIsBinary(props.id!);
 
         // Preparamos los datos de Youbora
         if (props.getYouboraOptions){
@@ -132,11 +143,23 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setDvrTimeValue(dvrWindowSeconds.current);
         }
 
+        // Preparamos la URI del contenido
+        if (isDownloaded.current && isBinary.current){
+            const offlineBinary = getContentById(props.id!);
+            console.log(`[isDownloaded && isBinary] ${JSON.stringify(offlineBinary)}`);
+
+            uri = { uri: `file:${offlineBinary?.offlineData.fileUri}`};
+
+        } else {
+            uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+
+        }
+
         // Montamos el Source para el player
         setVideoSource({
             id: props.id,
             title: props.title,
-            uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
+            uri: uri,
             type: getManifestSourceType(currentManifest.current!),
             startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined,
             metadata: {

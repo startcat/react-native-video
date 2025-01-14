@@ -669,7 +669,7 @@ class Singleton {
             if (newItem.offlineData.isBinary){
                 // Los binarios los descargamos de forma senzilla con la librería react-native-background-downloader
                 //binaryTasks
-                const downloadId = obj.offlineData.source.id;
+                const downloadId = obj.offlineData.source.id?.toString();
 
                 this.saveRefList().then( async () => {
                     this.listToConsole();
