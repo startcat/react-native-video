@@ -2,6 +2,7 @@ import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
+import { download, completeHandler, directories } from '@kesha-antonov/react-native-background-downloader';
 import { EventRegister } from 'react-native-event-listeners';
 
 import type {
@@ -57,6 +58,8 @@ class Singleton {
     private download_just_wifi: boolean = true;
     private log_key: string = `[Downloads]`;
     private initialized: boolean = false;
+
+    private binaryTasks = [];
 
     public isStarted: boolean = false;
     public size: number = 0;
@@ -652,27 +655,64 @@ class Singleton {
                 }
             };
 
+            const isBinary = obj.offlineData.source.drmScheme === 'mp3';
+
             this.savedDownloads.push(newItem);
 
-            DownloadsModule.addItem(newItem?.offlineData?.source, newItem?.offlineData?.drm).then(() => {
+            console.log(`${this.log_key} setItemToLocal source type ${obj.offlineData.source.drmScheme} (isBinary ${isBinary})`);
 
-                this.saveRefList().then( async () => {
-                    this.listToConsole();
-                    EventRegister.emit('downloadsList', {});
-                    this.checkDownloadsStatus();
-                    this.checkTotalSize();
-                    return resolve();
+            if (isBinary){
+                // Los binarios los descargamos de forma senzilla con la librería react-native-background-downloader
+                //binaryTasks
 
+                const jobId = obj.offlineData.source.id;
+
+                let task = download({
+                    id: jobId,
+                    url: obj.offlineData.source.uri,
+                    destination: `${DOWNLOADS_DIR}/${jobId}.mp3`,
+                    metadata: {}
+                }).begin(({ expectedBytes, headers }) => {
+                    console.log(`${this.log_key} Going to download ${expectedBytes} bytes!`);
+
+                }).progress(({ bytesDownloaded, bytesTotal }) => {
+                    console.log(`${this.log_key} Downloaded: ${bytesDownloaded / bytesTotal * 100}%`);
+
+                }).done(({ bytesDownloaded, bytesTotal }) => {
+                    console.log(`${this.log_key} Download is done!`, { bytesDownloaded, bytesTotal });
+                
+                    // PROCESS YOUR STUFF
+                
+                    // FINISH DOWNLOAD JOB
+                    completeHandler(jobId)
+                }).error(({ error, errorCode }) => {
+                    console.log('Download canceled due to error: ', { error, errorCode });
+
+                });
+
+            } else {
+                // Los streams los descargamos con el módulo nativo relacionado con el player
+                DownloadsModule.addItem(newItem?.offlineData?.source, newItem?.offlineData?.drm).then(() => {
+
+                    this.saveRefList().then( async () => {
+                        this.listToConsole();
+                        EventRegister.emit('downloadsList', {});
+                        this.checkDownloadsStatus();
+                        this.checkTotalSize();
+                        return resolve();
+
+                    }).catch((err: any) => {
+                        this.checkDownloadsStatus();
+                        return reject(err);
+
+                    });
+            
                 }).catch((err: any) => {
-                    this.checkDownloadsStatus();
                     return reject(err);
 
                 });
-        
-            }).catch((err: any) => {
-                return reject(err);
 
-            });
+            }
 
         });
 
