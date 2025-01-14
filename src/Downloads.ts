@@ -645,38 +645,64 @@ class Singleton {
 
         return new Promise(async (resolve, reject) => {
 
-            const newItem: DownloadItem = {
+            let newItem: DownloadItem = {
                 media: obj.media,
                 offlineData: {
                     session_ids:[this.user_id],
                     source: obj.offlineData.source,
                     state: DownloadStates.RESTART,
-                    drm: obj.offlineData.drm
+                    drm: obj.offlineData.drm,
+                    isBinary: obj.offlineData.source.drmScheme === 'mp3'
                 }
             };
 
-            const isBinary = obj.offlineData.source.drmScheme === 'mp3';
+            if (newItem.offlineData.isBinary){
+                newItem.offlineData.fileUri = `${DOWNLOADS_DIR}/${obj.offlineData.source.id}.mp3`;
+
+            }
 
             this.savedDownloads.push(newItem);
+            const newItemIndex = this.savedDownloads.length - 1;
 
-            console.log(`${this.log_key} setItemToLocal source type ${obj.offlineData.source.drmScheme} (isBinary ${isBinary})`);
+            console.log(`${this.log_key} setItemToLocal source type ${obj.offlineData.source.drmScheme} (isBinary ${newItem.offlineData.isBinary}) (index ${newItemIndex})`);
 
-            if (isBinary){
+            if (newItem.offlineData.isBinary){
                 // Los binarios los descargamos de forma senzilla con la librería react-native-background-downloader
                 //binaryTasks
+                const downloadId = obj.offlineData.source.id;
 
-                const jobId = obj.offlineData.source.id;
+                this.saveRefList().then( async () => {
+                    this.listToConsole();
+                    EventRegister.emit('downloadsList', {});
+                    this.checkDownloadsStatus();
+                    this.checkTotalSize();
+
+                }).catch((err: any) => {
+                    this.checkDownloadsStatus();
+
+                });
 
                 let task = download({
-                    id: jobId,
+                    id: downloadId,
                     url: obj.offlineData.source.uri,
-                    destination: `${DOWNLOADS_DIR}/${jobId}.mp3`,
+                    destination: newItem.offlineData.fileUri!,
                     metadata: {}
                 }).begin(({ expectedBytes, headers }) => {
                     console.log(`${this.log_key} Going to download ${expectedBytes} bytes!`);
 
+                    newItem.offlineData.state = DownloadStates.DOWNLOADING;
+                    this.updateRefListItem(newItemIndex, newItem);
+
                 }).progress(({ bytesDownloaded, bytesTotal }) => {
-                    console.log(`${this.log_key} Downloaded: ${bytesDownloaded / bytesTotal * 100}%`);
+                    
+                    const percent = bytesDownloaded / bytesTotal * 100;
+                    console.log(`${this.log_key} Downloaded: ${percent}%`);
+
+                    if (newItem.offlineData?.percent !== percent && percent > 0){
+                        newItem.offlineData.percent = percent;
+                        this.updateRefListItem(newItemIndex, newItem);
+            
+                    }
 
                 }).done(({ bytesDownloaded, bytesTotal }) => {
                     console.log(`${this.log_key} Download is done!`, { bytesDownloaded, bytesTotal });
@@ -684,9 +710,16 @@ class Singleton {
                     // PROCESS YOUR STUFF
                 
                     // FINISH DOWNLOAD JOB
-                    completeHandler(jobId)
+                    completeHandler(downloadId)
+
+                    newItem.offlineData.state = DownloadStates.COMPLETED;
+                    this.updateRefListItem(newItemIndex, newItem);
+
+                    return resolve();
+
                 }).error(({ error, errorCode }) => {
                     console.log('Download canceled due to error: ', { error, errorCode });
+                    return reject(error);
 
                 });
 
