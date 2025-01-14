@@ -148,7 +148,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             const offlineBinary = getContentById(props.id!);
             console.log(`[isDownloaded && isBinary] ${JSON.stringify(offlineBinary)}`);
 
-            uri = { uri: `file:${offlineBinary?.offlineData.fileUri}`};
+            uri = `file://${offlineBinary?.offlineData.fileUri}`;
 
         } else {
             uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
