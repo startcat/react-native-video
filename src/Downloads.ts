@@ -45,6 +45,7 @@ const { DownloadsModule } = NativeModules;
 const DOWNLOADS_OLDKEY = 'off_downloads';
 const DOWNLOADS_KEY = 'off_downloads_v2';
 const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS?.LibraryDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
+const DOWNLOADS_BINARY_DIR = (Platform.OS === 'ios') ? RNFS?.DocumentDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
 
 class Singleton {
 
@@ -675,7 +676,7 @@ class Singleton {
             };
 
             if (newItem.offlineData.isBinary){
-                newItem.offlineData.fileUri = `${DOWNLOADS_DIR}/${obj.offlineData.source.id}.mp3`;
+                newItem.offlineData.fileUri = `${DOWNLOADS_BINARY_DIR}/${obj.offlineData.source.id}.mp3`;
 
             }
 
