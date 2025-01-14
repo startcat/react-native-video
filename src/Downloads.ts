@@ -671,16 +671,12 @@ class Singleton {
                     source: obj.offlineData.source,
                     state: DownloadStates.RESTART,
                     drm: obj.offlineData.drm,
-                    isBinary: obj.offlineData.source.drmScheme === 'mp3'
+                    isBinary: Platform.OS === 'android' && obj.offlineData.source.drmScheme === 'mp3'
                 }
             };
 
             if (newItem.offlineData.isBinary){
                 newItem.offlineData.fileUri = `${DOWNLOADS_BINARY_DIR}/${obj.offlineData.source.id}.mp3`;
-
-                if (Platform.OS === 'ios'){
-                    newItem.offlineData.source.uri = encodeURI(newItem.offlineData.source.uri);
-                }
 
             }
 
