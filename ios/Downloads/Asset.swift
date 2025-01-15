@@ -12,17 +12,19 @@ import AVFoundation
 
 class Asset {
     
+    var id: String
     var name: String
     var url: URL!
     var contentKeyIdList: [String]?
     var urlAsset: AVURLAsset!
     
-    init(name: String, url: URL) {
+    init(id: String, name: String, url: URL) {
+        self.id = id
         self.name = name
         self.url = url
         self.contentKeyIdList = [String]()
         
-        print("Creating Asset with url: \(url) name: \(name)")
+        print("Creating Asset with url: \(url) name: \(name) id: \(id)")
         
         createUrlAsset()
     }
