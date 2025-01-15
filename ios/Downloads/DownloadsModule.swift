@@ -244,6 +244,7 @@ class DownloadsModule: RCTEventEmitter {
           guard let downloadStateRawValue = notification.userInfo![Asset.Keys.downloadState] as? String,
                 let downloadUrl = notification.userInfo![Asset.Keys.url] as? String,
                 let downloadState = Asset.DownloadState(rawValue: downloadStateRawValue)
+                let downloadId = notification.userInfo![Asset.Keys.id] as? String
               else {
                   RCTLog("[Native Downloads] (DownloadsModule) Download state missing")
                   return
@@ -261,7 +262,7 @@ class DownloadsModule: RCTEventEmitter {
                   
                 }
             
-                self.sendEvent(withName: "onDownloadStateChanged", body: ["id":downloadUrl, "state": "DOWNLOADING"])
+                self.sendEvent(withName: "onDownloadStateChanged", body: ["id":downloadUrl, "url":downloadId, "state": "DOWNLOADING"])
             
               case .downloadedAndSavedToDevice:
                 RCTLog("[Native Downloads] (DownloadsModule) FINISHED DOWNLOADING")
@@ -284,11 +285,11 @@ class DownloadsModule: RCTEventEmitter {
                 }
             */
             
-                self.sendEvent(withName: "onDownloadStateChanged", body: ["id":downloadUrl, "state": "COMPLETED"])
+                self.sendEvent(withName: "onDownloadStateChanged", body: ["id":downloadUrl, "url":downloadId, "state": "COMPLETED"])
             
               case .notDownloaded:
                 RCTLog("[Native Downloads] (DownloadsModule) ASSET NOT DOWNLOADED")
-                self.sendEvent(withName: "onDownloadStateChanged", body: ["id":downloadUrl, "state": "NOT_DOWNLOADED"])
+                self.sendEvent(withName: "onDownloadStateChanged", body: ["id":downloadUrl, "url":downloadId, "state": "NOT_DOWNLOADED"])
           
           }
           
@@ -300,12 +301,13 @@ class DownloadsModule: RCTEventEmitter {
   @objc func handleAssetDownloadProgress(_ notification: Notification) {
       guard let progress = notification.userInfo![Asset.Keys.percentDownloaded] as? Double,
             let assetName = notification.userInfo![Asset.Keys.name] as? String
+            let assetId = notification.userInfo![Asset.Keys.id] as? String
       else { return }
               
       let humanReadableProgress = Double(round(1000 * progress) / 10)
       
       RCTLog("[Native Downloads] (DownloadsModule) DOWNLOADING PROGRESS of \(assetName) : \(humanReadableProgress)%")
-      self.sendEvent(withName: "downloadProgress", body: ["id":assetName, "percent": humanReadableProgress] as [String : Any])
+      self.sendEvent(withName: "downloadProgress", body: ["id":assetName, "url":assetId, "percent": humanReadableProgress] as [String : Any])
   }
 
 }
