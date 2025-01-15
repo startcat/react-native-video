@@ -69,7 +69,7 @@ class DownloadsModule: RCTEventEmitter {
   @objc(pause:drm:resolver:rejecter:)
   func pause(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
       
-      let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
+      let asset:Asset = Asset(id:src.value(forKey: "id") as! String, name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
       downloader.pauseDownloadOfAsset(asset: asset)
       resolve(nil)
     
@@ -78,7 +78,7 @@ class DownloadsModule: RCTEventEmitter {
   @objc(resume:drm:resolver:rejecter:)
   func resume(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
-      let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
+      let asset:Asset = Asset(id:src.value(forKey: "id") as! String, name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
       downloader.resumeDownloadOfAsset(asset: asset)
       resolve(nil)
     
@@ -92,7 +92,7 @@ class DownloadsModule: RCTEventEmitter {
   @objc(addItem:drm:resolver:rejecter:)
   func addItem(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
-    let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
+    let asset:Asset = Asset(id:src.value(forKey: "id") as! String, name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
     
     let chosenStream: StreamData
       
@@ -160,7 +160,7 @@ class DownloadsModule: RCTEventEmitter {
   @objc(removeItem:drm:resolver:rejecter:)
   func removeItem(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
-    let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
+    let asset:Asset = Asset(id:src.value(forKey: "id") as! String, name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!)
     
     // Remove Content Key from the device
     ContentKeyManager.sharedManager.deleteAllPeristableContentKeys(forAsset: asset)
