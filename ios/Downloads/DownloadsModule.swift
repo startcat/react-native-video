@@ -243,7 +243,7 @@ class DownloadsModule: RCTEventEmitter {
       
           guard let downloadStateRawValue = notification.userInfo![Asset.Keys.downloadState] as? String,
                 let downloadUrl = notification.userInfo![Asset.Keys.url] as? String,
-                let downloadState = Asset.DownloadState(rawValue: downloadStateRawValue)
+                let downloadState = Asset.DownloadState(rawValue: downloadStateRawValue),
                 let downloadId = notification.userInfo![Asset.Keys.id] as? String
               else {
                   RCTLog("[Native Downloads] (DownloadsModule) Download state missing")
@@ -300,7 +300,7 @@ class DownloadsModule: RCTEventEmitter {
   // [LOGGING]
   @objc func handleAssetDownloadProgress(_ notification: Notification) {
       guard let progress = notification.userInfo![Asset.Keys.percentDownloaded] as? Double,
-            let assetName = notification.userInfo![Asset.Keys.name] as? String
+            let assetName = notification.userInfo![Asset.Keys.name] as? String,
             let assetId = notification.userInfo![Asset.Keys.id] as? String
       else { return }
               
