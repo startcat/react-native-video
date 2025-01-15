@@ -1,8 +1,8 @@
 import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+//import { download, completeHandler, checkForExistingDownloads, setConfig, directories, type DownloadTask } from '@kesha-antonov/react-native-background-downloader';
 import RNFS from 'react-native-fs';
-import { download, completeHandler, checkForExistingDownloads, setConfig, directories, type DownloadTask } from '@kesha-antonov/react-native-background-downloader';
 import { EventRegister } from 'react-native-event-listeners';
 
 import type {
@@ -33,6 +33,8 @@ import type {
 
 import { DownloadStates } from './types';
 
+let RNBackgroundDownloader;
+
 
 
 /*
@@ -45,7 +47,6 @@ const { DownloadsModule } = NativeModules;
 const DOWNLOADS_OLDKEY = 'off_downloads';
 const DOWNLOADS_KEY = 'off_downloads_v2';
 const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS?.LibraryDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
-const DOWNLOADS_BINARY_DIR = (Platform.OS === 'ios') ? directories.documents : RNFS?.DocumentDirectoryPath + '/downloads';
 
 class Singleton {
 
@@ -54,13 +55,15 @@ class Singleton {
 
     private savedDownloads: DownloadItem[] = [];
     private firstMounted: boolean = false;
-    private disabled: boolean = false;
+    private disabled: boolean = true;
+    private binaryEnabled: boolean = false;
     private user_required: boolean = true;
     private download_just_wifi: boolean = true;
     private log_key: string = `[Downloads]`;
     private initialized: boolean = false;
 
-    private binaryTasks: Array<DownloadTask> = [];
+    private DOWNLOADS_BINARY_DIR = '';
+    private binaryTasks: Array<any> = [];
 
     public isStarted: boolean = false;
     public size: number = 0;
@@ -104,6 +107,7 @@ class Singleton {
         return new Promise((resolve, reject) => {
 
             this.disabled = !!config.disabled;
+            this.binaryEnabled = !!config.binaryEnabled;
             this.download_just_wifi = !!config.download_just_wifi;
 
             if (config.log_key){
@@ -116,9 +120,23 @@ class Singleton {
 
             }
 
-            setConfig({
-                isLogsEnabled: true
-            });
+            // Dynamic Dependencies
+            if (this.binaryEnabled){
+                import('@kesha-antonov/react-native-background-downloader').then(module => {
+                    RNBackgroundDownloader = module;
+
+                    module.setConfig({
+                        isLogsEnabled: true
+                    });
+
+                    this.DOWNLOADS_BINARY_DIR = (Platform.OS === 'ios') ? module.directories.documents : RNFS?.DocumentDirectoryPath + '/downloads';
+
+                }).catch(err => {
+                    console.log(`${this.log_key} react-native-background-downloader not found: ${err}`);
+
+                });
+
+            }
 
             AsyncStorage.getItem(DOWNLOADS_KEY).then(async (result: string | null) => {
 
@@ -289,18 +307,23 @@ class Singleton {
 
             }
 
-            try {
-                const tasks = await checkForExistingDownloads();
-                console.log(`${this.log_key} Binary tasks: ${JSON.stringify(tasks)}`);
-          
-                if (tasks.length > 0) {
-                    tasks.map(task => this.process(task));
+            if (this.binaryEnabled && RNBackgroundDownloader){
 
-                    this.binaryTasks = [...this.binaryTasks, ...tasks];
+                try {
+                    const tasks = await RNBackgroundDownloader.checkForExistingDownloads();
+                    console.log(`${this.log_key} Binary tasks: ${JSON.stringify(tasks)}`);
+            
+                    if (tasks.length > 0) {
+                        tasks.map(task => this.process(task));
+
+                        this.binaryTasks = [...this.binaryTasks, ...tasks];
+
+                    }
+                } catch (e) {
+                    console.warn(`${this.log_key} checkForExistingDownloads e`, e);
 
                 }
-            } catch (e) {
-                console.warn('checkForExistingDownloads e', e)
+
             }
 
         } else {
@@ -675,8 +698,8 @@ class Singleton {
                 }
             };
 
-            if (newItem.offlineData.isBinary){
-                newItem.offlineData.fileUri = `${DOWNLOADS_BINARY_DIR}/${obj.offlineData.source.id}.mp3`;
+            if (this.binaryEnabled && RNBackgroundDownloader && newItem.offlineData.isBinary){
+                newItem.offlineData.fileUri = `${this.DOWNLOADS_BINARY_DIR}/${obj.offlineData.source.id}.mp3`;
 
             }
 
@@ -685,7 +708,7 @@ class Singleton {
 
             console.log(`${this.log_key} setItemToLocal source type ${obj.offlineData.source.drmScheme} (isBinary ${newItem.offlineData.isBinary}) (index ${newItemIndex})`);
 
-            if (newItem.offlineData.isBinary){
+            if (this.binaryEnabled && RNBackgroundDownloader && newItem.offlineData.isBinary){
                 // Los binarios los descargamos de forma senzilla con la librería react-native-background-downloader
                 const downloadId = obj.offlineData.source.id?.toString();
 
@@ -700,7 +723,7 @@ class Singleton {
 
                 });
 
-                this.process(download({
+                this.process(RNBackgroundDownloader.download({
                     id: downloadId,
                     url: obj.offlineData.source.uri,
                     destination: newItem.offlineData.fileUri!,
@@ -831,16 +854,12 @@ class Singleton {
 
                 if (obj?.offlineData?.source?.uri){
 
-                    if (obj?.offlineData?.isBinary){
+                    if (this.binaryEnabled && RNBackgroundDownloader && obj?.offlineData?.isBinary){
                         await RNFS?.unlink(obj?.offlineData?.fileUri!);
                         this.onBinaryRemoved(obj?.offlineData?.source?.id!);
 
                     } else {
                         await DownloadsModule.removeItem(obj?.offlineData?.source, obj?.offlineData?.drm);
-
-                    }
-
-                    if (Platform.OS !== 'android' && !obj?.offlineData?.isBinary) {
 
                         const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === obj?.offlineData?.source?.uri);
 
@@ -875,10 +894,10 @@ class Singleton {
         return new Promise((resolve, reject) => {
 
             const foundItem = this.savedDownloads?.find(item => {
-                console.log(`[DANI] ${JSON.stringify(item.offlineData?.source?.uri)} --- ${JSON.stringify(src)}`);
+                console.log(`${this.log_key} [DANI] ${JSON.stringify(item.offlineData?.source?.uri)} --- ${JSON.stringify(src)}`);
                 return item.offlineData?.source?.uri === src;
             });
-            
+
             const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === src);
 
             if (!!foundItem){
@@ -949,53 +968,63 @@ class Singleton {
     // Binary Tasks
     private process (task) {
 
-        const { index } = this.getTask(task.id);
+        if (this.binaryEnabled && RNBackgroundDownloader){
 
-        return task
-            .begin(({ expectedBytes, headers }) => {
-                console.log('task: begin', { id: task.id, expectedBytes, headers });
+            const { index } = this.getTask(task.id);
 
-                // @ts-ignore
-                this.binaryTasks[index] = task;
+            return task
+                .begin(({ expectedBytes, headers }) => {
+                    console.log(`${this.log_key} task: begin`, { id: task.id, expectedBytes, headers });
 
-                this.onBinaryStart(task.id);
+                    // @ts-ignore
+                    this.binaryTasks[index] = task;
 
-            }).progress(({ bytesDownloaded, bytesTotal }) => {
+                    this.onBinaryStart(task.id);
 
-                console.log('task: progress', { id: task.id, bytesDownloaded, bytesTotal });
-                const percent = bytesDownloaded / bytesTotal * 100;
+                }).progress(({ bytesDownloaded, bytesTotal }) => {
 
-                // @ts-ignore
-                this.binaryTasks[index] = task;
+                    console.log(`${this.log_key} task: progress`, { id: task.id, bytesDownloaded, bytesTotal });
+                    const percent = bytesDownloaded / bytesTotal * 100;
 
-                this.onBinaryProgress(task.id, percent);
+                    // @ts-ignore
+                    this.binaryTasks[index] = task;
 
-            }).done(() => {
-                console.log('task: done', { id: task.id });
-                // @ts-ignore
-                this.binaryTasks[index] = task;
-    
-                completeHandler(task.id);
-                this.onBinaryCompleted(task.id);
+                    this.onBinaryProgress(task.id, percent);
 
-            }).error(e => {
-                console.error('task: error', { id: task.id, e });
-                // @ts-ignore
-                this.binaryTasks[index] = task;
-    
-                completeHandler(task.id);
-                this.onBinaryError(task.id, e, 0);
+                }).done(() => {
+                    console.log(`${this.log_key} task: done`, { id: task.id });
+                    // @ts-ignore
+                    this.binaryTasks[index] = task;
+        
+                    RNBackgroundDownloader.completeHandler(task.id);
+                    this.onBinaryCompleted(task.id);
 
-            });
+                }).error(e => {
+                    console.error(`${this.log_key} task: error`, { id: task.id, e });
+                    // @ts-ignore
+                    this.binaryTasks[index] = task;
+        
+                    RNBackgroundDownloader.completeHandler(task.id);
+                    this.onBinaryError(task.id, e, 0);
+
+                });
+
+        }
 
     }
 
     private getTask (id) {
         
-        // @ts-ignore
-        const index = this.binaryTasks.findIndex(task => task.id === id);
-        const task = this.binaryTasks[index];
-        return { index, task };
+        if (this.binaryEnabled && RNBackgroundDownloader){
+            // @ts-ignore
+            const index = this.binaryTasks.findIndex(task => task.id === id);
+            const task = this.binaryTasks[index];
+            return { index, task };
+            
+        } else {
+            return null;
+
+        }
 
     }
 
