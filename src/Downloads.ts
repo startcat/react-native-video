@@ -874,7 +874,11 @@ class Singleton {
 
         return new Promise((resolve, reject) => {
 
-            const foundItem = this.savedDownloads?.find(item => item.offlineData?.source?.uri === src);
+            const foundItem = this.savedDownloads?.find(item => {
+                console.log(`[DANI] ${JSON.stringify(item.offlineData?.source?.uri)} --- ${JSON.stringify(src)}`);
+                return item.offlineData?.source?.uri === src;
+            });
+            
             const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === src);
 
             if (!!foundItem){
