@@ -19,7 +19,7 @@ class Asset {
     var urlAsset: AVURLAsset!
     
     init(name: String, url: URL, id: String? = "") {
-        self.id = id
+        self.id = id ?? ""
         self.name = name
         self.url = url
         self.contentKeyIdList = [String]()
