@@ -120,6 +120,11 @@ class Singleton {
 
             }
 
+            if (this.disabled){
+                return resolve([]);
+
+            }
+
             // Dynamic Dependencies
             if (this.binaryEnabled){
                 import('@kesha-antonov/react-native-background-downloader').then(module => {
@@ -895,7 +900,10 @@ class Singleton {
 
             const foundItem = this.savedDownloads?.find(item => {
                 console.log(`${this.log_key} [DANI] ${JSON.stringify(item.offlineData?.source?.uri)} --- ${JSON.stringify(src)}`);
-                return item.offlineData?.source?.uri === src;
+
+                //  "https://cdn.primeran.eus/media/audios/23lufs_GUAU_10002465_5869038_26- Ladrones, trafi.mp3" --- "https://cdn.primeran.eus/media/audios/23lufs_GUAU_10002465_5869038_26-%20Ladrones,%20trafi.mp3"
+
+                return (item.offlineData?.source?.uri === src || encodeURI(item.offlineData?.source?.uri) === src);
             });
 
             const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === src);
@@ -1020,7 +1028,7 @@ class Singleton {
             const index = this.binaryTasks.findIndex(task => task.id === id);
             const task = this.binaryTasks[index];
             return { index, task };
-            
+
         } else {
             return null;
 
