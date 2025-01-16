@@ -91,6 +91,7 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
             userInfo[Asset.Keys.downloadState] = Asset.DownloadState.downloading.rawValue
             userInfo[Asset.Keys.downloadSelectionDisplayName] = displayNamesForSelectedMediaOptions(urlAsset.preferredMediaSelection)
             userInfo[Asset.Keys.url] = asset.url.absoluteString
+            userInfo[Asset.Keys.id] = asset.id
             
             NotificationCenter.default.post(name: .AssetDownloadStateChanged, object: nil, userInfo: userInfo)
         }
@@ -162,6 +163,7 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
                 userInfo[Asset.Keys.name] = asset.name
                 userInfo[Asset.Keys.downloadState] = Asset.DownloadState.notDownloaded.rawValue
                 userInfo[Asset.Keys.url] = asset.url.absoluteString
+                userInfo[Asset.Keys.id] = asset.id
                 NotificationCenter.default.post(name: .AssetDownloadStateChanged, object: nil, userInfo: userInfo)
             }
         } catch {
@@ -262,6 +264,7 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
         var userInfo = [String: Any]()
         userInfo[Asset.Keys.name] = asset.name
         userInfo[Asset.Keys.url] = asset.url.absoluteString
+        userInfo[Asset.Keys.id] = asset.id
         
         if let error = error as NSError? {
             switch (error.domain, error.code) {
