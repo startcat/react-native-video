@@ -619,6 +619,54 @@ export interface AudioFlavourProps {
     onEnd?: () => void;
 }
 
+export interface AudioCastFlavourProps {
+    id?:number;
+    title?:string;
+    subtitle?:string;
+    description?:string;
+    liveStartDate?:string;
+
+    manifests?:Array<IManifest>,
+    youbora?: IYoubora;
+    poster?: string;
+    squaredPoster?: string;
+
+    playOffline?: boolean;
+    multiSession?: boolean;
+    isLive?: boolean;
+    hasNext?: boolean;
+    hasPrev?: boolean;
+
+    muted?: boolean;
+    volume?: number;
+
+    currentTime?: number;
+    languagesMapping?:ILanguagesMapping;
+    mapHlsQualities?: boolean;
+
+    // Extra data
+    extraData?: any;
+
+    // Style
+    backgroundColor?: string;
+    topDividerColor?: string;
+
+    // Components
+    controls?: FunctionComponent<AudioControlsProps>;
+
+    // Utils
+    watchingProgressInterval?: number;
+    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
+    getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+
+    // Events
+    onChangeCommonData?: (data: ICommonData) => void;
+    onNext?: () => void;
+    onPrevious?: () => void;
+    onClose?: () => void;
+    onEnd?: () => void;
+}
+
 export interface NormalFlavourProps {
     id?:number;
     title?:string;
@@ -691,6 +739,7 @@ export interface CastFlavourProps {
 
     isLive?: boolean;
     hasNext?: boolean;
+    hasPrev?: boolean;
 
     muted?: boolean;
     volume?: number;
