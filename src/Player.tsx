@@ -5,7 +5,7 @@ import Orientation, { useOrientationChange } from 'react-native-orientation-lock
 import BackgroundTimer from 'react-native-background-timer';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { CastState, useCastState } from 'react-native-google-cast';
-import { Platform,  } from 'react-native';
+import { Platform } from 'react-native';
 import { NormalFlavour, CastFlavour } from './player/flavours';
 import { default as Downloads } from './Downloads';
 

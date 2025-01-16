@@ -1,21 +1,19 @@
 import React, { useState, useEffect, useRef, createElement } from 'react';
 import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
 import BackgroundTimer from 'react-native-background-timer';
+import { CastState, useCastState } from 'react-native-google-cast';
 import { EventRegister } from 'react-native-event-listeners';
-import { SheetManager } from 'react-native-actions-sheet';
-import { View, Platform } from 'react-native';
-import { Text, Spinner } from '@ui-kitten/components';
-import { AudioFlavour } from '../../flavours';
+import { View } from 'react-native';
+import { Spinner } from '@ui-kitten/components';
+import { AudioFlavour, AudioCastFlavour } from '../../flavours';
 import { styles } from './styles';
 
 import { 
     type AudioPlayerProps,
-    type AudioPlayerActionEventProps,
     type AudioPlayerEventProps,
     type AudioPlayerContentsDpo,
     type IAudioPlayerContent,
     type ICommonData,
-    CONTROL_ACTION
 } from '../../types';
 
 const PLAYER_MAX_HEIGHT = 80;
@@ -42,7 +40,10 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const duration = useRef<number>(0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
+    const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
+
+    const castState = useCastState();
 
     useEffect(() => {
 
@@ -223,7 +224,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }
 
             {
-                contentId?.current && dpoData ?
+                contentId?.current && dpoData && (castState !== CastState.CONNECTING && castState !== CastState.CONNECTED)?
                     <AudioFlavour
                         id={dpoData.id}
                         title={dpoData.title}
@@ -240,6 +241,52 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         playOffline={dpoData.playOffline}
                         multiSession={dpoData.multiSession}
+                        isLive={dpoData.isLive}
+                        // liveStartDate={props.liveStartDate}
+
+                        currentTime={currentTime.current}
+
+                        // Extra Data
+                        extraData={dpoData.extraData}
+
+                        // Styles
+                        backgroundColor={props.backgroundColor}
+                        topDividerColor={props.topDividerColor}
+
+                        // Components
+                        controls={props.controls}
+
+                        // Utils
+                        watchingProgressInterval={dpoData.watchingProgressInterval}
+                        addContentProgress={dpoData.addContentProgress}
+                        getYouboraOptions={dpoData.getYouboraOptions}
+
+                        // Events
+                        onChangeCommonData={changeCommonData}
+                        onNext={dpoData.onNext}
+                        onPrevious={dpoData.onPrevious}
+                        onEnd={onEnd}
+                        onClose={hidePlayer}
+                    />
+                : null
+            }
+
+            {
+                contentId?.current && dpoData && (castState === CastState.CONNECTING || castState === CastState.CONNECTED)?
+                    <AudioCastFlavour
+                        id={dpoData.id}
+                        title={dpoData.title}
+                        subtitle={dpoData.subtitle}
+                        description={dpoData.description}
+                        // languagesMapping={props.languagesMapping}
+
+                        manifests={dpoData.manifests}
+                        poster={dpoData.poster}
+                        squaredPoster={dpoData.squaredPoster}
+                        youbora={dpoData.youbora}
+                        hasNext={dpoData.hasNext}
+                        hasPrev={dpoData.hasPrev}
+
                         isLive={dpoData.isLive}
                         // liveStartDate={props.liveStartDate}
 
