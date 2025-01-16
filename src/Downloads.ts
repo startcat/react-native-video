@@ -127,19 +127,25 @@ class Singleton {
 
             // Dynamic Dependencies
             if (this.binaryEnabled){
-                import('@kesha-antonov/react-native-background-downloader').then(module => {
-                    RNBackgroundDownloader = module;
+                try {
+                    
+                    import('@kesha-antonov/react-native-background-downloader').then(module => {
+                        RNBackgroundDownloader = module;
 
-                    module.setConfig({
-                        isLogsEnabled: true
+                        module.setConfig({
+                            isLogsEnabled: true
+                        });
+
+                        this.DOWNLOADS_BINARY_DIR = (Platform.OS === 'ios') ? module.directories.documents : RNFS?.DocumentDirectoryPath + '/downloads';
+
+                    }).catch(err => {
+                        console.log(`${this.log_key} react-native-background-downloader not found: ${err}`);
+
                     });
 
-                    this.DOWNLOADS_BINARY_DIR = (Platform.OS === 'ios') ? module.directories.documents : RNFS?.DocumentDirectoryPath + '/downloads';
-
-                }).catch(err => {
-                    console.log(`${this.log_key} react-native-background-downloader not found: ${err}`);
-
-                });
+                } catch(ex){
+                    console.log(`${this.log_key} react-native-background-downloader not found: ${ex?.message}`);
+                }
 
             }
 
