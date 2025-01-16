@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, createElement } from 'react';
 import Animated, { useSharedValue } from 'react-native-reanimated';
 import { type EmitterSubscription } from 'react-native';
+import { EventRegister } from 'react-native-event-listeners';
 import { 
     CastState, 
     useCastState, 
@@ -29,6 +30,7 @@ import {
     type IMappedYoubora,
     type IDrm,
     type ICommonData,
+    type AudioPlayerActionEventProps,
     CONTROL_ACTION,
     YOUBORA_FORMAT,
 } from '../../types';
@@ -55,9 +57,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     const castMessage = useRef();
     const isDVR = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
-    const isHLS = useRef<boolean>();
-    const isDownloaded = useRef<boolean>();
-    const isBinary = useRef<boolean>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
@@ -74,6 +73,44 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         };
 
     }, []);
+
+    useEffect(() => {
+
+        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
+            onControlsPress(data.action, data.value);
+            
+        });
+
+        return (() => {
+
+            if (typeof(actionsAudioPlayerListener) === 'string'){
+                EventRegister.removeEventListener(actionsAudioPlayerListener);
+            }
+
+        });
+
+    }, [currentTime]);
+
+    useEffect(() => {
+        EventRegister.emit('audioPlayerProgress', {
+            title:props.title,
+            description:props.description,
+            currentTime: currentTime,
+            dvrTimeValue: dvrTimeValue,
+            duration: duration,
+            paused: paused,
+            muted: muted,
+            //volume: number;
+            preloading: preloading,
+            hasNext: props.hasNext,
+            hasPrev: props.hasPrev,
+            isLive: props.isLive,
+            isDVR: isDVR.current,
+            isContentLoaded: isContentLoaded,
+            extraData: props.extraData
+        });
+
+    }, [currentTime, dvrTimeValue, duration, paused, muted, preloading, isDVR.current, isContentLoaded]);
 
     useEffect(() => {
 
@@ -189,6 +226,12 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             } else if (typeof(castMediaStatus?.mediaInfo?.streamDuration) === 'number' && castMediaStatus?.mediaInfo?.streamDuration){
                 setDuration(castMediaStatus?.mediaInfo?.streamDuration);
 
+                if (!props?.isLive && props?.onChangeCommonData){
+                    props.onChangeCommonData({
+                        duration: castMediaStatus?.mediaInfo?.streamDuration
+                    });
+                }
+
             }
 
         }
@@ -269,7 +312,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     // Functions
     const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
 
-        const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'audioIndex', 'subtitleIndex'];
+        const COMMON_DATA_FIELDS = ['time', 'volume', 'mute'];
 
         if (!isContentLoaded){
             return false;
@@ -277,10 +320,30 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         console.log(`[Player] (Audio Cast Flavour) onControlsPress: ${id} (${value})`);
 
+        if (id === CONTROL_ACTION.PAUSE){
+            setPaused(!!value);
+        }
+
+        if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
+
+            if (props.onClose){
+                props.onClose();
+
+            }
+
+        }
+
         // State Actions
         if (id === CONTROL_ACTION.NEXT){
+            setIsContentLoaded(false);
             if (props.onNext){
                 props.onNext();
+            }
+
+        } else if (id === CONTROL_ACTION.PREVIOUS && props.onPrevious){
+            setIsContentLoaded(false);
+            if (props.onPrevious){
+                props.onPrevious();
             }
 
         // Actions to invoke on player

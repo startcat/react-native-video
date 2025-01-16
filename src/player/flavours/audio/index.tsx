@@ -144,7 +144,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         // Preparamos la URI del contenido
-        if (isDownloaded.current && isBinary.current){
+        if (props.playOffline && isDownloaded.current && isBinary.current){
             const offlineBinary = getContentById(props.id!);
             console.log(`[Player] (Audio Flavour) isDownloaded && isBinary`);
 
@@ -265,12 +265,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.NEXT && props.onNext){
             setIsContentLoaded(false);
-            props.onNext();
+            if (props.onNext){
+                props.onNext();
+            }
         }
 
         if (id === CONTROL_ACTION.PREVIOUS && props.onPrevious){
             setIsContentLoaded(false);
-            props.onPrevious();
+            if (props.onPrevious){
+                props.onPrevious();
+            }
         }
         
         if (id === CONTROL_ACTION.SPEED_RATE && typeof(value) === 'number'){
