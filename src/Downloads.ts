@@ -55,7 +55,7 @@ class Singleton {
 
     private savedDownloads: DownloadItem[] = [];
     private firstMounted: boolean = false;
-    private disabled: boolean = true;
+    private downloadsEnabled: boolean = false;
     private binaryEnabled: boolean = false;
     private user_required: boolean = true;
     private download_just_wifi: boolean = true;
@@ -106,7 +106,7 @@ class Singleton {
 
         return new Promise((resolve, reject) => {
 
-            this.disabled = !!config.disabled;
+            this.downloadsEnabled = !!config.downloadsEnabled;
             this.binaryEnabled = !!config.binaryEnabled;
             this.download_just_wifi = !!config.download_just_wifi;
 
@@ -120,7 +120,7 @@ class Singleton {
 
             }
 
-            if (this.disabled){
+            if (!this.downloadsEnabled){
                 return resolve([]);
 
             }
@@ -189,7 +189,7 @@ class Singleton {
 
                 await this.refactorOldEntries();
 
-                if (!this.disabled && !this.initialized){
+                if (this.downloadsEnabled && !this.initialized){
                     DownloadsModule.moduleInit().then(() => {
 
                         this.unsubscribeNetworkListener = NetInfo.addEventListener((state: any) => {
@@ -346,7 +346,7 @@ class Singleton {
 
     public async pause (): Promise<void> {
 
-        if (!this.disabled && this.isStarted){
+        if (this.downloadsEnabled && this.isStarted){
 
             if (Platform.OS === 'android'){
 
@@ -367,7 +367,7 @@ class Singleton {
 
             }
 
-        } else if (!this.disabled){
+        } else if (this.downloadsEnabled){
 
             console.log(`${this.log_key} Paused but it wasn't started...`);
             this.checkDownloadsStatus();
@@ -670,7 +670,7 @@ class Singleton {
     public checkItem (uri: string): Promise<DownloadItem | null> {
         return new Promise(async (resolve, reject) => {
 
-            if (this.disabled){
+            if (!this.downloadsEnabled){
                 return reject();
 
             }
@@ -775,7 +775,7 @@ class Singleton {
 
         return new Promise(async (resolve, reject) => {
 
-            if (this.disabled){
+            if (!this.downloadsEnabled){
                 return reject();
 
             }
@@ -856,7 +856,7 @@ class Singleton {
 
         return new Promise(async (resolve, reject) => {
 
-            if (this.disabled){
+            if (!this.downloadsEnabled){
                 return reject();
                 
             }
@@ -1437,7 +1437,7 @@ class Singleton {
     }
 
     get canDownload (): boolean {
-        return (!this.disabled && !!Singleton.networkState?.isConnected && (!this.download_just_wifi || Singleton.networkState?.type === 'wifi') && (!this.user_required || this.user_isLogged));
+        return (this.downloadsEnabled && !!Singleton.networkState?.isConnected && (!this.download_just_wifi || Singleton.networkState?.type === 'wifi') && (!this.user_required || this.user_isLogged));
 
     }
 
