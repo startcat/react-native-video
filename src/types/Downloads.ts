@@ -15,8 +15,6 @@ export enum DownloadStates {
 };
 
 export type ConfigDownloads = {
-    downloadsEnabled?: boolean;
-    binaryEnabled?: boolean;
     user_required?: boolean;
     download_just_wifi?: boolean;
     log_key?: string;

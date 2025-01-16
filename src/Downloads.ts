@@ -55,8 +55,6 @@ class Singleton {
 
     private savedDownloads: DownloadItem[] = [];
     private firstMounted: boolean = false;
-    private downloadsEnabled: boolean = false;
-    private binaryEnabled: boolean = false;
     private user_required: boolean = true;
     private download_just_wifi: boolean = true;
     private log_key: string = `[Downloads]`;
@@ -65,6 +63,8 @@ class Singleton {
     private DOWNLOADS_BINARY_DIR = '';
     private binaryTasks: Array<any> = [];
 
+    public downloadsEnabled: boolean = false;
+    public binaryDownloadsEnabled: boolean = false;
     public isStarted: boolean = false;
     public size: number = 0;
     public user_isLogged: boolean = false;
@@ -106,8 +106,6 @@ class Singleton {
 
         return new Promise((resolve, reject) => {
 
-            this.downloadsEnabled = !!config.downloadsEnabled;
-            this.binaryEnabled = !!config.binaryEnabled;
             this.download_just_wifi = !!config.download_just_wifi;
 
             if (config.log_key){
@@ -126,7 +124,7 @@ class Singleton {
             }
 
             // Dynamic Dependencies
-            if (this.binaryEnabled){
+            if (this.binaryDownloadsEnabled){
                 try {
                     
                     import('@kesha-antonov/react-native-background-downloader').then(module => {
@@ -318,7 +316,7 @@ class Singleton {
 
             }
 
-            if (this.binaryEnabled && RNBackgroundDownloader){
+            if (this.binaryDownloadsEnabled && RNBackgroundDownloader){
 
                 try {
                     const tasks = await RNBackgroundDownloader.checkForExistingDownloads();
@@ -709,7 +707,7 @@ class Singleton {
                 }
             };
 
-            if (this.binaryEnabled && RNBackgroundDownloader && newItem.offlineData.isBinary){
+            if (this.binaryDownloadsEnabled && RNBackgroundDownloader && newItem.offlineData.isBinary){
                 newItem.offlineData.fileUri = `${this.DOWNLOADS_BINARY_DIR}/${obj.offlineData.source.id}.mp3`;
 
             }
@@ -719,7 +717,7 @@ class Singleton {
 
             console.log(`${this.log_key} setItemToLocal source type ${obj.offlineData.source.drmScheme} (isBinary ${newItem.offlineData.isBinary}) (index ${newItemIndex})`);
 
-            if (this.binaryEnabled && RNBackgroundDownloader && newItem.offlineData.isBinary){
+            if (this.binaryDownloadsEnabled && RNBackgroundDownloader && newItem.offlineData.isBinary){
                 // Los binarios los descargamos de forma senzilla con la librería react-native-background-downloader
                 const downloadId = obj.offlineData.source.id?.toString();
 
@@ -865,7 +863,7 @@ class Singleton {
 
                 if (obj?.offlineData?.source?.uri){
 
-                    if (this.binaryEnabled && RNBackgroundDownloader && obj?.offlineData?.isBinary){
+                    if (this.binaryDownloadsEnabled && RNBackgroundDownloader && obj?.offlineData?.isBinary){
                         await RNFS?.unlink(obj?.offlineData?.fileUri!);
                         this.onBinaryRemoved(obj?.offlineData?.source?.id!);
 
@@ -982,7 +980,7 @@ class Singleton {
     // Binary Tasks
     private process (task) {
 
-        if (this.binaryEnabled && RNBackgroundDownloader){
+        if (this.binaryDownloadsEnabled && RNBackgroundDownloader){
 
             const { index } = this.getTask(task.id);
 
@@ -1029,7 +1027,7 @@ class Singleton {
 
     private getTask (id) {
         
-        if (this.binaryEnabled && RNBackgroundDownloader){
+        if (this.binaryDownloadsEnabled && RNBackgroundDownloader){
             // @ts-ignore
             const index = this.binaryTasks.findIndex(task => task.id === id);
             const task = this.binaryTasks[index];
