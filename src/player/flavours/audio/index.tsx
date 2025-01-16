@@ -325,9 +325,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         if (!isContentLoaded){
 
-            if (!isContentLoaded){
-                setIsContentLoaded(true);
-            }
+            setIsContentLoaded(true);
 
             if (isDVR.current){
                 setDuration(dvrWindowSeconds.current);
