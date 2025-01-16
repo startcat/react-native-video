@@ -721,11 +721,11 @@ class Singleton {
                 // Los binarios los descargamos de forma senzilla con la librería react-native-background-downloader
                 const downloadId = obj.offlineData.source.id?.toString();
 
-                this.saveRefList().then( async () => {
+                this.saveRefList().then(async () => {
                     this.listToConsole();
                     EventRegister.emit('downloadsList', {});
                     this.checkDownloadsStatus();
-                    this.checkTotalSize();
+                    await this.checkTotalSize();
 
                 }).catch((err: any) => {
                     this.checkDownloadsStatus();
@@ -745,11 +745,11 @@ class Singleton {
                 // Los streams los descargamos con el módulo nativo relacionado con el player
                 DownloadsModule.addItem(newItem?.offlineData?.source, newItem?.offlineData?.drm).then(() => {
 
-                    this.saveRefList().then( async () => {
+                    this.saveRefList().then(async () => {
                         this.listToConsole();
                         EventRegister.emit('downloadsList', {});
                         this.checkDownloadsStatus();
-                        this.checkTotalSize();
+                        await this.checkTotalSize();
                         return resolve();
 
                     }).catch((err: any) => {
@@ -877,6 +877,8 @@ class Singleton {
                 
                         }
 
+                        await this.checkTotalSize();
+
                     }
 
                 }
@@ -884,6 +886,7 @@ class Singleton {
                 return resolve();
 
             } catch(ex:any){
+                await this.onBinaryRemoved(obj?.offlineData?.source?.id!);
                 return reject(ex?.message);
 
             }
@@ -1260,7 +1263,7 @@ class Singleton {
     private async onDownloadStateChanged (data: OnDownloadStateChangedData): Promise<void> {
         console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
 
-        this.getItemBySrc(data?.id).then(obj => {
+        this.getItemBySrc(data?.id).then(async obj => {
 
             if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state !== DownloadStates.REMOVING){
                 console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
@@ -1268,7 +1271,7 @@ class Singleton {
                 this.updateRefListItem(obj.index, obj.item);
 
                 if (data?.state === DownloadStates.COMPLETED){
-                    this.checkTotalSize();
+                    await this.checkTotalSize();
         
                 }
     
@@ -1277,11 +1280,11 @@ class Singleton {
                 // Lo eliminamos del listado
                 this.savedDownloads.splice(obj.index, 1);
 
-                this.saveRefList().finally(() => {
+                this.saveRefList().finally(async () => {
                     this.listToConsole();
                     EventRegister.emit('downloadsList', {});
                     this.checkDownloadsStatus();
-                    this.checkTotalSize();
+                    await this.checkTotalSize();
 
                 });
 
@@ -1344,11 +1347,11 @@ class Singleton {
     private async onBinaryCompleted (id: string): Promise<void> {
         console.log(`${this.log_key} onBinaryCompleted ${id}`);
 
-        this.getItemByIdAsync(id).then(obj => {
+        this.getItemByIdAsync(id).then(async obj => {
 
             obj.item.offlineData.state = DownloadStates.COMPLETED;
             this.updateRefListItem(obj.index, obj.item);
-            this.checkTotalSize();
+            await this.checkTotalSize();
 
         }).catch(() => {
             console.log(`${this.log_key} onBinaryCompleted: Item not found (${id})`);
@@ -1364,11 +1367,11 @@ class Singleton {
 
             this.savedDownloads.splice(obj.index, 1);
 
-            this.saveRefList().finally(() => {
+            this.saveRefList().finally(async () => {
                 this.listToConsole();
                 EventRegister.emit('downloadsList', {});
                 this.checkDownloadsStatus();
-                this.checkTotalSize();
+                await this.checkTotalSize();
 
             });
 
@@ -1382,11 +1385,11 @@ class Singleton {
     private async onBinaryError (id: string, err: string, errorCode: number): Promise<void> {
         console.log(`${this.log_key} onBinaryError (${errorCode}) ${err}`);
 
-        this.getItemByIdAsync(id).then(obj => {
+        this.getItemByIdAsync(id).then(async obj => {
 
             obj.item.offlineData.state = DownloadStates.FAILED;
             this.updateRefListItem(obj.index, obj.item);
-            this.checkTotalSize();
+            await this.checkTotalSize();
 
         }).catch(() => {
             console.log(`${this.log_key} onBinaryError: Item not found (${id})`);
