@@ -22,6 +22,7 @@ import androidx.media3.session.SessionCommand
 import com.brentvatne.common.toolbox.DebugLog
 import okhttp3.internal.immutableListOf
 import com.brentvatne.react.R
+import android.content.pm.ServiceInfo
 
 class PlaybackServiceBinder(val service: VideoPlaybackService) : Binder()
 
@@ -64,7 +65,7 @@ class VideoPlaybackService : MediaSessionService() {
 
         mediaSessionsList[player] = mediaSession
         addSession(mediaSession)
-        startForeground(mediaSession.player.hashCode(), buildNotification(mediaSession))
+        startForeground(mediaSession.player.hashCode(), buildNotification(mediaSession), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
     }
 
     fun unregisterPlayer(player: ExoPlayer) {
