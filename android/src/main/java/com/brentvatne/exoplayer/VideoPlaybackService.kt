@@ -65,7 +65,7 @@ class VideoPlaybackService : MediaSessionService() {
 
         mediaSessionsList[player] = mediaSession
         addSession(mediaSession)
-        startForeground(mediaSession.player.hashCode(), buildNotification(mediaSession), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        startForeground(mediaSession.player.hashCode(), buildNotification(mediaSession))
     }
 
     fun unregisterPlayer(player: ExoPlayer) {
