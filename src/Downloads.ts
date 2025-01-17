@@ -1,7 +1,6 @@
 import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-//import { download, completeHandler, checkForExistingDownloads, setConfig, directories, type DownloadTask } from '@kesha-antonov/react-native-background-downloader';
 import RNFS from 'react-native-fs';
 import { EventRegister } from 'react-native-event-listeners';
 
@@ -143,6 +142,7 @@ class Singleton {
 
                 } catch(ex){
                     console.log(`${this.log_key} react-native-background-downloader not found: ${ex?.message}`);
+
                 }
 
             }
@@ -319,15 +319,50 @@ class Singleton {
             if (this.binaryDownloadsEnabled && RNBackgroundDownloader){
 
                 try {
-                    const tasks = await RNBackgroundDownloader.checkForExistingDownloads();
-                    console.log(`${this.log_key} Binary tasks: ${JSON.stringify(tasks)}`);
+                    const lostTasks = await RNBackgroundDownloader.checkForExistingDownloads();
+                    console.log(`${this.log_key} Binary lost tasks: ${JSON.stringify(lostTasks)}`);
             
-                    if (tasks.length > 0) {
-                        tasks.map(task => this.process(task));
+                    /*
+                    if (lostTasks.length > 0) {
 
-                        this.binaryTasks = [...this.binaryTasks, ...tasks];
+                        this.binaryTasks = [...this.binaryTasks, ...lostTasks];
+
+                        lostTasks.forEach((task, index) => {
+
+                            task.progress(({ bytesDownloaded, bytesTotal }) => {
+
+                                console.log(`${this.log_key} task: progress`, { id: task.id, bytesDownloaded, bytesTotal });
+                                const percent = bytesDownloaded / bytesTotal * 100;
+            
+                                // @ts-ignore
+                                this.binaryTasks[index] = task;
+            
+                                this.onBinaryProgress(task.id, percent);
+            
+                            }).done(() => {
+                                console.log(`${this.log_key} task: done`, { id: task.id });
+                                // @ts-ignore
+                                this.binaryTasks[index] = task;
+                    
+                                RNBackgroundDownloader.completeHandler(task.id);
+                                this.onBinaryCompleted(task.id);
+            
+                            }).error(e => {
+                                console.error(`${this.log_key} task: error`, { id: task.id, e });
+                                // @ts-ignore
+                                this.binaryTasks[index] = task;
+                    
+                                RNBackgroundDownloader.completeHandler(task.id);
+                                this.onBinaryError(task.id, e, 0);
+            
+                            });
+
+                        });
+
+                        //tasks.map(task => this.process(task));
 
                     }
+                    */
                 } catch (e) {
                     console.warn(`${this.log_key} checkForExistingDownloads e`, e);
 
@@ -379,13 +414,23 @@ class Singleton {
         for (const downloadItem of this.savedDownloads) {
             
             if (downloadItem?.offlineData?.session_ids?.includes(this.user_id) && downloadItem?.offlineData?.state !== DownloadStates.COMPLETED){
-                await DownloadsModule.resume(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
-                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Resumed.`);
-    
-                }).catch((err: any) => {
-                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Couldn't start: ${err?.message}`);
-    
-                });
+
+                if (this.binaryDownloadsEnabled && RNBackgroundDownloader && downloadItem.offlineData.isBinary){
+
+
+
+                } else {
+
+                    await DownloadsModule.resume(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
+                        console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Resumed.`);
+        
+                    }).catch((err: any) => {
+                        console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Couldn't start: ${err?.message}`);
+        
+                    });
+
+                }
+
             }
 
         }
@@ -643,21 +688,29 @@ class Singleton {
             
             if (downloadItem?.offlineData?.session_ids?.includes(this.user_id) && downloadItem?.offlineData?.state === DownloadStates.RESTART){
 
-                await DownloadsModule.addItem(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
-                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.uri} Restarting.`);
-            
-                }).catch(async (err: any) => {
-                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.uri} Coudn't restart: ${err?.message}`);
+                if (this.binaryDownloadsEnabled && RNBackgroundDownloader && downloadItem.offlineData.isBinary){
 
-                    if (err){
-                        await this.onDownloadStateChanged({
-                            id: downloadItem?.offlineData?.source?.uri,
-                            state: err?.message
-                        });
 
-                    }
 
-                });
+                } else {
+
+                    await DownloadsModule.addItem(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
+                        console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.uri} Restarting.`);
+                
+                    }).catch(async (err: any) => {
+                        console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.uri} Coudn't restart: ${err?.message}`);
+
+                        if (err){
+                            await this.onDownloadStateChanged({
+                                id: downloadItem?.offlineData?.source?.uri,
+                                state: err?.message
+                            });
+
+                        }
+
+                    });
+
+                }
 
             }
             
@@ -721,6 +774,13 @@ class Singleton {
                 // Los binarios los descargamos de forma senzilla con la librería react-native-background-downloader
                 const downloadId = obj.offlineData.source.id?.toString();
 
+                const newTask = RNBackgroundDownloader.download({
+                    id: downloadId,
+                    url: obj.offlineData.source.uri,
+                    destination: newItem.offlineData.fileUri!,
+                    metadata: {}
+                });
+
                 this.saveRefList().then(async () => {
                     this.listToConsole();
                     EventRegister.emit('downloadsList', {});
@@ -732,12 +792,7 @@ class Singleton {
 
                 });
 
-                this.process(RNBackgroundDownloader.download({
-                    id: downloadId,
-                    url: obj.offlineData.source.uri,
-                    destination: newItem.offlineData.fileUri!,
-                    metadata: {}
-                }));
+                this.process(newTask);
                 
                 return resolve();
 
