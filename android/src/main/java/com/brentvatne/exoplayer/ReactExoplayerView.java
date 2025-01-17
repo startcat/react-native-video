@@ -1115,17 +1115,25 @@ public class ReactExoplayerView extends FrameLayout implements
                 playbackServiceBinder = (PlaybackServiceBinder) service;
 
                 try {
-                    playbackServiceBinder.getService().registerPlayer(player,
-                            Objects.requireNonNull((Class<Activity>) (themedReactContext.getCurrentActivity()).getClass()));
+                    Activity currentActivity = themedReactContext.getCurrentActivity();
+                    if (currentActivity != null) {
+                        playbackServiceBinder.getService().registerPlayer(player,
+                                (Class<Activity>) currentActivity.getClass());
+                    } else {
+                        // Handle the case where currentActivity is null
+                        DebugLog.w(TAG, "Could not register ExoPlayer: currentActivity is null");
+                    }
                 } catch (Exception e) {
-                    DebugLog.e(TAG, "Cloud not register ExoPlayer");
+                    DebugLog.e(TAG, "Could not register ExoPlayer: " + e.getMessage());
                 }
             }
 
             @Override
             public void onServiceDisconnected(ComponentName name) {
                 try {
-                    playbackServiceBinder.getService().unregisterPlayer(player);
+                    if (playbackServiceBinder != null) {
+                        playbackServiceBinder.getService().unregisterPlayer(player);
+                    }
                 } catch (Exception ignored) {}
 
                 playbackServiceBinder = null;
@@ -1133,14 +1141,18 @@ public class ReactExoplayerView extends FrameLayout implements
 
             @Override
             public void onNullBinding(ComponentName name) {
-                DebugLog.e(TAG, "Cloud not register ExoPlayer");
+                DebugLog.e(TAG, "Could not register ExoPlayer");
             }
         };
 
         Intent intent = new Intent(themedReactContext, VideoPlaybackService.class);
         intent.setAction(MediaSessionService.SERVICE_INTERFACE);
 
-        themedReactContext.startService(intent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            themedReactContext.startForegroundService(intent);
+        } else {
+            themedReactContext.startService(intent);
+        }
 
         int flags;
         if (Build.VERSION.SDK_INT >= 29) {
