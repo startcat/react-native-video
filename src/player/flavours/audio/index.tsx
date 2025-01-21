@@ -466,6 +466,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                         playOffline={props.playOffline}
                         multiSession={props.multiSession}
 
+                        focusable={false}
+                        disableDisconnectError={true}
+                        debug={{
+                            enable: true,
+                            thread: true,
+                        }}
+
                         allowsExternalPlayback={true}
                         //volume={10}
                         controls={false}
