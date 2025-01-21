@@ -12,6 +12,9 @@ import static com.brentvatne.exoplayer.DataSourceUtil.buildAssetDataSourceFactor
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.PictureInPictureParams;
+import android.app.RemoteAction;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -26,6 +29,7 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.Window;
+import android.view.ViewGroup;
 import android.view.accessibility.CaptioningManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -239,7 +243,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private boolean hasDrmFailed = false;
     private boolean isUsingContentResolution = false;
     private boolean selectTrackWhenReady = false;
-    private Handler mainHandler;
+    private final Handler mainHandler;
     private Runnable mainRunnable;
     private boolean useCache = false;
     private ControlsConfig controlsConfig = new ControlsConfig();
@@ -282,6 +286,9 @@ public class ReactExoplayerView extends FrameLayout implements
     private long lastPos = -1;
     private long lastBufferDuration = -1;
     private long lastDuration = -1;
+
+    private boolean viewHasDropped = false;
+    private int selectedSpeedIndex = 1; // Default is 1.0x
 
 	// Dani Youbora
 	private NpawPlugin npawPlugin = null;
@@ -876,7 +883,7 @@ public class ReactExoplayerView extends FrameLayout implements
         DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
         RNVLoadControl loadControl = new RNVLoadControl(
                 allocator,
-                bufferConfig
+                source.getBufferConfig()
         );
         DefaultRenderersFactory renderersFactory =
                 new DefaultRenderersFactory(getContext())
