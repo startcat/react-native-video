@@ -473,6 +473,18 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                             thread: true,
                         }}
 
+                        bufferConfig={{
+                            minBufferMs: 15000,
+                            maxBufferMs: 50000,
+                            bufferForPlaybackMs: 2500,
+                            bufferForPlaybackAfterRebufferMs: 5000,
+                            backBufferDurationMs: 120000,
+                            cacheSizeMB: 50,
+                            live: {
+                                targetOffsetMs: 25000,
+                            },
+                        }}
+
                         allowsExternalPlayback={true}
                         //volume={10}
                         controls={false}
