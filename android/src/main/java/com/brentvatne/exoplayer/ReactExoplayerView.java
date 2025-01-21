@@ -357,6 +357,7 @@ public class ReactExoplayerView extends FrameLayout implements
         this.config = config;
         this.bandwidthMeter = config.getBandwidthMeter();
 
+        mainHandler = new Handler();
         createViews();
 
         audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
@@ -389,8 +390,6 @@ public class ReactExoplayerView extends FrameLayout implements
         addView(exoPlayerView, 0, layoutParams);
 
         exoPlayerView.setFocusable(this.focusable);
-
-        mainHandler = new Handler();
     }
 
     // LifecycleEventListener implementation
@@ -818,8 +817,6 @@ public class ReactExoplayerView extends FrameLayout implements
                     useCache = false;
                 }
                 if (playerNeedsSource && source.getUri() != null) {
-                    // Will force display of shutter view if needed
-                    exoPlayerView.updateShutterViewVisibility();
                     exoPlayerView.invalidateAspectRatio();
                     // DRM session manager creation must be done on a different thread to prevent crashes so we start a new thread
                     ExecutorService es = Executors.newSingleThreadExecutor();
