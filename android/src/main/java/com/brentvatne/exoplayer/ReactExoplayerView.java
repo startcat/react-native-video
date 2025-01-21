@@ -418,6 +418,8 @@ public class ReactExoplayerView extends FrameLayout implements
     public void cleanUpResources() {
         stopPlayback();
         themedReactContext.removeLifecycleEventListener(this);
+        releasePlayer();
+        viewHasDropped = true;
     }
 
     //BandwidthMeter.EventListener implementation
@@ -743,7 +745,7 @@ public class ReactExoplayerView extends FrameLayout implements
             runtime = Runtime.getRuntime();
             ActivityManager activityManager = (ActivityManager) themedReactContext.getSystemService(ThemedReactContext.ACTIVITY_SERVICE);
             double maxHeap = config.getMaxHeapAllocationPercent() != BufferConfig.Companion.getBufferConfigPropUnsetDouble()
-                    ? bufferConfig.getMaxHeapAllocationPercent()
+                    ? config.getMaxHeapAllocationPercent()
                     : DEFAULT_MAX_HEAP_ALLOCATION_PERCENT;
             availableHeapInBytes = (int) Math.floor(activityManager.getMemoryClass() * maxHeap * 1024 * 1024);
         }
@@ -762,8 +764,8 @@ public class ReactExoplayerView extends FrameLayout implements
                 }
                 long usedMemory = runtime.totalMemory() - runtime.freeMemory();
                 long freeMemory = runtime.maxMemory() - usedMemory;
-                double minBufferMemoryReservePercent = bufferConfig.getMinBufferMemoryReservePercent() != BufferConfig.Companion.getBufferConfigPropUnsetDouble()
-                        ? bufferConfig.getMinBufferMemoryReservePercent()
+                double minBufferMemoryReservePercent = source.getBufferConfig().getMinBufferMemoryReservePercent() != BufferConfig.Companion.getBufferConfigPropUnsetDouble()
+                        ? source.getBufferConfig().getMinBufferMemoryReservePercent()
                         : ReactExoplayerView.DEFAULT_MIN_BUFFER_MEMORY_RESERVE;
                 long reserveMemory = (long) minBufferMemoryReservePercent * runtime.maxMemory();
                 long bufferedMs = bufferedDurationUs / (long) 1000;
@@ -786,19 +788,39 @@ public class ReactExoplayerView extends FrameLayout implements
         ReactExoplayerView self = this;
         Activity activity = themedReactContext.getCurrentActivity();
         // This ensures all props have been settled, to avoid async racing conditions.
+        Source runningSource = source;
         mainRunnable = () -> {
+            if (viewHasDropped && runningSource == source) {
+                return;
+            }
             try {
+                if (runningSource.getUri() == null) {
+                    return;
+                }
                 if (player == null) {
                     // Initialize core configuration and listeners
                     initializePlayerCore(self);
                 }
+                if (!source.isLocalAssetFile() && !source.isAsset() && source.getBufferConfig().getCacheSize() > 0) {
+                    RNVSimpleCache.INSTANCE.setSimpleCache(
+                            this.getContext(),
+                            source.getBufferConfig().getCacheSize()
+                    );
+                    useCache = true;
+                } else {
+                    useCache = false;
+                }
                 if (playerNeedsSource && source.getUri() != null) {
+                    // Will force display of shutter view if needed
+                    exoPlayerView.updateShutterViewVisibility();
                     exoPlayerView.invalidateAspectRatio();
                     // DRM session manager creation must be done on a different thread to prevent crashes so we start a new thread
                     ExecutorService es = Executors.newSingleThreadExecutor();
                     es.execute(() -> {
                         // DRM initialization must run on a different thread
-
+                        if (viewHasDropped && runningSource == source) {
+                            return;
+                        }
                         if (activity == null) {
                             DebugLog.e(TAG, "Failed to initialize Player!, null activity");
                             eventEmitter.error("Failed to initialize Player!", new Exception("Current Activity is null!"), "1001");
@@ -807,9 +829,12 @@ public class ReactExoplayerView extends FrameLayout implements
 
                         // Initialize handler to run on the main thread
                         activity.runOnUiThread(() -> {
+                            if (viewHasDropped && runningSource == source) {
+                                return;
+                            }
                             try {
                                 // Source initialization must run on the main thread
-                                initializePlayerSource(null);
+                                initializePlayerSource(runningSource);
                             } catch (Exception ex) {
                                 self.playerNeedsSource = true;
                                 DebugLog.e(TAG, "Failed to initialize Player!");
@@ -819,8 +844,8 @@ public class ReactExoplayerView extends FrameLayout implements
                             }
                         });
                     });
-                } else if (source.getUri() != null) {
-                    initializePlayerSource(null);
+                } else if (runningSource == source) {
+                    initializePlayerSource(runningSource);
                 }
             } catch (Exception ex) {
                 self.playerNeedsSource = true;
