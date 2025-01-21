@@ -233,7 +233,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private float rate = 1f;
     private AudioOutput audioOutput = AudioOutput.SPEAKER;
     private float audioVolume = 1f;
-    private int minLoadRetryCount = 3;
+    private int minLoadRetryCount = 5;
     private BufferConfig bufferConfig = new BufferConfig();
     private int maxBitRate = 0;
     private boolean hasDrmFailed = false;
