@@ -283,6 +283,8 @@ public class ReactExoplayerView extends FrameLayout implements
     private long lastBufferDuration = -1;
     private long lastDuration = -1;
 
+    private boolean viewHasDropped = false;
+
     // Dani Youbora
     private NpawPlugin npawPlugin = null;
     private VideoAdapter videoAdapter = null;
@@ -418,6 +420,8 @@ public class ReactExoplayerView extends FrameLayout implements
     public void cleanUpResources() {
         stopPlayback();
         themedReactContext.removeLifecycleEventListener(this);
+        releasePlayer();
+        viewHasDropped = true;
     }
 
     //BandwidthMeter.EventListener implementation
@@ -786,7 +790,13 @@ public class ReactExoplayerView extends FrameLayout implements
         ReactExoplayerView self = this;
         Activity activity = themedReactContext.getCurrentActivity();
         // This ensures all props have been settled, to avoid async racing conditions.
+
+        boolean isSourceEqual = source.isEquals(this.source);
+
         mainRunnable = () -> {
+            if (viewHasDropped && isSourceEqual) {
+                return;
+            }
             try {
                 if (player == null) {
                     // Initialize core configuration and listeners
@@ -798,7 +808,9 @@ public class ReactExoplayerView extends FrameLayout implements
                     ExecutorService es = Executors.newSingleThreadExecutor();
                     es.execute(() -> {
                         // DRM initialization must run on a different thread
-
+                        if (viewHasDropped && isSourceEqual) {
+                            return;
+                        }
                         if (activity == null) {
                             DebugLog.e(TAG, "Failed to initialize Player!, null activity");
                             eventEmitter.error("Failed to initialize Player!", new Exception("Current Activity is null!"), "1001");
@@ -807,6 +819,10 @@ public class ReactExoplayerView extends FrameLayout implements
 
                         // Initialize handler to run on the main thread
                         activity.runOnUiThread(() -> {
+                            DebugLog.d(TAG, "Dani view drop");
+                            if (viewHasDropped && isSourceEqual) {
+                                return;
+                            }
                             try {
                                 // Source initialization must run on the main thread
                                 initializePlayerSource(null);
@@ -1538,10 +1554,7 @@ public class ReactExoplayerView extends FrameLayout implements
                 player.setPlayWhenReady(true);
             }
         } else {
-            // ensure playback is not ENDED, else it will trigger another ended event
-            if (player.getPlaybackState() != Player.STATE_ENDED) {
-                player.setPlayWhenReady(false);
-            }
+            player.setPlayWhenReady(false);
         }
     }
 
@@ -2107,9 +2120,14 @@ public class ReactExoplayerView extends FrameLayout implements
                 }
             }
             if (!isSourceEqual) {
-                reloadSource();
+                //reloadSource();
+                playerNeedsSource = true;
+                initializePlayer();
             }
+        } else {
+            clearSrc();
         }
+
     }
 
     public void clearSrc() {
