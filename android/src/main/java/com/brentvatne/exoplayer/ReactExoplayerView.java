@@ -12,9 +12,6 @@ import static com.brentvatne.exoplayer.DataSourceUtil.buildAssetDataSourceFactor
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.PictureInPictureParams;
-import android.app.RemoteAction;
-import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -29,7 +26,6 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.Window;
-import android.view.ViewGroup;
 import android.view.accessibility.CaptioningManager;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -243,7 +239,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private boolean hasDrmFailed = false;
     private boolean isUsingContentResolution = false;
     private boolean selectTrackWhenReady = false;
-    private final Handler mainHandler;
+    private Handler mainHandler;
     private Runnable mainRunnable;
     private boolean useCache = false;
     private ControlsConfig controlsConfig = new ControlsConfig();
@@ -287,19 +283,16 @@ public class ReactExoplayerView extends FrameLayout implements
     private long lastBufferDuration = -1;
     private long lastDuration = -1;
 
-    private boolean viewHasDropped = false;
-    private int selectedSpeedIndex = 1; // Default is 1.0x
-
-	// Dani Youbora
-	private NpawPlugin npawPlugin = null;
-	private VideoAdapter videoAdapter = null;
+    // Dani Youbora
+    private NpawPlugin npawPlugin = null;
+    private VideoAdapter videoAdapter = null;
     //private ImaAdapter imaAdapter = null;
 
-	// Dani Offline
-	private boolean playOffline = false;
+    // Dani Offline
+    private boolean playOffline = false;
 
-	// Dani DRM Multi Session
-	private boolean multiSession = false;
+    // Dani DRM Multi Session
+    private boolean multiSession = false;
 
     // Dani - Manager class for offline licenses
     private OfflineLicenseManager mOfflineLicenseManager;
@@ -357,7 +350,6 @@ public class ReactExoplayerView extends FrameLayout implements
         this.config = config;
         this.bandwidthMeter = config.getBandwidthMeter();
 
-        mainHandler = new Handler();
         createViews();
 
         audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
@@ -390,6 +382,8 @@ public class ReactExoplayerView extends FrameLayout implements
         addView(exoPlayerView, 0, layoutParams);
 
         exoPlayerView.setFocusable(this.focusable);
+
+        mainHandler = new Handler();
     }
 
     // LifecycleEventListener implementation
@@ -424,8 +418,6 @@ public class ReactExoplayerView extends FrameLayout implements
     public void cleanUpResources() {
         stopPlayback();
         themedReactContext.removeLifecycleEventListener(this);
-        releasePlayer();
-        viewHasDropped = true;
     }
 
     //BandwidthMeter.EventListener implementation
@@ -510,7 +502,7 @@ public class ReactExoplayerView extends FrameLayout implements
         //Handling the pauseButton click event
         ImageButton pauseButton = playerControlView.findViewById(R.id.exo_pause);
         pauseButton.setOnClickListener((View v) ->
-            setPausedModifier(true)
+                setPausedModifier(true)
         );
 
         //Handling the fullScreenButton click event
@@ -630,7 +622,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
     /*
      * Dani - License Downloader Interface
-     * 
+     *
      */
 
     @Override
@@ -722,7 +714,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
     /*
      * End
-     * 
+     *
      */
 
     private class RNVLoadControl extends DefaultLoadControl {
@@ -751,7 +743,7 @@ public class ReactExoplayerView extends FrameLayout implements
             runtime = Runtime.getRuntime();
             ActivityManager activityManager = (ActivityManager) themedReactContext.getSystemService(ThemedReactContext.ACTIVITY_SERVICE);
             double maxHeap = config.getMaxHeapAllocationPercent() != BufferConfig.Companion.getBufferConfigPropUnsetDouble()
-                    ? config.getMaxHeapAllocationPercent()
+                    ? bufferConfig.getMaxHeapAllocationPercent()
                     : DEFAULT_MAX_HEAP_ALLOCATION_PERCENT;
             availableHeapInBytes = (int) Math.floor(activityManager.getMemoryClass() * maxHeap * 1024 * 1024);
         }
@@ -770,8 +762,8 @@ public class ReactExoplayerView extends FrameLayout implements
                 }
                 long usedMemory = runtime.totalMemory() - runtime.freeMemory();
                 long freeMemory = runtime.maxMemory() - usedMemory;
-                double minBufferMemoryReservePercent = source.getBufferConfig().getMinBufferMemoryReservePercent() != BufferConfig.Companion.getBufferConfigPropUnsetDouble()
-                        ? source.getBufferConfig().getMinBufferMemoryReservePercent()
+                double minBufferMemoryReservePercent = bufferConfig.getMinBufferMemoryReservePercent() != BufferConfig.Companion.getBufferConfigPropUnsetDouble()
+                        ? bufferConfig.getMinBufferMemoryReservePercent()
                         : ReactExoplayerView.DEFAULT_MIN_BUFFER_MEMORY_RESERVE;
                 long reserveMemory = (long) minBufferMemoryReservePercent * runtime.maxMemory();
                 long bufferedMs = bufferedDurationUs / (long) 1000;
@@ -794,27 +786,11 @@ public class ReactExoplayerView extends FrameLayout implements
         ReactExoplayerView self = this;
         Activity activity = themedReactContext.getCurrentActivity();
         // This ensures all props have been settled, to avoid async racing conditions.
-        Source runningSource = source;
         mainRunnable = () -> {
-            if (viewHasDropped && runningSource == source) {
-                return;
-            }
             try {
-                if (runningSource.getUri() == null) {
-                    return;
-                }
                 if (player == null) {
                     // Initialize core configuration and listeners
                     initializePlayerCore(self);
-                }
-                if (!source.isLocalAssetFile() && !source.isAsset() && source.getBufferConfig().getCacheSize() > 0) {
-                    RNVSimpleCache.INSTANCE.setSimpleCache(
-                            this.getContext(),
-                            source.getBufferConfig().getCacheSize()
-                    );
-                    useCache = true;
-                } else {
-                    useCache = false;
                 }
                 if (playerNeedsSource && source.getUri() != null) {
                     exoPlayerView.invalidateAspectRatio();
@@ -822,9 +798,7 @@ public class ReactExoplayerView extends FrameLayout implements
                     ExecutorService es = Executors.newSingleThreadExecutor();
                     es.execute(() -> {
                         // DRM initialization must run on a different thread
-                        if (viewHasDropped && runningSource == source) {
-                            return;
-                        }
+
                         if (activity == null) {
                             DebugLog.e(TAG, "Failed to initialize Player!, null activity");
                             eventEmitter.error("Failed to initialize Player!", new Exception("Current Activity is null!"), "1001");
@@ -833,12 +807,9 @@ public class ReactExoplayerView extends FrameLayout implements
 
                         // Initialize handler to run on the main thread
                         activity.runOnUiThread(() -> {
-                            if (viewHasDropped && runningSource == source) {
-                                return;
-                            }
                             try {
                                 // Source initialization must run on the main thread
-                                initializePlayerSource(runningSource);
+                                initializePlayerSource(null);
                             } catch (Exception ex) {
                                 self.playerNeedsSource = true;
                                 DebugLog.e(TAG, "Failed to initialize Player!");
@@ -848,8 +819,8 @@ public class ReactExoplayerView extends FrameLayout implements
                             }
                         });
                     });
-                } else if (runningSource == source) {
-                    initializePlayerSource(runningSource);
+                } else if (source.getUri() != null) {
+                    initializePlayerSource(null);
                 }
             } catch (Exception ex) {
                 self.playerNeedsSource = true;
@@ -880,7 +851,7 @@ public class ReactExoplayerView extends FrameLayout implements
         DefaultAllocator allocator = new DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE);
         RNVLoadControl loadControl = new RNVLoadControl(
                 allocator,
-                source.getBufferConfig()
+                bufferConfig
         );
         DefaultRenderersFactory renderersFactory =
                 new DefaultRenderersFactory(getContext())
@@ -964,7 +935,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
     /*
      * End
-     * 
+     *
      */
 
     private DrmSessionManager initializePlayerDrm(ReactExoplayerView self) {
@@ -978,7 +949,7 @@ public class ReactExoplayerView extends FrameLayout implements
                 /*
                  * Dani Offline (A)
                  * Get offline license
-                 * 
+                 *
                  */
 
                 if (self.playOffline) {
@@ -995,7 +966,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
                 /*
                  * End
-                 * 
+                 *
                  */
 
             } catch (UnsupportedDrmException e) {
@@ -1094,26 +1065,26 @@ public class ReactExoplayerView extends FrameLayout implements
             player.setMediaSource(mediaSource, true);
         }
 
-		/*
-		 * Dani Youbora
-		 * Begin
-		 *
-		 */
+        /*
+         * Dani Youbora
+         * Begin
+         *
+         */
 
-		npawPlugin = NpawPluginProvider.getInstance();
+        npawPlugin = NpawPluginProvider.getInstance();
 
-		if (npawPlugin != null) {
-			videoAdapter = npawPlugin.videoBuilder()
-					.setPlayerAdapter(new Media3ExoPlayerAdapter(this.themedReactContext, player))
-					.build();
-			videoAdapter.getPlayerAdapter().fireStart();
+        if (npawPlugin != null) {
+            videoAdapter = npawPlugin.videoBuilder()
+                    .setPlayerAdapter(new Media3ExoPlayerAdapter(this.themedReactContext, player))
+                    .build();
+            videoAdapter.getPlayerAdapter().fireStart();
 
-		}
+        }
 
-		/*
-		 * End
-		 * 
-		 */
+        /*
+         * End
+         *
+         */
 
         player.prepare();
         playerNeedsSource = false;
@@ -1251,7 +1222,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
     /*
      * Dani MediaItem Offline (C)
-     * 
+     *
      */
 
     private MediaItem createOfflineMediaItem(Uri uri, DrmSessionManager drmSessionManager) {
@@ -1282,7 +1253,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
     /*
      * End
-     * 
+     *
      */
 
     private MediaSource buildMediaSource(Uri uri, String overrideExtension, DrmSessionManager drmSessionManager, long cropStartMs, long cropEndMs) {
@@ -1327,7 +1298,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
         /*
          * Dani Offline DRM
-         * 
+         *
          */
 
         if (playOffline) {
@@ -1487,7 +1458,7 @@ public class ReactExoplayerView extends FrameLayout implements
         bandwidthMeter.removeEventListener(this);
 
         // Dani Youbora
-		clearYoubora();
+        clearYoubora();
 
         if (mainHandler != null && mainRunnable != null) {
             mainHandler.removeCallbacks(mainRunnable);
@@ -1531,14 +1502,14 @@ public class ReactExoplayerView extends FrameLayout implements
                     // Lower the volume
                     if (!view.muted) {
                         activity.runOnUiThread(() ->
-                            view.player.setVolume(view.audioVolume * 0.8f)
+                                view.player.setVolume(view.audioVolume * 0.8f)
                         );
                     }
                 } else if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
                     // Raise it back to normal
                     if (!view.muted) {
                         activity.runOnUiThread(() ->
-                            view.player.setVolume(view.audioVolume * 1)
+                                view.player.setVolume(view.audioVolume * 1)
                         );
                     }
                 }
@@ -1640,7 +1611,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
     /*
      * Dani - buildLocalDataSourceFactory
-     * 
+     *
      */
 
     private DataSource.Factory buildLocalDataSourceFactory(boolean useBandwidthMeter) {
@@ -2720,15 +2691,15 @@ public class ReactExoplayerView extends FrameLayout implements
         refreshProgressBarVisibility();
     }
 
-	/*
-	 * Dani Youbora
-	 * Begin
-	 *
-	 */
+    /*
+     * Dani Youbora
+     * Begin
+     *
+     */
 
-	public void setYoubora(String accountCode, AnalyticsOptions youboraOptions) {
+    public void setYoubora(String accountCode, AnalyticsOptions youboraOptions) {
 
-		if (youboraOptions != null) {
+        if (youboraOptions != null) {
 
             if (npawPlugin != null) {
                 this.clearYoubora();
@@ -2745,9 +2716,9 @@ public class ReactExoplayerView extends FrameLayout implements
                 NpawPluginProvider.initialize(builder);
             }
 
-		}
+        }
 
-	}
+    }
 
     public void stopYouboraAdapter() {
 
@@ -2758,31 +2729,31 @@ public class ReactExoplayerView extends FrameLayout implements
 
     }
 
-	public void clearYoubora() {
+    public void clearYoubora() {
 
-		if (videoAdapter != null) {
-			videoAdapter.destroy();
-			videoAdapter = null;
-		}
+        if (videoAdapter != null) {
+            videoAdapter.destroy();
+            videoAdapter = null;
+        }
 
         if (npawPlugin != null) {
             npawPlugin.destroy();
             npawPlugin = null;
         }
 
-	}
+    }
 
-	public void setPlayOffline(boolean playOffline) {
-		this.playOffline = playOffline;
-	}
+    public void setPlayOffline(boolean playOffline) {
+        this.playOffline = playOffline;
+    }
 
-	public void setMultiSession(boolean multiSession) {
-		this.multiSession = multiSession;
-	}
+    public void setMultiSession(boolean multiSession) {
+        this.multiSession = multiSession;
+    }
 
-	/*
-	 * End
-	 *
-	 */
+    /*
+     * End
+     *
+     */
 
 }
