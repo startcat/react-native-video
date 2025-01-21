@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.res.Resources
 import android.net.Uri
 import android.text.TextUtils
-import com.brentvatne.common.api.DRMProps.Companion.parse
 import com.brentvatne.common.toolbox.DebugLog
 import com.brentvatne.common.toolbox.DebugLog.e
 import com.brentvatne.common.toolbox.ReactBridgeUtils.safeGetArray
@@ -60,20 +59,10 @@ class Source {
     /** http header list */
     val headers: MutableMap<String, String> = HashMap()
 
-    /**
-     * DRM properties linked to the source
-     */
-    var drmProps: DRMProps? = null
-
     /** enable chunkless preparation for HLS
      * see:
      */
     var textTracksAllowChunklessPreparation: Boolean = false
-
-    /**
-     * Ads playback properties
-     */
-    var adsProps: AdsProps? = null
 
     /*
      * buffering configuration
@@ -96,10 +85,8 @@ class Source {
                 cropEndMs == other.cropEndMs &&
                 startPositionMs == other.startPositionMs &&
                 extension == other.extension &&
-                drmProps == other.drmProps &&
                 contentStartTime == other.contentStartTime &&
                 sideLoadedTextTracks == other.sideLoadedTextTracks &&
-                adsProps == other.adsProps &&
                 minLoadRetryCount == other.minLoadRetryCount &&
                 isLocalAssetFile == other.isLocalAssetFile &&
                 isAsset == other.isAsset &&
@@ -234,10 +221,6 @@ class Source {
                 source.cropEndMs = safeGetInt(src, PROP_SRC_CROP_END, -1)
                 source.contentStartTime = safeGetInt(src, PROP_SRC_CONTENT_START_TIME, -1)
                 source.extension = safeGetString(src, PROP_SRC_TYPE, null)
-                source.drmProps = parse(safeGetMap(src, PROP_SRC_DRM))
-                if (BuildConfig.USE_EXOPLAYER_IMA) {
-                    source.adsProps = AdsProps.parse(safeGetMap(src, PROP_SRC_ADS))
-                }
                 source.textTracksAllowChunklessPreparation = safeGetBool(src, PROP_SRC_TEXT_TRACKS_ALLOW_CHUNKLESS_PREPARATION, true)
                 source.sideLoadedTextTracks = SideLoadedTextTrackList.parse(safeGetArray(src, PROP_SRC_TEXT_TRACKS))
                 source.minLoadRetryCount = safeGetInt(src, PROP_SRC_MIN_LOAD_RETRY_COUNT, 3)
