@@ -792,6 +792,7 @@ public class ReactExoplayerView extends FrameLayout implements
         // This ensures all props have been settled, to avoid async racing conditions.
 
         boolean isSourceEqual = source.isEquals(this.source);
+        DebugLog.d(TAG, "initializePlayer source " + source.getUri());
 
         mainRunnable = () -> {
             if (viewHasDropped && isSourceEqual) {
@@ -998,6 +999,9 @@ public class ReactExoplayerView extends FrameLayout implements
     }
 
     private void initializePlayerSource(DefaultDrmSessionManager mDrmSessionManager) {
+
+        DebugLog.d(TAG, "initializePlayerSource source " + source.getUri());
+
         if (source.getUri() == null) {
             return;
         }
