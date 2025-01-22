@@ -255,10 +255,10 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         // Paused
         if ((castMediaStatus?.playerState === MediaPlayerState.PAUSED || castMediaStatus?.playerState === MediaPlayerState.IDLE) && !paused){
-            setPaused(true);
+            onControlsPress(CONTROL_ACTION.PAUSE, true);
 
         } else if ((castMediaStatus?.playerState !== MediaPlayerState.PAUSED && castMediaStatus?.playerState !== MediaPlayerState.IDLE) && paused){
-            setPaused(false);
+            onControlsPress(CONTROL_ACTION.PAUSE, false);
 
         }
 
@@ -269,7 +269,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         // Muted
         castSession?.isMute().then(value => {
             if (value !== muted){
-                setMuted(value);
+                onControlsPress(CONTROL_ACTION.MUTE, !!value);
             }
             
         });
@@ -366,6 +366,9 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
             if (id === CONTROL_ACTION.MUTE){
                 data.muted = !!value;
+
+            } else if (id === CONTROL_ACTION.PAUSE){
+                data.paused = !!value;
 
             } else if (typeof(value) === 'number'){
                 data.volume = (id === CONTROL_ACTION.VOLUME) ? value : undefined;
