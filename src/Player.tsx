@@ -30,6 +30,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const currentTime = useRef<number>(props.startPosition || 0);
     const duration = useRef<number>(0);
     const volume = useRef<number>();
+    const isPaused = useRef<boolean>(false);
     const isMuted = useRef<boolean>(false);
     const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
@@ -150,6 +151,10 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         }
 
+        if (data?.paused !== undefined){
+            isPaused.current = !!data.paused;
+        }
+
         if (data?.muted !== undefined){
             isMuted.current = !!data.muted;
         }
@@ -195,6 +200,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 youbora={props.youbora}
                 adTagUrl={props.adTagUrl}
                 hasNext={props.hasNext}
+
+                paused={isPaused.current}
+                muted={isMuted.current}
 
                 isLive={props.isLive}
                 liveStartDate={props.liveStartDate}
@@ -251,6 +259,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 adTagUrl={props.adTagUrl}
                 hasNext={props.hasNext}
 
+                paused={isPaused.current}
+                muted={isMuted.current}
+                
                 playOffline={props.playOffline}
                 multiSession={props.multiSession}
                 isLive={props.isLive}

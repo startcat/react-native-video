@@ -63,7 +63,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
-    const [paused, setPaused] = useState<boolean>(false);
+    const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(true);
     const [loading, setLoading] = useState<boolean>(false);
@@ -330,7 +330,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     // Functions
     const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
 
-        const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'audioIndex', 'subtitleIndex'];
+        const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'audioIndex', 'subtitleIndex'];
 
         if (!isContentLoaded){
             return false;

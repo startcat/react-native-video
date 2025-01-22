@@ -59,7 +59,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
-    const [paused, setPaused] = useState<boolean>(false);
+    const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(false);
 
@@ -237,7 +237,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onControlsPress = useCallback((id: CONTROL_ACTION, value?:number | boolean) => {
 
-        const COMMON_DATA_FIELDS = ['time', 'volume', 'mute'];
+        const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause'];
 
         console.log(`[Player] (Audio Flavour) onControlsPress: ${id} (${value})`);
 
