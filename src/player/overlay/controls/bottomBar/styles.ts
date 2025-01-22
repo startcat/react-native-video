@@ -32,6 +32,6 @@ export const styles = StyleSheet.create({
     title:{
         textAlign:'center',
         color:'white',
-        paddingHorizontal:120
+        paddingHorizontal:160
     },
 });

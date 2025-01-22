@@ -141,7 +141,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             subtitle: props.subtitle,
             description: props.description,
             liveStartDate: props.liveStartDate,
-            poster: props.poster,
+            poster: props.squaredPoster || props.poster,
             isLive: props.isLive,
             hasNext: props.hasNext,
             startPosition: props.currentTime
