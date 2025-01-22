@@ -37,7 +37,7 @@ import {
 
 export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElement {
 
-    const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
+    const isContentLoaded = useRef<boolean>(false);
     const audioPlayerHeight = useSharedValue(0);
 
     const castState = useCastState();
@@ -106,11 +106,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             hasPrev: props.hasPrev,
             isLive: props.isLive,
             isDVR: isDVR.current,
-            isContentLoaded: isContentLoaded,
+            isContentLoaded: isContentLoaded.current,
             extraData: props.extraData
         });
 
-    }, [currentTime, dvrTimeValue, duration, paused, muted, preloading, isDVR.current, isContentLoaded]);
+    }, [currentTime, dvrTimeValue, duration, paused, muted, preloading, isDVR.current, isContentLoaded.current]);
 
     useEffect(() => {
 
@@ -187,7 +187,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                 castClient?.loadMedia(castMessage.current!);
 
             } else {
-                setIsContentLoaded(true);
+                isContentLoaded.current = true;
 
             }
 
@@ -234,8 +234,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
             }
 
-            if (!isContentLoaded){
-                setIsContentLoaded(true);
+            if (!isContentLoaded.current){
+                isContentLoaded.current = true;
             }
 
         }
@@ -289,8 +289,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
             onMediaPlaybackStartedListener.current = castClient.onMediaPlaybackStarted((mediaStatus) => {
 
-                if (!isContentLoaded){
-                    setIsContentLoaded(true);
+                if (!isContentLoaded.current){
+                    isContentLoaded.current = true;
                 }
                 
             });
@@ -316,11 +316,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     // Functions
     const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
 
-        console.log(`[Player] (Audio Cast Flavour) onControlsPress: isContentLoaded ${isContentLoaded}`);
+        console.log(`[Player] (Audio Cast Flavour) onControlsPress: isContentLoaded ${isContentLoaded.current}`);
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause'];
 
-        if (!isContentLoaded){
+        if (!isContentLoaded.current){
             return false;
         }
 
@@ -341,13 +341,13 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         // State Actions
         if (id === CONTROL_ACTION.NEXT){
-            setIsContentLoaded(false);
+            isContentLoaded.current = false;
             if (props.onNext){
                 props.onNext();
             }
 
         } else if (id === CONTROL_ACTION.PREVIOUS && props.onPrevious){
-            setIsContentLoaded(false);
+            isContentLoaded.current = false;
             if (props.onPrevious){
                 props.onPrevious();
             }
@@ -369,7 +369,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         }
 
         // Actions to be saved between flavours
-        if (isContentLoaded && COMMON_DATA_FIELDS.includes(id) && props?.onChangeCommonData){
+        if (COMMON_DATA_FIELDS.includes(id) && props?.onChangeCommonData){
             let data:ICommonData = {};
 
             if (id === CONTROL_ACTION.MUTE){
@@ -444,7 +444,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         hasPrev: props.hasPrev,
         isLive: props.isLive,
         isDVR: isDVR.current,
-        isContentLoaded: isContentLoaded,
+        isContentLoaded: isContentLoaded.current,
         extraData: props.extraData,
     
         //Events
