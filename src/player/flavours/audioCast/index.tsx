@@ -150,7 +150,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         if (castState === CastState.CONNECTED && castClient){
             console.log(`[Player] (Audio Cast Flavour) Loading media after creating castMessage: ${JSON.stringify(castMessage.current)}`);
             castClient?.loadMedia(castMessage.current!);
-            setIsContentLoaded(true);
 
         }
 
@@ -187,9 +186,10 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                 console.log(`[Player] (Audio Cast Flavour) Different content so loading media: ${JSON.stringify(castMessage.current)}`);
                 castClient?.loadMedia(castMessage.current!);
 
-            }
+            } else {
+                setIsContentLoaded(true);
 
-            setIsContentLoaded(true);
+            }
 
         }
 
@@ -232,6 +232,10 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     });
                 }
 
+            }
+
+            if (!isContentLoaded){
+                setIsContentLoaded(true);
             }
 
         }
