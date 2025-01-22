@@ -39,6 +39,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const currentTime = useRef<number>(0);
     const duration = useRef<number>(0);
     const volume = useRef<number>();
+    const isPaused = useRef<boolean>(false);
     const isMuted = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
 
@@ -202,6 +203,10 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         }
 
+        if (data?.paused !== undefined){
+            isPaused.current = !!data.paused;
+        }
+
         if (data?.muted !== undefined){
             isMuted.current = !!data.muted;
         }
@@ -245,6 +250,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         youbora={dpoData.youbora}
                         hasNext={dpoData.hasNext}
                         hasPrev={dpoData.hasPrev}
+
+                        paused={isPaused.current}
+                        muted={isMuted.current}
 
                         playOffline={dpoData.playOffline}
                         multiSession={dpoData.multiSession}
@@ -294,6 +302,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         hasNext={dpoData.hasNext}
                         hasPrev={dpoData.hasPrev}
 
+                        paused={isPaused.current}
+                        muted={isMuted.current}
+                        
                         isLive={dpoData.isLive}
                         // liveStartDate={props.liveStartDate}
 

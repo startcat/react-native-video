@@ -97,6 +97,7 @@ export interface ICommonData {
     time?: number;
     duration?: number;
     volume?: number;
+    paused?: boolean;
     muted?: boolean;
     audioIndex?: number;
     subtitleIndex?: number;
@@ -589,6 +590,7 @@ export interface AudioFlavourProps {
     hasNext?: boolean;
     hasPrev?: boolean;
 
+    paused?: boolean;
     muted?: boolean;
     volume?: number;
 
@@ -637,6 +639,7 @@ export interface AudioCastFlavourProps {
     hasNext?: boolean;
     hasPrev?: boolean;
 
+    paused?: boolean;
     muted?: boolean;
     volume?: number;
 
@@ -686,6 +689,7 @@ export interface NormalFlavourProps {
     isLive?: boolean;
     hasNext?: boolean;
 
+    paused?: boolean;
     muted?: boolean;
     volume?: number;
 
@@ -741,6 +745,7 @@ export interface CastFlavourProps {
     hasNext?: boolean;
     hasPrev?: boolean;
 
+    paused?: boolean;
     muted?: boolean;
     volume?: number;
 
