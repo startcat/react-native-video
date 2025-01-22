@@ -110,7 +110,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             description: props.description,
             liveStartDate: props.liveStartDate,
             adTagUrl: props.adTagUrl,
-            poster: props.poster,
+            poster: props.squaredPoster || props.poster,
             isLive: props.isLive,
             hasNext: props.hasNext,
             startPosition: props.currentTime

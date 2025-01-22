@@ -312,6 +312,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     // Functions
     const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
 
+        console.log(`[Player] (Audio Cast Flavour) onControlsPress: isContentLoaded ${isContentLoaded}`);
+
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute'];
 
         if (!isContentLoaded){
