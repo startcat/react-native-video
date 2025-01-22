@@ -40,12 +40,13 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const duration = useRef<number>(0);
     const volume = useRef<number>();
     const isMuted = useRef<boolean>(false);
-    const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
 
     const castState = useCastState();
 
     useEffect(() => {
+
+        console.log(`[Audio Player Bar] Mounted`);
 
         const changesAudioPlayerListener = EventRegister.addEventListener('audioPlayer', (data: AudioPlayerEventProps) => {
 
@@ -72,6 +73,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         return (() => {
 
+            console.log(`[Audio Player Bar] Unmounted`);
+
             if (typeof(changesAudioPlayerListener) === 'string'){
                 EventRegister.removeEventListener(changesAudioPlayerListener);
             }
@@ -81,6 +84,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     }, []);
 
     useEffect(() => {
+
+        console.log(`[Audio Player Bar] contendId ${JSON.stringify(contentId)}`);
 
         async function fetchDpo(){
 
@@ -118,6 +123,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     }, [contentId]);
 
     React.useEffect(() => {
+
+        console.log(`[Audio Player Bar] dpoData?.id ${dpoData?.id}`);
 
         // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
         if (typeof(dpoData?.watchingProgressInterval) === 'number' && dpoData?.watchingProgressInterval > 0 && dpoData?.addContentProgress){

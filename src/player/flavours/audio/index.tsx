@@ -86,6 +86,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }, [currentTime]);
 
     useEffect(() => {
+        console.log(`[Player] (Audio Flavour) videoSource ${JSON.stringify(videoSource)}`);
+
+    }, [videoSource]);
+
+    useEffect(() => {
+        console.log(`[Player] (Audio Flavour) manifests ${JSON.stringify(props.manifests)}`);
         setPlayerSource();
 
     }, [props.manifests]);
