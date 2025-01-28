@@ -316,11 +316,11 @@ class Singleton {
 
             }
 
-            if (this.binaryDownloadsEnabled && RNBackgroundDownloader){
+            // if (this.binaryDownloadsEnabled && RNBackgroundDownloader){
 
-                try {
-                    const lostTasks = await RNBackgroundDownloader.checkForExistingDownloads();
-                    console.log(`${this.log_key} Binary lost tasks: ${JSON.stringify(lostTasks)}`);
+            //     try {
+            //         const lostTasks = await RNBackgroundDownloader.checkForExistingDownloads();
+            //         console.log(`${this.log_key} Binary lost tasks: ${JSON.stringify(lostTasks)}`);
             
                     /*
                     if (lostTasks.length > 0) {
@@ -363,12 +363,12 @@ class Singleton {
 
                     }
                     */
-                } catch (e) {
-                    console.warn(`${this.log_key} checkForExistingDownloads e`, e);
+            //     } catch (e) {
+            //         console.warn(`${this.log_key} checkForExistingDownloads e`, e);
 
-                }
+            //     }
 
-            }
+            // }
 
         } else {
             this.pause();
@@ -1034,7 +1034,7 @@ class Singleton {
 
         if (this.binaryDownloadsEnabled && RNBackgroundDownloader){
 
-            const { index } = this.getTask(task.id);
+            const { index } = this.getTask(task.id)!;
 
             return task
                 .begin(({ expectedBytes, headers }) => {
