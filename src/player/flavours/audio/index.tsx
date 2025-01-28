@@ -62,6 +62,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(false);
+    const [isPlayingExternalTudum, setIsPlayingExternalTudum] = useState<boolean>(!!props.showExternalTudum);
 
     const [speedRate, setSpeedRate] = useState<number>(1);
 
@@ -92,7 +93,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     useEffect(() => {
         console.log(`[Player] (Audio Flavour) manifests ${JSON.stringify(props.manifests)}`);
-        setPlayerSource();
+        if (isPlayingExternalTudum && props.getTudumSource){
+            let tudumManifest = props.getTudumSource();
+
+            // Montamos el Source del tudum para el player
+            setVideoSource(tudumManifest);
+            setPreloading(false);
+
+        } else {
+            setPlayerSource();
+
+        }
 
     }, [props.manifests]);
 
@@ -329,7 +340,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         console.log(`[Player] (Audio Flavour) onLoad ${JSON.stringify(e)}`);
 
-        if (!isContentLoaded){
+        if (!isPlayingExternalTudum && !isContentLoaded){
 
             setIsContentLoaded(true);
 
@@ -352,8 +363,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onEnd = () => {
-        // Termina el contenido
-        if (props.onEnd){
+        
+        if (isPlayingExternalTudum){
+            // Acaba la reproducción del Tudum externo
+            setPlayerSource();
+            setIsPlayingExternalTudum(false);
+
+        } else if (props.onEnd){
             // Termina el contenido
             props.onEnd();
             

@@ -580,6 +580,7 @@ export interface AudioFlavourProps {
     liveStartDate?:string;
 
     manifests?:Array<IManifest>,
+    showExternalTudum?: boolean;
     youbora?: IYoubora;
     poster?: string;
     squaredPoster?: string;
@@ -612,6 +613,7 @@ export interface AudioFlavourProps {
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    getTudumSource?: () => IVideoSource | null | undefined;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
@@ -851,6 +853,7 @@ export interface AudioPlayerContentsDpo {
 	media_type?: MEDIA_TYPE;
     type?: STREAM_TYPE;
     startPosition?: number;
+    showExternalTudum?: boolean;
     poster?: string;
     squaredPoster?: string;
     playOffline?: boolean;
@@ -866,6 +869,7 @@ export interface AudioPlayerContentsDpo {
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    getTudumSource?: () => IVideoSource | null | undefined;
 
     // Events
     onError?: () => void;

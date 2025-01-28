@@ -257,6 +257,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         playOffline={dpoData.playOffline}
                         multiSession={dpoData.multiSession}
                         isLive={dpoData.isLive}
+                        showExternalTudum={dpoData.showExternalTudum}
                         // liveStartDate={props.liveStartDate}
 
                         currentTime={currentTime.current}
@@ -275,6 +276,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         watchingProgressInterval={dpoData.watchingProgressInterval}
                         addContentProgress={dpoData.addContentProgress}
                         getYouboraOptions={dpoData.getYouboraOptions}
+                        getTudumSource={dpoData.getTudumSource}
 
                         // Events
                         onChangeCommonData={changeCommonData}
