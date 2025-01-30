@@ -280,6 +280,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         // Events
                         onChangeCommonData={changeCommonData}
+                        onDVRChange={dpoData.onDVRChange}
                         onNext={dpoData.onNext}
                         onPrevious={dpoData.onPrevious}
                         onEnd={onEnd}
@@ -329,6 +330,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         // Events
                         onChangeCommonData={changeCommonData}
+                        onDVRChange={dpoData.onDVRChange}
                         onNext={dpoData.onNext}
                         onPrevious={dpoData.onPrevious}
                         onEnd={onEnd}
