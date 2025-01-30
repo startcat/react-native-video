@@ -301,9 +301,19 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
-        if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number'){
+        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
-            setDvrTimeValue(value);
+            if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
+                setDvrTimeValue(currentTime + value);
+        
+            } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
+                setDvrTimeValue(currentTime - value);
+        
+            } else if (id === CONTROL_ACTION.SEEK){
+                setDvrTimeValue(value);
+
+            }
+            
         }
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
