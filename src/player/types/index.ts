@@ -586,6 +586,7 @@ export interface AudioFlavourProps {
     youbora?: IYoubora;
     poster?: string;
     squaredPoster?: string;
+    forcedDvrWindowMinutes?: number;
 
     playOffline?: boolean;
     multiSession?: boolean;
@@ -637,6 +638,7 @@ export interface AudioCastFlavourProps {
     youbora?: IYoubora;
     poster?: string;
     squaredPoster?: string;
+    forcedDvrWindowMinutes?: number;
 
     playOffline?: boolean;
     multiSession?: boolean;
@@ -868,6 +870,7 @@ export interface AudioPlayerContentsDpo {
     manifests?:Array<IManifest>,
     youbora?: IYoubora;
     extraData?: any;
+    forcedDvrWindowMinutes?: number;
 
     // Utils
     watchingProgressInterval?: number;
