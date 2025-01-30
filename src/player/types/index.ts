@@ -263,7 +263,8 @@ export interface AudioPlayerEventProps {
         title?: string;
         station?: number;
         media_type: MEDIA_TYPE,
-    }
+    },
+    epgEntry?: any;
 }
 
 export interface AudioPlayerActionEventProps {
