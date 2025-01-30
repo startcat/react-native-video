@@ -505,6 +505,7 @@ export interface AudioControlsProps {
     description?:string;
     currentTime?: number;
     dvrTimeValue?: number;
+    dvrDate?: Date | null;
     duration?: number;
     paused?: boolean;
     muted?: boolean;
@@ -621,6 +622,7 @@ export interface AudioFlavourProps {
     onPrevious?: () => void;
     onClose?: () => void;
     onEnd?: () => void;
+    onDVRChange?: (value: number, offset?: number, date?: Date) => void;
 }
 
 export interface AudioCastFlavourProps {
@@ -670,6 +672,7 @@ export interface AudioCastFlavourProps {
     onPrevious?: () => void;
     onClose?: () => void;
     onEnd?: () => void;
+    onDVRChange?: (value: number, offset?: number, date?: Date) => void;
 }
 
 export interface NormalFlavourProps {
@@ -878,6 +881,7 @@ export interface AudioPlayerContentsDpo {
     onNext?: () => void;
     onPrevious?: () => void;
     onEnd?: () => void;
+    onDVRChange?: (value: number, offset?: number, date?: Date) => void;
 }
 
 export interface AudioPlayerProps {

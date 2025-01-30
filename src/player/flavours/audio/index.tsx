@@ -20,6 +20,7 @@ import {
     getContentIdIsBinary,
     getContentById,
     getDRM,
+    subtractMinutesFromDate
 } from '../../utils';
 
 import {
@@ -59,6 +60,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
+    const [dvrDate, setDvrDate] = useState<Date | null>(null);
     const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(false);
@@ -113,6 +115,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             description:props.description,
             currentTime: currentTime,
             dvrTimeValue: dvrTimeValue,
+            dvrDate: dvrDate,
             duration: duration,
             paused: paused,
             muted: muted,
@@ -363,7 +366,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onEnd = () => {
-        
+
         if (isPlayingExternalTudum){
             // Acaba la reproducción del Tudum externo
             setPlayerSource();
@@ -429,13 +432,57 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onSlidingStart = (value: number) => {
 
+        let secondsToLive,
+            date;
+
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+            setDvrDate(date);
+
+        }
+
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
+
     }
 
     const onSlidingMove = (value: number) => {
 
+        let secondsToLive,
+            date;
+
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+            setDvrDate(date);
+
+        }
+
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
+
     }
 
     const onSlidingComplete = (value: number) => {
+
+        let secondsToLive,
+            date;
+
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+            setDvrDate(date);
+
+        } else {
+            setDvrDate(null);
+        }
+
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
 
     }
 
@@ -444,6 +491,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         description: props.description,
         currentTime: currentTime,
         dvrTimeValue: dvrTimeValue,
+        dvrDate: dvrDate,
         duration: duration,
         paused: paused,
         muted: muted,

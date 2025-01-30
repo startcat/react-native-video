@@ -16,6 +16,7 @@ import {
     getBestManifest,
     getSourceMessageForCast,
     getDRM,
+    subtractMinutesFromDate
 } from '../../utils';
 
 import {
@@ -61,6 +62,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
+    const [dvrDate, setDvrDate] = useState<Date | null>(null);
     const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(true);
@@ -97,6 +99,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             description:props.description,
             currentTime: currentTime,
             dvrTimeValue: dvrTimeValue,
+            dvrDate: dvrDate,
             duration: duration,
             paused: paused,
             muted: muted,
@@ -421,13 +424,57 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     const onSlidingStart = (value: number) => {
 
+        let secondsToLive,
+            date;
+
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+            setDvrDate(date);
+
+        }
+
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
+
     }
 
     const onSlidingMove = (value: number) => {
 
+        let secondsToLive,
+            date;
+
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+            setDvrDate(date);
+
+        }
+
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
+
     }
 
     const onSlidingComplete = (value: number) => {
+
+        let secondsToLive,
+            date;
+
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+            setDvrDate(date);
+
+        } else {
+            setDvrDate(null);
+        }
+
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
 
     }
 
