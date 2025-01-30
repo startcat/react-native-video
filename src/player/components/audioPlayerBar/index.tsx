@@ -258,6 +258,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         multiSession={dpoData.multiSession}
                         isLive={dpoData.isLive}
                         showExternalTudum={dpoData.showExternalTudum}
+                        forcedDvrWindowMinutes={dpoData.forcedDvrWindowMinutes}
                         // liveStartDate={props.liveStartDate}
 
                         currentTime={currentTime.current}
@@ -309,6 +310,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         muted={isMuted.current}
                         
                         isLive={dpoData.isLive}
+                        forcedDvrWindowMinutes={dpoData.forcedDvrWindowMinutes}
                         // liveStartDate={props.liveStartDate}
 
                         currentTime={currentTime.current}

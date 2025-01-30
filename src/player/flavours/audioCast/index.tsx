@@ -132,7 +132,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
         if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
             isDVR.current = true;
-            dvrWindowSeconds.current = currentManifest.current?.dvr_window_minutes * 60;
+            dvrWindowSeconds.current = props.forcedDvrWindowMinutes ? props.forcedDvrWindowMinutes * 60 : currentManifest.current?.dvr_window_minutes * 60;
             setDvrTimeValue(dvrWindowSeconds.current);
         }
 
