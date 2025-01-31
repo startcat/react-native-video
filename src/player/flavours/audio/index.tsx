@@ -60,7 +60,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
-    const [dvrDate, setDvrDate] = useState<Date | null>(null);
     const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(false);
@@ -115,7 +114,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             description:props.description,
             currentTime: currentTime,
             dvrTimeValue: dvrTimeValue,
-            dvrDate: dvrDate,
             duration: duration,
             paused: paused,
             muted: muted,
@@ -448,7 +446,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (dvrTimeValue){
             secondsToLive = dvrTimeValue - value;
             date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-            setDvrDate(date);
 
         }
 
@@ -466,7 +463,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (dvrTimeValue){
             secondsToLive = dvrTimeValue - value;
             date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-            setDvrDate(date);
 
         }
 
@@ -484,10 +480,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (dvrTimeValue){
             secondsToLive = dvrTimeValue - value;
             date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-            setDvrDate(date);
 
-        } else {
-            setDvrDate(null);
         }
 
         if (props.onDVRChange){
@@ -501,7 +494,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         description: props.description,
         currentTime: currentTime,
         dvrTimeValue: dvrTimeValue,
-        dvrDate: dvrDate,
         duration: duration,
         paused: paused,
         muted: muted,

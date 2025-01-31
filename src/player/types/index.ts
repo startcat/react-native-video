@@ -506,7 +506,6 @@ export interface AudioControlsProps {
     description?:string;
     currentTime?: number;
     dvrTimeValue?: number;
-    dvrDate?: Date | null;
     duration?: number;
     paused?: boolean;
     muted?: boolean;
