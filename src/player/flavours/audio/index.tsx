@@ -162,7 +162,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         // Preparamos la URI del contenido
-        if (props.playOffline && isDownloaded.current && isBinary.current){
+        if (isDownloaded.current && isBinary.current){
             const offlineBinary = getContentById(props.id!);
             console.log(`[Player] (Audio Flavour) isDownloaded && isBinary`);
 
