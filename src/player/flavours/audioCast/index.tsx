@@ -62,7 +62,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
-    const [dvrDate, setDvrDate] = useState<Date | null>(null);
     const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(true);
@@ -99,7 +98,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             description:props.description,
             currentTime: currentTime,
             dvrTimeValue: dvrTimeValue,
-            dvrDate: dvrDate,
             duration: duration,
             paused: paused,
             muted: muted,
@@ -441,7 +439,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         if (dvrTimeValue){
             secondsToLive = dvrTimeValue - value;
             date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-            setDvrDate(date);
 
         }
 
@@ -459,7 +456,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         if (dvrTimeValue){
             secondsToLive = dvrTimeValue - value;
             date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-            setDvrDate(date);
 
         }
 
@@ -477,10 +473,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         if (dvrTimeValue){
             secondsToLive = dvrTimeValue - value;
             date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-            setDvrDate(date);
 
-        } else {
-            setDvrDate(null);
         }
 
         if (props.onDVRChange){
