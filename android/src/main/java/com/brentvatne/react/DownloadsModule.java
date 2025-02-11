@@ -41,6 +41,7 @@ import androidx.media3.exoplayer.offline.Download;
 import androidx.media3.exoplayer.offline.DownloadHelper;
 import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.exoplayer.offline.DownloadService;
+import androidx.media3.exoplayer.offline.DownloadManager;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.exoplayer.source.TrackGroupArray;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
@@ -222,13 +223,19 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
         Log.d(TAG, "+++ [Downloads] start isOnJSQueueThread " + this.reactContext.isOnJSQueueThread());
         Log.d(TAG, "+++ [Downloads] start isOnUiQueueThread " + this.reactContext.isOnUiQueueThread());
 
-        try {
-            DownloadService.start(this.reactContext, AxDownloadService.class);
-            DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+        DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
 
-        } catch (IllegalStateException e) {
-            DownloadService.startForeground(this.reactContext, AxDownloadService.class);
-            DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
+        if (manager != null){
+
+            try {
+                DownloadService.start(this.reactContext, AxDownloadService.class);
+                DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+
+            } catch (IllegalStateException e) {
+                DownloadService.startForeground(this.reactContext, AxDownloadService.class);
+                DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
+
+            }
 
         }
 
@@ -240,7 +247,9 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     public void pauseAll(final Promise promise) {
         Log.d(TAG, "+++ [Downloads] pauseAll");
 
-        if (this.reactContext != null){
+        DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
+
+        if (this.reactContext != null && manager != null){
             try {
                 DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
                 promise.resolve(null);
@@ -261,7 +270,9 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     public void resumeAll(final Promise promise) {
         Log.d(TAG, "+++ [Downloads] resumeAll");
 
-        if (this.reactContext != null){
+        DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
+
+        if (this.reactContext != null && manager != null){
             try {
                 DownloadService.sendResumeDownloads(this.reactContext, AxDownloadService.class, false);
                 promise.resolve(null);
@@ -292,23 +303,28 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
 
         WritableMap result = Arguments.createMap();
         WritableArray array = Arguments.createArray();
-        List<Download> downloads = AxOfflineManager.getInstance().getDownloadManager().getCurrentDownloads();
 
-        for (Download downloadItem:downloads){
-            WritableMap item = Arguments.createMap();
+        DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
 
-            long length = downloadItem.contentLength;
+        if (manager != null) {
+            List<Download> downloads = manager.getCurrentDownloads();
 
-            item.putString("id", downloadItem.request.id.toString());
-            item.putString("uri", downloadItem.request.uri.toString());
-            item.putString("state", getDownloadStateAsString(downloadItem.state));
-            item.putDouble("length", (double)downloadItem.contentLength);
-            item.putInt("percent", (int)downloadItem.getPercentDownloaded());
+            for (Download downloadItem:downloads){
+                WritableMap item = Arguments.createMap();
 
-            array.pushMap(item);
+                long length = downloadItem.contentLength;
+
+                item.putString("id", downloadItem.request.id.toString());
+                item.putString("uri", downloadItem.request.uri.toString());
+                item.putString("state", getDownloadStateAsString(downloadItem.state));
+                item.putDouble("length", (double)downloadItem.contentLength);
+                item.putInt("percent", (int)downloadItem.getPercentDownloaded());
+
+                array.pushMap(item);
+            }
+
+            result.putArray("downloads", array);
         }
-
-        result.putArray("downloads", array);
 
         promise.resolve(result);
     }
