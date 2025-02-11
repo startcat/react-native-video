@@ -43,6 +43,25 @@ public class AxDownloadService extends DownloadService {
             0);
     }
 
+    public static boolean isAppInForeground(Context context) {
+        
+        ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        if (activityManager == null) return false;
+
+        List<ActivityManager.RunningAppProcessInfo> processes = activityManager.getRunningAppProcesses();
+        if (processes == null) return false;
+
+        for (ActivityManager.RunningAppProcessInfo process : processes) {
+            if (process.processName.equals(context.getPackageName()) &&
+                process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                return true;
+            }
+        }
+
+        return false;
+
+    }
+
     private void init(){
 
         Log.d("Downloads", "+++ [AxDownloadService] init");
@@ -61,6 +80,9 @@ public class AxDownloadService extends DownloadService {
         super.onCreate();
         mContext = getApplicationContext();
         init();
+
+        Notification notification = getForegroundNotification(getDownloadManager().getCurrentDownloads(), 0);
+        startForeground(FOREGROUND_NOTIFICATION_ID, notification);
 
     }
 
