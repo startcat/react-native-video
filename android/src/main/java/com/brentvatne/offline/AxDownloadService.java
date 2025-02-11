@@ -62,9 +62,6 @@ public class AxDownloadService extends DownloadService {
         mContext = getApplicationContext();
         init();
 
-        Notification notification = getForegroundNotification(getDownloadManager().getCurrentDownloads(), 0);
-        startForeground(FOREGROUND_NOTIFICATION_ID, notification);
-
     }
 
     @NonNull
