@@ -415,7 +415,9 @@ public class ReactExoplayerView extends FrameLayout implements
     @Override
     protected void onDetachedFromWindow() {
         DebugLog.d(TAG, "ReactExoplayerView onDetachedFromWindow");
-        cleanupPlaybackService();
+        if (!playInBackground || !isInBackground) {
+            cleanupPlaybackService();
+        }
         super.onDetachedFromWindow();
     }
 
@@ -1459,8 +1461,8 @@ public class ReactExoplayerView extends FrameLayout implements
             if (adsLoader != null) {
                 adsLoader.setPlayer(null);
             }
-
-            if(playbackServiceBinder != null) {
+ 
+            if(playbackServiceBinder != null && (!playInBackground || !isInBackground)) {
                 playbackServiceBinder.getService().unregisterPlayer(player);
                 themedReactContext.unbindService(playbackServiceConnection);
             }
