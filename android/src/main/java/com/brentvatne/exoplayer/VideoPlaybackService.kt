@@ -65,6 +65,7 @@ class VideoPlaybackService : MediaSessionService() {
 
         mediaSessionsList[player] = mediaSession
         addSession(mediaSession)
+
         startForeground(mediaSession.player.hashCode(), buildNotification(mediaSession))
     }
 
@@ -79,6 +80,23 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     // Callbacks
+
+    override fun onCreate() {
+        super.onCreate()
+
+        val notificationManager: NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.createNotificationChannel(
+                NotificationChannel(
+                    NOTIFICATION_CHANEL_ID,
+                    NOTIFICATION_CHANEL_ID,
+                    NotificationManager.IMPORTANCE_LOW
+                )
+            )
+        }
+
+        startForeground(1, createDefaultNotification())
+    }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = null
 
@@ -103,6 +121,14 @@ class VideoPlaybackService : MediaSessionService() {
             notificationManager.deleteNotificationChannel(NOTIFICATION_CHANEL_ID)
         }
         super.onDestroy()
+    }
+
+    private fun createDefaultNotification(): Notification {
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANEL_ID)
+            .setContentTitle("Reproduciendo...")
+            .setSmallIcon(R.drawable.ic_play)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
     }
 
     private fun createSessionNotification(session: MediaSession) {
@@ -227,6 +253,7 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForeground(1, createDefaultNotification())
         intent?.let {
             val playerId = it.getIntExtra("PLAYER_ID", -1)
             val actionCommand = it.getStringExtra("ACTION")
