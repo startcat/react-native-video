@@ -65,7 +65,9 @@ const addLiveTimestamp = (uri: string, subtractMinutes: number): string => {
 
         // Redondeamos hacia abajo para que todas las peticiones en intervalos de 1h, usen el mismo querystring
         fromDate.setMinutes(fromDate.getMinutes() - (fromDate.getMinutes() % 60));
-
+        fromDate.setMilliseconds(0);
+        fromDate.setSeconds(0);
+        
         log(`DVR fromDate after 60 min round ${fromDate.toLocaleTimeString()}`);
 
     }
