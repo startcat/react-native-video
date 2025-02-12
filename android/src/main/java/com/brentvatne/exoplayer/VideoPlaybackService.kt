@@ -70,6 +70,7 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     fun unregisterPlayer(player: ExoPlayer) {
+        DebugLog.d(TAG, "VideoPlaybackService unregisterPlayer")
         hidePlayerNotification(player)
         val session = mediaSessionsList.remove(player)
         session?.release()
@@ -115,6 +116,7 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        DebugLog.d(TAG, "VideoPlaybackService onDestroy")
         cleanup()
         val notificationManager: NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -124,6 +126,7 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     private fun createDefaultNotification(): Notification {
+        DebugLog.d(TAG, "VideoPlaybackService createDefaultNotification")
         return NotificationCompat.Builder(this, NOTIFICATION_CHANEL_ID)
             .setContentTitle("Reproduciendo...")
             .setSmallIcon(R.drawable.ic_play)
@@ -235,16 +238,19 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     private fun hidePlayerNotification(player: ExoPlayer) {
+        DebugLog.d(TAG, "VideoPlaybackService hidePlayerNotification")
         val notificationManager: NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(player.hashCode())
     }
 
     private fun hideAllNotifications() {
+        DebugLog.d(TAG, "VideoPlaybackService hideAllNotifications")
         val notificationManager: NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancelAll()
     }
 
     private fun cleanup() {
+        DebugLog.d(TAG, "VideoPlaybackService cleanup")
         hideAllNotifications()
         mediaSessionsList.forEach { (_, session) ->
             session.release()

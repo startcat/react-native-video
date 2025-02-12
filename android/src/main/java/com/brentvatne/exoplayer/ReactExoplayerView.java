@@ -408,16 +408,19 @@ public class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onHostDestroy() {
+        DebugLog.d(TAG, "ReactExoplayerView onHostDestroy");
         cleanUpResources();
     }
 
     @Override
     protected void onDetachedFromWindow() {
+        DebugLog.d(TAG, "ReactExoplayerView onDetachedFromWindow");
         cleanupPlaybackService();
         super.onDetachedFromWindow();
     }
 
     public void cleanUpResources() {
+        DebugLog.d(TAG, "ReactExoplayerView cleanUpResources");
         stopPlayback();
         themedReactContext.removeLifecycleEventListener(this);
         releasePlayer();
@@ -1185,6 +1188,7 @@ public class ReactExoplayerView extends FrameLayout implements
     }
 
     private void cleanupPlaybackService() {
+        DebugLog.d(TAG, "ReactExoplayerView cleanupPlaybackService");
         try {
             if(player != null && playbackServiceBinder != null) {
                 playbackServiceBinder.getService().unregisterPlayer(player);
