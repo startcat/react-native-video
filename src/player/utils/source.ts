@@ -61,6 +61,9 @@ const addLiveTimestamp = (uri: string, subtractMinutes: number): string => {
     if (subtractMinutes){
         fromDate = subtractMinutesFromDate(fromDate, subtractMinutes);
 
+        // Redondeamos hacia abajo para que todas las peticiones en intervalos de 1h, usen el mismo querystring
+        fromDate = new Date(fromDate.setMinutes(fromDate.getMinutes() - (fromDate.getMinutes() % 60)));
+
     }
 
     const timestamp = Math.floor(fromDate.getTime() / 1000);
