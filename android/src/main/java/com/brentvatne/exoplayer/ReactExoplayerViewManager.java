@@ -155,6 +155,8 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         // Youbora
         videoView.stopYouboraAdapter();
 
+        DebugLog.d(TAG, "ReactExoplayerViewManager setSrc: " + source.getUri());
+
         if (source.getUri() == null) {
             videoView.clearSrc();
         } else {

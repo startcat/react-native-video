@@ -535,6 +535,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             playOffline={props.playOffline}
                             multiSession={props.multiSession}
 
+                            disableDisconnectError={true}
+                            debug={{
+                                enable: true,
+                                thread: true,
+                            }}
+
                             adTagUrl={props?.adTagUrl}
                             allowsExternalPlayback={true}
                             //volume={10}
