@@ -128,7 +128,9 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
     });
 
     if (loadedData.textTracks){
-        loadedData.textTracks.forEach(item => {
+        loadedData.textTracks.filter(item => {
+            return item.language || item.title
+        }).forEach(item => {
 
             menuData.push({
                 type: PLAYER_MENU_DATA_TYPE.TEXT,
