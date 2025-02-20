@@ -11,9 +11,11 @@ import { styles } from './styles';
 import { 
     type AudioPlayerProps,
     type AudioPlayerEventProps,
+    type AudioPlayerActionEventProps,
     type AudioPlayerContentsDpo,
     type IAudioPlayerContent,
     type ICommonData,
+    CONTROL_ACTION,
 } from '../../types';
 
 const PLAYER_MAX_HEIGHT = 80;
@@ -72,12 +74,34 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             
         });
 
+
+        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
+            
+            if (data.action === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
+
+                currentTime.current = 0;
+                setDpoData(null);
+                setContentId({
+                    current: null,
+                    next: null
+                });
+
+                hidePlayer();
+                
+            }
+            
+        });
+
         return (() => {
 
             console.log(`[Audio Player Bar] Unmounted`);
 
             if (typeof(changesAudioPlayerListener) === 'string'){
                 EventRegister.removeEventListener(changesAudioPlayerListener);
+            }
+
+            if (typeof(actionsAudioPlayerListener) === 'string'){
+                EventRegister.removeEventListener(actionsAudioPlayerListener);
             }
 
         });
