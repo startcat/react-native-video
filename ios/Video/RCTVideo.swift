@@ -395,18 +395,18 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     func preparePlayerItem() async throws -> AVPlayerItem {
         guard let source = _source else {
-            DebugLog("The source not exist")
+            DebugLog("The source does not exist")
             isSetSourceOngoing = false
             applyNextSource()
-            throw NSError(domain: "", code: 0, userInfo: nil)
+            throw VideoError.sourceNotFound
         }
 
         // Perform on next run loop, otherwise onVideoLoadStart is nil
         onVideoLoadStart?([
             "src": [
-                "uri": _source?.uri ?? NSNull(),
-                "type": _source?.type ?? NSNull(),
-                "isNetwork": NSNumber(value: _source?.isNetwork ?? false),
+                "uri": source.uri as Any,
+                "type": source.type as Any,
+                "isNetwork": source.isNetwork,
             ],
             "drm": _drm?.json ?? NSNull(),
             "target": reactTag,
@@ -414,35 +414,26 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
         if let uri = source.uri, uri.starts(with: "ph://") {
             let photoAsset = await RCTVideoUtils.preparePHAsset(uri: uri)
-            return await playerItemPrepareText(asset: photoAsset, assetOptions: nil, uri: source.uri ?? "")
+            return await playerItemPrepareText(asset: photoAsset, assetOptions: nil, uri: uri)
         }
 
         guard let assetResult = RCTVideoUtils.prepareAsset(source: source),
-              let asset = assetResult.asset,
-              let assetOptions = assetResult.assetOptions else {
-            DebugLog("Could not find video URL in source '\(String(describing: _source))'")
+            let asset = assetResult.asset,
+            let assetOptions = assetResult.assetOptions else {
+            DebugLog("Could not find video URL in source '\(source)'")
             isSetSourceOngoing = false
             applyNextSource()
-            throw NSError(domain: "", code: 0, userInfo: nil)
+            throw VideoError.invalidAsset
         }
 
-        guard let assetResult = RCTVideoUtils.prepareAsset(source: source),
-              let asset = assetResult.asset,
-              let assetOptions = assetResult.assetOptions else {
-            DebugLog("Could not find video URL in source '\(String(describing: _source))'")
-            isSetSourceOngoing = false
-            applyNextSource()
-            throw NSError(domain: "", code: 0, userInfo: nil)
-        }
-
-        if let startPosition = _source?.startPosition {
+        if let startPosition = source.startPosition {
             _startPosition = startPosition / 1000
         }
 
         #if USE_VIDEO_CACHING
-            if _videoCache.shouldCache(source: source, textTracks: _textTracks) {
-                return try await _videoCache.playerItemForSourceUsingCache(uri: source.uri, assetOptions: assetOptions)
-            }
+        if _videoCache.shouldCache(source: source, textTracks: _textTracks) {
+            return try await _videoCache.playerItemForSourceUsingCache(uri: source.uri, assetOptions: assetOptions)
+        }
         #endif
 
         if _drm != nil || _localSourceEncryptionKeyScheme != nil {
@@ -456,62 +447,41 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             )
         }
 
-        /*
-            Begin Modification
-            DANI: Offline
-         */
-
-        let isProtectedPlayback = self._drm != nil
-      
-        var localAsset: Asset
-
-        // Using downloaded asset, if exists
-        if (self._playOffline == true){
-          
-            if let downloadedAsset = downloader.downloadedAsset(withName: (self._source?.title)!) {
-                RCTLog("OFFLINE PLAYBACK")
-                RCTLog("Using AVURLAsset from \(String(describing: downloadedAsset.urlAsset?.url))")
-              
-                // Creting Content Key Session
-                ContentKeyManager.sharedManager.createContentKeySession()
-                ContentKeyManager.sharedManager.downloadRequestedByUser = true
-              
-                localAsset = downloadedAsset
+        if _playOffline == true,
+        let title = source.title,
+        let downloadedAsset = downloader.downloadedAsset(withName: title) {
+            
+            RCTLog("OFFLINE PLAYBACK")
+            RCTLog("Using AVURLAsset from \(String(describing: downloadedAsset.urlAsset?.url))")
+            
+            ContentKeyManager.sharedManager.createContentKeySession()
+            ContentKeyManager.sharedManager.downloadRequestedByUser = true
+            
+            let localAsset = downloadedAsset
+            localAsset.createUrlAsset()
+            
+            if _drm != nil {
+                localAsset.addAsContentKeyRecipient()
                 
-                // Using different AVURLAsset to allow simultaneous playback and download
-                localAsset.createUrlAsset()
-              
-                if (isProtectedPlayback) {
-                    // Making the asset a Content Key Session recepient
-                    localAsset.addAsContentKeyRecipient()
-                  
-                    // Licensing Service Url
-                    ContentKeyManager.sharedManager.licensingServiceUrl = (self._drm?.licenseServer)!
-                    
-                    // Licensing Token
+                if let licenseServer = _drm?.licenseServer,
+                let certificateUrl = _drm?.certificateUrl {
+                    ContentKeyManager.sharedManager.licensingServiceUrl = licenseServer
                     ContentKeyManager.sharedManager.licensingToken = ""
-                    
-                    // Certificate Url
-                    ContentKeyManager.sharedManager.fpsCertificateUrl = (self._drm?.certificateUrl)!
-                  
-                    // Assigning chosen asset to Content Key Session manager
-                    // Is used to request Persistable Content Keys and writing them to disk
+                    ContentKeyManager.sharedManager.fpsCertificateUrl = certificateUrl
                     ContentKeyManager.sharedManager.asset = localAsset
                     ContentKeyManager.sharedManager.requestPersistableContentKeys(forAsset: localAsset)
-                  
                 }
-            
-                return AVPlayerItem(asset: localAsset.urlAsset)
-              
             }
-          
+            
+            return AVPlayerItem(asset: localAsset.urlAsset)
         }
 
-        /*
-            End
-        */
-
         return await playerItemPrepareText(asset: asset, assetOptions: assetOptions, uri: source.uri ?? "")
+    }
+
+    enum VideoError: Error {
+        case sourceNotFound
+        case invalidAsset
     }
 
     func setupPlayer(playerItem: AVPlayerItem) async throws {
