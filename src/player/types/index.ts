@@ -264,7 +264,10 @@ export interface AudioPlayerEventProps {
         station?: number;
         media_type: MEDIA_TYPE,
     },
+    // Pensado para los falsos media (streams de directo cortados para simular un media)
     epgEntry?: any;
+    // Campo extraData para incluir cosas que podamos necesitar según proyecto
+    extraData?: any;
 }
 
 export interface AudioPlayerActionEventProps {
