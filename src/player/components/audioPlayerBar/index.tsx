@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useRef, createElement } from 'react';
-import Animated, { withSpring, withTiming, useSharedValue } from 'react-native-reanimated';
-import BackgroundTimer from 'react-native-background-timer';
-import { CastState, useCastState } from 'react-native-google-cast';
-import { EventRegister } from 'react-native-event-listeners';
-import { View } from 'react-native';
 import { Spinner } from '@ui-kitten/components';
-import { AudioFlavour, AudioCastFlavour } from '../../flavours';
+import React, { createElement, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
+import BackgroundTimer from 'react-native-background-timer';
+import { EventRegister } from 'react-native-event-listeners';
+import { CastState, useCastState } from 'react-native-google-cast';
+import Animated, { useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { AudioCastFlavour, AudioFlavour } from '../../flavours';
 import { styles } from './styles';
 
-import { 
-    type AudioPlayerProps,
-    type AudioPlayerEventProps,
+import {
     type AudioPlayerActionEventProps,
     type AudioPlayerContentsDpo,
+    type AudioPlayerEventProps,
+    type AudioPlayerProps,
     type IAudioPlayerContent,
     type ICommonData,
     CONTROL_ACTION,
@@ -30,7 +30,7 @@ const PLAYER_MAX_HEIGHT = 80;
 
 export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null {
 
-    const playerMaxHeight = useRef<number>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
+    const playerMaxHeight = useRef<number | string>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
     const audioPlayerHeight = useSharedValue(0);
 
     const hasBeenLoaded = useRef<boolean>(false);
@@ -53,7 +53,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         const changesAudioPlayerListener = EventRegister.addEventListener('audioPlayer', (data: AudioPlayerEventProps) => {
 
-            if (audioPlayerHeight?.value < playerMaxHeight.current){
+            if ((typeof(playerMaxHeight.current) === 'number' && audioPlayerHeight?.value < playerMaxHeight.current) || playerMaxHeight.current === 'auto'){
                 // Desplegamos el player en formato de barra inferior
                 setContentId({
                     current: data
