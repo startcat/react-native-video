@@ -3,6 +3,7 @@ import { FunctionComponent } from 'react';
 export enum STREAM_FORMAT_TYPE {
 	DASH = 'dash',
 	HLS = 'hls',
+    MP3 = 'mp3'
 }
 
 export enum STREAM_TYPE {
