@@ -379,6 +379,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             if (isDVR.current){
                 setDuration(dvrWindowSeconds.current);
 
+                if (props?.isLive && props?.onChangeCommonData){
+                    props.onChangeCommonData({
+                        duration: dvrWindowSeconds.current
+                    });
+                }
+
             } else if (typeof(e.duration) === 'number' && e.duration && duration !== e.duration){
                 setDuration(e.duration);
 
@@ -432,7 +438,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             setCurrentTimeWithValidation(e.currentTime);
         }
 
-        if (!props?.isLive && props?.onChangeCommonData){
+        if (props?.onChangeCommonData){
             props.onChangeCommonData({
                 time: e.currentTime
             });
