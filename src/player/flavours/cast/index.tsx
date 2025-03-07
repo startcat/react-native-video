@@ -356,7 +356,11 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 setMuted(!!value);
             }
 
-            invokePlayerAction(castClient, castSession, id, value, currentTime, props?.isLive, menuData);
+            if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
+                invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, props.onSeekOverEpg(), currentTime, props?.isLive, menuData);
+            } else {
+                invokePlayerAction(castClient, castSession, id, value, currentTime, props?.isLive, menuData);
+            }
 
         }
 

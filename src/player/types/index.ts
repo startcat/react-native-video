@@ -60,6 +60,7 @@ export enum CONTROL_ACTION {
     BACKWARD = 'backward',
     FORWARD = 'forward',
     SEEK = 'seek',
+    SEEK_OVER_EPG = 'seekOverEpg',
     VIDEO_INDEX = 'videoIndex',
     AUDIO_INDEX = 'audioIndex',
     SUBTITLE_INDEX = 'subtitleIndex',
@@ -734,6 +735,7 @@ export interface NormalFlavourProps {
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
+    onSeekOverEpg?: () => number | null;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
     onEnd?: () => void;
@@ -789,6 +791,7 @@ export interface CastFlavourProps {
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
+    onSeekOverEpg?: () => number | null;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
     onEnd?: () => void;
@@ -850,6 +853,7 @@ export interface PlayerProps {
     onChangeAudioIndex?: (index: number, label?: string) => void;
     onChangeSubtitleIndex?: (index: number, label?: string) => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
+    onSeekOverEpg?: () => number | null;
 }
 
 export interface AudioPlayerContentsDpo {
