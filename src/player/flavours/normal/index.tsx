@@ -332,6 +332,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             invokePlayerAction(refVideoPlayer, id, value, currentTime);
         }
 
+        if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, props.onSeekOverEpg(), currentTime);
+        }
+
         // Actions to be saved between flavours
         if (COMMON_DATA_FIELDS.includes(id) && props?.onChangeCommonData){
             let data:ICommonData = {};
@@ -427,11 +431,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             setCurrentTimeWithValidation(e.currentTime);
         }
-
-        // Calculamos la ventana de tiempo disponible en los directos ocasionales, según avanza el tiempo
-        // if (typeof(dvrWindowSeconds.current) === 'number' && dvrWindowSeconds.current > 0 && start_date){
-
-        // }
 
         if (!props?.isLive && props?.onChangeCommonData){
             props.onChangeCommonData({

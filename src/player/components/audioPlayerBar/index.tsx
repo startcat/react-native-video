@@ -176,6 +176,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     }, [dpoData?.id]);
 
     const showPlayer = () => {
+        // @ts-ignore
         audioPlayerHeight.value = withSpring(playerMaxHeight.current, {
             duration: 800
         });
