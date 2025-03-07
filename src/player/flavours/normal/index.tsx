@@ -333,7 +333,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, props.onSeekOverEpg(), currentTime);
+            const overEpgValue = props.onSeekOverEpg();
+            setDvrTimeValue(overEpgValue!);
+            onChangeDvrTimeValue(overEpgValue!);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, overEpgValue, currentTime);
         }
 
         // Actions to be saved between flavours
