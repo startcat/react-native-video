@@ -138,17 +138,21 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
     const changeCommonData = (data: ICommonData) => {
 
-        if (data?.time){
+        if (data?.time !== undefined){
             currentTime.current = data.time;
         }
 
-        if (data?.duration){
+        if (data?.duration !== undefined){
             duration.current = data.duration;
 
             if (!hasBeenLoaded.current){
                 hasBeenLoaded.current = true;
             }
 
+        }
+
+        if ((data?.time !== undefined || data?.duration !== undefined) && props.onProgress){
+            props.onProgress(currentTime.current, duration.current);
         }
 
         if (data?.paused !== undefined){

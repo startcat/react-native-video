@@ -844,7 +844,7 @@ export interface PlayerProps {
     // Events
     onError?: () => void;
     onNext?: () => void;
-    onProgress?: (value: number) => void;
+    onProgress?: (value: number, duration?: number) => void;
     onExit?: () => void;
     onEnd?: () => void;
     onChangeAudioIndex?: (index: number, label?: string) => void;
@@ -883,7 +883,6 @@ export interface AudioPlayerContentsDpo {
 
     // Events
     onError?: () => void;
-    onProgress?: (value: number) => void;
     onExit?: () => void;
     onNext?: () => void;
     onPrevious?: () => void;
