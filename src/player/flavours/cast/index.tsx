@@ -246,8 +246,20 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             if (isDVR.current){
                 setDuration(dvrWindowSeconds.current);
 
+                if (props?.isLive && props?.onChangeCommonData){
+                    props.onChangeCommonData({
+                        duration: dvrWindowSeconds.current
+                    });
+                }
+
             } else if (typeof(castMediaStatus?.mediaInfo?.streamDuration) === 'number' && castMediaStatus?.mediaInfo?.streamDuration){
                 setDuration(castMediaStatus?.mediaInfo?.streamDuration);
+
+                if (!props?.isLive && props?.onChangeCommonData){
+                    props.onChangeCommonData({
+                        duration: castMediaStatus?.mediaInfo?.streamDuration
+                    });
+                }
 
             }
 
@@ -280,7 +292,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         if (typeof(castStreamPosition) === 'number' && currentTime !== castStreamPosition){
             setCurrentTimeWithValidation(castStreamPosition);
 
-            if (!props?.isLive && props?.onChangeCommonData){
+            if (props?.onChangeCommonData){
                 props.onChangeCommonData({
                     time: castStreamPosition
                 });
