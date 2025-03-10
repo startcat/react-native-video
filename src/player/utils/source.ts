@@ -163,7 +163,15 @@ export const getVideoSourceUri = (manifest: IManifest, dvrWindowMinutes?: number
         hasEndParam = !!params.end;
 
         if (hasStartParam && hasEndParam && params.start === params.end){
-            delete params.end;
+            
+            if (typeof(dvrWindowMinutes) === 'number'){
+                // @ts-ignore
+                params.end = parseInt(params.start, 10) + (dvrWindowMinutes * 60);
+
+            } else {
+                delete params.end;
+
+            }
 
             const newQueryString = qs.stringify(params, { addQueryPrefix: true });
             uri = uri.split("?")[0] + newQueryString;
