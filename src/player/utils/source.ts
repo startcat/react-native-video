@@ -6,6 +6,8 @@ import {
     DRM_TYPE 
 } from '../types';
 
+import qs from 'qs';
+
 const LOG_ENABLED = true;
 const LOG_KEY = '[Video Player Source]';
 
@@ -149,9 +151,27 @@ export const getManifestSourceType = (manifest: IManifest): string | undefined =
 
 export const getVideoSourceUri = (manifest: IManifest, dvrWindowMinutes?: number): string => {
 
-    let uri = getAbsoluteUri(manifest?.manifestURL);
+    let uri = getAbsoluteUri(manifest?.manifestURL),
+        hasStartParam = false,
+        hasEndParam = false;
 
-    if (typeof(dvrWindowMinutes) === 'number'){
+    if (typeof(uri) === 'string' && uri?.indexOf('?') > 0){
+        const queryString = uri.substring(uri.indexOf('?') + 1);
+        const params = qs.parse(queryString);
+
+        hasStartParam = !!params.start;
+        hasEndParam = !!params.end;
+
+        if (hasStartParam && hasEndParam && params.start === params.end){
+            delete params.end;
+
+            const newQueryString = qs.stringify(params, { addQueryPrefix: true });
+            uri = uri.split("?")[0] + newQueryString;
+        }
+
+    }
+    
+    if (typeof(dvrWindowMinutes) === 'number' && !hasStartParam){
         uri = addLiveTimestamp(uri, dvrWindowMinutes);
     }
 
