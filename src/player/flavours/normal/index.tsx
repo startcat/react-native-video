@@ -505,8 +505,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         let secondsToLive,
             date;
 
-        if (typeof(dvrTimeValue) === 'number' && dvrTimeValue >= 0){
-            secondsToLive = (dvrTimeValue > value) ? dvrTimeValue - value : 0;
+        if (typeof(duration) === 'number' && duration >= 0){
+            secondsToLive = (duration > value) ? duration - value : 0;
             date = (secondsToLive > 0) ? subtractMinutesFromDate(new Date(), secondsToLive / 60) : new Date();
 
         }        
