@@ -85,8 +85,9 @@ export const getSourceMessageForCast = (manifest: IManifest, drm?: IDrm, youbora
 
     message = {
         mediaInfo: {
-            contentId: addUriParam(getAbsoluteUri(manifest?.manifestURL), 'include_tudum=true'),
-            contentType: 'application/dash+xml',
+            contentId: getAbsoluteUri(manifest?.manifestURL),
+            // Evitamos indicar el mime type
+            //contentType: 'application/dash+xml',
             metadata: messageMetadata
         },
         customData: {
