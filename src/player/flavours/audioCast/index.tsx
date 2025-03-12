@@ -433,35 +433,35 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     const onSlidingStart = (value: number) => {
 
-        let secondsToLive,
-            date;
+        // let secondsToLive,
+        //     date;
 
-        if (dvrTimeValue){
-            secondsToLive = dvrTimeValue - value;
-            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+        // if (dvrTimeValue){
+        //     secondsToLive = dvrTimeValue - value;
+        //     date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
 
-        }
+        // }
 
-        if (props.onDVRChange){
-            props.onDVRChange(value, secondsToLive, date);
-        }
+        // if (props.onDVRChange){
+        //     props.onDVRChange(value, secondsToLive, date);
+        // }
 
     }
 
     const onSlidingMove = (value: number) => {
 
-        let secondsToLive,
-            date;
+        // let secondsToLive,
+        //     date;
 
-        if (dvrTimeValue){
-            secondsToLive = dvrTimeValue - value;
-            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+        // if (dvrTimeValue){
+        //     secondsToLive = dvrTimeValue - value;
+        //     date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
 
-        }
+        // }
 
-        if (props.onDVRChange){
-            props.onDVRChange(value, secondsToLive, date);
-        }
+        // if (props.onDVRChange){
+        //     props.onDVRChange(value, secondsToLive, date);
+        // }
 
     }
 
