@@ -1387,6 +1387,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             End
          */
 
+        let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
+
         if let player = _player {
             // DANI: Para seguir la reproducción en Airplay
 			if (!isExternalPlaybackActive){
