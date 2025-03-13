@@ -1388,8 +1388,11 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
          */
 
         if let player = _player {
-            player.pause()
-            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
+            // DANI: Para seguir la reproducción en Airplay
+			if (!isExternalPlaybackActive){
+				player.pause()
+				NowPlayingInfoCenterManager.shared.removePlayer(player: player)				
+			}
         }
 
         _player = nil
