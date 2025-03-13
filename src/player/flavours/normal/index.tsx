@@ -554,7 +554,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             controls={false}
                             ignoreSilentSwitch='ignore'
                             showNotificationControls={true}
-                            resizeMode='contain'
+                            resizeMode='cover'
+                            posterResizeMode='cover'
                             minLoadRetryCount={3}
                             hideShutterView={true}
                             muted={muted}
