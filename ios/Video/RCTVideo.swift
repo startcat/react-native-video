@@ -265,10 +265,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         self.removePlayerLayer()
         _playerObserver.clearPlayer()
 
-        if let player = _player {
-            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
-        }
-
         #if os(iOS)
             _pip = nil
         #endif
@@ -622,10 +618,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 self.isSetSourceOngoing = false
                 self.applyNextSource()
 
-                if let player = self._player {
-                    NowPlayingInfoCenterManager.shared.removePlayer(player: player)
-                }
-
                 DebugLog("setSrc Stopping playback")
                 return
             }
@@ -648,10 +640,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                         self.onVideoError?(["error": error.localizedDescription])
                         self.isSetSourceOngoing = false
                         self.applyNextSource()
-
-                        if let player = self._player {
-                            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
-                        }
                     }
                 }
             }
@@ -1387,14 +1375,28 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             End
          */
 
-        let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
-
         if let player = _player {
-            // DANI: Para seguir la reproducción en Airplay
-			if (!isExternalPlaybackActive){
-				player.pause()
-				NowPlayingInfoCenterManager.shared.removePlayer(player: player)				
-			}
+            // Detect if we're using AirPlay
+            let isExternalPlaybackActive = player.isExternalPlaybackActive
+            
+            // Completely stop the player and AirPlay session
+            player.pause()
+            
+            // Force disconnect from AirPlay by setting player to nil for AVPlayerLayer
+            if isExternalPlaybackActive {
+                // Stop showing content on external screen
+                if #available(iOS 11.0, *) {
+                    // Set allowsExternalPlayback to false to disconnect from AirPlay
+                    player.allowsExternalPlayback = false
+                    
+                    // Force audio session to route audio back to the device
+                    try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
+                    try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                }
+            }
+            
+            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
         }
 
         _player = nil
