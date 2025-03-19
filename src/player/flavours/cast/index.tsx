@@ -515,6 +515,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 controlsMiddleBar={props.controlsMiddleBar}
                 controlsBottomBar={props.controlsBottomBar}
                 nextButton={props.nextButton}
+                liveButton={props.liveButton}
                 skipIntroButton={props.skipIntroButton}
                 skipRecapButton={props.skipRecapButton}
                 skipCreditsButton={props.skipCreditsButton}

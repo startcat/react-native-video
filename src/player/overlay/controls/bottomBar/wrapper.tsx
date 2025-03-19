@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, createElement } from 'react';
 import { View } from 'react-native';
 import { Button, LiveButton } from '../buttons';
 import { Text } from '@ui-kitten/components';
@@ -38,6 +38,16 @@ export function ControlsBottomBar (props: ControlsBarProps): React.ReactElement 
         setCurrentVolume(props?.volume);
 
     }, [props?.volume]);
+
+    const LiveButtonProp = props.liveButton ? createElement(props.liveButton, { 
+        currentTime: props?.currentTime,
+        duration: props?.duration,
+        dvrTimeValue: props?.dvrTimeValue,
+        isDVR: isDVR.current,
+        disabled: !props.isContentLoaded,
+        onPress: props?.onPress
+
+    }) : null;
 
     const MenuButton = () => (
         <Button
@@ -89,6 +99,8 @@ export function ControlsBottomBar (props: ControlsBarProps): React.ReactElement 
         />
     );
 
+
+
     const RestartButton = () => (
         <Button
             id={CONTROL_ACTION.SEEK}
@@ -103,8 +115,14 @@ export function ControlsBottomBar (props: ControlsBarProps): React.ReactElement 
     return (
         <View style={styles.container}>
             <View style={styles.left}>
-                <MenuButton />
-                <SettingsMenuButton />
+                {
+                    !isLive.current &&
+                    <>
+                        <MenuButton />
+                        <SettingsMenuButton />
+                    </>
+                }
+
                 <MuteButton />
 
             </View>
@@ -132,16 +150,19 @@ export function ControlsBottomBar (props: ControlsBarProps): React.ReactElement 
                 }
 
                 {
-                    isLive.current ?
-                        <LiveButton 
-                            currentTime={props?.currentTime}
-                            duration={props?.duration}
-                            dvrTimeValue={props?.dvrTimeValue}
-                            isDVR={isDVR.current}
-                            disabled={!props.isContentLoaded}
-                            onPress={props?.onPress} 
-                        />
-                    : null
+                    isLive.current && LiveButtonProp
+                }
+
+                {
+                    isLive.current && !LiveButtonProp &&
+                    <LiveButton 
+                        currentTime={props?.currentTime}
+                        duration={props?.duration}
+                        dvrTimeValue={props?.dvrTimeValue}
+                        isDVR={isDVR.current}
+                        disabled={!props.isContentLoaded}
+                        onPress={props?.onPress} 
+                    />
                 }
 
             </View>
