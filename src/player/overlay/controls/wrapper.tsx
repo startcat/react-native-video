@@ -144,6 +144,11 @@ export function Controls (props: ControlsProps): React.ReactElement {
                             isContentLoaded={props?.isContentLoaded}
                             hasNext={props?.hasNext}
                             volume={props?.volume}
+
+                            // Components
+                            liveButton={props?.liveButton}
+
+                            // Events
                             onPress={onPress}
                         />
                 }
