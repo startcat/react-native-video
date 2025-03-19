@@ -226,6 +226,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 controlsMiddleBar={props.controlsMiddleBar}
                 controlsBottomBar={props.controlsBottomBar}
                 nextButton={props.nextButton}
+                liveButton={props.liveButton}
                 skipIntroButton={props.skipIntroButton}
                 skipRecapButton={props.skipRecapButton}
                 skipCreditsButton={props.skipCreditsButton}
@@ -287,6 +288,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 controlsMiddleBar={props.controlsMiddleBar}
                 controlsBottomBar={props.controlsBottomBar}
                 nextButton={props.nextButton}
+                liveButton={props.liveButton}
                 skipIntroButton={props.skipIntroButton}
                 skipRecapButton={props.skipRecapButton}
                 skipCreditsButton={props.skipCreditsButton}

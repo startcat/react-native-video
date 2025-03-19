@@ -463,6 +463,7 @@ export interface ControlsBarProps {
     // Components
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    liveButton?: FunctionComponent<LiveButtonProps>;
 
     // Events
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
@@ -495,6 +496,7 @@ export interface ControlsProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    liveButton?: FunctionComponent<LiveButtonProps>;
     skipIntroButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipRecapButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipCreditsButton?: FunctionComponent<TimeMarkExternalButtonProps>;
@@ -565,6 +567,7 @@ export interface OverlayProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    liveButton?: FunctionComponent<LiveButtonProps>;
     skipIntroButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipRecapButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipCreditsButton?: FunctionComponent<TimeMarkExternalButtonProps>;
@@ -722,6 +725,7 @@ export interface NormalFlavourProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    liveButton?: FunctionComponent<LiveButtonProps>;
     skipIntroButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipRecapButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipCreditsButton?: FunctionComponent<TimeMarkExternalButtonProps>;
@@ -779,6 +783,7 @@ export interface CastFlavourProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    liveButton?: FunctionComponent<LiveButtonProps>;
     skipIntroButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipRecapButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipCreditsButton?: FunctionComponent<TimeMarkExternalButtonProps>;
@@ -832,6 +837,7 @@ export interface PlayerProps {
     controlsMiddleBar?: FunctionComponent<ControlsBarProps>;
     controlsHeaderBar?: FunctionComponent<ControlsBarProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
+    liveButton?: FunctionComponent<LiveButtonProps>;
     skipIntroButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipRecapButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipCreditsButton?: FunctionComponent<TimeMarkExternalButtonProps>;
