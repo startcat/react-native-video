@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Button } from '../button';
 import { AirplayButton as NativeAirplayButton, showRoutePicker } from 'react-airplay';
 import { COLOR } from '../../../../theme';
@@ -8,29 +8,42 @@ import {
     CONTROL_ACTION
 } from '../../../../types';
 
-export function AirplayButton (props: AirplayCastButtonProps): React.ReactElement {
-
-    const id = CONTROL_ACTION.AIRPLAY;
+const AirplayButton = ({ 
+    accessibilityLabel = 'Airplay', 
+    disabled = false
+}: AirplayCastButtonProps): React.ReactElement => {
+    const id = useMemo(() => CONTROL_ACTION.AIRPLAY, []);
     
-    const onPress = () => {
-        showRoutePicker({prioritizesVideoDevices: true});
+    const handlePress = useCallback(() => {
+        showRoutePicker({ prioritizesVideoDevices: true });
+    }, []);
 
-    };
+    const airplayButtonProps = useMemo(() => ({
+        prioritizesVideoDevices: true,
+        tintColor: 'white',
+        activeTintColor: COLOR.theme.main,
+        accessibilityRole: 'button' as const
+    }), []);
 
     return (
         <Button 
             id={id}
-            onPress={onPress} 
-            accessibilityLabel={props?.accessibilityLabel || 'Airplay'}
-            disabled={props.disabled}
+            onPress={handlePress} 
+            accessibilityLabel={accessibilityLabel}
+            disabled={disabled}
             size={BUTTON_SIZE.SMALL}
         >
-            <NativeAirplayButton
-                prioritizesVideoDevices={true}
-                tintColor={'white'}
-                activeTintColor={COLOR.theme.main}
-                accessibilityRole='button'
-            />
+            <NativeAirplayButton {...airplayButtonProps} />
         </Button>
     );
 };
+
+// Comparador personalizado para evitar renderizados innecesarios
+const arePropsEqual = (prevProps: AirplayCastButtonProps, nextProps: AirplayCastButtonProps): boolean => {
+    return (
+        prevProps.disabled === nextProps.disabled &&
+        prevProps.accessibilityLabel === nextProps.accessibilityLabel
+    );
+};
+
+export default React.memo(AirplayButton, arePropsEqual);

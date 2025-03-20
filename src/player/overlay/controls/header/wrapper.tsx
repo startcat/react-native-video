@@ -1,10 +1,12 @@
-import React, { useEffect, useState, createElement } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Platform, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Spinner } from '@ui-kitten/components';
-import { Button, AirplayButton, CastButton } from '../buttons';
+import { Button } from '../buttons';
+import AirplayButton from '../buttons/airplay';
+import CastButton from '../buttons/cast';
 import { 
     CONTROL_ACTION,
     BUTTON_SIZE,
@@ -14,33 +16,28 @@ import { styles } from './styles';
 
 const ANIMATION_SPEED = 150;
 
-export function ControlsHeaderBar (props: ControlsBarProps): React.ReactElement {
-
-    const [isPreloading, setIsPreloading] = useState<boolean>(!!props?.preloading);
-
+const ControlsHeaderBarBase = ({ 
+    preloading = false,
+    headerMetadata,
+    onPress
+}: ControlsBarProps): React.ReactElement => {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
 
-    useEffect(() => {
-        setIsPreloading(!!props?.preloading);
-
-    }, [props.preloading]);
-
-    const onBack = () => {
+    const handleBack = useCallback(() => {
         navigation.goBack();
+    }, [navigation]);
 
-    }
-
-    const BackButton = () => (
+    const BackButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.BACK}
             iconName='chevron-back-outline'
-            onPress={onBack}
+            onPress={handleBack}
             size={BUTTON_SIZE.SMALL}
         />
-    );
+    ), [handleBack]);
 
-    const Loader = () => (
+    const Loader = useMemo(() => (
         <Animated.View 
             style={styles.loader}
             entering={FadeIn.duration(ANIMATION_SPEED)}
@@ -48,48 +45,48 @@ export function ControlsHeaderBar (props: ControlsBarProps): React.ReactElement 
         >
             <Spinner />
         </Animated.View>
-    );
+    ), []);
 
-    const HeaderMetadata = props.headerMetadata ? createElement(props.headerMetadata, { 
-        onPress: props.onPress
+    const HeaderMetadataComponent = useMemo(() => 
+        headerMetadata ? React.createElement(headerMetadata, { onPress }) : null
+    , [headerMetadata, onPress]);
 
-    }) : null;
+    const containerStyle = useMemo(() => ({
+        ...styles.container,
+        top: styles.container.top + (insets?.top || 0),
+        left: styles.container.left + Math.max(insets.left || 0, insets.right || 0),
+        right: styles.container.right + Math.max(insets.left || 0, insets.right || 0)
+    }), [insets]);
+
+    const showIosComponent = useMemo(() => 
+        Platform.OS === 'ios', 
+    []);
 
     return (
-        <View style={{
-            ...styles.container,
-            top: styles.container.top + insets?.top,
-            left: styles.container.left + Math.max(insets.left, insets.right),
-            right: styles.container.right + Math.max(insets.left, insets.right)
-        }}>
-
-            {
-                HeaderMetadata
-            }
+        <View style={containerStyle}>
+            {HeaderMetadataComponent}
 
             <View style={styles.left}>
-                <BackButton />
-
+                {BackButton}
             </View>
 
             <View style={styles.right}>
-
-                {
-                    isPreloading ?
-                        <Loader />
-                    : null
-                }
-
-                {
-                    Platform.OS === 'ios' ?
-                        <AirplayButton />
-                    : null
-                }
-                
+                {preloading && Loader}
+                {showIosComponent && <AirplayButton />}
                 <CastButton />
-
             </View>
         </View>
     );
-
 };
+
+// Comparador personalizado para evitar renderizados innecesarios
+const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps): boolean => {
+    return (
+        prevProps.preloading === nextProps.preloading &&
+        prevProps.headerMetadata === nextProps.headerMetadata &&
+        prevProps.onPress === nextProps.onPress
+    );
+};
+
+// Exportamos el componente memoizado con el nombre ControlsHeaderBar
+export const ControlsHeaderBar = React.memo(ControlsHeaderBarBase, arePropsEqual);

@@ -1,21 +1,36 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Image } from 'react-native';
 import {
     type BackgroundPosterProps
 } from '../../types';
 import { styles } from './styles';
 
-export function BackgroundPoster (props: BackgroundPosterProps): React.ReactElement {
+const BackgroundPoster = ({ poster, children }: BackgroundPosterProps): React.ReactElement => {
+    const imageUri = useMemo(() => 
+        poster ? { uri: encodeURI(poster) } : undefined
+    , [poster]);
+
+    const hasPoster = Boolean(poster);
 
     return (
         <View style={styles.container}>
-            {
-                props?.poster ?
-                    <Image style={styles.posterImage} resizeMode='cover' source={{uri:encodeURI(`${props?.poster}`)}} blurRadius={5} />
-                : null
-            }
-
-            { props?.children }
+            {hasPoster && (
+                <Image 
+                    style={styles.posterImage} 
+                    resizeMode='cover' 
+                    source={imageUri} 
+                    blurRadius={5} 
+                />
+            )}
+            {children}
         </View>
     );
 };
+
+// Comparador personalizado para evitar renderizados innecesarios
+const arePropsEqual = (prevProps: BackgroundPosterProps, nextProps: BackgroundPosterProps): boolean => {
+    return prevProps.poster === nextProps.poster;
+    // No comparamos children porque React ya maneja esta comparación eficientemente
+};
+
+export default React.memo(BackgroundPoster, arePropsEqual);
