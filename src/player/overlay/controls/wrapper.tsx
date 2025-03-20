@@ -1,4 +1,4 @@
-import React, { createElement } from 'react';
+import React, { createElement, useCallback, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -15,86 +15,90 @@ import { styles } from './styles';
 
 const ANIMATION_SPEED = 150;
 
-export function Controls (props: ControlsProps): React.ReactElement {
+const ControlsBase = ({
+    title,
+    currentTime,
+    dvrTimeValue,
+    duration,
+    paused,
+    muted,
+    volume,
+    preloading,
+    hasNext,
+    isLive,
+    isDVR,
+    isContentLoaded,
+    nextButton,
+    liveButton,
+    headerMetadata,
+    timeMarkers,
+    thumbnailsMetadata,
+    controlsHeaderBar,
+    controlsMiddleBar,
+    controlsBottomBar,
+    sliderVOD,
+    sliderDVR,
+    skipIntroButton,
+    skipRecapButton,
+    skipCreditsButton,
+    onPress: propOnPress,
+    onSlidingStart,
+    onSlidingMove,
+    onSlidingComplete
+}: ControlsProps): React.ReactElement => {
 
     const insets = useSafeAreaInsets();
 
-    const onPress = (id: CONTROL_ACTION, value?:any) => {
-
-        if (props?.onPress){
-            props?.onPress(id, value);
+    const handlePress = useCallback((id: CONTROL_ACTION, value?: any) => {
+        if (typeof propOnPress === 'function') {
+            propOnPress(id, value);
         }
+    }, [propOnPress]);
 
-    }
+    const commonProps = useMemo(() => ({
+        title,
+        currentTime,
+        dvrTimeValue,
+        duration,
+        paused,
+        muted,
+        volume,
+        preloading,
+        hasNext,
+        isLive,
+        isDVR,
+        isContentLoaded,
+        nextButton,
+        liveButton,
+        headerMetadata,
+        onPress: handlePress,
+        onSlidingStart,
+        onSlidingMove,
+        onSlidingComplete
+    }), [
+        title, currentTime, dvrTimeValue, duration, paused, muted, volume,
+        preloading, hasNext, isLive, isDVR, isContentLoaded, nextButton,
+        liveButton, headerMetadata, handlePress, onSlidingStart, onSlidingMove, onSlidingComplete
+    ]);
 
-    const HeaderBar = props.controlsHeaderBar ? createElement(props.controlsHeaderBar, { 
-        title: props.title,
-        currentTime: props.currentTime,
-        dvrTimeValue: props.dvrTimeValue,
-        duration: props.duration,
-        paused: props.paused,
-        muted: props.muted,
-        volume: props.volume,
-        preloading: props.preloading,
-        hasNext: props.hasNext,
-        isLive: props.isLive,
-        isDVR: props.isDVR,
-        isContentLoaded: props.isContentLoaded,
-        nextButton: props.nextButton,
-        liveButton: props.liveButton,
-        headerMetadata: props.headerMetadata,
-        onPress: onPress,
-        onSlidingStart: props.onSlidingStart,
-        onSlidingMove: props.onSlidingMove,
-        onSlidingComplete: props.onSlidingComplete
+    const HeaderBar = useMemo(() => 
+        controlsHeaderBar ? createElement(controlsHeaderBar, commonProps) : null
+    , [controlsHeaderBar, commonProps]);
 
-    }) : null;
+    const MiddleBar = useMemo(() => 
+        controlsMiddleBar ? createElement(controlsMiddleBar, commonProps) : null
+    , [controlsMiddleBar, commonProps]);
 
-    const MiddleBar = props.controlsMiddleBar ? createElement(props.controlsMiddleBar, { 
-        title: props.title,
-        currentTime: props.currentTime,
-        dvrTimeValue: props.dvrTimeValue,
-        duration: props.duration,
-        paused: props.paused,
-        muted: props.muted,
-        volume: props.volume,
-        preloading: props.preloading,
-        hasNext: props.hasNext,
-        isLive: props.isLive,
-        isDVR: props.isDVR,
-        isContentLoaded: props.isContentLoaded,
-        nextButton: props.nextButton,
-        liveButton: props.liveButton,
-        headerMetadata: props.headerMetadata,
-        onPress: onPress,
-        onSlidingStart: props.onSlidingStart,
-        onSlidingMove: props.onSlidingMove,
-        onSlidingComplete: props.onSlidingComplete
+    const BottomBar = useMemo(() => 
+        controlsBottomBar ? createElement(controlsBottomBar, commonProps) : null
+    , [controlsBottomBar, commonProps]);
 
-    }) : null;
-
-    const BottomBar = props.controlsBottomBar ? createElement(props.controlsBottomBar, { 
-        title: props.title,
-        currentTime: props.currentTime,
-        dvrTimeValue: props.dvrTimeValue,
-        duration: props.duration,
-        paused: props.paused,
-        muted: props.muted,
-        volume: props.volume,
-        preloading: props.preloading,
-        hasNext: props.hasNext,
-        isLive: props.isLive,
-        isDVR: props.isDVR,
-        isContentLoaded: props.isContentLoaded,
-        nextButton: props.nextButton,
-        liveButton: props.liveButton,
-        headerMetadata: props.headerMetadata,
-        onPress: onPress,
-        onSlidingStart: props.onSlidingStart,
-        onSlidingMove: props.onSlidingMove,
-        onSlidingComplete: props.onSlidingComplete
-
-    }) : null;
+    const bottomContainerStyle = useMemo(() => ({
+        ...styles.bottom,
+        bottom: styles.bottom.bottom + (insets?.bottom || 0),
+        left: styles.bottom.left + Math.max(insets.left || 0, insets.right || 0),
+        right: styles.bottom.right + Math.max(insets.left || 0, insets.right || 0)
+    }), [insets]);
 
     return (
         <Animated.View 
@@ -102,96 +106,72 @@ export function Controls (props: ControlsProps): React.ReactElement {
             entering={FadeIn.duration(ANIMATION_SPEED)}
             exiting={FadeOut.duration(ANIMATION_SPEED)}
         >
-
             <View style={styles.mask} />
 
-            {
-                MiddleBar ? MiddleBar :
-                    <ControlsMiddleBar
-                        paused={props?.paused}
-                        isContentLoaded={props?.isContentLoaded}
-                        onPress={onPress}
+            {MiddleBar || (
+                <ControlsMiddleBar
+                    paused={paused}
+                    isContentLoaded={isContentLoaded}
+                    onPress={handlePress}
+                />
+            )}
+
+            {HeaderBar || (
+                <ControlsHeaderBar 
+                    preloading={preloading}
+                    isContentLoaded={isContentLoaded}
+                    onPress={handlePress}
+                />
+            )}
+
+            <View style={bottomContainerStyle}>
+                {BottomBar || (
+                    <ControlsBottomBar 
+                        currentTime={currentTime}
+                        duration={duration}
+                        dvrTimeValue={dvrTimeValue}
+                        title={title}
+                        muted={muted}
+                        isLive={isLive}
+                        isDVR={isDVR}
+                        isContentLoaded={isContentLoaded}
+                        hasNext={hasNext}
+                        volume={volume}
+                        liveButton={liveButton}
+                        onPress={handlePress}
                     />
-            }
-
-            {
-                HeaderBar ? HeaderBar :
-                    <ControlsHeaderBar 
-                        preloading={props?.preloading}
-                        isContentLoaded={props?.isContentLoaded}
-                        onPress={onPress}
-                    />
-
-            }
-
-            <View style={{
-                ...styles.bottom,
-                bottom: styles.bottom.bottom + insets?.bottom,
-                left: styles.bottom.left + Math.max(insets.left, insets.right),
-                right: styles.bottom.right + Math.max(insets.left, insets.right)
-            }}>
-
-                {
-                    BottomBar ? BottomBar :
-                        <ControlsBottomBar 
-                            currentTime={props?.currentTime}
-                            duration={props?.duration}
-                            dvrTimeValue={props?.dvrTimeValue}
-                            title={props?.title}
-                            muted={props?.muted}
-                            isLive={props?.isLive}
-                            isDVR={props?.isDVR}
-                            isContentLoaded={props?.isContentLoaded}
-                            hasNext={props?.hasNext}
-                            volume={props?.volume}
-
-                            // Components
-                            liveButton={props?.liveButton}
-
-                            // Events
-                            onPress={onPress}
-                        />
-                }
+                )}
 
                 <Timeline 
-                    currentTime={props?.currentTime}
-                    dvrTimeValue={props?.dvrTimeValue}
-                    duration={props?.duration}
-                    isLive={props?.isLive}
-                    isDVR={props?.isDVR}
-                    thumbnailsMetadata={props?.thumbnailsMetadata}
-
-                    // Components
-                    sliderVOD={props.sliderVOD}
-                    sliderDVR={props.sliderDVR}
-
-                    // Events
-                    onSlidingStart={props?.onSlidingStart}
-                    onSlidingMove={props?.onSlidingMove}
-                    onSlidingComplete={props?.onSlidingComplete}
+                    currentTime={currentTime}
+                    dvrTimeValue={dvrTimeValue}
+                    duration={duration}
+                    isLive={isLive}
+                    isDVR={isDVR}
+                    thumbnailsMetadata={thumbnailsMetadata}
+                    sliderVOD={sliderVOD}
+                    sliderDVR={sliderDVR}
+                    onSlidingStart={onSlidingStart}
+                    onSlidingMove={onSlidingMove}
+                    onSlidingComplete={onSlidingComplete}
                 />
 
                 <View style={styles.temporalButtonsBar}>
                     <TimeMarks 
-                        currentTime={props.currentTime}
-                        duration={props.duration}
-                        timeMarkers={props.timeMarkers}
-                        hasNext={props.hasNext}
-
-                        // Components
-                        nextButton={props.nextButton}
-                        skipIntroButton={props.skipIntroButton}
-                        skipRecapButton={props.skipRecapButton}
-                        skipCreditsButton={props.skipCreditsButton}
-                        
-                        // Events
-                        onPress={onPress}
+                        currentTime={currentTime}
+                        duration={duration}
+                        timeMarkers={timeMarkers}
+                        hasNext={hasNext}
+                        nextButton={nextButton}
+                        skipIntroButton={skipIntroButton}
+                        skipRecapButton={skipRecapButton}
+                        skipCreditsButton={skipCreditsButton}
+                        onPress={handlePress}
                     />
                 </View>
-
             </View>
-
         </Animated.View>
     );
-
 };
+
+export const Controls = React.memo(ControlsBase);
