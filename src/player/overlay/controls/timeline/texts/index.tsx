@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import { Text } from '@ui-kitten/components';
 import { styles } from './styles';
@@ -7,32 +7,52 @@ import {
     type TimelineTextProps
 } from '../../../../types';
 
-export function TimelineText (props: TimelineTextProps): React.ReactElement | null {
+const TimelineTextBase = ({
+    value,
+    category = 'h5',
+    containerStyle,
+    textStyle
+}: TimelineTextProps): React.ReactElement | null => {
 
-    const [value, setValue] = useState<number | string | undefined>(props?.value);
-
-    useEffect(() => {
-        setValue(props?.value);
-
-    }, [props?.value]);
-
-    if (value && typeof(value) === 'string'){
-        return (
-            <View style={[styles.container, props?.containerStyle]}>
-                <Text category={props.category || 'h5'} style={[styles.text, props?.textStyle]}>{ value }</Text>
-            </View>
-        );
-
-    } else if (value && typeof(value) === 'number'){
-        return (
-            <View style={[styles.container, props?.containerStyle]}>
-                <Text category={props.category || 'h5'} style={[styles.text, props?.textStyle]}>{ parseToCounter(value) }</Text>
-            </View>
-        );
-
-    } else {
+    // Determinar el contenido del texto basado en el tipo de valor
+    const textContent = useMemo(() => {
+        if (value === undefined || value === null) {
+            return null;
+        }
+        
+        if (typeof value === 'string') {
+            return value;
+        }
+        
+        if (typeof value === 'number') {
+            return parseToCounter(value);
+        }
+        
         return null;
+    }, [value]);
 
+    // Si no hay contenido, no renderizar nada
+    if (textContent === null) {
+        return null;
     }
 
+    return (
+        <View style={[styles.container, containerStyle]}>
+            <Text category={category} style={[styles.text, textStyle]}>
+                {textContent}
+            </Text>
+        </View>
+    );
 };
+
+// Comparador personalizado para evitar renderizados innecesarios
+const arePropsEqual = (prevProps: TimelineTextProps, nextProps: TimelineTextProps): boolean => {
+    return (
+        prevProps.value === nextProps.value &&
+        prevProps.category === nextProps.category &&
+        prevProps.containerStyle === nextProps.containerStyle &&
+        prevProps.textStyle === nextProps.textStyle
+    );
+};
+
+export const TimelineText = React.memo(TimelineTextBase, arePropsEqual);

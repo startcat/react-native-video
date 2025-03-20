@@ -1,4 +1,4 @@
-import React, { useEffect, useState, createElement } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import { VODSlider, DVRSlider } from './slider';
@@ -9,130 +9,137 @@ import {
 } from '../../../types';
 import { styles } from './styles';
 
-export function Timeline (props: TimelineProps): React.ReactElement {
+const TimelineBase = ({
+    currentTime,
+    duration,
+    dvrTimeValue,
+    isLive = false,
+    isDVR = false,
+    sliderVOD,
+    sliderDVR,
+    avoidThumbnails = false,
+    thumbnailsMetadata,
+    onSlidingStart: propOnSlidingStart,
+    onSlidingMove: propOnSlidingMove,
+    onSlidingComplete: propOnSlidingComplete
+}: TimelineProps): React.ReactElement => {
 
     const [showThumbnails, setShowThumbnails] = useState<boolean>(false);
-    const [avoidShowThumbnails, setAvoidShowThumbnails] = useState<boolean>(!!props.avoidThumbnails);
-    const [thumbnailsMetadata, setThumbnailsMetadata] = useState<IThumbnailMetadata | undefined>(props?.thumbnailsMetadata);
-    const [sliderValueVOD, setSliderValueVOD] = useState<number | undefined>(props?.currentTime);
+    const [sliderValueVOD, setSliderValueVOD] = useState<number | undefined>(currentTime);
 
-    const isLive = !!props?.isLive;
-    const isDVR = !!props?.isDVR;
-
-    useEffect(() => {
-        setSliderValueVOD(props?.currentTime);
-
-    }, [props?.currentTime]);
-
-    useEffect(() => {
-        setThumbnailsMetadata(props?.thumbnailsMetadata);
-
-    }, [props?.thumbnailsMetadata]);
-
-    useEffect(() => {
-        setAvoidShowThumbnails(!!props.avoidThumbnails);
-
-    }, [props?.avoidThumbnails]);
-
-    const onSlidingStart = (value: number) => {
-
+    const handleSlidingStart = useCallback((value: number) => {
         setShowThumbnails(true);
         setSliderValueVOD(value);
 
-        if (props?.onSlidingStart){
-            props?.onSlidingStart(value);
+        if (typeof propOnSlidingStart === 'function') {
+            propOnSlidingStart(value);
         }
+    }, [propOnSlidingStart]);
 
-    }
-
-    const onSlidingMove = (value: number) => {
-
+    const handleSlidingMove = useCallback((value: number) => {
         setSliderValueVOD(value);
         
-        if (props?.onSlidingMove){
-            props?.onSlidingMove(value);
+        if (typeof propOnSlidingMove === 'function') {
+            propOnSlidingMove(value);
         }
+    }, [propOnSlidingMove]);
 
-    }
-
-    const onSlidingComplete = (value: number) => {
-
+    const handleSlidingComplete = useCallback((value: number) => {
         setShowThumbnails(false);
 
-        if (props?.onSlidingComplete){
-            props?.onSlidingComplete(value);
+        if (typeof propOnSlidingComplete === 'function') {
+            propOnSlidingComplete(value);
         }
+    }, [propOnSlidingComplete]);
 
-    }
+    // Componentes creados con createElement memorizados
+    const SliderVODComponent = useMemo(() => 
+        sliderVOD ? React.createElement(sliderVOD, { 
+            currentTime,
+            duration,
+            onSlidingStart: handleSlidingStart,
+            onSlidingMove: handleSlidingMove,
+            onSlidingComplete: handleSlidingComplete
+        }) : null
+    , [sliderVOD, currentTime, duration, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
-    const SliderVOD = props.sliderVOD ? createElement(props.sliderVOD, { 
-        currentTime: props?.currentTime,
-        duration: props?.duration,
-        onSlidingStart: onSlidingStart,
-        onSlidingMove: onSlidingMove,
-        onSlidingComplete: onSlidingComplete
-    }) : null;
+    const SliderDVRComponent = useMemo(() => 
+        sliderDVR ? React.createElement(sliderDVR, { 
+            value: dvrTimeValue,
+            liveLoadTime: duration,
+            onSlidingStart: handleSlidingStart,
+            onSlidingMove: handleSlidingMove,
+            onSlidingComplete: handleSlidingComplete
+        }) : null
+    , [sliderDVR, dvrTimeValue, duration, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
-    const SliderDVR = props.sliderDVR ? createElement(props.sliderDVR, { 
-        value: props?.dvrTimeValue,
-        liveLoadTime: props?.duration,
-        onSlidingStart: onSlidingStart,
-        onSlidingMove: onSlidingMove,
-        onSlidingComplete: onSlidingComplete
-    }) : null;
+    // Componentes default memorizados
+    const DefaultVODSlider = useMemo(() => (
+        <VODSlider
+            currentTime={currentTime}
+            duration={duration}
+            onSlidingStart={handleSlidingStart}
+            onSlidingMove={handleSlidingMove}
+            onSlidingComplete={handleSlidingComplete}
+        />
+    ), [currentTime, duration, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+
+    const DefaultDVRSlider = useMemo(() => (
+        <DVRSlider
+            value={dvrTimeValue}
+            liveLoadTime={duration}
+            onSlidingStart={handleSlidingStart}
+            onSlidingMove={handleSlidingMove}
+            onSlidingComplete={handleSlidingComplete}
+        />
+    ), [dvrTimeValue, duration, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+
+    // Condiciones memorizadas para renderizado condicional
+    const showVODSlider = useMemo(() => !isLive, [isLive]);
+    const showDVRSlider = useMemo(() => isDVR, [isDVR]);
+    const showThumbnailsContainer = useMemo(() => 
+        !avoidThumbnails && showThumbnails && !!thumbnailsMetadata,
+    [avoidThumbnails, showThumbnails, thumbnailsMetadata]);
+
+    // Componente ThumbnailsContainer memoizado
+    const ThumbnailsComponent = useMemo(() => 
+        showThumbnailsContainer ? (
+            <ThumbnailsContainer 
+                seconds={sliderValueVOD}
+                metadata={thumbnailsMetadata as IThumbnailMetadata}
+            />
+        ) : null
+    , [showThumbnailsContainer, sliderValueVOD, thumbnailsMetadata]);
 
     return (
         <View style={styles.container}>
-
             <View style={styles.barSlider}>
-                {
-                    !isLive && SliderVOD ?
-                        SliderVOD
-                    : null
-                }
-
-                {
-                    !isLive && !SliderVOD ?
-                        <VODSlider
-                            currentTime={props?.currentTime}
-                            duration={props?.duration}
-                            onSlidingStart={onSlidingStart}
-                            onSlidingMove={onSlidingMove}
-                            onSlidingComplete={onSlidingComplete}
-                        />
-                    : null
-                }
-
-                {
-                    isDVR && SliderDVR ?
-                        SliderDVR
-                    : null
-                }
-
-                {
-                    isDVR && !SliderDVR ?
-                        <DVRSlider
-                            value={props?.dvrTimeValue}
-                            liveLoadTime={props?.duration}
-                            onSlidingStart={onSlidingStart}
-                            onSlidingMove={onSlidingMove}
-                            onSlidingComplete={onSlidingComplete}
-                        />
-                    : null
-                }
-                
+                {showVODSlider && SliderVODComponent}
+                {showVODSlider && !SliderVODComponent && DefaultVODSlider}
+                {showDVRSlider && SliderDVRComponent}
+                {showDVRSlider && !SliderDVRComponent && DefaultDVRSlider}
             </View>
-
-            {
-                !avoidShowThumbnails && showThumbnails && !!thumbnailsMetadata ?
-                    <ThumbnailsContainer 
-                        seconds={sliderValueVOD}
-                        metadata={thumbnailsMetadata}
-                    />
-                : null
-            }
-
+            {ThumbnailsComponent}
         </View>
     );
-
 };
+
+// Comparador personalizado para evitar renderizados innecesarios
+const arePropsEqual = (prevProps: TimelineProps, nextProps: TimelineProps): boolean => {
+    return (
+        prevProps.currentTime === nextProps.currentTime &&
+        prevProps.duration === nextProps.duration &&
+        prevProps.dvrTimeValue === nextProps.dvrTimeValue &&
+        prevProps.isLive === nextProps.isLive &&
+        prevProps.isDVR === nextProps.isDVR &&
+        prevProps.sliderVOD === nextProps.sliderVOD &&
+        prevProps.sliderDVR === nextProps.sliderDVR &&
+        prevProps.avoidThumbnails === nextProps.avoidThumbnails &&
+        prevProps.thumbnailsMetadata === nextProps.thumbnailsMetadata &&
+        prevProps.onSlidingStart === nextProps.onSlidingStart &&
+        prevProps.onSlidingMove === nextProps.onSlidingMove &&
+        prevProps.onSlidingComplete === nextProps.onSlidingComplete
+    );
+};
+
+export const Timeline = React.memo(TimelineBase, arePropsEqual);

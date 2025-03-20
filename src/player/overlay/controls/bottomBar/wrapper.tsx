@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, createElement } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View } from 'react-native';
 import { Button, LiveButton } from '../buttons';
 import { Text } from '@ui-kitten/components';
@@ -9,164 +9,166 @@ import {
 } from '../../../types';
 import { styles } from './styles';
 
-export function ControlsBottomBar (props: ControlsBarProps): React.ReactElement {
+const ControlsBottomBarBase = ({ 
+    title,
+    muted = false,
+    hasNext = false,
+    volume,
+    isLive = false,
+    isDVR = false,
+    liveButton,
+    currentTime,
+    duration,
+    dvrTimeValue,
+    isContentLoaded = false,
+    onPress
+}: ControlsBarProps): React.ReactElement => {
 
-    const [title, setTitle] = useState<string | undefined>(props?.title);
-    const [isMuted, setIsMuted] = useState<boolean>(!!props?.muted);
-    const [hasNext, setHasNext] = useState<boolean>(!!props?.hasNext);
-    const [currentVolume, setCurrentVolume] = useState<number | undefined>(props?.volume);
+    const handlePress = useCallback((id: CONTROL_ACTION, value?: any) => {
+        if (typeof onPress === 'function') {
+            onPress(id, value);
+        }
+    }, [onPress]);
 
-    const isLive = useRef<boolean>(!!props?.isLive);
-    const isDVR = useRef<boolean>(!!props?.isDVR);
+    const LiveButtonProp = useMemo(() => 
+        liveButton ? React.createElement(liveButton, { 
+            currentTime,
+            duration,
+            dvrTimeValue,
+            isDVR,
+            disabled: !isContentLoaded,
+            onPress
+        }) : null
+    , [liveButton, currentTime, duration, dvrTimeValue, isDVR, isContentLoaded, onPress]);
 
-    useEffect(() => {
-        setTitle(props?.title);
-
-    }, [props?.title]);
-
-    useEffect(() => {
-        setIsMuted(!!props?.muted);
-
-    }, [props?.muted]);
-
-    useEffect(() => {
-        setHasNext(!!props?.hasNext);
-
-    }, [props.hasNext]);
-
-    useEffect(() => {
-        setCurrentVolume(props?.volume);
-
-    }, [props?.volume]);
-
-    const LiveButtonProp = props.liveButton ? createElement(props.liveButton, { 
-        currentTime: props?.currentTime,
-        duration: props?.duration,
-        dvrTimeValue: props?.dvrTimeValue,
-        isDVR: isDVR.current,
-        disabled: !props.isContentLoaded,
-        onPress: props?.onPress
-
-    }) : null;
-
-    const MenuButton = () => (
+    const MenuButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.MENU}
             size={BUTTON_SIZE.SMALL}
             iconName='chatbox-ellipses-outline'
-            disabled={!props.isContentLoaded}
-            onPress={props?.onPress}
+            disabled={!isContentLoaded}
+            onPress={handlePress}
         />
-    );
+    ), [isContentLoaded, handlePress]);
 
-    const SettingsMenuButton = () => (
+    const SettingsMenuButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.SETTINGS_MENU}
             size={BUTTON_SIZE.SMALL}
             iconName='settings-outline'
-            disabled={!props.isContentLoaded}
-            onPress={props?.onPress}
+            disabled={!isContentLoaded}
+            onPress={handlePress}
         />
-    );
+    ), [isContentLoaded, handlePress]);
 
-    const MuteButton = () => (
+    const MuteButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.MUTE}
             size={BUTTON_SIZE.SMALL}
-            iconName={ (isMuted) ? 'volume-mute-outline' : 'volume-high-outline'}
-            value={!isMuted}
-            onPress={props?.onPress}
+            iconName={muted ? 'volume-mute-outline' : 'volume-high-outline'}
+            value={!muted}
+            onPress={handlePress}
         />
-    );
+    ), [muted, handlePress]);
 
-    const VolumeButton = () => (
+    const VolumeButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.VOLUME}
             size={BUTTON_SIZE.SMALL}
             iconName='volume-high-outline'
-            value={currentVolume}
-            onPress={props?.onPress}
+            value={volume}
+            onPress={handlePress}
         />
-    );
+    ), [volume, handlePress]);
 
-    const NextButton = () => (
+    const NextButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.NEXT}
             size={BUTTON_SIZE.SMALL}
             iconName='play-skip-forward-outline'
-            disabled={!props.isContentLoaded}
-            onPress={props?.onPress}
+            disabled={!isContentLoaded}
+            onPress={handlePress}
         />
-    );
+    ), [isContentLoaded, handlePress]);
 
-
-
-    const RestartButton = () => (
+    const RestartButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.SEEK}
             size={BUTTON_SIZE.SMALL}
             iconName='refresh-outline'
             value={0}
-            disabled={!props.isContentLoaded}
-            onPress={props?.onPress}
+            disabled={!isContentLoaded}
+            onPress={handlePress}
         />
-    );
+    ), [isContentLoaded, handlePress]);
+
+    const DefaultLiveButton = useMemo(() => (
+        <LiveButton 
+            currentTime={currentTime}
+            duration={duration}
+            dvrTimeValue={dvrTimeValue}
+            isDVR={isDVR}
+            disabled={!isContentLoaded}
+            onPress={onPress} 
+        />
+    ), [currentTime, duration, dvrTimeValue, isDVR, isContentLoaded, onPress]);
+
+    // Memoizar condiciones lógicas para renderizado condicional
+    const showLiveControls = useMemo(() => isLive, [isLive]);
+    const showRestartButton = useMemo(() => !isLive || isDVR, [isLive, isDVR]);
+    const showMenuButtons = useMemo(() => !isLive, [isLive]);
 
     return (
         <View style={styles.container}>
             <View style={styles.left}>
-                {
-                    !isLive.current &&
+                {showMenuButtons && (
                     <>
-                        <MenuButton />
-                        <SettingsMenuButton />
+                        {MenuButton}
+                        {SettingsMenuButton}
                     </>
-                }
-
-                <MuteButton />
-
+                )}
+                {MuteButton}
             </View>
 
             <View style={styles.middle}>
-                {
-                    title ?
-                        <Text category='h4' style={styles.title} ellipsizeMode='tail' numberOfLines={1}>{ title }</Text>
-                    :null
-                }
+                {title && (
+                    <Text 
+                        category='h4' 
+                        style={styles.title} 
+                        ellipsizeMode='tail' 
+                        numberOfLines={1}
+                    >
+                        {title}
+                    </Text>
+                )}
             </View>
 
             <View style={styles.right}>
-
-                {
-                    !isLive.current || isDVR.current ?
-                        <RestartButton />
-                    : null
-                }
-                
-                {
-                    hasNext ?
-                        <NextButton />
-                    : null
-                }
-
-                {
-                    isLive.current && LiveButtonProp
-                }
-
-                {
-                    isLive.current && !LiveButtonProp &&
-                    <LiveButton 
-                        currentTime={props?.currentTime}
-                        duration={props?.duration}
-                        dvrTimeValue={props?.dvrTimeValue}
-                        isDVR={isDVR.current}
-                        disabled={!props.isContentLoaded}
-                        onPress={props?.onPress} 
-                    />
-                }
-
+                {showRestartButton && RestartButton}
+                {hasNext && NextButton}
+                {showLiveControls && LiveButtonProp}
+                {showLiveControls && !LiveButtonProp && DefaultLiveButton}
             </View>
         </View>
     );
-
 };
+
+// Comparador personalizado para evitar renderizados innecesarios
+const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps): boolean => {
+    return (
+        prevProps.title === nextProps.title &&
+        prevProps.muted === nextProps.muted &&
+        prevProps.hasNext === nextProps.hasNext &&
+        prevProps.volume === nextProps.volume &&
+        prevProps.isLive === nextProps.isLive &&
+        prevProps.isDVR === nextProps.isDVR &&
+        prevProps.currentTime === nextProps.currentTime &&
+        prevProps.duration === nextProps.duration &&
+        prevProps.dvrTimeValue === nextProps.dvrTimeValue &&
+        prevProps.isContentLoaded === nextProps.isContentLoaded &&
+        prevProps.liveButton === nextProps.liveButton &&
+        prevProps.onPress === nextProps.onPress
+    );
+};
+
+export const ControlsBottomBar = React.memo(ControlsBottomBarBase, arePropsEqual);

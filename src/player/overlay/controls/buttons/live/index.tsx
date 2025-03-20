@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Text } from '@ui-kitten/components';
@@ -14,57 +14,76 @@ const HAPTIC_OPTIONS = {
     ignoreAndroidSystemSettings: true
 };
 
-export function LiveButton (props: LiveButtonProps): React.ReactElement {
+const LiveButtonBase = ({
+    isDVR,
+    dvrTimeValue,
+    duration,
+    onPress: propOnPress,
+    accessibilityLabel,
+    disabled = false
+}: LiveButtonProps): React.ReactElement => {
 
     const [isBehindLive, setIsBehindLive] = useState<boolean>();
 
     useEffect(() => {
-        
-        if (!!props?.isDVR && typeof(props.dvrTimeValue) === 'number' && typeof(props?.duration) === 'number'){
-
-            if (props.dvrTimeValue < props?.duration && !isBehindLive){
+        if (!!isDVR && typeof dvrTimeValue === 'number' && typeof duration === 'number') {
+            if (dvrTimeValue < duration && !isBehindLive) {
                 setIsBehindLive(true);
-
-            } else if (props.dvrTimeValue === props?.duration && isBehindLive){
+            } else if (dvrTimeValue === duration && isBehindLive) {
                 setIsBehindLive(false);
-
             }
-
         }
+    }, [isDVR, dvrTimeValue, duration, isBehindLive]);
 
-    }, [props?.dvrTimeValue, props?.duration]);
-
-    const onPress = () => {
-
+    const handlePress = useCallback(() => {
         ReactNativeHapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
-
-        if (props?.onPress){
-            props?.onPress(CONTROL_ACTION.SEEK, props?.duration);
-
+        
+        if (typeof propOnPress === 'function' && typeof duration === 'number') {
+            propOnPress(CONTROL_ACTION.SEEK, duration);
         }
-    };
+    }, [propOnPress, duration]);
 
-    if (isBehindLive){
+    const containerStyle = useMemo(() => ({
+        ...styles.container,
+        ...(isBehindLive ? styles.asButton : {})
+    }), [isBehindLive]);
+
+    const accessibilityLabelText = useMemo(() => 
+        accessibilityLabel || i18n.t('goToLive')
+    , [accessibilityLabel]);
+
+    if (isBehindLive) {
         return (
             <TouchableOpacity 
-                style={{ ...styles.container, ...styles.asButton }} 
-                onPress={onPress} 
+                style={containerStyle}
+                onPress={handlePress} 
                 accessible={true} 
                 accessibilityRole='button' 
-                accessibilityLabel={props?.accessibilityLabel || i18n.t('goToLive')}
+                accessibilityLabel={accessibilityLabelText}
                 pressRetentionOffset={5}
-                disabled={props.disabled}
+                disabled={disabled}
             >
-                <Text category='h5' style={styles.title}>{ i18n.t('goToLive') }</Text>
+                <Text category='h5' style={styles.title}>{i18n.t('goToLive')}</Text>
             </TouchableOpacity>
         );
-
     } else {
         return (
             <View style={styles.container}>
-                <Text category='h5' style={styles.title}>{ i18n.t('video_live') }</Text>
+                <Text category='h5' style={styles.title}>{i18n.t('video_live')}</Text>
             </View>
         );
     }
-
 };
+
+const arePropsEqual = (prevProps: LiveButtonProps, nextProps: LiveButtonProps): boolean => {
+    return (
+        prevProps.isDVR === nextProps.isDVR &&
+        prevProps.dvrTimeValue === nextProps.dvrTimeValue &&
+        prevProps.duration === nextProps.duration &&
+        prevProps.onPress === nextProps.onPress &&
+        prevProps.accessibilityLabel === nextProps.accessibilityLabel &&
+        prevProps.disabled === nextProps.disabled
+    );
+};
+
+export const LiveButton = React.memo(LiveButtonBase, arePropsEqual);
