@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Platform, View } from 'react-native';
 import { throttle } from 'lodash';
 import { TimelineText } from '../../texts';
@@ -12,136 +12,145 @@ import { styles } from './styles';
 
 const PLAYER_SLIDER_THROTTLE = 50;
 
-export const VODSlider = (props: SliderVODProps): React.ReactElement | null => {
-
-    const [currentTime, setCurrentTime] = useState<number | undefined>(props?.currentTime);
-    const [duration, setDuration] = useState<number | undefined>(props?.duration);
+const VODSliderBase = ({
+    currentTime,
+    duration,
+    onSlidingStart: propOnSlidingStart,
+    onSlidingMove: propOnSlidingMove,
+    onSlidingComplete: propOnSlidingComplete
+}: SliderVODProps): React.ReactElement | null => {
+    
     const [isEnded, setIsEnded] = useState<boolean>(false);
-    const [thumbTintColor, setThumbTintColor] = useState<string>((Platform.OS === 'android') ? COLOR.theme.main : 'transparent');
+    const [thumbTintColor, setThumbTintColor] = useState<string>(
+        Platform.OS === 'android' ? COLOR.theme.main : 'transparent'
+    );
     
-    let _isDragging = false;
-
-    useEffect(() => {
-        checkContentIsEnded();
-
-        return () => {
-            
-            if (handleDragThrottled){
-                handleDragThrottled.cancel();
-
+    const isDraggingRef = useRef<boolean>(false);
+    
+    const handleDragThrottled = useRef(
+        throttle((value: number) => {
+            if (typeof propOnSlidingMove === 'function') {
+                propOnSlidingMove(value);
             }
-
-        }
-
-    }, []);
-
-    useEffect(() => {
-        checkContentIsEnded();
-
-    }, [currentTime, duration]);
-
-    useEffect(() => {
-        setCurrentTime(props?.currentTime);
-
-    }, [props?.currentTime]);
-
-    useEffect(() => {
-        setDuration(props?.duration);
-
-    }, [props?.duration]);
-
-    const handleDrag = (value: number) => {
-
-        if (props?.onSlidingMove){
-            props?.onSlidingMove(value);
-            
-        }
-    }
-
-    const handleDragThrottled = throttle(handleDrag, PLAYER_SLIDER_THROTTLE);
-
-    const checkContentIsEnded = () => {
-
-        if (!_isDragging && typeof(duration) === 'number' && typeof(currentTime) === 'number' && isFinite(duration)){
-
+        }, PLAYER_SLIDER_THROTTLE)
+    ).current;
+    
+    const checkContentIsEnded = useCallback(() => {
+        if (
+            !isDraggingRef.current && 
+            typeof duration === 'number' && 
+            typeof currentTime === 'number' && 
+            isFinite(duration)
+        ) {
             try {
-                if (!isEnded && Math.abs(duration - currentTime) < 5){
+                if (!isEnded && Math.abs(duration - currentTime) < 5) {
                     setIsEnded(true);
-    
-                } else if (isEnded && Math.abs(duration - currentTime) >= 5){
+                } else if (isEnded && Math.abs(duration - currentTime) >= 5) {
                     setIsEnded(false);
-    
                 }
-    
-            } catch (ex: any){
+            } catch (ex: any) {
                 console.log(ex?.message);
             }
-
         }
-
-    };
-
-    const onSlidingStart = (value: number) => {
-
-        _isDragging = true;
+    }, [duration, currentTime, isEnded]);
+    
+    useEffect(() => {
+        checkContentIsEnded();
+    }, [checkContentIsEnded]);
+    
+    useEffect(() => {
+        return () => {
+            handleDragThrottled.cancel();
+        };
+    }, [handleDragThrottled]);
+    
+    const handleSlidingStart = useCallback((value: number) => {
+        isDraggingRef.current = true;
         setThumbTintColor('white');
-
-        if (props?.onSlidingStart){
-            props?.onSlidingStart(value);
-        }
-
-    }
-
-    const onSlidingComplete = (value: number) => {
         
-        _isDragging = false;
-        setThumbTintColor((Platform.OS === 'android') ? COLOR.theme.main : 'transparent');
-
-        if (props?.onSlidingComplete){
-            props?.onSlidingComplete(value);
+        if (typeof propOnSlidingStart === 'function') {
+            propOnSlidingStart(value);
         }
-
-    }
-
-    const onValueChange = (value: number) => {
+    }, [propOnSlidingStart]);
+    
+    const handleSlidingComplete = useCallback((value: number) => {
+        isDraggingRef.current = false;
+        setThumbTintColor(Platform.OS === 'android' ? COLOR.theme.main : 'transparent');
+        
+        if (typeof propOnSlidingComplete === 'function') {
+            propOnSlidingComplete(value);
+        }
+    }, [propOnSlidingComplete]);
+    
+    const handleValueChange = useCallback((value: number) => {
         handleDragThrottled(value);
-    }
-
-    if (typeof(duration) === 'number' && duration > 0 && typeof(currentTime) === 'number' && currentTime > 0 && isFinite(duration)){
-        return (
-            <View style={styles.container}>
-                <View style={styles.barContentsEdge}>
-                    <TimelineText value={currentTime} />
-                </View>
-
-                <Slider
-                    style={styles.slider}
-                    minimumValue={0}
-                    maximumValue={duration}
-                    minimumTrackTintColor={COLOR.theme.main}
-                    maximumTrackTintColor={ (isEnded) ? COLOR.theme.main : 'white' }
-                    value={props?.currentTime}
-                    step={(duration > 120) ? 20 : 1}
-                    tapToSeek={true}
-
-                    thumbTintColor={thumbTintColor}
-                    hitSlop={styles.hitSlop}
-
-                    onSlidingStart={onSlidingStart}
-                    onValueChange={onValueChange}
-                    onSlidingComplete={onSlidingComplete}
-                />
-
-                <View style={styles.barContentsEdge}>
-                    <TimelineText value={duration} />
-                </View>
-            </View>
-
-        );
-
-    } else {
+    }, [handleDragThrottled]);
+    
+    const shouldRenderSlider = useMemo(() => 
+        typeof duration === 'number' && 
+        duration > 0 && 
+        typeof currentTime === 'number' && 
+        currentTime > 0 && 
+        isFinite(duration)
+    , [duration, currentTime]);
+    
+    const sliderStep = useMemo(() => 
+        duration && duration > 120 ? 20 : 1
+    , [duration]);
+    
+    const maximumTrackTintColor = useMemo(() => 
+        isEnded ? COLOR.theme.main : 'white'
+    , [isEnded]);
+    
+    const CurrentTimeText = useMemo(() => 
+        <TimelineText value={currentTime} />
+    , [currentTime]);
+    
+    const DurationText = useMemo(() => 
+        <TimelineText value={duration} />
+    , [duration]);
+    
+    if (!shouldRenderSlider) {
         return null;
-
     }
-
+    
+    return (
+        <View style={styles.container}>
+            <View style={styles.barContentsEdge}>
+                {CurrentTimeText}
+            </View>
+            
+            <Slider
+                style={styles.slider}
+                minimumValue={0}
+                maximumValue={duration}
+                minimumTrackTintColor={COLOR.theme.main}
+                maximumTrackTintColor={maximumTrackTintColor}
+                value={currentTime}
+                step={sliderStep}
+                tapToSeek={true}
+                thumbTintColor={thumbTintColor}
+                hitSlop={styles.hitSlop}
+                onSlidingStart={handleSlidingStart}
+                onValueChange={handleValueChange}
+                onSlidingComplete={handleSlidingComplete}
+            />
+            
+            <View style={styles.barContentsEdge}>
+                {DurationText}
+            </View>
+        </View>
+    );
 };
+
+const arePropsEqual = (prevProps: SliderVODProps, nextProps: SliderVODProps): boolean => {
+    return (
+        prevProps.currentTime === nextProps.currentTime &&
+        prevProps.duration === nextProps.duration &&
+        prevProps.onSlidingStart === nextProps.onSlidingStart &&
+        prevProps.onSlidingMove === nextProps.onSlidingMove &&
+        prevProps.onSlidingComplete === nextProps.onSlidingComplete
+    );
+};
+
+export const VODSlider = React.memo(VODSliderBase, arePropsEqual);

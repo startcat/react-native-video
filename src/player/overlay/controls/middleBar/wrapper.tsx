@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View } from 'react-native';
 import { Button } from '../buttons';
 import { 
@@ -9,61 +9,85 @@ import {
 import { i18n } from '../../../locales';
 import { styles } from './styles';
 
-export function ControlsMiddleBar (props: ControlsBarProps): React.ReactElement {
+const ControlsMiddleBarBase = ({ 
+    paused = false,
+    isContentLoaded = false,
+    onPress
+}: ControlsBarProps): React.ReactElement => {
+    
+    // Manejo seguro de la función onPress
+    const handlePress = useCallback((id: CONTROL_ACTION, value?: any) => {
+        if (typeof onPress === 'function') {
+            onPress(id, value);
+        }
+    }, [onPress]);
 
-    const [isPaused, setIsPaused] = useState<boolean>(!!props?.paused);
+    // Memoiza los textos de accesibilidad para evitar cálculos repetidos
+    const accessibilityLabels = useMemo(() => ({
+        play: i18n.t('accesibilidad_player_play'),
+        pause: i18n.t('accesibilidad_player_pause'),
+        backward: i18n.t('accesibilidad_player_backward'),
+        forward: i18n.t('accesibilidad_player_forward')
+    }), []);
 
-    useEffect(() => {
-        setIsPaused(!!props?.paused);
-
-    }, [props?.paused]);
-
-    const PlayToggleButton = () => (
+    // Memoiza el componente del botón de reproducción/pausa
+    const PlayToggleButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.PAUSE}
             size={BUTTON_SIZE.BIG}
-            iconName={ (isPaused) ? 'play-circle-outline' : 'pause-circle-outline' }
-            value={!isPaused}
-            disabled={!props.isContentLoaded}
-            accessibilityLabel={ (isPaused) ? i18n.t('accesibilidad_player_pause') : i18n.t('accesibilidad_player_play') }
-            onPress={props?.onPress}
+            iconName={paused ? 'play-circle-outline' : 'pause-circle-outline'}
+            value={!paused}
+            disabled={!isContentLoaded}
+            accessibilityLabel={paused ? accessibilityLabels.play : accessibilityLabels.pause}
+            onPress={handlePress}
         />
-    );
+    ), [paused, isContentLoaded, accessibilityLabels, handlePress]);
 
-    const BackwardButton = () => (
+    // Memoiza el componente del botón de retroceso
+    const BackwardButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.BACKWARD}
             size={BUTTON_SIZE.MEDIUM}
             iconName='play-back-outline'
             value={15}
-            disabled={!props.isContentLoaded}
-            accessibilityLabel={ i18n.t('accesibilidad_player_backward') }
-            onPress={props?.onPress}
+            disabled={!isContentLoaded}
+            accessibilityLabel={accessibilityLabels.backward}
+            onPress={handlePress}
         />
-    );
+    ), [isContentLoaded, accessibilityLabels, handlePress]);
 
-    const ForwardButton = () => (
+    // Memoiza el componente del botón de avance
+    const ForwardButton = useMemo(() => (
         <Button
             id={CONTROL_ACTION.FORWARD}
             size={BUTTON_SIZE.MEDIUM}
             iconName='play-forward-outline'
             value={15}
-            disabled={!props.isContentLoaded}
-            accessibilityLabel={ i18n.t('accesibilidad_player_forward') }
-            onPress={props?.onPress}
+            disabled={!isContentLoaded}
+            accessibilityLabel={accessibilityLabels.forward}
+            onPress={handlePress}
         />
-    );
+    ), [isContentLoaded, accessibilityLabels, handlePress]);
 
     return (
         <View style={styles.container}>
             <View style={styles.contents}>
-
-                <BackwardButton />
-                <PlayToggleButton />
-                <ForwardButton />
-
+                {BackwardButton}
+                {PlayToggleButton}
+                {ForwardButton}
             </View>
         </View>
     );
-
 };
+
+// Comparador personalizado para evitar renderizados innecesarios
+const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps): boolean => {
+    return (
+        prevProps.paused === nextProps.paused &&
+        prevProps.isContentLoaded === nextProps.isContentLoaded &&
+        prevProps.onPress === nextProps.onPress
+    );
+};
+
+// Exportamos el componente memoizado con el nombre ControlsMiddleBar
+export const ControlsMiddleBar = React.memo(ControlsMiddleBarBase, arePropsEqual);

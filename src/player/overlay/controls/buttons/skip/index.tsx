@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { TouchableOpacity } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Text } from '@ui-kitten/components';
@@ -13,45 +13,57 @@ const HAPTIC_OPTIONS = {
     ignoreAndroidSystemSettings: true
 };
 
-export function SkipButton (props: SkipButtonProps): React.ReactElement {
+const SkipButtonBase = ({
+    id,
+    onPress: propOnPress,
+    accessibilityLabel,
+    disabled = false
+}: SkipButtonProps): React.ReactElement => {
 
-    const [isBehindLive, setIsBehindLive] = useState<boolean>(false);
-    const [title, setTitle] = useState<string>('');
-
-    useEffect(() => {
-        
-        if (props?.id === CONTROL_ACTION.SKIP_INTRO){
-            setTitle('Saltar Intro');
-
-        } else if (props?.id === CONTROL_ACTION.SKIP_CREDITS){
-            setTitle('Saltar Créditos');
-
+    const title = useMemo(() => {
+        if (id === CONTROL_ACTION.SKIP_INTRO) {
+            return 'Saltar Intro';
+        } else if (id === CONTROL_ACTION.SKIP_CREDITS) {
+            return 'Saltar Créditos';
         }
+        return '';
+    }, [id]);
 
-    }, []);
+    const containerStyle = useMemo(() => ({
+        ...styles.container,
+        ...styles.asButton
+    }), []);
 
-    const onPress = () => {
-
+    const handlePress = useCallback(() => {
         ReactNativeHapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
-
-        if (props?.onPress){
-            props?.onPress(props?.id);
-
+        
+        if (typeof propOnPress === 'function') {
+            propOnPress(id);
         }
-    };
+    }, [propOnPress, id]);
 
     return (
         <TouchableOpacity 
-            style={{ ...styles.container, ...styles.asButton }} 
-            onPress={onPress} 
+            style={containerStyle}
+            onPress={handlePress} 
             accessible={true} 
             accessibilityRole='button' 
-            accessibilityLabel={props?.accessibilityLabel}
+            accessibilityLabel={accessibilityLabel}
             pressRetentionOffset={5}
-            disabled={props.disabled}
+            disabled={disabled}
         >
-            <Text category='h5' style={styles.title}>{ title }</Text>
+            <Text category='h5' style={styles.title}>{title}</Text>
         </TouchableOpacity>
     );
-
 };
+
+const arePropsEqual = (prevProps: SkipButtonProps, nextProps: SkipButtonProps): boolean => {
+    return (
+        prevProps.id === nextProps.id &&
+        prevProps.onPress === nextProps.onPress &&
+        prevProps.accessibilityLabel === nextProps.accessibilityLabel &&
+        prevProps.disabled === nextProps.disabled
+    );
+};
+
+export const SkipButton = React.memo(SkipButtonBase, arePropsEqual);

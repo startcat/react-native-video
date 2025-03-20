@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import FastImage from 'react-native-fast-image';
 import { View } from 'react-native';
 import { Text } from '@ui-kitten/components';
@@ -12,33 +12,23 @@ import {
 
 import { styles } from './styles';
 
-export function ThumbnailCell (props: ThumbnailCellProps): React.ReactElement {
-
-    const [seconds, setSeconds] = useState<number>(props.seconds);
-    const [isActive, setIsActive] = useState<boolean>(!!props?.active);
+const ThumbnailCellBase = ({
+    seconds,
+    active,
+    offset,
+    cell_width,
+    metadata
+}: ThumbnailCellProps): React.ReactElement => {
+    
     const [thumbProps, setThumbProps] = useState<IThumbnail>();
-
-    useEffect(() => {
-        setSeconds(props.seconds);
-
-    }, [props.seconds]);
-
-    useEffect(() => {
-        setIsActive(!!props?.active);
-
-    }, [props.active]);
-
-    useEffect(() => {
-        getThumbnailFromMetadata(seconds);
-
-    }, [seconds]);
-
-    const getThumbnailFromMetadata = (seconds: number) => {
-
-        const { tileDuration, thumbnailDuration, url, width, height, imageWidth, imageHeight } = props?.metadata;
+    
+    const isActive = useMemo(() => !!active, [active]);
+    
+    const getThumbnailFromMetadata = useCallback((currentSeconds: number) => {
+        const { tileDuration, thumbnailDuration, url, width, height, imageWidth, imageHeight } = metadata;
         const thumbnailsPerRow = imageWidth / width;
 
-        let effectiveSecond = seconds < 0 ? 0 : seconds;
+        let effectiveSecond = currentSeconds < 0 ? 0 : currentSeconds;
 
         const imageGridIndex = Math.floor(effectiveSecond / tileDuration);
         effectiveSecond -= imageGridIndex * tileDuration;
@@ -51,7 +41,7 @@ export function ThumbnailCell (props: ThumbnailCellProps): React.ReactElement {
         const y = Math.floor(rowIndex * height);
         const x = Math.floor(colIndex * width);
 
-        const proportion = (props?.cell_width) ? props?.cell_width / width : 1;
+        const proportion = cell_width ? cell_width / width : 1;
 
         setThumbProps({
             gridSecond,
@@ -65,42 +55,55 @@ export function ThumbnailCell (props: ThumbnailCellProps): React.ReactElement {
             wrapperWidth: proportion * imageWidth,
             wrapperHeight: proportion * imageHeight
         });
+    }, [metadata, cell_width]);
 
-    }
-
+    useEffect(() => {
+        getThumbnailFromMetadata(seconds);
+    }, [seconds, getThumbnailFromMetadata]);
+    
+    const containerStyle = useMemo(() => [
+        styles.container, 
+        isActive ? styles.active : {},
+        { aspectRatio: metadata.width / metadata.height },
+        offset ? { left: offset } : { left: 0 }
+    ], [isActive, metadata.width, metadata.height, offset]);
+    
+    const imageStyle = useMemo(() => thumbProps ? {
+        ...styles.image, 
+        width: thumbProps.wrapperWidth,
+        height: thumbProps.wrapperHeight,
+        top: thumbProps.y,
+        left: thumbProps.x
+    } : {}, [thumbProps]);
+    
+    const timeText = useMemo(() => parseToCounter(seconds), [seconds]);
+    
     return (
-        <View 
-            style={[
-                styles.container, 
-                isActive ? styles.active : {},
-                { aspectRatio: props.metadata.width / props.metadata.height },
-                props?.offset ? { left: props.offset } : { left : 0 }
-            ]}>
-
-            {
-                thumbProps ?
-                    <FastImage 
-                        style={{
-                            ...styles.image, 
-                            width: thumbProps?.wrapperWidth,
-                            height: thumbProps?.wrapperHeight,
-                            top: thumbProps?.y,
-                            left: thumbProps?.x
-                        }} 
-                        source={{ uri: thumbProps?.url }}
-                        resizeMode='cover'
-                        accessible={false}
-                    />
-                : null
-            }
-
-            {
-                isActive ?
-                    <Text category='h1' style={styles.title}>{ parseToCounter(props?.seconds) }</Text>
-                : null
-            }
-
+        <View style={containerStyle}>
+            {thumbProps && (
+                <FastImage 
+                    style={imageStyle} 
+                    source={{ uri: thumbProps.url }}
+                    resizeMode='cover'
+                    accessible={false}
+                />
+            )}
+            
+            {isActive && (
+                <Text category='h1' style={styles.title}>{timeText}</Text>
+            )}
         </View>
     );
-
 };
+
+const arePropsEqual = (prevProps: ThumbnailCellProps, nextProps: ThumbnailCellProps): boolean => {
+    return (
+        prevProps.seconds === nextProps.seconds &&
+        prevProps.active === nextProps.active &&
+        prevProps.offset === nextProps.offset &&
+        prevProps.cell_width === nextProps.cell_width &&
+        prevProps.metadata === nextProps.metadata
+    );
+};
+
+export const ThumbnailCell = React.memo(ThumbnailCellBase, arePropsEqual);
