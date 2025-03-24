@@ -298,6 +298,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 settingsMenu={props.settingsMenu}
 
                 // Utils
+                getSourceUri={props.getSourceUri}
                 getTudumManifest={props.getTudumManifest}
                 getYouboraOptions={props.getYouboraOptions}
 
