@@ -199,6 +199,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 mapHlsQualities={props.mapHlsQualities}
 
                 manifests={props.manifests}
+                headers={props.headers}
                 poster={props.poster}
                 squaredPoster={props.squaredPoster}
                 youbora={props.youbora}
@@ -258,6 +259,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 mapHlsQualities={props.mapHlsQualities}
 
                 manifests={props.manifests}
+                headers={props.headers}
                 showExternalTudum={props.showExternalTudum}
                 poster={props.poster}
                 squaredPoster={props.squaredPoster}

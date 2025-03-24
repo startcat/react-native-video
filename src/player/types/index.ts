@@ -84,6 +84,8 @@ export enum YOUBORA_FORMAT {
     CAST = 'cast'
 }
 
+export type Headers = Record<string, string>;
+
 export interface IDrm {
     type?: DRM_TYPE;
     licenseServer?: string;
@@ -154,6 +156,7 @@ export interface IVideoSource {
     uri: string,
     type?: string,
     startPosition?: number;
+    headers?: Headers;
     metadata?: {
         title?: string;
         subtitle?: string;
@@ -589,6 +592,7 @@ export interface AudioFlavourProps {
     liveStartDate?:string;
 
     manifests?:Array<IManifest>,
+    headers?: Headers;
     showExternalTudum?: boolean;
     youbora?: IYoubora;
     poster?: string;
@@ -642,6 +646,7 @@ export interface AudioCastFlavourProps {
     liveStartDate?:string;
 
     manifests?:Array<IManifest>,
+    headers?: Headers;
     youbora?: IYoubora;
     poster?: string;
     squaredPoster?: string;
@@ -693,6 +698,7 @@ export interface NormalFlavourProps {
     liveStartDate?:string;
 
     manifests?:Array<IManifest>,
+    headers?: Headers;
     showExternalTudum?: boolean;
     youbora?: IYoubora;
     adTagUrl?: string;
@@ -753,6 +759,7 @@ export interface CastFlavourProps {
     liveStartDate?:string;
 
     manifests?:Array<IManifest>,
+    headers?: Headers;
     youbora?: IYoubora;
     adTagUrl?: string;
     poster?: string;
@@ -815,6 +822,7 @@ export interface PlayerProps {
     poster?: string;
     squaredPoster?: string;
     startPosition?: number;
+    headers?: Headers;
 
     playOffline?: boolean;
     multiSession?: boolean;
@@ -881,6 +889,7 @@ export interface AudioPlayerContentsDpo {
     hasNext?: boolean;
     hasPrev?: boolean;
     manifests?:Array<IManifest>,
+    headers?: Headers;
     youbora?: IYoubora;
     extraData?: any;
     forcedDvrWindowMinutes?: number;

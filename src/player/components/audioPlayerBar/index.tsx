@@ -270,6 +270,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         // languagesMapping={props.languagesMapping}
 
                         manifests={dpoData.manifests}
+                        headers={dpoData.headers}
                         poster={dpoData.poster}
                         squaredPoster={dpoData.squaredPoster}
                         youbora={dpoData.youbora}
@@ -325,6 +326,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         // languagesMapping={props.languagesMapping}
 
                         manifests={dpoData.manifests}
+                        headers={dpoData.headers}
                         poster={dpoData.poster}
                         squaredPoster={dpoData.squaredPoster}
                         youbora={dpoData.youbora}

@@ -219,6 +219,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
             type: getManifestSourceType(currentManifest.current!),
             startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined,
+            headers: props.headers,
             metadata: {
                 title: props.title,
                 subtitle: props.subtitle,
@@ -252,6 +253,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 title: videoSource.current.title,
                 uri: quality.code,
                 type: videoSource.current.type,
+                headers: props.headers,
                 metadata: videoSource.current.metadata
             };
 
