@@ -182,6 +182,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             uri: uri,
             type: getManifestSourceType(currentManifest.current!),
             startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined,
+            headers: props.headers,
             metadata: {
                 title: props.title,
                 subtitle: props.subtitle,

@@ -5,7 +5,7 @@ import {
 } from '../../types';
 import { styles } from './styles';
 
-const BackgroundPoster = ({ poster, children }: BackgroundPosterProps): React.ReactElement => {
+const BackgroundPosterComponent = ({ poster, children }: BackgroundPosterProps): React.ReactElement => {
     const imageUri = useMemo(() => 
         poster ? { uri: encodeURI(poster) } : undefined
     , [poster]);
@@ -33,4 +33,4 @@ const arePropsEqual = (prevProps: BackgroundPosterProps, nextProps: BackgroundPo
     // No comparamos children porque React ya maneja esta comparación eficientemente
 };
 
-export default React.memo(BackgroundPoster, arePropsEqual);
+export const BackgroundPoster = React.memo(BackgroundPosterComponent, arePropsEqual);
