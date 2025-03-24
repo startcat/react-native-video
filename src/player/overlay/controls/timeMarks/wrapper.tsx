@@ -1,4 +1,4 @@
-import React, { useEffect, useState, createElement } from 'react';
+import React, { createElement, useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import {
@@ -11,178 +11,167 @@ import {
     type TimeMarksProps
 } from '../../../types';
 
-export function TimeMarks (props: TimeMarksProps): React.ReactElement {
+const TimeMarksComponent = ({
+    currentTime: propCurrentTime = 0,
+    timeMarkers = [],
+    duration,
+    onPress: propOnPress,
+    skipIntroButton,
+    skipRecapButton,
+    skipCreditsButton,
+    nextButton
+}: TimeMarksProps): React.ReactElement => {
 
-    const [currentTime, setCurrentTime] = useState<number | undefined>(props?.currentTime);
-
-    useEffect(() => {
-        setCurrentTime(props?.currentTime);
-
-    }, [props?.currentTime]);
-
-    const onPress = (id: CONTROL_ACTION, value?:any) => {
-
-        if (props?.onPress){
-            props?.onPress(id, value);
+    const safeOnPress = useCallback((id: CONTROL_ACTION, value?: any) => {
+        if (typeof propOnPress === 'function') {
+            propOnPress(id, value);
         }
+    }, [propOnPress]);
 
-    }
-
-    const onPressSkipIntroExternalComponent = () => {
-
-        const timeEntry = props.timeMarkers?.find(item => item.type === TIME_MARK_TYPE.INTRO);
-
-        if (timeEntry){
-            onPress(CONTROL_ACTION.SEEK, timeEntry.end);
+    const onPressSkipIntroExternalComponent = useCallback(() => {
+        const timeEntry = timeMarkers.find(item => item.type === TIME_MARK_TYPE.INTRO);
+        if (timeEntry) {
+            safeOnPress(CONTROL_ACTION.SEEK, timeEntry.end);
         }
+    }, [timeMarkers, safeOnPress]);
 
-    }
-
-    const onPressSkipRecapExternalComponent = () => {
-
-        const timeEntry = props.timeMarkers?.find(item => item.type === TIME_MARK_TYPE.RECAP);
-
-        if (timeEntry){
-            onPress(CONTROL_ACTION.SEEK, timeEntry.end);
+    const onPressSkipRecapExternalComponent = useCallback(() => {
+        const timeEntry = timeMarkers.find(item => item.type === TIME_MARK_TYPE.RECAP);
+        if (timeEntry) {
+            safeOnPress(CONTROL_ACTION.SEEK, timeEntry.end);
         }
+    }, [timeMarkers, safeOnPress]);
 
-    }
-
-    const onPressSkipCreditsExternalComponent = () => {
-
-        const timeEntry = props.timeMarkers?.find(item => item.type === TIME_MARK_TYPE.CREDITS);
-
-        if (timeEntry){
-            onPress(CONTROL_ACTION.SEEK, timeEntry.end);
+    const onPressSkipCreditsExternalComponent = useCallback(() => {
+        const timeEntry = timeMarkers.find(item => item.type === TIME_MARK_TYPE.CREDITS);
+        if (timeEntry) {
+            safeOnPress(CONTROL_ACTION.NEXT);
         }
+    }, [timeMarkers, safeOnPress]);
 
-    }
+    const onPressSkipEpisodeExternalComponent = useCallback(() => {
+        safeOnPress(CONTROL_ACTION.NEXT);
+    }, [safeOnPress]);
 
-    const onPressSkipEpisodeExternalComponent = () => {
+    // Memoizamos el renderizado de los timeMarkers
+    const renderedTimeMarkers = useMemo(() => {
+        return timeMarkers.map((item, index) => {
+            // Verificamos si el marcador de tiempo debe mostrarse
+            const shouldShowTimeMark = item && propCurrentTime && (
+                (item.secondsToEnd && duration && (duration - propCurrentTime) >= item.secondsToEnd) ||
+                (propCurrentTime >= item.start && (!item?.end || propCurrentTime <= item?.end))
+            );
 
-        onPress(CONTROL_ACTION.NEXT);
+            if (!shouldShowTimeMark) {
+                return null;
+            }
 
-    }
+            // Renderizado según el tipo de marcador
+            if (item.type === TIME_MARK_TYPE.INTRO) {
+                if (skipIntroButton) {
+                    return createElement(skipIntroButton, { 
+                        key: index,
+                        onPress: onPressSkipIntroExternalComponent
+                    });
+                }
+                
+                return (
+                    <TimeMarkButton
+                        key={index}
+                        title='Saltar intro'
+                        value={item.end}
+                        onPress={safeOnPress}
+                    />
+                );
+            }
+
+            if (item.type === TIME_MARK_TYPE.RECAP) {
+                if (skipRecapButton) {
+                    return createElement(skipRecapButton, { 
+                        key: index,
+                        onPress: onPressSkipRecapExternalComponent
+                    });
+                }
+                
+                return (
+                    <TimeMarkButton
+                        key={index}
+                        title='Saltar resumen'
+                        value={item.end}
+                        onPress={safeOnPress}
+                    />
+                );
+            }
+
+            if (item.type === TIME_MARK_TYPE.CREDITS) {
+                if (skipCreditsButton) {
+                    return createElement(skipCreditsButton, { 
+                        key: index,
+                        onPress: onPressSkipCreditsExternalComponent
+                    });
+                }
+                
+                return (
+                    <TimeMarkButton
+                        key={index}
+                        title='Saltar créditos'
+                        value={item.end}
+                        onPress={safeOnPress}
+                    />
+                );
+            }
+
+            if (item.type === TIME_MARK_TYPE.NEXT) {
+                if (nextButton) {
+                    return createElement(nextButton, { 
+                        key: index,
+                        onPress: onPressSkipEpisodeExternalComponent
+                    });
+                }
+                
+                return (
+                    <TimeMarkButton
+                        key={index}
+                        id={CONTROL_ACTION.NEXT}
+                        title='Saltar episodio'
+                        onPress={safeOnPress}
+                    />
+                );
+            }
+
+            return null;
+        });
+    }, [
+        propCurrentTime, 
+        timeMarkers, 
+        duration, 
+        safeOnPress, 
+        skipIntroButton, 
+        skipRecapButton, 
+        skipCreditsButton, 
+        nextButton,
+        onPressSkipIntroExternalComponent,
+        onPressSkipRecapExternalComponent,
+        onPressSkipCreditsExternalComponent,
+        onPressSkipEpisodeExternalComponent
+    ]);
 
     return (
         <View style={styles.container}>
-
-            {
-                props.timeMarkers?.map((item, index) => {
-
-                    if (item && currentTime && 
-                        (
-                            (item.secondsToEnd && props.duration && (props.duration - currentTime) >= item.secondsToEnd) ||
-                            (currentTime >= item.start && (!item?.end || currentTime <= item?.end))
-                        )
-                    ){
-
-                        if (item.type === TIME_MARK_TYPE.INTRO){
-
-                            if (props.skipIntroButton){
-                                return createElement(props.skipIntroButton, { 
-                                    key: index,
-                                    onPress: onPressSkipIntroExternalComponent
-                                })
-
-                            } else {
-                                return (
-                                    <TimeMarkButton
-                                        key={index}
-                                        title='Saltar intro'
-                                        value={item.end}
-                                        onPress={props?.onPress}
-                                    />
-                                )
-
-                            }
-
-                        }
-
-                        if (item.type === TIME_MARK_TYPE.RECAP){
-                            
-                            if (props.skipRecapButton){
-                                return createElement(props.skipRecapButton, { 
-                                    key: index,
-                                    onPress: onPressSkipRecapExternalComponent
-                                })
-
-                            } else {
-                                return (
-                                    <TimeMarkButton
-                                        key={index}
-                                        title='Saltar resumen'
-                                        value={item.end}
-                                        onPress={props?.onPress}
-                                    />
-                                )
-
-                            }
-
-                        }
-
-                        if (item.type === TIME_MARK_TYPE.CREDITS){
-                            
-                            if (props.skipCreditsButton){
-                                return createElement(props.skipCreditsButton, { 
-                                    key: index,
-                                    onPress: onPressSkipCreditsExternalComponent
-                                })
-
-                            } else {
-                                return (
-                                    <TimeMarkButton
-                                        key={index}
-                                        title='Saltar créditos'
-                                        value={item.end}
-                                        onPress={props?.onPress}
-                                    />
-                                )
-                            }
-
-                        }
-
-                        if (item.type === TIME_MARK_TYPE.NEXT){
-                            
-                            if (props.nextButton){
-                                return createElement(props.nextButton, { 
-                                    key: index,
-                                    onPress: onPressSkipEpisodeExternalComponent
-                                })
-
-                            } else {
-                                return (
-                                    <TimeMarkButton
-                                        key={index}
-                                        id={CONTROL_ACTION.NEXT}
-                                        title='Saltar episodio'
-                                        onPress={props?.onPress}
-                                    />
-                                )
-                            }
-
-                        }
-
-                        return null;
-                        
-                    } else {
-                        return null;
-
-                    }
-
-                })
-            }
-
+            {renderedTimeMarkers}
         </View>
     );
-
 };
 
+TimeMarksComponent.displayName = 'TimeMarks';
+
+export const TimeMarks = React.memo(TimeMarksComponent);
+
 const styles = StyleSheet.create({
-    container:{
-        flex:1,
-        flexDirection:'row',
-        justifyContent:'flex-end',
+    container: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
         marginHorizontal: 12
     },
 });

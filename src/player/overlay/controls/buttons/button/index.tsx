@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { TouchableOpacity } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Icon } from '@ui-kitten/components';
@@ -13,63 +13,78 @@ const HAPTIC_OPTIONS = {
     ignoreAndroidSystemSettings: true
 };
 
-export function Button (props: ButtonProps): React.ReactElement {
+const ButtonComponent = ({
+    id,
+    iconName,
+    size,
+    onPress: propOnPress,
+    accessibilityLabel,
+    disabled = false,
+    value,
+    children
+}: ButtonProps): React.ReactElement => {
 
-    const [iconName, setIconName] = useState<string | undefined>(props?.iconName);
+    // Memoizamos los estilos basados en el tamaño del botón
+    const { containerStylesWithSize, iconStylesWithSize } = useMemo(() => {
+        let containerStyles = styles.container;
+        let iconStyles = styles.icon;
 
-    let containerStylesWithSize = styles.container;
-    let iconStylesWithSize = styles.icon;
+        if (size === BUTTON_SIZE.SMALL) {
+            containerStyles = { ...styles.container, ...styles.small };
+            iconStyles = { ...styles.icon, ...styles.iconSmall };
+        } else if (size === BUTTON_SIZE.MEDIUM) {
+            containerStyles = { ...styles.container, ...styles.medium };
+            iconStyles = { ...styles.icon, ...styles.iconMedium };
+        } else if (size === BUTTON_SIZE.BIG) {
+            containerStyles = { ...styles.container, ...styles.big };
+            iconStyles = { ...styles.icon, ...styles.iconBig };
+        }
 
-    if (props.size === BUTTON_SIZE.SMALL){
-        containerStylesWithSize = { ...styles.container, ...styles.small };
-        iconStylesWithSize = { ...styles.icon, ...styles.iconSmall };
-    }
+        return { containerStylesWithSize: containerStyles, iconStylesWithSize: iconStyles };
+    }, [size]);
 
-    if (props.size === BUTTON_SIZE.MEDIUM){
-        containerStylesWithSize = { ...styles.container, ...styles.medium };
-        iconStylesWithSize = { ...styles.icon, ...styles.iconMedium };
-    }
+    // Memoizamos los valores lógicos
+    const isAccessible = useMemo(() => !!accessibilityLabel, [accessibilityLabel]);
+    
+    // Memoizamos los estilos del icono basados en el estado de disabled
+    const iconStyles = useMemo(() => {
+        return disabled ? [iconStylesWithSize, styles.disabled] : iconStylesWithSize;
+    }, [disabled, iconStylesWithSize]);
 
-    if (props.size === BUTTON_SIZE.BIG){
-        containerStylesWithSize = { ...styles.container, ...styles.big };
-        iconStylesWithSize = { ...styles.icon, ...styles.iconBig };
-    }
-
-    useEffect(() => {
-        setIconName(props?.iconName);
-
-    }, [props?.iconName]);
-
-    const onPress = () => {
-
+    // Manejador de eventos con useCallback
+    const handlePress = useCallback(() => {
         ReactNativeHapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
 
-        if (props?.onPress){
-            props?.onPress(props?.id, props?.value);
-
+        if (typeof propOnPress === 'function') {
+            propOnPress(id, value);
         }
-    };
+    }, [propOnPress, id, value]);
+
+    // Condición para mostrar el icono memoizada
+    const showIcon = useMemo(() => iconName && !children, [iconName, children]);
 
     return (
         <TouchableOpacity 
             style={containerStylesWithSize} 
-            onPress={onPress} 
-            accessible={!!props?.accessibilityLabel} 
+            onPress={handlePress} 
+            accessible={isAccessible} 
             accessibilityRole='button' 
-            accessibilityLabel={props?.accessibilityLabel}
+            accessibilityLabel={accessibilityLabel}
             pressRetentionOffset={10}
-            disabled={props.disabled}
+            disabled={disabled}
         >
-            {
-                iconName && !props?.children ?
-                    <Icon 
-                        name={iconName} 
-                        style={ (props.disabled) ? [iconStylesWithSize, styles.disabled] : iconStylesWithSize} 
-                    />
-                : null
-            }
+            {showIcon && (
+                <Icon 
+                    name={iconName!} 
+                    style={iconStyles} 
+                />
+            )}
 
-            { props?.children }
+            {children}
         </TouchableOpacity>
     );
 };
+
+ButtonComponent.displayName = 'Button';
+
+export const Button = React.memo(ButtonComponent);

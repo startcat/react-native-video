@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { TouchableOpacity } from 'react-native';
 import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
 import { Text } from '@ui-kitten/components';
@@ -13,30 +13,45 @@ const HAPTIC_OPTIONS = {
     ignoreAndroidSystemSettings: true
 };
 
-export function TimeMarkButton (props: TimeMarkButtonProps): React.ReactElement {
+const TimeMarkButtonComponent = ({
+    id,
+    value,
+    title,
+    onPress: propOnPress,
+    accessibilityLabel,
+    disabled = false
+}: TimeMarkButtonProps): React.ReactElement => {
 
-    const onPress = () => {
+    // Memoizamos el estilo del contenedor
+    const containerStyle = useMemo(() => ({
+        ...styles.container,
+        ...styles.asButton
+    }), []);
 
+    // Manejador de eventos con useCallback
+    const handlePress = useCallback(() => {
         ReactNativeHapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
 
-        if (props?.onPress){
-            props?.onPress(props.id || CONTROL_ACTION.SEEK, props.value);
-
+        if (typeof propOnPress === 'function') {
+            propOnPress(id || CONTROL_ACTION.SEEK, value);
         }
-    };
+    }, [propOnPress, id, value]);
 
     return (
         <TouchableOpacity 
-            style={{ ...styles.container, ...styles.asButton }} 
-            onPress={onPress} 
+            style={containerStyle} 
+            onPress={handlePress} 
             accessible={true} 
             accessibilityRole='button' 
-            accessibilityLabel={props?.accessibilityLabel}
+            accessibilityLabel={accessibilityLabel}
             pressRetentionOffset={5}
-            disabled={props.disabled}
+            disabled={disabled}
         >
-            <Text category='h5' style={styles.title}>{ props.title }</Text>
+            <Text category='h5' style={styles.title}>{title}</Text>
         </TouchableOpacity>
     );
-
 };
+
+TimeMarkButtonComponent.displayName = 'TimeMarkButton';
+
+export const TimeMarkButton = React.memo(TimeMarkButtonComponent);
