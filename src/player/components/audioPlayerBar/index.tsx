@@ -300,6 +300,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         controls={props.controls}
 
                         // Utils
+                        getSourceUri={dpoData.getSourceUri}
                         getYouboraOptions={dpoData.getYouboraOptions}
                         getTudumSource={dpoData.getTudumSource}
 
