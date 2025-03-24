@@ -169,7 +169,14 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             uri = `file://${offlineBinary?.offlineData.fileUri}`;
 
         } else {
-            uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+
+            if (props.getSourceUri){
+                uri = props.getSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+
+            } else {
+                uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+
+            }
 
         }
 

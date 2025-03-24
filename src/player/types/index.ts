@@ -624,8 +624,7 @@ export interface AudioFlavourProps {
     controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
-    watchingProgressInterval?: number;
-    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumSource?: () => IVideoSource | null | undefined;
 
@@ -677,8 +676,6 @@ export interface AudioCastFlavourProps {
     controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
-    watchingProgressInterval?: number;
-    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
@@ -739,6 +736,7 @@ export interface NormalFlavourProps {
     settingsMenu?: FunctionComponent<MenuProps>;
 
     // Utils
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
@@ -855,6 +853,7 @@ export interface PlayerProps {
     // Utils
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
@@ -897,6 +896,7 @@ export interface AudioPlayerContentsDpo {
     // Utils
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumSource?: () => IVideoSource | null | undefined;
 
