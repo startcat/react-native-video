@@ -300,8 +300,6 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         controls={props.controls}
 
                         // Utils
-                        watchingProgressInterval={dpoData.watchingProgressInterval}
-                        addContentProgress={dpoData.addContentProgress}
                         getYouboraOptions={dpoData.getYouboraOptions}
                         getTudumSource={dpoData.getTudumSource}
 
@@ -353,8 +351,6 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         controls={props.controls}
 
                         // Utils
-                        watchingProgressInterval={dpoData.watchingProgressInterval}
-                        addContentProgress={dpoData.addContentProgress}
                         getYouboraOptions={dpoData.getYouboraOptions}
 
                         // Events

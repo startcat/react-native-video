@@ -187,6 +187,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     // Source Cooking
     const setPlayerSource = async () => {
 
+        let uri = "";
+
         // Cogemos el manifest adecuado
         currentManifest.current = getBestManifest(props?.manifests!);
 
@@ -212,11 +214,20 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             setDvrTimeValue(dvrWindowSeconds.current);
         }
 
+        // Preparamos la uri por si necesitamos incorporar el start en el dvr
+        if (props.getSourceUri){
+            uri = props.getSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+
+        } else {
+            uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+            
+        }
+
         // Montamos el Source para el player
         videoSource.current = {
             id: props.id,
             title: props.title,
-            uri: getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes),
+            uri: uri,
             type: getManifestSourceType(currentManifest.current!),
             startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined,
             headers: props.headers,
