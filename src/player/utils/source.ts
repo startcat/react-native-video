@@ -62,15 +62,7 @@ const addLiveTimestamp = (uri: string, subtractMinutes: number): string => {
 
     if (subtractMinutes){
         fromDate = subtractMinutesFromDate(fromDate, subtractMinutes);
-
         log(`DVR fromDate ${fromDate.toLocaleTimeString()}`);
-
-        // // Redondeamos hacia abajo para que todas las peticiones en intervalos de 1h, usen el mismo querystring
-        // fromDate.setMinutes(fromDate.getMinutes() - (fromDate.getMinutes() % 60));
-        // fromDate.setMilliseconds(0);
-        // fromDate.setSeconds(0);
-        
-        // log(`DVR fromDate after 60 min round ${fromDate.toLocaleTimeString()}`);
 
     }
 
@@ -186,5 +178,27 @@ export const getVideoSourceUri = (manifest: IManifest, dvrWindowMinutes?: number
     log(`uri: ${uri}`);
 
     return uri;
+
+}
+
+export const getMinutesSinceStart = (uri: string): number => {
+
+    const queryString = uri.substring(uri.indexOf('?') + 1);
+    const params = qs.parse(queryString);
+
+    const hasStartParam = !!params.start;
+
+    if (!hasStartParam) return 0;
+
+    const startTimestamp = typeof(params.start) === 'string' && parseInt(params.start, 10);
+
+    if (!startTimestamp || isNaN(startTimestamp)) return 0;
+
+    const currentTimestamp = Math.floor(Date.now() / 1000); // Timestamp actual en segundos
+    const differenceInMinutes = Math.floor((currentTimestamp - startTimestamp) / 60); // Convertimos a minutos
+
+    log(`getMinutesSinceStart: ${differenceInMinutes}`);
+
+    return differenceInMinutes;
 
 }
