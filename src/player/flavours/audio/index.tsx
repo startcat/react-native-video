@@ -186,8 +186,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             const dvrRecalculatedMinutes = getMinutesSinceStart(uri);
 
             if (dvrRecalculatedMinutes){
-                dvrWindowSeconds.current = dvrRecalculatedMinutes;
-                setDvrTimeValue(dvrRecalculatedMinutes);
+                dvrWindowSeconds.current = dvrRecalculatedMinutes * 60;
+                setDvrTimeValue(dvrWindowSeconds.current);
             }
         }
 
