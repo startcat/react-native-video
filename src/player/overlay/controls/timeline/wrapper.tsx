@@ -116,8 +116,8 @@ const TimelineBase = ({
             <View style={styles.barSlider}>
                 {showVODSlider && SliderVODComponent}
                 {showVODSlider && !SliderVODComponent && DefaultVODSlider}
-                {showDVRSlider && SliderDVRComponent}
-                {showDVRSlider && !SliderDVRComponent && DefaultDVRSlider}
+                {showDVRSlider && !showVODSlider && SliderDVRComponent}
+                {showDVRSlider && !showVODSlider && !SliderDVRComponent && DefaultDVRSlider}
             </View>
             {ThumbnailsComponent}
         </View>
