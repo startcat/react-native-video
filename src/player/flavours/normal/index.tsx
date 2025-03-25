@@ -25,6 +25,7 @@ import {
     getManifestSourceType,
     getVideoSourceUri,
     getDRM,
+    getMinutesSinceStart,
     onAdStarted,
     mergeMenuData,
     getHlsQualities,
@@ -221,6 +222,16 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         } else {
             uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
             
+        }
+
+        // Recalculamos la ventana de tiempo para el slider en DVR
+        if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
+            const dvrRecalculatedMinutes = getMinutesSinceStart(uri);
+
+            if (dvrRecalculatedMinutes){
+                dvrWindowSeconds.current = dvrRecalculatedMinutes;
+                setDvrTimeValue(dvrRecalculatedMinutes);
+            }
         }
 
         // Montamos el Source para el player

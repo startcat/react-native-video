@@ -20,6 +20,7 @@ import {
     getContentIdIsBinary,
     getContentById,
     getDRM,
+    getMinutesSinceStart,
     subtractMinutesFromDate
 } from '../../utils';
 
@@ -178,6 +179,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             }
 
+        }
+
+        // Recalculamos la ventana de tiempo para el slider en DVR
+        if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
+            const dvrRecalculatedMinutes = getMinutesSinceStart(uri);
+
+            if (dvrRecalculatedMinutes){
+                dvrWindowSeconds.current = dvrRecalculatedMinutes;
+                setDvrTimeValue(dvrRecalculatedMinutes);
+            }
         }
 
         console.log(`[Player] (Audio Flavour) uri ${JSON.stringify(uri)}`);
