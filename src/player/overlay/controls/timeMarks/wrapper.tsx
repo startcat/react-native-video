@@ -19,7 +19,8 @@ const TimeMarksComponent = ({
     skipIntroButton,
     skipRecapButton,
     skipCreditsButton,
-    nextButton
+    nextButton,
+    style
 }: TimeMarksProps): React.ReactElement => {
 
     const safeOnPress = useCallback((id: CONTROL_ACTION, value?: any) => {
@@ -114,8 +115,8 @@ const TimeMarksComponent = ({
                 return (
                     <TimeMarkButton
                         key={index}
+                        id={CONTROL_ACTION.NEXT}
                         title='Saltar créditos'
-                        value={item.end}
                         onPress={safeOnPress}
                     />
                 );
@@ -157,7 +158,7 @@ const TimeMarksComponent = ({
     ]);
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, style]}>
             {renderedTimeMarkers}
         </View>
     );
