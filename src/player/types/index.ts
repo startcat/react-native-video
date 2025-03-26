@@ -440,6 +440,8 @@ export interface TimeMarksProps {
     skipRecapButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     skipCreditsButton?: FunctionComponent<TimeMarkExternalButtonProps>;
 
+    style?:any;
+
     // Events
     onPress?: (id: CONTROL_ACTION, value?: any) => void;
 }
