@@ -300,18 +300,14 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setMuted(!!value);
         }
         
-        if (id === CONTROL_ACTION.NEXT && props.onNext){
+        if (id === CONTROL_ACTION.NEXT && props.onNext){            
             setIsContentLoaded(false);
-            if (props.onNext){
-                props.onNext();
-            }
+            props.onNext();
         }
 
         if (id === CONTROL_ACTION.PREVIOUS && props.onPrevious){
             setIsContentLoaded(false);
-            if (props.onPrevious){
-                props.onPrevious();
-            }
+            props.onPrevious();
         }
         
         if (id === CONTROL_ACTION.SPEED_RATE && typeof(value) === 'number'){
