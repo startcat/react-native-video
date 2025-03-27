@@ -1,5 +1,6 @@
 import React, { createElement, useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import {
     TimeMarkButton
@@ -10,6 +11,8 @@ import {
     TIME_MARK_TYPE,
     type TimeMarksProps
 } from '../../../types';
+
+const ANIMATION_SPEED = 150;
 
 const TimeMarksComponent = ({
     currentTime: propCurrentTime = 0,
@@ -44,11 +47,8 @@ const TimeMarksComponent = ({
     }, [timeMarkers, safeOnPress]);
 
     const onPressSkipCreditsExternalComponent = useCallback(() => {
-        const timeEntry = timeMarkers.find(item => item.type === TIME_MARK_TYPE.CREDITS);
-        if (timeEntry) {
-            safeOnPress(CONTROL_ACTION.NEXT);
-        }
-    }, [timeMarkers, safeOnPress]);
+        safeOnPress(CONTROL_ACTION.NEXT);
+    }, [safeOnPress]);
 
     const onPressSkipEpisodeExternalComponent = useCallback(() => {
         safeOnPress(CONTROL_ACTION.NEXT);
@@ -158,9 +158,13 @@ const TimeMarksComponent = ({
     ]);
 
     return (
-        <View style={[styles.container, style]}>
+        <Animated.View 
+            style={[styles.container, style]}
+            entering={FadeIn.duration(ANIMATION_SPEED)}
+            exiting={FadeOut.duration(ANIMATION_SPEED)}
+        >
             {renderedTimeMarkers}
-        </View>
+        </Animated.View>
     );
 };
 
