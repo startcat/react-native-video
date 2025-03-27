@@ -42,6 +42,10 @@ export function parseToCounter (durationInSeconds: number | string): string {
 
     }
 
+    if (seconds < 0){
+        seconds = 0;
+    }
+
     const segments = segmentDuration(seconds);
 
     const segmentsToString = {
@@ -70,6 +74,10 @@ export function parseToDetails (durationInSeconds: number | string): string {
     } else {
         seconds = durationInSeconds;
 
+    }
+
+    if (seconds < 0){
+        seconds = 0;
     }
 
     const minutes = Math.floor(seconds / 60);
