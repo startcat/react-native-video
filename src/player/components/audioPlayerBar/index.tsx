@@ -64,8 +64,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             } else if (audioPlayerHeight){
                 // Si ya lo teníamos desplegado, cambiamos el ID/Slug del contenido
                 // Para cambiar de contenido, necesitamos desmontarlo
-                currentTime.current = 0;
-                setDpoData(null);
+                clearDataToChangeContents();
                 setContentId({
                     next: data
                 });
@@ -79,8 +78,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             
             if (data.action === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
 
-                currentTime.current = 0;
-                setDpoData(null);
+                clearDataToChangeContents();
                 setContentId({
                     current: null,
                     next: null
@@ -174,6 +172,15 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
         };
 
     }, [dpoData?.id]);
+
+    const clearDataToChangeContents = () => {
+
+        hasBeenLoaded.current = false;
+        currentTime.current = 0;
+        duration.current = 0;
+        setDpoData(null);
+
+    }
 
     const showPlayer = () => {
         // @ts-ignore
