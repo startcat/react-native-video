@@ -123,7 +123,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             hasNext: props.hasNext,
             hasPrev: props.hasPrev,
             isLive: props.isLive,
-            isDVR: isDVR.current,
+            isDVR: props.isLive && isDVR.current,
             isContentLoaded: isContentLoaded,
             speedRate: speedRate,
             extraData: props.extraData
@@ -156,7 +156,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
-        if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
+        if (props?.isLive && typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
             isDVR.current = true;
             dvrWindowSeconds.current = props.forcedDvrWindowMinutes ? props.forcedDvrWindowMinutes * 60 : currentManifest.current?.dvr_window_minutes * 60;
             setDvrTimeValue(dvrWindowSeconds.current);
