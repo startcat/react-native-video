@@ -327,10 +327,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         console.log(`[Player] (Audio Cast Flavour) onControlsPress: ${id} (${value})`);
 
-        if (id === CONTROL_ACTION.PAUSE){
-            setPaused(!!value);
-        }
-
         if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
 
             if (props.onClose){
@@ -370,6 +366,10 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     
                 }
                 
+            }
+
+            if (id === CONTROL_ACTION.PAUSE){
+                setPaused(!!value);
             }
 
             if (id === CONTROL_ACTION.MUTE){
@@ -490,7 +490,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         duration: duration,
         paused: paused,
         muted: muted,
-        preloading: preloading,
+        preloading: loading || preloading,
         hasNext: props.hasNext,
         hasPrev: props.hasPrev,
         isLive: props.isLive,
