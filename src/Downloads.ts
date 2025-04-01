@@ -7,6 +7,7 @@ import { formatBytes } from './downloads/utils';
 import { refactorOldEntries } from './downloads/upgrade';
 import { getNetworkInfo } from './downloads/network';
 import { readStorage, saveStorage } from './downloads/storage';
+import { readDirectorySize } from './downloads/filesystem';
 
 import type {
     ConfigDownloads,
@@ -575,23 +576,6 @@ class Singleton {
 
     }
 
-    private getNetworkInfo (): Promise<NetworkState> {
-
-        /*
-         *	"isConnected": true,
-	     *  "type": "wifi",
-	     *  "isInternetReachable": true,
-	     *  "isWifiEnabled": true
-         *
-         */
-
-        return getNetworkInfo(this.log_key).then(state => {
-            Singleton.networkState = state;
-            return state;
-        });
-
-    }
-
 
 
     // List Methods
@@ -914,29 +898,6 @@ class Singleton {
         
     }
 
-    public getItemIndex (obj: DownloadItem): Promise<number> {
-
-        return new Promise((resolve, reject) => {
-
-            if (!obj){
-                return reject(`${this.log_key} getItemIndex: Incomplete item data`);
-
-            }
-
-            const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === obj.offlineData?.source?.uri);
-
-            if (foundAtIndex !== undefined && foundAtIndex !== null){
-                resolve(foundAtIndex);
-
-            } else {
-                reject();
-
-            }
-
-        });
-        
-    }
-
     public getList (): Array<DownloadItem> {
         return this.savedDownloads;
         
@@ -1006,47 +967,6 @@ class Singleton {
     }
 
     // Directories
-    public readDirectorySize (dir: string): Promise<number>  {
-
-        return new Promise((resolve, reject) => {
-
-            let dirSize = 0;
-
-            if (!RNFS){
-                reject('No react-native-fs module');
-            }
-
-            RNFS?.readDir(dir).then(async (result: ReadDirItem[]): Promise<void> => {
-
-                for (const item of result) {
-
-                    if (item.isDirectory()){
-                        await this.readDirectorySize(item.path).then(size => {
-
-                            if (typeof(size) === 'number'){
-                                dirSize = size + dirSize;
-                            }
-                            
-                        });
-
-                    } else if (item.isFile()){
-                        dirSize = dirSize + item.size;
-
-                    }
-
-                }
-
-                resolve(dirSize);
-
-            }).catch((err: any) => {
-                reject(err);
-
-            });
-
-        });
-
-    }
-
     private getAppleDownloadsDirectory (dir: string): Promise<string> {
 
         return new Promise((resolve, reject) => {
@@ -1084,17 +1004,86 @@ class Singleton {
 
     }
 
+    private getAppleAssetInfo (uri: string): Promise<any> {
+
+        return new Promise((resolve, reject) => {
+
+            if (Platform.OS === 'ios'){
+                this.getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
+                    if (path !== DOWNLOADS_DIR){
+                        readDirectorySize(path).then(size => {
+                            resolve({
+                                type: 'ios',
+                                size: size
+                            });
+
+                        }).catch(err => {
+                            reject(err);
+
+                        });
+
+                    } else {
+                        readDirectorySize(DOWNLOADS_DIR).then(size => {
+                            resolve({
+                                type: 'ios',
+                                size: size
+                            });
+
+                        }).catch(err => {
+                            reject(err);
+
+                        });
+
+                    }
+
+                }).catch(err => {
+                    reject(err);
+
+                });
+
+            } else {
+                readDirectorySize(DOWNLOADS_DIR).then(size => {
+                    resolve({
+                        type: 'android',
+                        size: size
+                    });
+
+                }).catch(err => {
+                    reject(err);
+
+                });
+
+            }
+
+        });
+
+    }
+
     private checkTotalSize (): Promise<void> {
 
         return new Promise((resolve) => {
 
             if (Platform.OS === 'ios'){
-
                 this.getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
+                    if (path !== DOWNLOADS_DIR){
+                        readDirectorySize(path).then(size => {
 
-                    if (typeof(path) === 'string'){
+                            if (typeof(size) === 'number'){
+                                this.size = size;
+                                console.log(`${this.log_key} Total size ${this.size} --> ${formatBytes(this.size)}`);
+                                EventRegister.emit('downloadsSize', { size:this.size });
 
-                        this.readDirectorySize(path).then(size => {
+                            }
+
+                            resolve();
+
+                        }). catch(() => {
+                            resolve();
+
+                        });
+
+                    } else {
+                        readDirectorySize(DOWNLOADS_DIR).then(size => {
 
                             if (typeof(size) === 'number'){
                                 this.size = size;
@@ -1118,8 +1107,7 @@ class Singleton {
                 });
 
             } else {
-
-                this.readDirectorySize(DOWNLOADS_DIR).then(size => {
+                readDirectorySize(DOWNLOADS_DIR).then(size => {
 
                     if (typeof(size) === 'number'){
                         this.size = size;
