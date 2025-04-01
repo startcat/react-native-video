@@ -45,7 +45,6 @@ let RNBackgroundDownloader;
  */
 
 const { DownloadsModule } = NativeModules;
-const DOWNLOADS_KEY = 'off_downloads_v2';
 const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS?.LibraryDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
 
 class Singleton {
