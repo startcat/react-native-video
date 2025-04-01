@@ -1,12 +1,12 @@
 import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import { EventRegister } from 'react-native-event-listeners';
 
 import { formatBytes } from './downloads/utils';
 import { refactorOldEntries } from './downloads/upgrade';
 import { getNetworkInfo } from './downloads/network';
+import { readStorage, saveStorage } from './downloads/storage';
 
 import type {
     ConfigDownloads,
@@ -148,24 +148,12 @@ class Singleton {
 
             }
 
-            AsyncStorage.getItem(DOWNLOADS_KEY).then(async (result: string | null) => {
+            readStorage(this.log_key).then(async (result: DownloadItem[] | null) => {
 
-                if (typeof(result) === 'string'){
-                    try {
-                        this.savedDownloads = JSON.parse(result);
-
-                        if (!result){
-                            this.savedDownloads = [];
-
-                        }
-
-                    } catch(ex: any){
-                        console.error(ex?.message);
-                    }
-
+                if (result && result.length > 0) {
+                    this.savedDownloads = result;
                 } else {
                     this.savedDownloads = [];
-
                 }
 
                 if (Platform.OS === 'ios'){
@@ -481,14 +469,16 @@ class Singleton {
     private saveRefList (): Promise<DownloadItem[]> {
 
         return new Promise((resolve, reject) => {
-            AsyncStorage.setItem(DOWNLOADS_KEY, JSON.stringify(this.savedDownloads), (err: any) => {
+            saveStorage(this.savedDownloads, this.log_key).then((success) => {
 
-                if (err) {
-                    return reject(err);
-
+                if (success) {
+                    return resolve(this.savedDownloads);
+                } else {
+                    return reject(new Error('Error al guardar los datos'));
                 }
 
-                return resolve(this.savedDownloads);
+            }).catch((err: any) => {
+                return reject(err);
 
             });
         });
