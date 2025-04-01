@@ -5,6 +5,7 @@ import RNFS from 'react-native-fs';
 import { EventRegister } from 'react-native-event-listeners';
 
 import { formatBytes } from './downloads/utils';
+import { refactorOldEntries } from './downloads/upgrade';
 
 import type {
     ConfigDownloads,
@@ -35,8 +36,6 @@ import type {
 import { DownloadStates } from './types';
 
 let RNBackgroundDownloader;
-
-
 
 /*
  *  Downloads Module
@@ -541,59 +540,14 @@ class Singleton {
 
 
     // From old versions
-    private async refactorOldEntries (): Promise<void> {
-
-        const avoidMediaFields = ['offlineData', 'theme'];
-
-        AsyncStorage.getItem(DOWNLOADS_OLDKEY).then(async (result: string | null) => {
-
-            if (typeof(result) === 'string'){
-
-                const oldDownloads = JSON.parse(result);
-
-                if (Array.isArray(oldDownloads) && oldDownloads?.length > 0){
-
-                    for (const oldItem of oldDownloads) {
-                        
-                        const newItem: DownloadItem = {
-                            media: {},
-                            offlineData: {
-                                session_ids: [...oldItem?.offlineData?.profiles],
-                                source: oldItem?.offlineData?.source,
-                                state: oldItem?.offlineData?.state,
-                                drm: oldItem?.offlineData?.drm,
-                                percent: oldItem?.offlineData?.percent || 0
-                            }
-                        }
-
-                        for (const key in oldItem){
-
-                            if (!avoidMediaFields.includes(key)){
-                                newItem.media[key] = oldItem[key];
-                            }
-
-                        }
-
-                        this.savedDownloads.push(newItem);
-                        
-                    }
-
-                    try {
-                        await this.saveRefList();
-                        AsyncStorage.removeItem(DOWNLOADS_OLDKEY);
-
-                    } catch (ex: any){
-                        console.log(`${this.log_key} refactorOldEntries error: ${ex?.message}`);
-                    }
-
-                }
-
-            }
-
-        });
-
+    // La función refactorOldEntries ha sido movida a './downloads/upgrade.ts'
+    private async refactorOldEntries(): Promise<void> {
+        await refactorOldEntries(
+            () => this.saveRefList(),
+            this.savedDownloads,
+            this.log_key
+        );
     }
-
 
 
     // Utils
