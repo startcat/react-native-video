@@ -6,9 +6,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import type { NetworkState } from '../types/Downloads';
 
-// Almacena el estado de la red actual
-let networkState: NetworkState;
-
 /*
  * Obtiene información sobre el estado de la red
  *
@@ -30,14 +27,12 @@ export const getNetworkInfo = async (logPrefix: string = '[Downloads]'): Promise
         const state = await NetInfo.fetch();
         console.log(`${logPrefix} getNetworkInfo - isConnected? ${state?.isConnected} (${state?.type})`);
         
-        networkState = {
+        return {
             isConnected: !!state?.isConnected,
             isInternetReachable: !!state?.isInternetReachable,
             isWifiEnabled: !!state?.isWifiEnabled,
             type: state?.type || null
         };
-
-        return networkState;
     } catch (error) {
         // En caso de error, devolver un estado por defecto
         return {
