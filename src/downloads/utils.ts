@@ -29,3 +29,19 @@ export const formatBytes = (bytes: number = 0, decimals: number = 2): string => 
 
     return strSize;
 };
+
+/*
+ * Muestra en consola la lista de descargas guardadas
+ * 
+ * @param logKey Prefijo para los mensajes de log
+ * @param savedDownloads Lista de descargas guardadas
+ * 
+ */
+
+export const listToConsole = (logKey: string, savedDownloads: any[]): void => {
+    savedDownloads?.forEach(item => {
+        console.log(`${logKey} --- [${item?.media?.collection}] ${item?.media?.slug}: ${item?.media?.title} ${JSON.stringify(item?.offlineData)}`);
+    });
+    
+    console.log(`${logKey} Found ${savedDownloads?.length} items.`);
+};
