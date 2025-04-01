@@ -345,7 +345,14 @@ export const saveList = async (
     items: DownloadItem[],
     logPrefix: string = '[Downloads]'
 ): Promise<boolean> => {
-    return await saveStorage(items, logPrefix);
+    try {
+        await saveStorage(items);
+        console.log(`${logPrefix} saveList: Lista guardada con ${items.length} elementos`);
+        return true;
+    } catch (error) {
+        console.error(`${logPrefix} saveList error:`, error);
+        return false;
+    }
 };
 
 /*
