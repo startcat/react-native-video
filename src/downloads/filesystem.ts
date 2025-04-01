@@ -5,36 +5,36 @@
 import RNFS from 'react-native-fs';
 import type { ReadDirItem } from '../types/Downloads';
 
-/**
- * Lee el tamaño de un directorio de forma recursiva
+/*
+ *  Lee el tamaño de un directorio de forma recursiva
  * 
- * @param dir - Ruta del directorio
- * @returns Promise<number> - Tamaño del directorio en bytes
+ *  @param dir - Ruta del directorio
+ *  @returns Promise<number> - Tamaño del directorio en bytes
+ * 
  */
-export const readDirectorySize = (dir: string): Promise<number> => {
-    return new Promise((resolve, reject) => {
+
+export const readDirectorySize = async (dir: string): Promise<number> => {
+    if (!RNFS) {
+        throw new Error('No react-native-fs module');
+    }
+    
+    try {
         let dirSize = 0;
-
-        if (!RNFS){
-            reject('No react-native-fs module');
-        }
-
-        RNFS?.readDir(dir).then(async (result: ReadDirItem[]): Promise<void> => {
-            for (const item of result) {
-                if (item.isDirectory()){
-                    await readDirectorySize(item.path).then(size => {
-                        if (typeof(size) === 'number'){
-                            dirSize = size + dirSize;
-                        }
-                    });
-                } else if (item.isFile()){
-                    dirSize = dirSize + item.size;
+        const result: ReadDirItem[] = await RNFS.readDir(dir);
+        
+        for (const item of result) {
+            if (item.isDirectory()) {
+                const subDirSize = await readDirectorySize(item.path);
+                if (typeof(subDirSize) === 'number') {
+                    dirSize += subDirSize;
                 }
+            } else if (item.isFile()) {
+                dirSize += item.size;
             }
-
-            resolve(dirSize);
-        }).catch((err: any) => {
-            reject(err);
-        });
-    });
+        }
+        
+        return dirSize;
+    } catch (err) {
+        throw err;
+    }
 };
