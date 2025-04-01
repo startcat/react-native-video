@@ -7,12 +7,11 @@ import { formatBytes } from './downloads/utils';
 import { refactorOldEntries } from './downloads/upgrade';
 import { getNetworkInfo } from './downloads/network';
 import { readStorage, saveStorage } from './downloads/storage';
-import { readDirectorySize, getAppleDownloadsDirectory } from './downloads/filesystem';
+import { calculateTotalDownloadsSize } from './downloads/filesystem';
 
 import type {
     ConfigDownloads,
     NetworkState,
-    ReadDirItem,
     DownloadItem,
     NewDownloadItem,
     SearchDownloadItem,
@@ -967,73 +966,20 @@ class Singleton {
     }
 
     private checkTotalSize (): Promise<void> {
-
         return new Promise((resolve) => {
-
-            if (Platform.OS === 'ios'){
-                getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
-                    if (path !== DOWNLOADS_DIR){
-                        readDirectorySize(path).then(size => {
-
-                            if (typeof(size) === 'number'){
-                                this.size = size;
-                                console.log(`${this.log_key} Total size ${this.size} --> ${formatBytes(this.size)}`);
-                                EventRegister.emit('downloadsSize', { size:this.size });
-
-                            }
-
-                            resolve();
-
-                        }). catch(() => {
-                            resolve();
-
-                        });
-
-                    } else {
-                        readDirectorySize(DOWNLOADS_DIR).then(size => {
-
-                            if (typeof(size) === 'number'){
-                                this.size = size;
-                                console.log(`${this.log_key} Total size ${this.size} --> ${formatBytes(this.size)}`);
-                                EventRegister.emit('downloadsSize', { size:this.size });
-
-                            }
-
-                            resolve();
-
-                        }). catch(() => {
-                            resolve();
-
-                        });
-
-                    }
-
-                }). catch(() => {
-                    resolve();
-
-                });
-
-            } else {
-                readDirectorySize(DOWNLOADS_DIR).then(size => {
-
-                    if (typeof(size) === 'number'){
+            calculateTotalDownloadsSize(DOWNLOADS_DIR)
+                .then(size => {
+                    if (typeof(size) === 'number') {
                         this.size = size;
                         console.log(`${this.log_key} Total size ${this.size} --> ${formatBytes(this.size)}`);
                         EventRegister.emit('downloadsSize', { size:this.size });
-
                     }
-
                     resolve();
-
-                }). catch(() => {
+                })
+                .catch(() => {
                     resolve();
-
                 });
-
-            }
-
         });
-
     }
 
 
