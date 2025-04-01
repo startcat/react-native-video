@@ -353,14 +353,14 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
-            invokePlayerAction(refVideoPlayer, id, value, currentTime);
+            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration);
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
             const overEpgValue = props.onSeekOverEpg();
             setDvrTimeValue(overEpgValue!);
             onChangeDvrTimeValue(overEpgValue!);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, overEpgValue, currentTime);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, overEpgValue, currentTime, duration);
         }
 
         // Actions to be saved between flavours

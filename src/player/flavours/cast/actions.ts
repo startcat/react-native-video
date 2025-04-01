@@ -24,7 +24,7 @@ const getTrackId = (type:string, index:number, menuData?:Array<IPlayerMenuData>)
  *
  */
 
-export const invokePlayerAction = async (castClient: RemoteMediaClient | null, castSession: CastSession | null, id: CONTROL_ACTION, value?:any, currentTime?:number, isLive?:boolean, menuData?:Array<IPlayerMenuData>) => {
+export const invokePlayerAction = async (castClient: RemoteMediaClient | null, castSession: CastSession | null, id: CONTROL_ACTION, value?:any, currentTime?:number, duration?:number) => {
 
     console.log(`[Player] (Cast Actions) invokePlayerAction: ${id} / ${value}`);
 
@@ -40,11 +40,11 @@ export const invokePlayerAction = async (castClient: RemoteMediaClient | null, c
     } else if (castClient && id === CONTROL_ACTION.SEEK && typeof(value) === 'number'){
         castClient.seek({ position: value });
 
-    } else if (castClient && id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-        castClient.seek({ position: currentTime + value });
+    } else if (castClient && id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number' && typeof(duration) === 'number'){
+        castClient.seek({ position: (currentTime + value) > duration ? duration : (currentTime + value) });
 
     } else if (castClient && id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-        castClient.seek({ position: currentTime - value });        
+        castClient.seek({ position: (currentTime - value) < 0 ? 0 : (currentTime - value) });        
 
     }
 

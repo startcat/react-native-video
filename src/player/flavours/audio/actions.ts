@@ -9,16 +9,16 @@ import { CONTROL_ACTION } from '../../types';
  *
  */
 
-export const invokePlayerAction = async (playerRef:RefObject<VideoRef>, id: CONTROL_ACTION, value?:any, currentTime?:number) => {
+export const invokePlayerAction = async (playerRef:RefObject<VideoRef>, id: CONTROL_ACTION, value?:any, currentTime?:number, duration?:number) => {
 
     if (playerRef.current && id === CONTROL_ACTION.SEEK && typeof(value) === 'number'){
         await playerRef.current.seek(value);
 
-    } else if (playerRef.current && id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-        await playerRef.current.seek(currentTime + value);
+    } else if (playerRef.current && id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number' && typeof(duration) === 'number'){
+        await playerRef.current.seek((currentTime + value) > duration ? duration : currentTime + value);
 
     } else if (playerRef.current && id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-        await playerRef.current.seek(currentTime - value);
+        await playerRef.current.seek((currentTime - value) < 0 ? 0 : currentTime - value);
 
     }
 
