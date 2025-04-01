@@ -7,7 +7,7 @@ import { formatBytes } from './downloads/utils';
 import { refactorOldEntries } from './downloads/upgrade';
 import { getNetworkInfo } from './downloads/network';
 import { readStorage, saveStorage } from './downloads/storage';
-import { readDirectorySize } from './downloads/filesystem';
+import { readDirectorySize, getAppleDownloadsDirectory } from './downloads/filesystem';
 
 import type {
     ConfigDownloads,
@@ -966,105 +966,12 @@ class Singleton {
 
     }
 
-    // Directories
-    private getAppleDownloadsDirectory (dir: string): Promise<string> {
-
-        return new Promise((resolve, reject) => {
-
-            let path = '';
-
-            if (!RNFS){
-                reject('No react-native-fs module');
-            }
-
-            RNFS?.readDir(dir).then(async (result: ReadDirItem[]) => {
-
-                for (const item of result) {
-
-                    if (item.isDirectory() && item.name?.match(/com.apple.UserManagedAssets/gi)){
-                        path = item.path;
-                    }
-
-                }
-
-                if (!!path){
-                    resolve(path);
-
-                } else {
-                    resolve(dir);
-
-                }
-
-            }).catch((err: any) => {
-                reject(err);
-
-            });
-
-        });
-
-    }
-
-    private getAppleAssetInfo (uri: string): Promise<any> {
-
-        return new Promise((resolve, reject) => {
-
-            if (Platform.OS === 'ios'){
-                this.getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
-                    if (path !== DOWNLOADS_DIR){
-                        readDirectorySize(path).then(size => {
-                            resolve({
-                                type: 'ios',
-                                size: size
-                            });
-
-                        }).catch(err => {
-                            reject(err);
-
-                        });
-
-                    } else {
-                        readDirectorySize(DOWNLOADS_DIR).then(size => {
-                            resolve({
-                                type: 'ios',
-                                size: size
-                            });
-
-                        }).catch(err => {
-                            reject(err);
-
-                        });
-
-                    }
-
-                }).catch(err => {
-                    reject(err);
-
-                });
-
-            } else {
-                readDirectorySize(DOWNLOADS_DIR).then(size => {
-                    resolve({
-                        type: 'android',
-                        size: size
-                    });
-
-                }).catch(err => {
-                    reject(err);
-
-                });
-
-            }
-
-        });
-
-    }
-
     private checkTotalSize (): Promise<void> {
 
         return new Promise((resolve) => {
 
             if (Platform.OS === 'ios'){
-                this.getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
+                getAppleDownloadsDirectory(DOWNLOADS_DIR).then(path => {
                     if (path !== DOWNLOADS_DIR){
                         readDirectorySize(path).then(size => {
 
