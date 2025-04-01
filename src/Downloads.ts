@@ -6,6 +6,7 @@ import { EventRegister } from 'react-native-event-listeners';
 
 import { formatBytes } from './downloads/utils';
 import { refactorOldEntries } from './downloads/upgrade';
+import { getNetworkInfo } from './downloads/network';
 
 import type {
     ConfigDownloads,
@@ -44,7 +45,6 @@ let RNBackgroundDownloader;
  */
 
 const { DownloadsModule } = NativeModules;
-const DOWNLOADS_OLDKEY = 'off_downloads';
 const DOWNLOADS_KEY = 'off_downloads_v2';
 const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS?.LibraryDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
 
@@ -182,7 +182,9 @@ class Singleton {
 
                 }
 
-                await this.getNetworkInfo();
+                await getNetworkInfo(this.log_key).then(state => {
+                    Singleton.networkState = state;
+                });
 
                 await this.checkTotalSize();
 
@@ -193,7 +195,7 @@ class Singleton {
 
                         this.unsubscribeNetworkListener = NetInfo.addEventListener((state: any) => {
                             console.log(`${this.log_key} getNetworkInfo update - isConnected? ${state?.isConnected} (${state?.type})`);
-
+                            
                             Singleton.networkState = {
                                 isConnected: state?.isConnected,
                                 isInternetReachable: state?.isInternetReachable,
@@ -537,10 +539,7 @@ class Singleton {
 
     }
 
-
-
     // From old versions
-    // La función refactorOldEntries ha sido movida a './downloads/upgrade.ts'
     private async refactorOldEntries(): Promise<void> {
         await refactorOldEntries(
             () => this.saveRefList(),
@@ -550,8 +549,7 @@ class Singleton {
     }
 
 
-    // Utils
-    // La función formatBytes ha sido movida a './downloads/utils.ts'
+    // Utils 
     
     private cleanLocalList (): void {
 
@@ -598,29 +596,9 @@ class Singleton {
          *
          */
 
-        return new Promise((resolve) => {
-            NetInfo.fetch().then((state: any) => {
-                console.log(`${this.log_key} getNetworkInfo - isConnected? ${state?.isConnected} (${state?.type})`);
-                
-                Singleton.networkState = {
-                    isConnected: state?.isConnected,
-                    isInternetReachable: state?.isInternetReachable,
-                    isWifiEnabled: state?.isWifiEnabled,
-                    type: state?.type
-                };
-
-                resolve(Singleton.networkState);
-
-            }).catch(() => {
-
-                resolve({
-                    isConnected: true,
-                    isInternetReachable: false,
-                    isWifiEnabled: false,
-                    type: null
-                });
-
-            });
+        return getNetworkInfo(this.log_key).then(state => {
+            Singleton.networkState = state;
+            return state;
         });
 
     }
