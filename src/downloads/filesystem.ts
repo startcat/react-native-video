@@ -4,6 +4,7 @@
 
 import RNFS from 'react-native-fs';
 import type { ReadDirItem } from '../types/Downloads';
+import { Platform } from 'react-native';
 
 /*
  *  Lee el tamaño de un directorio de forma recursiva
@@ -65,5 +66,31 @@ export const getAppleDownloadsDirectory = async (dir: string): Promise<string> =
         return path || dir;
     } catch (err) {
         throw err;
+    }
+};
+
+/*
+ *  Calcula el tamaño total del directorio de descargas según la plataforma
+ * 
+ *  @param downloadsDir - Directorio base de descargas
+ *  @returns Promise<number> - Tamaño total en bytes
+ * 
+ */
+
+export const calculateTotalDownloadsSize = async (downloadsDir: string): Promise<number> => {
+    try {
+        if (Platform.OS === 'ios') {
+            const appleDir = await getAppleDownloadsDirectory(downloadsDir);
+            if (appleDir !== downloadsDir) {
+                return await readDirectorySize(appleDir);
+            } else {
+                return await readDirectorySize(downloadsDir);
+            }
+        } else {
+            return await readDirectorySize(downloadsDir);
+        }
+    } catch (err) {
+        console.error('Error calculating total downloads size:', err);
+        return 0;
     }
 };
