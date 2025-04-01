@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import { EventRegister } from 'react-native-event-listeners';
 
+import { formatBytes } from './downloads/utils';
+
 import type {
     ConfigDownloads,
     NetworkState,
@@ -595,26 +597,8 @@ class Singleton {
 
 
     // Utils
-    private formatBytes (bytes: number = 0, decimals: number = 2): string {
-
-        let strSize: string = '0 Bytes';
-        
-        if (bytes === 0){
-            return strSize;
-        } 
-
-        const k = 1024;
-        const dm = decimals < 0 ? 0 : decimals;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-        strSize = parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-
-        return strSize;
-
-    }
-
+    // La función formatBytes ha sido movida a './downloads/utils.ts'
+    
     private cleanLocalList (): void {
 
         let pendingRemove: number[] = [];
@@ -1193,7 +1177,7 @@ class Singleton {
 
                             if (typeof(size) === 'number'){
                                 this.size = size;
-                                console.log(`${this.log_key} Total size ${this.size} --> ${this.formatBytes(this.size)}`);
+                                console.log(`${this.log_key} Total size ${this.size} --> ${formatBytes(this.size)}`);
                                 EventRegister.emit('downloadsSize', { size:this.size });
 
                             }
@@ -1218,7 +1202,7 @@ class Singleton {
 
                     if (typeof(size) === 'number'){
                         this.size = size;
-                        console.log(`${this.log_key} Total size ${this.size} --> ${this.formatBytes(this.size)}`);
+                        console.log(`${this.log_key} Total size ${this.size} --> ${formatBytes(this.size)}`);
                         EventRegister.emit('downloadsSize', { size:this.size });
 
                     }
