@@ -4,7 +4,7 @@
  */
 
 import NetInfo from '@react-native-community/netinfo';
-import type { NetworkState } from '../types';
+import type { NetworkState } from '../types/Downloads';
 
 // Almacena el estado de la red actual
 let networkState: NetworkState;
@@ -26,28 +26,25 @@ export const getNetworkInfo = async (logPrefix: string = '[Downloads]'): Promise
      *
      */
 
-    return new Promise((resolve) => {
-        NetInfo.fetch().then((state: any) => {
-            console.log(`${logPrefix} getNetworkInfo - isConnected? ${state?.isConnected} (${state?.type})`);
-            
-            networkState = {
-                isConnected: state?.isConnected,
-                isInternetReachable: state?.isInternetReachable,
-                isWifiEnabled: state?.isWifiEnabled,
-                type: state?.type
-            };
+    try {
+        const state = await NetInfo.fetch();
+        console.log(`${logPrefix} getNetworkInfo - isConnected? ${state?.isConnected} (${state?.type})`);
+        
+        networkState = {
+            isConnected: !!state?.isConnected,
+            isInternetReachable: !!state?.isInternetReachable,
+            isWifiEnabled: !!state?.isWifiEnabled,
+            type: state?.type || null
+        };
 
-            resolve(networkState);
-
-        }).catch(() => {
-
-            resolve({
-                isConnected: true,
-                isInternetReachable: false,
-                isWifiEnabled: false,
-                type: null
-            });
-
-        });
-    });
+        return networkState;
+    } catch (error) {
+        // En caso de error, devolver un estado por defecto
+        return {
+            isConnected: true,
+            isInternetReachable: false,
+            isWifiEnabled: false,
+            type: null
+        };
+    }
 };
