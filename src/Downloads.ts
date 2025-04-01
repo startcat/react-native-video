@@ -249,29 +249,37 @@ class Singleton {
 
     }
 
-    removeEvents () {
-
-        this.onLicenseDownloadedListener?.remove();
-        this.onLicenseDownloadFailedListener?.remove();
-        this.onLicenseCheckListener?.remove();
-        this.onLicenseCheckFailedListener?.remove();
-        this.onLicenseReleasedListener?.remove();
-        this.onLicenseReleasedFailedListener?.remove();
-        this.onLicenseKeysRestoredListener?.remove();
-        this.onLicenseRestoreFailedListener?.remove();
-        this.onAllLicensesReleasedListener?.remove();
-        this.onAllLicensesReleaseFailedListener?.remove();
-        this.onPreparedListener?.remove();
-        this.onPrepareErrorListener?.remove();
-        this.onDownloadStateChangedListener?.remove();
-        this.onProgressListener?.remove();
-        this.onCompletedListener?.remove();
-        this.onRemovedListener?.remove();
-
-        if (this.unsubscribeNetworkListener){
-            this.unsubscribeNetworkListener();
-        }
+    removeEvents() {
+        const listeners = [
+            'onLicenseDownloadedListener',
+            'onLicenseDownloadFailedListener',
+            'onLicenseCheckListener',
+            'onLicenseCheckFailedListener',
+            'onLicenseReleasedListener',
+            'onLicenseReleasedFailedListener',
+            'onLicenseKeysRestoredListener',
+            'onLicenseRestoreFailedListener',
+            'onAllLicensesReleasedListener',
+            'onAllLicensesReleaseFailedListener',
+            'onPreparedListener',
+            'onPrepareErrorListener',
+            'onDownloadStateChangedListener',
+            'onProgressListener',
+            'onCompletedListener',
+            'onRemovedListener'
+        ];
         
+        listeners.forEach(listenerName => {
+            if (this[listenerName]) {
+                this[listenerName].remove();
+                this[listenerName] = null;
+            }
+        });
+        
+        if (this.unsubscribeNetworkListener) {
+            this.unsubscribeNetworkListener();
+            this.unsubscribeNetworkListener = null;
+        }
     }
 
     initialStart () {
@@ -449,7 +457,7 @@ class Singleton {
             
             if (downloadItem?.offlineData?.session_ids?.includes(this.user_id) && downloadItem?.offlineData?.state !== DownloadStates.COMPLETED){
                 await DownloadsModule.pause(downloadItem?.offlineData?.source, downloadItem?.offlineData?.drm).then(() => {
-                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Resumed.`);
+                    console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Paused.`);
     
                 }).catch((err: any) => {
                     console.log(`${this.log_key} ${downloadItem?.offlineData?.source?.title} (${downloadItem?.offlineData?.source?.uri}) Couldn't pause: ${err?.message}`);
