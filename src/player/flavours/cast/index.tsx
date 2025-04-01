@@ -364,6 +364,10 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 setDvrTimeValue(value);
             }
 
+            if (id === CONTROL_ACTION.PAUSE){
+                setPaused(!!value);
+            }
+
             if (id === CONTROL_ACTION.MUTE){
                 setMuted(!!value);
             }
