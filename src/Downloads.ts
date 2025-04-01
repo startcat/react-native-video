@@ -1,13 +1,12 @@
 import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import RNFS from 'react-native-fs';
 import { EventRegister } from 'react-native-event-listeners';
 
-import { formatBytes } from './downloads/utils';
+import { formatBytes, listToConsole } from './downloads/utils';
 import { refactorOldEntries } from './downloads/upgrade';
 import { getNetworkInfo } from './downloads/network';
 import { readStorage, saveStorage } from './downloads/storage';
-import { calculateTotalDownloadsSize } from './downloads/filesystem';
+import { calculateTotalDownloadsSize, getBinaryDownloadsDirectory, removeUri } from './downloads/filesystem';
 
 import type {
     ConfigDownloads,
@@ -45,7 +44,6 @@ let RNBackgroundDownloader;
  */
 
 const { DownloadsModule } = NativeModules;
-const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS?.LibraryDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
 
 class Singleton {
 
@@ -133,7 +131,7 @@ class Singleton {
                             isLogsEnabled: true
                         });
 
-                        this.DOWNLOADS_BINARY_DIR = (Platform.OS === 'ios') ? module.directories.documents : RNFS?.DocumentDirectoryPath + '/downloads';
+                        this.DOWNLOADS_BINARY_DIR = getBinaryDownloadsDirectory(module);
 
                     }).catch(err => {
                         console.log(`${this.log_key} react-native-background-downloader not found: ${err}`);
@@ -218,7 +216,7 @@ class Singleton {
                         this.onCompletedListener = emitter.addListener('downloadCompleted', (data: OnDownloadCompletedData) => this.onCompleted(data));
                         this.onRemovedListener = emitter.addListener('downloadRemoved', (data: OnDownloadRemovedData) => this.onRemoved(data));
 
-                        this.listToConsole();
+                        listToConsole(this.log_key, this.savedDownloads);
                         this.initialized = true;
 
                         console.log(`${this.log_key} Initialized`);
@@ -278,14 +276,6 @@ class Singleton {
 
     }
 
-    private retryStart (): void {
-
-    }
-
-    private retryStop (): void {
-
-    }
-
     public async resume (): Promise<void> {
 
         console.log(`${this.log_key} Resume - isStarted ${this.isStarted}`);
@@ -304,7 +294,6 @@ class Singleton {
 
                 }).catch((err: any) => {
                     console.log(`${this.log_key} Couldn't start: ${err?.message}`);
-                    this.retryStart();
 
                 });                
 
@@ -388,7 +377,6 @@ class Singleton {
 
                 }).catch((err: any) => {
                     console.log(`${this.log_key} Couldn't pause downloads: ${err?.message}`);
-                    this.retryStop();
 
                 });
 
@@ -563,16 +551,8 @@ class Singleton {
 
     }
 
-    public listToConsole (): void {
-
-        this.savedDownloads?.forEach(item => {
-
-            console.log(`${this.log_key} --- [${item?.media?.collection}] ${item?.media?.slug}: ${item?.media?.title} ${JSON.stringify(item?.offlineData)}`);
-
-        });
-
-        console.log(`${this.log_key} Found ${this.savedDownloads?.length} items.`);
-
+    private listToConsole (): void {
+        listToConsole(this.log_key, this.savedDownloads);
     }
 
 
@@ -678,7 +658,7 @@ class Singleton {
                 });
 
                 this.saveRefList().then(async () => {
-                    this.listToConsole();
+                    listToConsole(this.log_key, this.savedDownloads);
                     EventRegister.emit('downloadsList', {});
                     this.checkDownloadsStatus();
                     await this.checkTotalSize();
@@ -697,7 +677,7 @@ class Singleton {
                 DownloadsModule.addItem(newItem?.offlineData?.source, newItem?.offlineData?.drm).then(() => {
 
                     this.saveRefList().then(async () => {
-                        this.listToConsole();
+                        listToConsole(this.log_key, this.savedDownloads);
                         EventRegister.emit('downloadsList', {});
                         this.checkDownloadsStatus();
                         await this.checkTotalSize();
@@ -753,7 +733,7 @@ class Singleton {
                         this.savedDownloads.splice(res.index, 1, res.item);
 
                         this.saveRefList().then( async () => {
-                            this.listToConsole();
+                            listToConsole(this.log_key, this.savedDownloads);
                             EventRegister.emit('downloadsList', {});
                             this.checkDownloadsStatus();
                             return resolve();
@@ -815,7 +795,7 @@ class Singleton {
                 if (obj?.offlineData?.source?.uri){
 
                     if (this.binaryDownloadsEnabled && RNBackgroundDownloader && obj?.offlineData?.isBinary){
-                        await RNFS?.unlink(obj?.offlineData?.fileUri!);
+                        await removeUri(obj?.offlineData?.fileUri!);
                         this.onBinaryRemoved(obj?.offlineData?.source?.id!);
 
                     } else {
@@ -967,7 +947,7 @@ class Singleton {
 
     private checkTotalSize (): Promise<void> {
         return new Promise((resolve) => {
-            calculateTotalDownloadsSize(DOWNLOADS_DIR)
+            calculateTotalDownloadsSize()
                 .then(size => {
                     if (typeof(size) === 'number') {
                         this.size = size;
@@ -1090,7 +1070,7 @@ class Singleton {
                 this.savedDownloads.splice(obj.index, 1);
 
                 this.saveRefList().finally(async () => {
-                    this.listToConsole();
+                    listToConsole(this.log_key, this.savedDownloads);
                     EventRegister.emit('downloadsList', {});
                     this.checkDownloadsStatus();
                     await this.checkTotalSize();
@@ -1177,7 +1157,7 @@ class Singleton {
             this.savedDownloads.splice(obj.index, 1);
 
             this.saveRefList().finally(async () => {
-                this.listToConsole();
+                listToConsole(this.log_key, this.savedDownloads);
                 EventRegister.emit('downloadsList', {});
                 this.checkDownloadsStatus();
                 await this.checkTotalSize();
@@ -1231,12 +1211,6 @@ class Singleton {
             isStarted: (pendingItems > 0 && !!this.isStarted),
             pending: !!pendingItems
         });
-
-    }
-
-    public remove (path: string): Promise<void> {
-
-        return RNFS?.unlink(path);
 
     }
 

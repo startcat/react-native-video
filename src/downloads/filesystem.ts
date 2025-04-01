@@ -6,6 +6,35 @@ import RNFS from 'react-native-fs';
 import type { ReadDirItem } from '../types/Downloads';
 import { Platform } from 'react-native';
 
+const DOWNLOADS_DIR = (Platform.OS === 'ios') ? RNFS?.LibraryDirectoryPath : RNFS?.DocumentDirectoryPath + '/downloads';
+
+/*
+ *  Obtenemos el directorio para las descargas de binarios
+ * 
+ *  @param module - Modulo RNBackgroundDownloader
+ *  @returns string - Directorio para las descargas de binarios
+ * 
+ */
+
+export const getBinaryDownloadsDirectory = (module: any): string => {
+    return (Platform.OS === 'ios') ? module.directories.documents : RNFS?.DocumentDirectoryPath + '/downloads';
+};
+
+/*
+ *  Eliminamos un fichero de disco
+ * 
+ *  @param uri - URI del fichero
+ * 
+ */
+
+export const removeUri = async (uri: string): Promise<void> => {
+    try {
+        await RNFS?.unlink(uri);
+    } catch(ex){
+        console.error('Error removing file:', ex);
+    }
+};
+
 /*
  *  Lee el tamaño de un directorio de forma recursiva
  * 
@@ -77,17 +106,17 @@ export const getAppleDownloadsDirectory = async (dir: string): Promise<string> =
  * 
  */
 
-export const calculateTotalDownloadsSize = async (downloadsDir: string): Promise<number> => {
+export const calculateTotalDownloadsSize = async (): Promise<number> => {
     try {
         if (Platform.OS === 'ios') {
-            const appleDir = await getAppleDownloadsDirectory(downloadsDir);
-            if (appleDir !== downloadsDir) {
+            const appleDir = await getAppleDownloadsDirectory(DOWNLOADS_DIR);
+            if (appleDir !== DOWNLOADS_DIR) {
                 return await readDirectorySize(appleDir);
             } else {
-                return await readDirectorySize(downloadsDir);
+                return await readDirectorySize(DOWNLOADS_DIR);
             }
         } else {
-            return await readDirectorySize(downloadsDir);
+            return await readDirectorySize(DOWNLOADS_DIR);
         }
     } catch (err) {
         console.error('Error calculating total downloads size:', err);
