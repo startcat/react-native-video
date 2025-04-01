@@ -376,7 +376,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                 setMuted(!!value);
             }
 
-            invokePlayerAction(castClient, castSession, id, value, currentTime, props?.isLive);
+            invokePlayerAction(castClient, castSession, id, value, currentTime, duration);
 
         }
 

@@ -373,9 +373,9 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             }
 
             if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
-                invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, props.onSeekOverEpg(), currentTime, props?.isLive, menuData);
+                invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, props.onSeekOverEpg(), currentTime, duration);
             } else {
-                invokePlayerAction(castClient, castSession, id, value, currentTime, props?.isLive, menuData);
+                invokePlayerAction(castClient, castSession, id, value, currentTime, duration);
             }
 
         }
