@@ -551,10 +551,6 @@ class Singleton {
 
     }
 
-    private listToConsole (): void {
-        listToConsole(this.log_key, this.savedDownloads);
-    }
-
 
 
     // List Methods
