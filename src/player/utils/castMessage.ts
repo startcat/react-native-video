@@ -52,7 +52,7 @@ const addUriParam = (uri: string, param: string): string => {
 
 }
 
-export const getSourceMessageForCast = (manifest: IManifest, drm?: IDrm, youbora?: IMappedYoubora, metadata?: ICastMetadata) => {
+export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: IDrm, youbora?: IMappedYoubora, metadata?: ICastMetadata) => {
 
     let messageMetadata = {},
         message = {};
@@ -85,7 +85,7 @@ export const getSourceMessageForCast = (manifest: IManifest, drm?: IDrm, youbora
 
     message = {
         mediaInfo: {
-            contentId: getAbsoluteUri(manifest?.manifestURL),
+            contentId: uri,
             // Evitamos indicar el mime type
             //contentType: 'application/dash+xml',
             metadata: messageMetadata

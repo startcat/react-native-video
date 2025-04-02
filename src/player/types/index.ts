@@ -245,6 +245,14 @@ export interface GetYouboraOptionsProps {
 	format?: IYouboraSettingsFormat
 }
 
+export interface LiveSeekableCastRange {
+    isMovingWindow: boolean;
+    isLiveDone: boolean;
+    startTime: number;
+    endTime: number;
+    streamPosition: number;
+}
+
 
 
 /*
@@ -678,6 +686,7 @@ export interface AudioCastFlavourProps {
     controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
@@ -798,6 +807,7 @@ export interface CastFlavourProps {
     settingsMenu?: FunctionComponent<MenuProps>;
 
     // Utils
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
