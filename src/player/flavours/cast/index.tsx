@@ -306,7 +306,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         }
 
-    }, 1000, { 'maxWait': 2000 });
+    }, 1000, { 'leading': true, 'maxWait': 2000 });
 
     // Cast Events
     const registerRemoteSubscriptions = () => {
