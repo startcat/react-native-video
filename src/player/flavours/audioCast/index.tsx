@@ -282,7 +282,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         }
 
-    }, 1000, { 'maxWait': 2000 });
+    }, 1000, { 'leading': true, 'maxWait': 2000 });
 
     // Cast Events
     const registerRemoteSubscriptions = () => {
