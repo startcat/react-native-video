@@ -156,7 +156,7 @@ export const getVideoSourceUri = (manifest: IManifest, dvrWindowMinutes?: number
 
         if (hasStartParam && hasEndParam && params.start === params.end){
             
-            if (typeof(dvrWindowMinutes) === 'number'){
+            if (typeof(dvrWindowMinutes) === 'number' && dvrWindowMinutes > 0){
                 // @ts-ignore
                 params.end = parseInt(params.start, 10) + (dvrWindowMinutes * 60);
 
@@ -171,7 +171,7 @@ export const getVideoSourceUri = (manifest: IManifest, dvrWindowMinutes?: number
 
     }
     
-    if (typeof(dvrWindowMinutes) === 'number' && !hasStartParam){
+    if (typeof(dvrWindowMinutes) === 'number' && dvrWindowMinutes > 0 && !hasStartParam){
         uri = addLiveTimestamp(uri, dvrWindowMinutes);
     }
 
