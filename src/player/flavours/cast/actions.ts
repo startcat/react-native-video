@@ -4,6 +4,7 @@ import {
 } from 'react-native-google-cast';
 import { 
     type IPlayerMenuData,
+    type LiveSeekableCastRange,
     CONTROL_ACTION 
 } from '../../types';
 
@@ -17,6 +18,19 @@ const getTrackId = (type:string, index:number, menuData?:Array<IPlayerMenuData>)
 
 }
 
+const mapSeekablePosition = (value:number, liveSeekableRange?:LiveSeekableCastRange | null): number => {
+
+    if (liveSeekableRange && value < liveSeekableRange.startTime){
+        return liveSeekableRange.startTime;
+    }
+
+    if (liveSeekableRange && value > liveSeekableRange.endTime){
+        return liveSeekableRange.endTime;
+    }
+
+    return value;
+
+}
 
 
 /*

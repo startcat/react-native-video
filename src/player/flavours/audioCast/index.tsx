@@ -15,6 +15,7 @@ import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
     getBestManifest,
+    getVideoSourceUri,
     getDRM,
     getSourceMessageForCast,
     subtractMinutesFromDate
@@ -34,6 +35,7 @@ import {
     type IDrm,
     type IManifest,
     type IMappedYoubora,
+    type LiveSeekableCastRange,
     YOUBORA_FORMAT,
 } from '../../types';
 
@@ -48,6 +50,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     const castMediaStatus = useMediaStatus();
     const castStreamPosition = useStreamPosition(1);
 
+    const liveSeekableRange = useRef<LiveSeekableCastRange | null>();
     const lastCastState = useRef<CastState | null>();
     const eventsRegistered = useRef<boolean>(false);
     const onMediaPlaybackEndedListener = useRef<EmitterSubscription>();
@@ -116,8 +119,19 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     useEffect(() => {
 
+        let uri;
+
         // Cogemos el manifest adecuado
         currentManifest.current = getBestManifest(props?.manifests!, true);
+
+        // Preparamos el URI adecuado
+        if (props.getSourceUri){
+            uri = props.getSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+
+        } else {
+            uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+
+        }
 
         // Preparamos el DRM adecuado al manifest y plataforma
         drm.current = getDRM(currentManifest.current!);
@@ -137,7 +151,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         // Monstamos el mensaje para el Cast
         // @ts-ignore
-        castMessage.current = getSourceMessageForCast(currentManifest.current!, drm.current, youboraForVideo.current, {
+        castMessage.current = getSourceMessageForCast(uri, currentManifest.current!, drm.current, youboraForVideo.current, {
             id: props.id,
             title: props.title,
             subtitle: props.subtitle,
