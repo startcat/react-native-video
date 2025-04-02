@@ -1,21 +1,22 @@
-import React, { useEffect, useState, useRef, createElement } from 'react';
-import Animated, { useSharedValue } from 'react-native-reanimated';
+import { debounce } from 'lodash';
+import React, { createElement, useEffect, useRef, useState } from 'react';
 import { type EmitterSubscription } from 'react-native';
 import { EventRegister } from 'react-native-event-listeners';
-import { 
-    CastState, 
-    useCastState, 
-    useCastSession, 
-    useRemoteMediaClient, 
-    useMediaStatus, 
-    useStreamPosition,
+import {
+    CastState,
     MediaPlayerState,
+    useCastSession,
+    useCastState,
+    useMediaStatus,
+    useRemoteMediaClient,
+    useStreamPosition,
 } from 'react-native-google-cast';
+import Animated, { useSharedValue } from 'react-native-reanimated';
 
-import { 
+import {
     getBestManifest,
-    getSourceMessageForCast,
     getDRM,
+    getSourceMessageForCast,
     subtractMinutesFromDate
 } from '../../utils';
 
@@ -25,14 +26,14 @@ import {
 
 import { styles } from '../styles';
 
-import { 
+import {
     type AudioCastFlavourProps,
-    type IManifest, 
-    type IMappedYoubora,
-    type IDrm,
-    type ICommonData,
     type AudioPlayerActionEventProps,
     CONTROL_ACTION,
+    type ICommonData,
+    type IDrm,
+    type IManifest,
+    type IMappedYoubora,
     YOUBORA_FORMAT,
 } from '../../types';
 
@@ -241,14 +242,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         }
 
-        // Paused
-        if ((castMediaStatus?.playerState === MediaPlayerState.PAUSED || castMediaStatus?.playerState === MediaPlayerState.IDLE) && !paused){
-            onControlsPress(CONTROL_ACTION.PAUSE, true);
-
-        } else if ((castMediaStatus?.playerState !== MediaPlayerState.PAUSED && castMediaStatus?.playerState !== MediaPlayerState.IDLE) && paused){
-            onControlsPress(CONTROL_ACTION.PAUSE, false);
-
-        }
+        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
+        debouncedMediaStatus();
 
     }, [castMediaStatus]);
 
@@ -276,6 +271,18 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         }
 
     }, [castStreamPosition]);
+
+    const debouncedMediaStatus = debounce(() => {
+
+        if ((castMediaStatus?.playerState === MediaPlayerState.PAUSED || castMediaStatus?.playerState === MediaPlayerState.IDLE) && !paused){
+            onControlsPress(CONTROL_ACTION.PAUSE, true);
+
+        } else if ((castMediaStatus?.playerState !== MediaPlayerState.PAUSED && castMediaStatus?.playerState !== MediaPlayerState.IDLE) && paused){
+            onControlsPress(CONTROL_ACTION.PAUSE, false);
+
+        }
+
+    }, 1000, { 'maxWait': 2000 });
 
     // Cast Events
     const registerRemoteSubscriptions = () => {
@@ -316,8 +323,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     // Functions
     const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
-
-        console.log(`[Player] (Audio Cast Flavour) onControlsPress: isContentLoaded ${isContentLoaded}`);
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause'];
 
