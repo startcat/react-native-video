@@ -1,3 +1,4 @@
+import { debounce } from 'lodash';
 import React, { useEffect, useState, useRef } from 'react';
 import { 
     CastState, 
@@ -265,14 +266,8 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         }
 
-        // Paused
-        if ((castMediaStatus?.playerState === MediaPlayerState.PAUSED || castMediaStatus?.playerState === MediaPlayerState.IDLE) && !paused){
-            onControlsPress(CONTROL_ACTION.PAUSE, true);
-
-        } else if ((castMediaStatus?.playerState !== MediaPlayerState.PAUSED && castMediaStatus?.playerState !== MediaPlayerState.IDLE) && paused){
-            onControlsPress(CONTROL_ACTION.PAUSE, false);
-
-        }
+        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
+        debouncedMediaStatus();
 
     }, [castMediaStatus]);
 
@@ -300,6 +295,18 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         }
 
     }, [castStreamPosition]);
+
+    const debouncedMediaStatus = debounce(() => {
+
+        if ((castMediaStatus?.playerState === MediaPlayerState.PAUSED || castMediaStatus?.playerState === MediaPlayerState.IDLE) && !paused){
+            onControlsPress(CONTROL_ACTION.PAUSE, true);
+
+        } else if ((castMediaStatus?.playerState !== MediaPlayerState.PAUSED && castMediaStatus?.playerState !== MediaPlayerState.IDLE) && paused){
+            onControlsPress(CONTROL_ACTION.PAUSE, false);
+
+        }
+
+    }, 1000, { 'maxWait': 2000 });
 
     // Cast Events
     const registerRemoteSubscriptions = () => {
