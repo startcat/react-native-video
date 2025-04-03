@@ -232,38 +232,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             console.log(`[Player] (Audio Cast Flavour) liveSeekableRange ${JSON.stringify(liveSeekableRange.current)}`);
         }
 
-        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
-        debouncedMediaStatus();
-
-    }, [castMediaStatus]);
-
-    useEffect(() => {
-
-        // Muted
-        castSession?.isMute().then(value => {
-            if (value !== muted){
-                onControlsPress(CONTROL_ACTION.MUTE, !!value);
-            }
-            
-        });
-
-    }, [castSession]);
-
-    useEffect(() => {
-        if (typeof(castStreamPosition) === 'number' && currentTime !== castStreamPosition){
-            setCurrentTimeWithValidation(castStreamPosition);
-
-            if (!props?.isLive && props?.onChangeCommonData){
-                props.onChangeCommonData({
-                    time: castStreamPosition
-                });
-            }
-        }
-
-    }, [castStreamPosition]);
-
-    const debouncedMediaStatus = throttle(() => {
-
         // Loading
         if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
             setLoading(true);
@@ -304,7 +272,86 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         }
 
-    }, 1000, { 'leading': true, 'maxWait': 2000 });
+        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
+        // debouncedMediaStatus();
+
+    }, [castMediaStatus]);
+
+    useEffect(() => {
+
+        // Muted
+        castSession?.isMute().then(value => {
+            if (value !== muted){
+                onControlsPress(CONTROL_ACTION.MUTE, !!value);
+            }
+            
+        });
+
+    }, [castSession]);
+
+    useEffect(() => {
+        if (typeof(castStreamPosition) === 'number' && currentTime !== castStreamPosition){
+
+            if (isDVR.current){
+                setDvrTimeValue(castStreamPosition);
+                
+            } else {
+                setCurrentTimeWithValidation(castStreamPosition);
+
+            }
+
+            if (!props?.isLive && props?.onChangeCommonData){
+                props.onChangeCommonData({
+                    time: castStreamPosition
+                });
+            }
+        }
+
+    }, [castStreamPosition]);
+
+    // const debouncedMediaStatus = throttle(() => {
+
+    //     // Loading
+    //     if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
+    //         setLoading(true);
+
+    //     } else if ((castMediaStatus?.playerState !== MediaPlayerState.BUFFERING && castMediaStatus?.playerState !== MediaPlayerState.LOADING) && loading){
+    //         setLoading(false);
+
+    //     }
+
+    //     // Duration
+    //     if (!duration){
+
+    //         if (isDVR.current){
+    //             setDuration(dvrWindowSeconds.current);
+
+    //         } else if (typeof(castMediaStatus?.mediaInfo?.streamDuration) === 'number' && castMediaStatus?.mediaInfo?.streamDuration){
+    //             setDuration(castMediaStatus?.mediaInfo?.streamDuration);
+
+    //             if (!props?.isLive && props?.onChangeCommonData){
+    //                 props.onChangeCommonData({
+    //                     duration: castMediaStatus?.mediaInfo?.streamDuration
+    //                 });
+    //             }
+
+    //         }
+
+    //         if (!isContentLoaded){
+    //             setIsContentLoaded(true);
+    //         }
+
+    //     }
+
+    //     if (castMediaStatus?.playerState === MediaPlayerState.PAUSED && !paused){
+    //         onControlsPress(CONTROL_ACTION.PAUSE, true);
+
+    //     } else if (castMediaStatus?.playerState !== MediaPlayerState.PAUSED && paused){
+    //         onControlsPress(CONTROL_ACTION.PAUSE, false);
+
+    //     }
+
+    // }, 1000, { 'leading': true, 'maxWait': 2000 });
 
     // Cast Events
     const registerRemoteSubscriptions = () => {
@@ -460,35 +507,9 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     const onSlidingStart = (value: number) => {
 
-        // let secondsToLive,
-        //     date;
-
-        // if (dvrTimeValue){
-        //     secondsToLive = dvrTimeValue - value;
-        //     date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-
-        // }
-
-        // if (props.onDVRChange){
-        //     props.onDVRChange(value, secondsToLive, date);
-        // }
-
     }
 
     const onSlidingMove = (value: number) => {
-
-        // let secondsToLive,
-        //     date;
-
-        // if (dvrTimeValue){
-        //     secondsToLive = dvrTimeValue - value;
-        //     date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-
-        // }
-
-        // if (props.onDVRChange){
-        //     props.onDVRChange(value, secondsToLive, date);
-        // }
 
     }
 
