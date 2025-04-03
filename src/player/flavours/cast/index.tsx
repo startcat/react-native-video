@@ -317,8 +317,9 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     useEffect(() => {
         if (typeof(castStreamPosition) === 'number'){
 
-            if (isDVR.current){
+            if (isDVR.current && dvrTimeValue !== castStreamPosition){
                 setDvrTimeValue(castStreamPosition);
+                onSlidingComplete(castStreamPosition);
 
             }
 
@@ -506,17 +507,21 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
     const onSlidingComplete = (value: number) => {
 
-        let secondsToLive,
-            date;
+        if (isDVR.current){
 
-        if (dvrTimeValue){
-            secondsToLive = dvrTimeValue - value;
-            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+            let secondsToLive,
+                date;
 
-        }        
+            if (dvrTimeValue){
+                secondsToLive = dvrTimeValue - value;
+                date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
 
-        if (props.onDVRChange){
-            props.onDVRChange(value, secondsToLive, date);
+            }        
+
+            if (props.onDVRChange){
+                props.onDVRChange(value, secondsToLive, date);
+            }
+
         }
 
     }
