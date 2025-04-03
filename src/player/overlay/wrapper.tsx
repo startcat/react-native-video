@@ -145,14 +145,14 @@ const OverlayBase = ({
     const onSlidingStart = useCallback((value: number) => {
         cancelControlsTimer();
 
-        if (typeof propOnPress === 'function') {
+        if (!avoidDissapear && typeof propOnPress === 'function') {
             propOnPress(CONTROL_ACTION.PAUSE, true);
         }
 
         if (typeof propOnSlidingStart === 'function') {
             propOnSlidingStart(value);
         }
-    }, [cancelControlsTimer, propOnPress, propOnSlidingStart]);
+    }, [avoidDissapear, cancelControlsTimer, propOnPress, propOnSlidingStart]);
 
     const onSlidingMove = useCallback((value: number) => {
         if (typeof propOnSlidingMove === 'function') {
@@ -163,7 +163,7 @@ const OverlayBase = ({
     const onSlidingComplete = useCallback((value: number) => {
         resetControlsTimer();
 
-        if (typeof propOnSlidingComplete === 'function') {
+        if (!avoidDissapear && typeof propOnSlidingComplete === 'function') {
             propOnSlidingComplete(value);
         }
 
@@ -171,7 +171,7 @@ const OverlayBase = ({
             propOnPress(CONTROL_ACTION.SEEK, value);
             propOnPress(CONTROL_ACTION.PAUSE, false);
         }
-    }, [propOnPress, propOnSlidingComplete, resetControlsTimer]);
+    }, [avoidDissapear, propOnPress, propOnSlidingComplete, resetControlsTimer]);
 
     const commonMenuProps = useMemo(() => ({
         menuData,
