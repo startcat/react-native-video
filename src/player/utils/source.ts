@@ -1,5 +1,5 @@
-import Config from 'react-native-config';
 import { Platform } from 'react-native';
+import { getAbsoluteUri } from './siteUrl';
 import { 
     IManifest, 
     STREAM_FORMAT_TYPE, 
@@ -17,22 +17,6 @@ function log (message: string) {
 
     if (__DEV__ && LOG_ENABLED){
         console.log(`${LOG_KEY} ${message}`);
-
-    }
-
-}
-
-// Check Absolute or relative URI
-const getAbsoluteUri = (uri: string): string => {
-
-    if (uri && typeof(uri) === 'string' && uri?.match(/https?:\/\//gi)){
-        return uri;
-
-    } else if (uri && typeof(uri) === 'string'){
-        return Config.SITE_URL + uri;
-
-    } else {
-        return uri;
 
     }
 

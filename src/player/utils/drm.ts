@@ -1,5 +1,5 @@
-import Config from 'react-native-config';
 import { IManifest, IDrm, DRM_TYPE } from '../types';
+import { getAbsoluteUri } from './siteUrl';
 
 const LOG_ENABLED = true;
 const LOG_KEY = '[Video Player DRM]';
@@ -10,22 +10,6 @@ function log (message: string) {
 
     if (__DEV__ && LOG_ENABLED){
         console.log(`${LOG_KEY} ${message}`);
-
-    }
-
-}
-
-// Check Absolute or relative URI
-function getAbsoluteUri(uri: string){
-
-    if (uri && typeof(uri) === 'string' && uri?.match(/https?:\/\//gi)){
-        return uri;
-
-    } else if (uri && typeof(uri) === 'string'){
-        return Config.SITE_URL + uri;
-
-    } else {
-        return uri;
 
     }
 
