@@ -1,4 +1,3 @@
-import { debounce, throttle } from 'lodash';
 import React, { createElement, useEffect, useRef, useState } from 'react';
 import { type EmitterSubscription } from 'react-native';
 import { EventRegister } from 'react-native-event-listeners';
@@ -308,50 +307,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     }, [castStreamPosition]);
 
-    // const debouncedMediaStatus = throttle(() => {
-
-    //     // Loading
-    //     if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
-    //         setLoading(true);
-
-    //     } else if ((castMediaStatus?.playerState !== MediaPlayerState.BUFFERING && castMediaStatus?.playerState !== MediaPlayerState.LOADING) && loading){
-    //         setLoading(false);
-
-    //     }
-
-    //     // Duration
-    //     if (!duration){
-
-    //         if (isDVR.current){
-    //             setDuration(dvrWindowSeconds.current);
-
-    //         } else if (typeof(castMediaStatus?.mediaInfo?.streamDuration) === 'number' && castMediaStatus?.mediaInfo?.streamDuration){
-    //             setDuration(castMediaStatus?.mediaInfo?.streamDuration);
-
-    //             if (!props?.isLive && props?.onChangeCommonData){
-    //                 props.onChangeCommonData({
-    //                     duration: castMediaStatus?.mediaInfo?.streamDuration
-    //                 });
-    //             }
-
-    //         }
-
-    //         if (!isContentLoaded){
-    //             setIsContentLoaded(true);
-    //         }
-
-    //     }
-
-    //     if (castMediaStatus?.playerState === MediaPlayerState.PAUSED && !paused){
-    //         onControlsPress(CONTROL_ACTION.PAUSE, true);
-
-    //     } else if (castMediaStatus?.playerState !== MediaPlayerState.PAUSED && paused){
-    //         onControlsPress(CONTROL_ACTION.PAUSE, false);
-
-    //     }
-
-    // }, 1000, { 'leading': true, 'maxWait': 2000 });
-
     // Cast Events
     const registerRemoteSubscriptions = () => {
 
@@ -409,48 +364,42 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         }
 
-        // State Actions
-        if (id === CONTROL_ACTION.NEXT){
+        if (id === CONTROL_ACTION.PAUSE){
+            setPaused(!!value);
+        }
+
+        if (id === CONTROL_ACTION.MUTE){
+            setMuted(!!value);
+        }
+
+        if (id === CONTROL_ACTION.NEXT && props.onNext){            
             setIsContentLoaded(false);
-            if (props.onNext){
-                props.onNext();
-            }
+            props.onNext();
+        }
 
-        } else if (id === CONTROL_ACTION.PREVIOUS && props.onPrevious){
+        if (id === CONTROL_ACTION.PREVIOUS && props.onPrevious){
             setIsContentLoaded(false);
-            if (props.onPrevious){
-                props.onPrevious();
-            }
+            props.onPrevious();
+        }
 
-        // Actions to invoke on player
-        } else {
-
+        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(duration) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
-            // if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number'){
-            //     // Guardamos el estado de la barra de tiempo en DVR
-            //     if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-            //         setDvrTimeValue(currentTime + value);
-            
-            //     } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-            //         setDvrTimeValue(currentTime - value);
-            
-            //     } else if (id === CONTROL_ACTION.SEEK){
-            //         setDvrTimeValue(value);
-    
-            //     }
-                
-            // }
+            if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
+                setDvrTimeValue((currentTime + value) > duration ? duration : currentTime + value);
+        
+            } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
+                setDvrTimeValue((currentTime - value) < 0 ? 0 : currentTime - value);
+        
+            } else if (id === CONTROL_ACTION.SEEK){
+                setDvrTimeValue(value);
 
-            if (id === CONTROL_ACTION.PAUSE){
-                setPaused(!!value);
             }
-
-            if (id === CONTROL_ACTION.MUTE){
-                setMuted(!!value);
-            }
-
+            
+        }
+        
+        if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD || id === CONTROL_ACTION.PAUSE || id === CONTROL_ACTION.MUTE){
+            // Actions to invoke on player
             invokePlayerAction(castClient, castSession, id, value, currentTime, duration, liveSeekableRange.current);
-
         }
 
         // Actions to be saved between flavours
