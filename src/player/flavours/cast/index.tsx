@@ -1,4 +1,4 @@
-import { debounce } from 'lodash';
+import { debounce, throttle } from 'lodash';
 import React, { useEffect, useState, useRef } from 'react';
 import { 
     CastState, 
@@ -249,12 +249,43 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     useEffect(() => {
 
         if (castMediaStatus?.playerState === MediaPlayerState.PLAYING && castMediaStatus?.liveSeekableRange){
-            liveSeekableRange.current = {
-                ...castMediaStatus.liveSeekableRange,
-                streamPosition: castMediaStatus.streamPosition
-            };
+            liveSeekableRange.current = castMediaStatus.liveSeekableRange;
+
+            console.log(`[Player] (Cast Flavour) liveSeekableRange ${JSON.stringify(liveSeekableRange.current)}`);
             
         }
+
+        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
+        debouncedMediaStatus();
+
+    }, [castMediaStatus]);
+
+    useEffect(() => {
+
+        // Muted
+        castSession?.isMute().then(value => {
+            if (value !== muted){
+                onControlsPress(CONTROL_ACTION.MUTE, !!value);
+            }
+            
+        });
+
+    }, [castSession]);
+
+    useEffect(() => {
+        if (typeof(castStreamPosition) === 'number' && currentTime !== castStreamPosition){
+            setCurrentTimeWithValidation(castStreamPosition);
+
+            if (props?.onChangeCommonData){
+                props.onChangeCommonData({
+                    time: castStreamPosition
+                });
+            }
+        }
+
+    }, [castStreamPosition]);
+
+    const debouncedMediaStatus = throttle(() => {
 
         // Loading
         if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
@@ -290,44 +321,10 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         }
 
-        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
-        debouncedMediaStatus();
-
-    }, [castMediaStatus]);
-
-    useEffect(() => {
-
-        // Muted
-        castSession?.isMute().then(value => {
-            if (value !== muted){
-                onControlsPress(CONTROL_ACTION.MUTE, !!value);
-            }
-            
-        });
-
-    }, [castSession]);
-
-    useEffect(() => {
-        if (typeof(castStreamPosition) === 'number' && currentTime !== castStreamPosition){
-            setCurrentTimeWithValidation(castStreamPosition);
-
-            if (props?.onChangeCommonData){
-                props.onChangeCommonData({
-                    time: castStreamPosition
-                });
-            }
-        }
-
-    }, [castStreamPosition]);
-
-    const debouncedMediaStatus = debounce(() => {
-
-        console.log(`[Player] (Cast Flavour) playerState ${castMediaStatus?.playerState}`);
-
-        if ((castMediaStatus?.playerState === MediaPlayerState.PAUSED || castMediaStatus?.playerState === MediaPlayerState.IDLE) && !paused){
+        if (castMediaStatus?.playerState === MediaPlayerState.PAUSED && !paused){
             onControlsPress(CONTROL_ACTION.PAUSE, true);
 
-        } else if ((castMediaStatus?.playerState !== MediaPlayerState.PAUSED && castMediaStatus?.playerState !== MediaPlayerState.IDLE) && paused){
+        } else if (castMediaStatus?.playerState !== MediaPlayerState.PAUSED && paused){
             onControlsPress(CONTROL_ACTION.PAUSE, false);
 
         }

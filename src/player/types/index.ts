@@ -250,7 +250,6 @@ export interface LiveSeekableCastRange {
     isLiveDone: boolean;
     startTime: number;
     endTime: number;
-    streamPosition: number;
 }
 
 
