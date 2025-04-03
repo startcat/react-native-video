@@ -506,15 +506,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const onSlidingStart = (value: number) => {
 
-        // Por ahora lo comentamos para mejorar el rendimineto
-        //onChangeDvrTimeValue(value);
-
     }
 
     const onSlidingMove = (value: number) => {
-
-        // Por ahora lo comentamos para mejorar el rendimineto
-        //onChangeDvrTimeValue(value);
 
     }
 

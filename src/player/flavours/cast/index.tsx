@@ -1,4 +1,3 @@
-import { debounce, throttle } from 'lodash';
 import React, { useEffect, useState, useRef } from 'react';
 import { 
     CastState, 
@@ -319,7 +318,6 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
             if (isDVR.current && dvrTimeValue !== castStreamPosition){
                 setDvrTimeValue(castStreamPosition);
-                onSlidingComplete(castStreamPosition);
 
             }
 
@@ -333,52 +331,6 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         }
 
     }, [castStreamPosition]);
-
-    // const debouncedMediaStatus = throttle(() => {
-
-    //     // Loading
-    //     if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
-    //         setLoading(true);
-
-    //     } else if ((castMediaStatus?.playerState !== MediaPlayerState.BUFFERING && castMediaStatus?.playerState !== MediaPlayerState.LOADING) && loading){
-    //         setLoading(false);
-
-    //     }
-
-    //     // Duration
-    //     if (!duration){
-
-    //         if (isDVR.current){
-    //             setDuration(dvrWindowSeconds.current);
-
-    //             if (props?.isLive && props?.onChangeCommonData){
-    //                 props.onChangeCommonData({
-    //                     duration: dvrWindowSeconds.current
-    //                 });
-    //             }
-
-    //         } else if (typeof(castMediaStatus?.mediaInfo?.streamDuration) === 'number' && castMediaStatus?.mediaInfo?.streamDuration){
-    //             setDuration(castMediaStatus?.mediaInfo?.streamDuration);
-
-    //             if (!props?.isLive && props?.onChangeCommonData){
-    //                 props.onChangeCommonData({
-    //                     duration: castMediaStatus?.mediaInfo?.streamDuration
-    //                 });
-    //             }
-
-    //         }
-
-    //     }
-
-    //     if (castMediaStatus?.playerState === MediaPlayerState.PAUSED && !paused){
-    //         onControlsPress(CONTROL_ACTION.PAUSE, true);
-
-    //     } else if (castMediaStatus?.playerState !== MediaPlayerState.PAUSED && paused){
-    //         onControlsPress(CONTROL_ACTION.PAUSE, false);
-
-    //     }
-
-    // }, 1000, { 'leading': true, 'maxWait': 2000 });
 
     // Cast Events
     const registerRemoteSubscriptions = () => {
@@ -423,40 +375,53 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'audioIndex', 'subtitleIndex'];
 
+        console.log(`[Player] (Cast Flavour) onControlsPress: ${id} (${value})`);
+
         if (!isContentLoaded){
             return false;
         }
 
-        console.log(`[Player] (Cast Flavour) onControlsPress: ${id} (${value})`);
+        if (id === CONTROL_ACTION.PAUSE){
+            setPaused(!!value);
+        }
 
-        // State Actions
-        if (id === CONTROL_ACTION.NEXT){
-            if (props.onNext){
-                props.onNext();
-            }
+        if (id === CONTROL_ACTION.MUTE){
+            setMuted(!!value);
+        }
 
-        // Actions to invoke on player
-        } else {
+        if (id === CONTROL_ACTION.NEXT && props.onNext){
+            setIsContentLoaded(false);
+            props.onNext();
+        }
 
+        if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
-            // if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number'){
-            //     setDvrTimeValue(value);
-            // }
+            setDvrTimeValue(value);
+            onChangeDvrTimeValue(value);
+        }
 
-            if (id === CONTROL_ACTION.PAUSE){
-                setPaused(!!value);
-            }
+        if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
+            // Guardamos el estado de la barra de tiempo en DVR
+            setDvrTimeValue(dvrTimeValue + value);
+            onChangeDvrTimeValue(dvrTimeValue + value);
+        }
 
-            if (id === CONTROL_ACTION.MUTE){
-                setMuted(!!value);
-            }
+        if (id === CONTROL_ACTION.BACKWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
+            // Guardamos el estado de la barra de tiempo en DVR
+            setDvrTimeValue(dvrTimeValue - value);
+            onChangeDvrTimeValue(dvrTimeValue - value);
+        }
+        
+        if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD || id === CONTROL_ACTION.PAUSE || id === CONTROL_ACTION.MUTE){
+            // Actions to invoke on player
+            invokePlayerAction(castClient, castSession, id, value, currentTime, duration, liveSeekableRange.current);
+        }
 
-            if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
-                invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, props.onSeekOverEpg(), currentTime, duration, liveSeekableRange.current);
-            } else {
-                invokePlayerAction(castClient, castSession, id, value, currentTime, duration, liveSeekableRange.current);
-            }
-
+        if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
+            const overEpgValue = props.onSeekOverEpg();
+            setDvrTimeValue(overEpgValue!);
+            onChangeDvrTimeValue(overEpgValue!);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, props.onSeekOverEpg(), currentTime, duration, liveSeekableRange.current);
         }
 
         // Actions to be saved between flavours
@@ -507,21 +472,22 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
     const onSlidingComplete = (value: number) => {
 
-        if (isDVR.current){
+        onChangeDvrTimeValue(value);
+    }
 
-            let secondsToLive,
-                date;
+    const onChangeDvrTimeValue = (value: number) => {
 
-            if (dvrTimeValue){
-                secondsToLive = dvrTimeValue - value;
-                date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+        let secondsToLive,
+            date;
 
-            }        
+        if (typeof(duration) === 'number' && duration >= 0){
+            secondsToLive = (duration > value) ? duration - value : 0;
+            date = (secondsToLive > 0) ? subtractMinutesFromDate(new Date(), secondsToLive / 60) : new Date();
 
-            if (props.onDVRChange){
-                props.onDVRChange(value, secondsToLive, date);
-            }
+        }        
 
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
         }
 
     }

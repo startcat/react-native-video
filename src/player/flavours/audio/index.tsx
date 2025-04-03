@@ -455,35 +455,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onSlidingStart = (value: number) => {
 
-        // let secondsToLive,
-        //     date;
-
-        // if (dvrTimeValue){
-        //     secondsToLive = dvrTimeValue - value;
-        //     date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-
-        // }
-
-        // if (props.onDVRChange){
-        //     props.onDVRChange(value, secondsToLive, date);
-        // }
-
     }
 
     const onSlidingMove = (value: number) => {
-
-        // let secondsToLive,
-        //     date;
-
-        // if (dvrTimeValue){
-        //     secondsToLive = dvrTimeValue - value;
-        //     date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-
-        // }
-
-        // if (props.onDVRChange){
-        //     props.onDVRChange(value, secondsToLive, date);
-        // }
 
     }
 
