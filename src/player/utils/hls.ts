@@ -4,29 +4,13 @@
  * 
  */
 
-import Config from 'react-native-config';
+import { getAbsoluteUri } from './siteUrl';
 import { i18n } from '../locales';
 
 import { 
     type IPlayerMenuData,
     PLAYER_MENU_DATA_TYPE
 } from '../types';
-
-// Check Absolute or relative URI
-const getAbsoluteUri = (uri: string): string => {
-
-    if (uri && typeof(uri) === 'string' && uri?.match(/https?:\/\//gi)){
-        return uri;
-
-    } else if (uri && typeof(uri) === 'string'){
-        return Config.SITE_URL + uri;
-
-    } else {
-        return uri;
-
-    }
-
-}
 
 const getSchemeDoc = async (url:string) => {
 

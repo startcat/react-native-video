@@ -1,4 +1,3 @@
-import Config from 'react-native-config';
 import { 
     IManifest, 
     IDrm,
@@ -6,6 +5,8 @@ import {
     ICastMetadata,
     DRM_TYPE 
 } from '../types';
+
+import { getAbsoluteUri } from './siteUrl';
 
 const LOG_ENABLED = true;
 const LOG_KEY = '[Cast Message]';
@@ -16,37 +17,6 @@ function log (message: string) {
 
     if (__DEV__ && LOG_ENABLED){
         console.log(`${LOG_KEY} ${message}`);
-
-    }
-
-}
-
-// Check Absolute or relative URI
-const getAbsoluteUri = (uri: string): string => {
-
-    if (uri && typeof(uri) === 'string' && uri?.match(/https?:\/\//gi)){
-        return uri;
-
-    } else if (uri && typeof(uri) === 'string'){
-        return Config.SITE_URL + uri;
-
-    } else {
-        return uri;
-
-    }
-
-}
-
-const addUriParam = (uri: string, param: string): string => {
-
-    if (uri && typeof(uri) === 'string' && uri.match(/\?/gi)){
-        return uri + '&' + param;
-
-    } else if (uri && typeof(uri) === 'string' && !uri.match(/\?/gi)){
-        return uri + '?' + param;
-
-    } else {
-        return uri;
 
     }
 
