@@ -119,7 +119,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     useEffect(() => {
 
-        let uri;
+        let uri,
+            startingPoint = props.currentTime;
 
         // Cogemos el manifest adecuado
         currentManifest.current = getBestManifest(props?.manifests!, true);
@@ -146,6 +147,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         if (props.isLive && typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
             isDVR.current = true;
             dvrWindowSeconds.current = props.forcedDvrWindowMinutes ? props.forcedDvrWindowMinutes * 60 : currentManifest.current?.dvr_window_minutes * 60;
+            startingPoint = dvrWindowSeconds.current;
             setDvrTimeValue(dvrWindowSeconds.current);
         }
 
@@ -160,7 +162,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             poster: props.squaredPoster || props.poster,
             isLive: props.isLive,
             hasNext: props.hasNext,
-            startPosition: props.currentTime
+            startPosition: startingPoint
         });
 
         if (castState === CastState.CONNECTED && castClient){
@@ -223,6 +225,14 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     }, [castClient]);
 
     useEffect(() => {
+
+        if (castMediaStatus?.playerState === MediaPlayerState.PLAYING && castMediaStatus?.liveSeekableRange){
+            liveSeekableRange.current = {
+                ...castMediaStatus.liveSeekableRange,
+                streamPosition: castMediaStatus.streamPosition
+            };
+
+        }
 
         // Loading
         if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
@@ -287,6 +297,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     }, [castStreamPosition]);
 
     const debouncedMediaStatus = debounce(() => {
+
+        console.log(`[Player] (Audio Cast Flavour) playerState ${castMediaStatus?.playerState}`);
 
         if ((castMediaStatus?.playerState === MediaPlayerState.PAUSED || castMediaStatus?.playerState === MediaPlayerState.IDLE) && !paused){
             onControlsPress(CONTROL_ACTION.PAUSE, true);
@@ -395,7 +407,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                 setMuted(!!value);
             }
 
-            invokePlayerAction(castClient, castSession, id, value, currentTime, duration);
+            invokePlayerAction(castClient, castSession, id, value, currentTime, duration, liveSeekableRange.current);
 
         }
 

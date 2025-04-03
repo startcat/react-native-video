@@ -38,7 +38,7 @@ const mapSeekablePosition = (value:number, liveSeekableRange?:LiveSeekableCastRa
  *
  */
 
-export const invokePlayerAction = async (castClient: RemoteMediaClient | null, castSession: CastSession | null, id: CONTROL_ACTION, value?:any, currentTime?:number, duration?:number) => {
+export const invokePlayerAction = async (castClient: RemoteMediaClient | null, castSession: CastSession | null, id: CONTROL_ACTION, value?:any, currentTime?:number, duration?:number, liveSeekableRange?:LiveSeekableCastRange | null) => {
 
     console.log(`[Player] (Cast Actions) invokePlayerAction: ${id} / ${value}`);
 
@@ -52,13 +52,13 @@ export const invokePlayerAction = async (castClient: RemoteMediaClient | null, c
         castSession.setMute(value);
 
     } else if (castClient && id === CONTROL_ACTION.SEEK && typeof(value) === 'number'){
-        castClient.seek({ position: value });
+        castClient.seek({ position: mapSeekablePosition(value, liveSeekableRange) });
 
     } else if (castClient && id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number' && typeof(duration) === 'number'){
-        castClient.seek({ position: (currentTime + value) > duration ? duration : (currentTime + value) });
+        castClient.seek({ position: mapSeekablePosition((currentTime + value) > duration ? duration : (currentTime + value), liveSeekableRange) });
 
     } else if (castClient && id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-        castClient.seek({ position: (currentTime - value) < 0 ? 0 : (currentTime - value) });        
+        castClient.seek({ position: mapSeekablePosition((currentTime - value) < 0 ? 0 : (currentTime - value), liveSeekableRange) });        
 
     }
 
