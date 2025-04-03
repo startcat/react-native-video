@@ -255,38 +255,6 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             
         }
 
-        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
-        debouncedMediaStatus();
-
-    }, [castMediaStatus]);
-
-    useEffect(() => {
-
-        // Muted
-        castSession?.isMute().then(value => {
-            if (value !== muted){
-                onControlsPress(CONTROL_ACTION.MUTE, !!value);
-            }
-            
-        });
-
-    }, [castSession]);
-
-    useEffect(() => {
-        if (typeof(castStreamPosition) === 'number' && currentTime !== castStreamPosition){
-            setCurrentTimeWithValidation(castStreamPosition);
-
-            if (props?.onChangeCommonData){
-                props.onChangeCommonData({
-                    time: castStreamPosition
-                });
-            }
-        }
-
-    }, [castStreamPosition]);
-
-    const debouncedMediaStatus = throttle(() => {
-
         // Loading
         if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
             setLoading(true);
@@ -329,7 +297,88 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         }
 
-    }, 1000, { 'leading': true, 'maxWait': 2000 });
+        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
+        // debouncedMediaStatus();
+
+    }, [castMediaStatus]);
+
+    useEffect(() => {
+
+        // Muted
+        castSession?.isMute().then(value => {
+            if (value !== muted){
+                onControlsPress(CONTROL_ACTION.MUTE, !!value);
+            }
+            
+        });
+
+    }, [castSession]);
+
+    useEffect(() => {
+        if (typeof(castStreamPosition) === 'number' && currentTime !== castStreamPosition){
+            
+            if (isDVR.current){
+                setDvrTimeValue(castStreamPosition);
+                
+            } else {
+                setCurrentTimeWithValidation(castStreamPosition);
+
+            }
+
+            if (props?.onChangeCommonData){
+                props.onChangeCommonData({
+                    time: castStreamPosition
+                });
+            }
+        }
+
+    }, [castStreamPosition]);
+
+    // const debouncedMediaStatus = throttle(() => {
+
+    //     // Loading
+    //     if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
+    //         setLoading(true);
+
+    //     } else if ((castMediaStatus?.playerState !== MediaPlayerState.BUFFERING && castMediaStatus?.playerState !== MediaPlayerState.LOADING) && loading){
+    //         setLoading(false);
+
+    //     }
+
+    //     // Duration
+    //     if (!duration){
+
+    //         if (isDVR.current){
+    //             setDuration(dvrWindowSeconds.current);
+
+    //             if (props?.isLive && props?.onChangeCommonData){
+    //                 props.onChangeCommonData({
+    //                     duration: dvrWindowSeconds.current
+    //                 });
+    //             }
+
+    //         } else if (typeof(castMediaStatus?.mediaInfo?.streamDuration) === 'number' && castMediaStatus?.mediaInfo?.streamDuration){
+    //             setDuration(castMediaStatus?.mediaInfo?.streamDuration);
+
+    //             if (!props?.isLive && props?.onChangeCommonData){
+    //                 props.onChangeCommonData({
+    //                     duration: castMediaStatus?.mediaInfo?.streamDuration
+    //                 });
+    //             }
+
+    //         }
+
+    //     }
+
+    //     if (castMediaStatus?.playerState === MediaPlayerState.PAUSED && !paused){
+    //         onControlsPress(CONTROL_ACTION.PAUSE, true);
+
+    //     } else if (castMediaStatus?.playerState !== MediaPlayerState.PAUSED && paused){
+    //         onControlsPress(CONTROL_ACTION.PAUSE, false);
+
+    //     }
+
+    // }, 1000, { 'leading': true, 'maxWait': 2000 });
 
     // Cast Events
     const registerRemoteSubscriptions = () => {
