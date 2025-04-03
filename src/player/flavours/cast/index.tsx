@@ -315,15 +315,14 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     }, [castSession]);
 
     useEffect(() => {
-        if (typeof(castStreamPosition) === 'number' && currentTime !== castStreamPosition){
-            
+        if (typeof(castStreamPosition) === 'number'){
+
             if (isDVR.current){
                 setDvrTimeValue(castStreamPosition);
-                
-            } else {
-                setCurrentTimeWithValidation(castStreamPosition);
 
             }
+
+            setCurrentTime(castStreamPosition);
 
             if (props?.onChangeCommonData){
                 props.onChangeCommonData({
@@ -439,9 +438,9 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         } else {
 
             // Guardamos el estado de la barra de tiempo en DVR
-            if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number'){
-                setDvrTimeValue(value);
-            }
+            // if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number'){
+            //     setDvrTimeValue(value);
+            // }
 
             if (id === CONTROL_ACTION.PAUSE){
                 setPaused(!!value);
@@ -493,56 +492,15 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         
     }
 
-    const setCurrentTimeWithValidation = (value: number) => {
-
-        if (value < 0){
-            setCurrentTime(0);
-
-        } else if (typeof(duration) === 'number' && value > duration){
-            setCurrentTime(duration);
-
-        } else if (typeof(duration) === 'number') {
-            setCurrentTime(value);
-
-        }
-
-    }
-
     // const onError = () => {
 
     // }
 
     const onSlidingStart = (value: number) => {
 
-        // let secondsToLive,
-        //     date;
-
-        // if (dvrTimeValue){
-        //     secondsToLive = dvrTimeValue - value;
-        //     date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-
-        // }        
-
-        // if (props.onDVRChange){
-        //     props.onDVRChange(value, secondsToLive, date);
-        // }
-
     }
 
     const onSlidingMove = (value: number) => {
-
-        // let secondsToLive,
-        //     date;
-
-        // if (dvrTimeValue){
-        //     secondsToLive = dvrTimeValue - value;
-        //     date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-
-        // }        
-
-        // if (props.onDVRChange){
-        //     props.onDVRChange(value, secondsToLive, date);
-        // }
 
     }
 
