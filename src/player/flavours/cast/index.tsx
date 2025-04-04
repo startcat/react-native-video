@@ -296,9 +296,6 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         }
 
-        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
-        // debouncedMediaStatus();
-
     }, [castMediaStatus]);
 
     useEffect(() => {

@@ -271,9 +271,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         }
 
-        // A veces nos llegan muchos eventos seguidos, aplicamos debouncing
-        // debouncedMediaStatus();
-
     }, [castMediaStatus]);
 
     useEffect(() => {
