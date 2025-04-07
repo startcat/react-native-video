@@ -3,8 +3,7 @@
  *
  */
 
-import React, { useEffect, useState, useRef } from 'react';
-import BackgroundTimer from 'react-native-background-timer';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 
 interface useDvrPausedSecondsProps {
     isLive: boolean;
@@ -12,64 +11,83 @@ interface useDvrPausedSecondsProps {
     paused: boolean;
 }
 
-const INTERVAL = 60000;
+const INTERVAL = 10000;
 
 export function useDvrPausedSeconds(props: useDvrPausedSecondsProps) {
-	const [pausedDatum, setPausedDatum] = useState<Date | null>(null);
+	// const [pausedDatum, setPausedDatum] = useState<Date | null>(null);
     const [pausedSeconds, setPausedSeconds] = useState<number>(0);
 
-    const intervalObj = useRef<number>();
+    const intervalObj = useRef<NodeJS.Timeout>();
+    const pausedDatum = useRef<number>();
+
+    useEffect(() => {
+        return () => {
+            console.log(`[DANI] useDvrPausedSeconds unmount...`);
+            clearIntervalObject();
+
+        };
+
+    }, []);
 
 	useEffect(() => {
 		const isPaused = !!props.paused;
         const isLive = !!props.isLive;
         const isDVR = !!props.isDVR;
 
+        console.log(`[DANI] useDvrPausedSeconds isPaused ${isPaused} (isLive ${isLive} / isDVR ${isDVR})`);
+
+        if (isPaused){
+            console.log(`[DANI] useDvrPausedSeconds setPausedDatum`);
+            pausedDatum.current = (new Date()).getTime();
+
+        }
+
 		if (isLive && isDVR) {
 
-            if (isPaused){
-                setPausedDatum(new Date());
-
-                intervalObj.current = BackgroundTimer.setInterval(() => {
+            if (isPaused){    
+                console.log(`[DANI] useDvrPausedSeconds setInterval`);
+                intervalObj.current = setInterval(() => {
                     // Moveremos la barra cada 1 minuto
                     checkDifference();
     
                 }, INTERVAL);
 
-            } else if (pausedDatum !== null){
+            } else {
                 
                 checkDifference();
-                setPausedDatum(null);
+                clearIntervalObject();
+                // setPausedDatum(null);
 
             }
 
 		}
 
-        return () => {
-            clearInterval();
+	}, [props.paused]);
 
-        };
+    const clearIntervalObject = useCallback(() => {
 
-	}, [props.paused, props.isLive, props.isDVR]);
+        console.log(`[DANI] useDvrPausedSeconds clearIntervalObject...`);
 
-    const clearInterval = () => {
-
-        if (intervalObj.current){
-            BackgroundTimer.clearInterval(intervalObj.current);
+        if (typeof(intervalObj.current) === 'number'){
+            clearInterval(intervalObj.current);
         }
 
-    }
+    }, [intervalObj.current]);
 
-    const checkDifference = () => {
+    const checkDifference = useCallback(() => {
 
-        if (pausedDatum !== null){
+        console.log(`[DANI] useDvrPausedSeconds checkDifference... pausedDatum ${pausedDatum.current}`);
+
+        if (typeof(pausedDatum.current) === 'number' && pausedDatum.current > 0){
                 
             try {
-                const diferenciaMilisegundos = (new Date().getTime()) - pausedDatum.getTime();
+                const now = (new Date()).getTime();
+                const diferenciaMilisegundos = now - pausedDatum.current!;
                 const segundos = Math.floor(diferenciaMilisegundos / 1000);
+                console.log(`[DANI] useDvrPausedSeconds checkDifference - now ${now}`);
                 setPausedSeconds(segundos);
-                setPausedDatum(new Date());
-                console.warn(`[Player DVR Utils] useDvrPausedSeconds ${segundos} seg.`);
+                pausedDatum.current = (new Date()).getTime();
+                console.log(`[Player DVR Utils] useDvrPausedSeconds ${segundos} seg.`);
 
             } catch(ex){
                 console.warn(`[Player DVR Utils] useDvrPausedSeconds: ${ex?.message}`);
@@ -78,8 +96,10 @@ export function useDvrPausedSeconds(props: useDvrPausedSecondsProps) {
 
         }
 
-    }
+    }, [pausedDatum.current]);
 
-	// Usamos useMemo para devolver un objeto estable que no cause re-renders innecesarios
-	return pausedSeconds;
+    return useMemo(() => ({
+		pausedSeconds,
+		pausedDatum: pausedDatum.current
+	}), [pausedSeconds, pausedDatum.current]);
 }
