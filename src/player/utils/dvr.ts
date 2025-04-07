@@ -3,7 +3,7 @@
  *
  */
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface useDvrPausedSecondsProps {
     isLive: boolean;
@@ -11,95 +11,88 @@ interface useDvrPausedSecondsProps {
     paused: boolean;
 }
 
-const INTERVAL = 10000;
+interface Results {
+    pausedSeconds: number;
+    pausedDatum: number;
+}
+
+// Actualizamos la diferencia con el directo, cada segundo, para mostrarlo en los contadores
+const INTERVAL = 1000;
 
 export function useDvrPausedSeconds(props: useDvrPausedSecondsProps) {
-	// const [pausedDatum, setPausedDatum] = useState<Date | null>(null);
-    const [pausedSeconds, setPausedSeconds] = useState<number>(0);
 
     const intervalObj = useRef<NodeJS.Timeout>();
-    const pausedDatum = useRef<number>();
+    const resultsRef = useRef<Results>({
+        pausedSeconds: 0,
+        pausedDatum: 0
+    });
+
+    const [, forceUpdate] = useState({});
+
+    // Función para actualizar los resultados manteniendo la referencia
+    const updateResults = useCallback((newResults: Results) => {
+        resultsRef.current = newResults;
+        forceUpdate({}); // Forzar re-renderizado para que los cambios se propaguen
+    }, []);
 
     useEffect(() => {
         return () => {
-            console.log(`[DANI] useDvrPausedSeconds unmount...`);
             clearIntervalObject();
-
         };
-
     }, []);
 
-	useEffect(() => {
-		const isPaused = !!props.paused;
+    useEffect(() => {
+        const isPaused = !!props.paused;
         const isLive = !!props.isLive;
         const isDVR = !!props.isDVR;
 
-        console.log(`[DANI] useDvrPausedSeconds isPaused ${isPaused} (isLive ${isLive} / isDVR ${isDVR})`);
-
-        if (isPaused){
-            console.log(`[DANI] useDvrPausedSeconds setPausedDatum`);
-            pausedDatum.current = (new Date()).getTime();
-
+        if (isPaused) {
+            updateResults({
+                pausedSeconds: 0,
+                pausedDatum: (new Date()).getTime()
+            });
         }
 
-		if (isLive && isDVR) {
-
-            if (isPaused){    
-                console.log(`[DANI] useDvrPausedSeconds setInterval`);
+        if (isLive && isDVR) {
+            if (isPaused) {    
                 intervalObj.current = setInterval(() => {
-                    // Moveremos la barra cada 1 minuto
                     checkDifference();
-    
                 }, INTERVAL);
-
             } else {
-                
                 checkDifference();
                 clearIntervalObject();
-                // setPausedDatum(null);
-
             }
-
-		}
-
-	}, [props.paused]);
+        }
+    }, [props.paused]);
 
     const clearIntervalObject = useCallback(() => {
-
-        console.log(`[DANI] useDvrPausedSeconds clearIntervalObject...`);
+        resultsRef.current = {
+            pausedSeconds: 0,
+            pausedDatum: 0
+        };
 
         if (typeof(intervalObj.current) === 'number'){
             clearInterval(intervalObj.current);
         }
-
-    }, [intervalObj.current]);
+    }, []);
 
     const checkDifference = useCallback(() => {
-
-        console.log(`[DANI] useDvrPausedSeconds checkDifference... pausedDatum ${pausedDatum.current}`);
-
-        if (typeof(pausedDatum.current) === 'number' && pausedDatum.current > 0){
-                
+        const currentResults = resultsRef.current;
+        if (typeof(currentResults?.pausedDatum) === 'number' && currentResults?.pausedDatum > 0){
             try {
                 const now = (new Date()).getTime();
-                const diferenciaMilisegundos = now - pausedDatum.current!;
-                const segundos = Math.floor(diferenciaMilisegundos / 1000);
-                console.log(`[DANI] useDvrPausedSeconds checkDifference - now ${now}`);
-                setPausedSeconds(segundos);
-                pausedDatum.current = (new Date()).getTime();
-                console.log(`[Player DVR Utils] useDvrPausedSeconds ${segundos} seg.`);
+                const diferenciaMilisegundos = now - currentResults.pausedDatum!;
+                const segundos = diferenciaMilisegundos / 1000;
 
+                updateResults({
+                    pausedSeconds: segundos,
+                    pausedDatum: now
+                });
             } catch(ex){
                 console.warn(`[Player DVR Utils] useDvrPausedSeconds: ${ex?.message}`);
-
             }
-
         }
+    }, [updateResults]);
 
-    }, [pausedDatum.current]);
-
-    return useMemo(() => ({
-		pausedSeconds,
-		pausedDatum: pausedDatum.current
-	}), [pausedSeconds, pausedDatum.current]);
+    return useMemo(() => resultsRef.current, [resultsRef.current]);
 }

@@ -140,13 +140,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     useEffect(() => {
 
-        if (typeof(dvrTimeValue) === 'number' && dvrPaused.pausedSeconds > 0){
+        if (typeof(dvrTimeValue) === 'number' && dvrPaused?.pausedDatum > 0 && dvrPaused?.pausedSeconds > 0){
             const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
 
             setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
         }
 
-    }, [dvrPaused.pausedDatum, dvrPaused.pausedSeconds]);
+    }, [dvrPaused?.pausedDatum]);
 
     // Source Cooking
     const setPlayerSource = async () => {
