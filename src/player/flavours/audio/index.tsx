@@ -72,7 +72,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const refVideoPlayer = useRef<VideoRef>(null);
     const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
 
-    const dvrWindowPausedSeconds = useDvrPausedSeconds({
+    const dvrPaused = useDvrPausedSeconds({
         paused: paused,
         isLive: !!props?.isLive,
         isDVR: !!isDVR.current
@@ -140,13 +140,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     useEffect(() => {
 
-        if (typeof(dvrTimeValue) === 'number' && dvrWindowPausedSeconds > 0){
-            const moveDVRto = dvrTimeValue - dvrWindowPausedSeconds;
+        if (typeof(dvrTimeValue) === 'number' && dvrPaused.pausedSeconds > 0){
+            const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
 
             setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
         }
 
-    }, [dvrWindowPausedSeconds]);
+    }, [dvrPaused.pausedDatum, dvrPaused.pausedSeconds]);
 
     // Source Cooking
     const setPlayerSource = async () => {

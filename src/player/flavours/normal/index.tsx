@@ -88,7 +88,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const refVideoPlayer = useRef<VideoRef>(null);
 
-    const dvrWindowPausedSeconds = useDvrPausedSeconds({
+    const dvrPaused = useDvrPausedSeconds({
         paused: paused,
         isLive: !!props?.isLive,
         isDVR: !!isDVR.current
@@ -178,13 +178,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     useEffect(() => {
 
-        if (typeof(dvrTimeValue) === 'number' && dvrWindowPausedSeconds > 0){
-            const moveDVRto = dvrTimeValue - dvrWindowPausedSeconds;
+        if (typeof(dvrTimeValue) === 'number' && dvrPaused.pausedSeconds > 0){
+            const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
 
             setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
         }
 
-    }, [dvrWindowPausedSeconds]);
+    }, [dvrPaused.pausedDatum, dvrPaused.pausedSeconds]);
 
     const checkIfPlayerIsLandscape = (height: number, width: number, insets: EdgeInsets): boolean => {
 
