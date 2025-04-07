@@ -29,7 +29,8 @@ import {
     onAdStarted,
     mergeMenuData,
     getHlsQualities,
-    subtractMinutesFromDate
+    subtractMinutesFromDate,
+    useDvrPausedSeconds
 } from '../../utils';
 
 import {
@@ -86,6 +87,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     });
 
     const refVideoPlayer = useRef<VideoRef>(null);
+
+    const dvrWindowPausedSeconds = useDvrPausedSeconds({
+        paused: paused,
+        isLive: !!props?.isLive,
+        isDVR: !!isDVR.current
+    });
 
     useEffect(() => {
 
@@ -168,6 +175,16 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         }
 
     }, [menuData]);
+
+    useEffect(() => {
+
+        if (typeof(dvrTimeValue) === 'number' && dvrWindowPausedSeconds > 0){
+            const moveDVRto = dvrTimeValue - dvrWindowPausedSeconds;
+
+            setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
+        }
+
+    }, [dvrWindowPausedSeconds]);
 
     const checkIfPlayerIsLandscape = (height: number, width: number, insets: EdgeInsets): boolean => {
 
