@@ -381,6 +381,7 @@ export interface MenuProps {
 export interface SliderVODProps {
     currentTime?: number;
     duration?: number;
+    thumbnailsMetadata?: IThumbnailMetadata;
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
@@ -389,6 +390,7 @@ export interface SliderVODProps {
 export interface SliderDVRProps {
     value?: number;
     liveLoadTime?: number;
+    thumbnailsMetadata?: IThumbnailMetadata;
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;

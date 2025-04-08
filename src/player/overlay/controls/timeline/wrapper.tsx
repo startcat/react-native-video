@@ -57,6 +57,7 @@ const TimelineBase = ({
         sliderVOD ? React.createElement(sliderVOD, { 
             currentTime,
             duration,
+            thumbnailsMetadata,
             onSlidingStart: handleSlidingStart,
             onSlidingMove: handleSlidingMove,
             onSlidingComplete: handleSlidingComplete
@@ -67,6 +68,7 @@ const TimelineBase = ({
         sliderDVR ? React.createElement(sliderDVR, { 
             value: dvrTimeValue,
             liveLoadTime: duration,
+            thumbnailsMetadata,
             onSlidingStart: handleSlidingStart,
             onSlidingMove: handleSlidingMove,
             onSlidingComplete: handleSlidingComplete
