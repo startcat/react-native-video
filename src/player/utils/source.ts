@@ -114,6 +114,9 @@ export const getManifestSourceType = (manifest: IManifest): string | undefined =
     } else if (manifest?.manifestURL?.includes('.mp3')){
         type = 'mp3';
 
+    } else if (manifest?.manifestURL?.includes('.mp4')){
+        type = 'mp4';
+
     } else {
         type = (Platform.OS === 'ios') ? 'm3u8' : 'mpd';
 
