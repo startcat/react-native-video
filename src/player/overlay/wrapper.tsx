@@ -19,6 +19,7 @@ const OverlayBase = ({
     title,
     thumbnailsMetadata,
     timeMarkers,
+    avoidTimelineThumbnails,
     paused,
     muted,
     volume,
@@ -226,6 +227,7 @@ const OverlayBase = ({
                     title={title}
                     thumbnailsMetadata={thumbnailsMetadata}
                     timeMarkers={timeMarkers}
+                    avoidTimelineThumbnails={avoidTimelineThumbnails}
                     paused={paused}
                     muted={muted}
                     volume={volume}

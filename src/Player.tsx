@@ -217,6 +217,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 subtitleIndex={currentSubtitleIndex}
 
                 timeMarkers={props.timeMarkers}
+                avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
                 // Components
                 mosca={props.mosca}
@@ -280,6 +281,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 subtitleIndex={currentSubtitleIndex}
 
                 timeMarkers={props.timeMarkers}
+                avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
                 // Components
                 mosca={props.mosca}
