@@ -500,6 +500,7 @@ export interface ControlsProps {
     hasNext?: boolean;
     thumbnailsMetadata?: IThumbnailMetadata;
     timeMarkers?: Array<ITimeMarkers>;
+    avoidTimelineThumbnails?: boolean;
     isLive?: boolean;
     isDVR?: boolean;
     isContentLoaded?: boolean;
@@ -561,6 +562,7 @@ export interface OverlayProps {
     hasNext?: boolean;
     thumbnailsMetadata?: IThumbnailMetadata;
     timeMarkers?: Array<ITimeMarkers>;
+    avoidTimelineThumbnails?: boolean;
     
     alwaysVisible?: boolean;
     
@@ -732,6 +734,7 @@ export interface NormalFlavourProps {
     mapHlsQualities?: boolean;
 
     timeMarkers?: Array<ITimeMarkers>;
+    avoidTimelineThumbnails?: boolean;
 
     // Components
     mosca?: React.ReactElement;
@@ -792,6 +795,7 @@ export interface CastFlavourProps {
     mapHlsQualities?: boolean;
 
     timeMarkers?: Array<ITimeMarkers>;
+    avoidTimelineThumbnails?: boolean;
 
     // Components
     mosca?: React.ReactElement;
@@ -848,6 +852,8 @@ export interface PlayerProps {
     mapHlsQualities?: boolean;
     audioIndex?: number;
     subtitleIndex?: number;
+
+    avoidTimelineThumbnails?: boolean;
 
     // Components
     mosca?: React.ReactElement;

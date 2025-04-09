@@ -33,6 +33,7 @@ const ControlsBase = ({
     headerMetadata,
     timeMarkers,
     thumbnailsMetadata,
+    avoidTimelineThumbnails,
     controlsHeaderBar,
     controlsMiddleBar,
     controlsBottomBar,
@@ -149,6 +150,7 @@ const ControlsBase = ({
                     isLive={isLive}
                     isDVR={isDVR}
                     thumbnailsMetadata={thumbnailsMetadata}
+                    avoidThumbnails={avoidTimelineThumbnails}
                     sliderVOD={sliderVOD}
                     sliderDVR={sliderDVR}
                     onSlidingStart={onSlidingStart}

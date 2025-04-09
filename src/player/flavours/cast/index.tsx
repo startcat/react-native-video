@@ -504,6 +504,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 hasNext={props?.hasNext}
                 thumbnailsMetadata={currentManifest.current?.thumbnailMetadata}
                 timeMarkers={props.timeMarkers}
+                avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
                 audioIndex={audioIndex}
                 subtitleIndex={subtitleIndex}
