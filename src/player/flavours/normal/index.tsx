@@ -440,7 +440,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             }
 
-            setMenuData(mergeMenuData(e, props.languagesMapping, hlsQualities, isDASH.current));
+            if (props.mergeMenuData && typeof(props.mergeMenuData) === 'function'){
+                setMenuData(props.mergeMenuData(e, props.languagesMapping, hlsQualities, isDASH.current));
+
+            } else {
+                setMenuData(mergeMenuData(e, props.languagesMapping, hlsQualities, isDASH.current));
+                
+            }
 
         }
 

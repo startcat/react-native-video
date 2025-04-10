@@ -5,7 +5,7 @@ import {
 } from '../../types';
 
 import { 
-    MediaTrack
+    type MediaTrack
 } from 'react-native-google-cast';
 
 import { 
