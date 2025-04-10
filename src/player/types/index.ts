@@ -1,4 +1,6 @@
 import { FunctionComponent } from 'react';
+import { type OnLoadData } from '../../types';
+import { type MediaTrack } from 'react-native-google-cast';
 
 export enum STREAM_FORMAT_TYPE {
 	DASH = 'dash',
@@ -756,6 +758,7 @@ export interface NormalFlavourProps {
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, hlsQualities?: Array<IPlayerMenuData>, isDASH?: boolean) => Array<IPlayerMenuData>;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
@@ -816,6 +819,7 @@ export interface CastFlavourProps {
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
@@ -877,6 +881,8 @@ export interface PlayerProps {
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, hlsQualities?: Array<IPlayerMenuData>, isDASH?: boolean) => Array<IPlayerMenuData>;
+    mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 
     // Events
     onError?: () => void;

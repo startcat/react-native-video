@@ -225,7 +225,15 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 castClient?.loadMedia(castMessage.current!);
 
             } else {
-                setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+
+                if (props.mergeCastMenuData && typeof(props.mergeCastMenuData) === 'function'){
+                    setMenuData(props.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+
+                } else {
+                    setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+
+                }
+
                 setIsContentLoaded(true);
 
             }
@@ -343,7 +351,15 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             onMediaPlaybackStartedListener.current = castClient.onMediaPlaybackStarted((mediaStatus) => {
 
                 if (!isContentLoaded){
-                    setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+                    
+                    if (props.mergeCastMenuData && typeof(props.mergeCastMenuData) === 'function'){
+                        setMenuData(props.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+
+                    } else {
+                        setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+
+                    }
+
                     setIsContentLoaded(true);                    
                 }
                 

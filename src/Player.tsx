@@ -237,6 +237,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
                 // Utils
                 getYouboraOptions={props.getYouboraOptions}
+                mergeCastMenuData={props.mergeCastMenuData}
 
                 // Events
                 onChangeCommonData={changeCommonData}
@@ -303,6 +304,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 getSourceUri={props.getSourceUri}
                 getTudumManifest={props.getTudumManifest}
                 getYouboraOptions={props.getYouboraOptions}
+                mergeMenuData={props.mergeMenuData}
 
                 // Events
                 onChangeCommonData={changeCommonData}
