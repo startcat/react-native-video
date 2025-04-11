@@ -69,6 +69,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(true);
     const [loading, setLoading] = useState<boolean>(false);
+    const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
 
     useEffect(() => {
 

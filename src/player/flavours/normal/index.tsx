@@ -78,6 +78,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const [preloading, setPreloading] = useState<boolean>(false);
     const [isPlayingExternalTudum, setIsPlayingExternalTudum] = useState<boolean>(!!props.showExternalTudum);
     const [menuData, setMenuData] = useState<Array<IPlayerMenuData>>();
+    const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
 
     const [speedRate, setSpeedRate] = useState<number>(1);
     const [selectedAudioTrack, setSelectedAudioTrack] = useState<SelectedTrack>();
@@ -374,6 +375,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
+            setHasSeekOverDRV(true);
             const overEpgValue = props.onSeekOverEpg();
             setDvrTimeValue(overEpgValue!);
             onChangeDvrTimeValue(overEpgValue!);
@@ -657,6 +659,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         
                         isLive={props?.isLive}
                         isDVR={isDVR.current}
+                        isDVRStart={hasSeekOverDRV}
                         isContentLoaded={isContentLoaded}
 
                         // Components
