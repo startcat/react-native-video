@@ -624,6 +624,7 @@ export interface AudioFlavourProps {
     playOffline?: boolean;
     multiSession?: boolean;
     isLive?: boolean;
+    isDVRStart?: boolean;
     hasNext?: boolean;
     hasPrev?: boolean;
 
