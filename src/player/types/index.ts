@@ -858,6 +858,8 @@ export interface PlayerProps {
     subtitleIndex?: number;
 
     avoidTimelineThumbnails?: boolean;
+    avoidRotation?: boolean;
+    avoidDownloadsManagement?: boolean;
 
     // Components
     mosca?: React.ReactElement;

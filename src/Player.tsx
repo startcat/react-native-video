@@ -9,6 +9,9 @@ import { Platform } from 'react-native';
 import { NormalFlavour, CastFlavour } from './player/flavours';
 import { default as Downloads } from './Downloads';
 
+// const NormalFlavour = React.lazy(() => import('./player/flavours/normal'));
+// const CastFlavour = React.lazy(() => import('./player/flavours/cast'));
+
 import { 
     type PlayerProps,
     type ICommonData
@@ -39,16 +42,18 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(typeof(props.audioIndex) === 'number' ? props.audioIndex : -1);
     const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>(typeof(props.subtitleIndex) === 'number' ? props.subtitleIndex : -1);
 
-    const [hasRotated, setHasRotated] = useState<boolean>(DeviceInfo.isTablet());
+    const [hasRotated, setHasRotated] = useState<boolean>(!!props.avoidRotation || DeviceInfo.isTablet());
 
     const castState = useCastState();
 
     useOrientationChange((o) => {
         // Pequeño apaño para el lock de rotación
-        setTimeout(() => {
-            setHasRotated(true);
+        if (!hasRotated){
+            setTimeout(() => {
+                setHasRotated(true);
 
-        }, 300);
+            }, 300);
+        }
         
     });
 
@@ -60,7 +65,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             SystemNavigationBar.fullScreen(true);
         }
 
-        if (!DeviceInfo.isTablet()){
+        if (!props.avoidRotation && !DeviceInfo.isTablet()){
             // Bloqueamos a Landscape los móviles
             Orientation.lockToLandscape();
         }
@@ -72,7 +77,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         }
 
         // También detenemos las posibles descargas para mejorar la calidad de reproducción
-        stopDownloads();
+        if (!props.avoidDownloadsManagement){
+            stopDownloads();
+        }
 
         // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
         if (typeof(props.watchingProgressInterval) === 'number' && props.watchingProgressInterval > 0 && props.addContentProgress){
@@ -98,7 +105,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
             deactivateKeepAwake();
 
-            if (!DeviceInfo.isTablet()){
+            if (!props.avoidRotation && !DeviceInfo.isTablet()){
                 Orientation.lockToPortrait();
             }
 
@@ -107,7 +114,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             }
 
             // Reanudamos las descargas
-            resumeDownloads();
+            if (!props.avoidDownloadsManagement){
+                resumeDownloads();
+            }
 
             if (Platform.OS === 'android'){
                 SystemNavigationBar.fullScreen(false);
