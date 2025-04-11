@@ -26,6 +26,7 @@ const OverlayBase = ({
     preloading,
     isLive,
     isDVR,
+    isDVRStart,
     isContentLoaded,
     hasNext,
     alwaysVisible,
@@ -234,6 +235,7 @@ const OverlayBase = ({
                     preloading={preloading}
                     isLive={isLive}
                     isDVR={isDVR}
+                    isDVRStart={isDVRStart}
                     isContentLoaded={isContentLoaded}
                     hasNext={hasNext}
                     headerMetadata={headerMetadata}

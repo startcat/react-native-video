@@ -27,6 +27,7 @@ const ControlsBase = ({
     hasNext,
     isLive,
     isDVR,
+    isDVRStart,
     isContentLoaded,
     nextButton,
     liveButton,
@@ -67,6 +68,7 @@ const ControlsBase = ({
         preloading,
         hasNext,
         isLive,
+        isDVRStart,
         isDVR,
         isContentLoaded,
         nextButton,
@@ -78,7 +80,7 @@ const ControlsBase = ({
         onSlidingComplete
     }), [
         title, currentTime, dvrTimeValue, duration, paused, muted, volume,
-        preloading, hasNext, isLive, isDVR, isContentLoaded, nextButton,
+        preloading, hasNext, isLive, isDVR, isDVRStart, isContentLoaded, nextButton,
         liveButton, headerMetadata, handlePress, onSlidingStart, onSlidingMove, onSlidingComplete
     ]);
 
@@ -135,6 +137,7 @@ const ControlsBase = ({
                         muted={muted}
                         isLive={isLive}
                         isDVR={isDVR}
+                        isDVRStart={isDVRStart}
                         isContentLoaded={isContentLoaded}
                         hasNext={hasNext}
                         volume={volume}
@@ -149,6 +152,7 @@ const ControlsBase = ({
                     duration={duration}
                     isLive={isLive}
                     isDVR={isDVR}
+                    isDVRStart={isDVRStart}
                     thumbnailsMetadata={thumbnailsMetadata}
                     avoidThumbnails={avoidTimelineThumbnails}
                     sliderVOD={sliderVOD}

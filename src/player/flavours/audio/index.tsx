@@ -66,6 +66,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(false);
     const [isPlayingExternalTudum, setIsPlayingExternalTudum] = useState<boolean>(!!props.showExternalTudum);
+    const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
 
     const [speedRate, setSpeedRate] = useState<number>(1);
 

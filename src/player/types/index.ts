@@ -427,6 +427,7 @@ export interface TimelineProps {
     dvrTimeValue?: number;
     isLive?: boolean;
     isDVR?: boolean;
+    isDVRStart?: boolean;
     avoidThumbnails?: boolean;
     thumbnailsMetadata?: IThumbnailMetadata;
 
@@ -476,6 +477,7 @@ export interface ControlsBarProps {
     hasNext?: boolean;
     isLive?: boolean;
     isDVR?: boolean;
+    isDVRStart?: boolean;
     isContentLoaded?: boolean;
     
     // Components
@@ -505,6 +507,7 @@ export interface ControlsProps {
     avoidTimelineThumbnails?: boolean;
     isLive?: boolean;
     isDVR?: boolean;
+    isDVRStart?: boolean;
     isContentLoaded?: boolean;
 
     // Components
@@ -541,6 +544,7 @@ export interface AudioControlsProps {
     hasPrev?: boolean;
     isLive?: boolean;
     isDVR?: boolean;
+    isDVRStart?: boolean;
     isContentLoaded?: boolean;
     speedRate?: number;
     extraData?: any;
@@ -570,6 +574,7 @@ export interface OverlayProps {
     
     isLive?: boolean;
     isDVR?: boolean;
+    isDVRStart?: boolean;
     isContentLoaded?: boolean;
     
     menuData?: Array<IPlayerMenuData>;
