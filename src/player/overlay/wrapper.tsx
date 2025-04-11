@@ -61,7 +61,7 @@ const OverlayBase = ({
     const [visibleMenu, setVisibleMenu] = useState<boolean>(false);
     const [visibleSettingsMenu, setVisibleSettingsMenu] = useState<boolean>(false);
     const [currentTime, setCurrentTime] = useState<number>(propCurrentTime || 0);
-    const [dvrTimeValue, setDvrTimeValue] = useState<number>(propDvrTimeValue || 0);
+    const [dvrTimeValue, setDvrTimeValue] = useState<number>(propDvrTimeValue || duration!);
 
     const controlsTimeout = useRef<ReturnType<typeof setInterval> | null>(null);
 
