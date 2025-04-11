@@ -355,12 +355,18 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             // Guardamos el estado de la barra de tiempo en DVR
             setDvrTimeValue(value);
             onChangeDvrTimeValue(value);
+            if (typeof(duration) === 'number' && value >= duration){
+                setHasSeekOverDRV(false);
+            }
         }
 
         if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             setDvrTimeValue(dvrTimeValue + value);
             onChangeDvrTimeValue(dvrTimeValue + value);
+            if (typeof(duration) === 'number' && (dvrTimeValue + value) >= duration){
+                setHasSeekOverDRV(false);
+            }
         }
 
         if (id === CONTROL_ACTION.BACKWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
