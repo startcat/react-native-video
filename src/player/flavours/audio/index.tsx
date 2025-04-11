@@ -598,3 +598,5 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     );
 
 };
+
+export default AudioFlavour;

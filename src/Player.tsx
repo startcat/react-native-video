@@ -118,20 +118,6 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     }, []);
 
     /*
-     *  Obtenemos el estado inicial del dispositivo a usar
-     *  - Si esta muteado
-     *  - Nivel de volumen
-     *  - Punto inicial de reproducción
-     *  - Idioma por defecto
-     *  - Subtítulos por defecto
-     * 
-     */
-
-    // const checkPhysicalState = () => {
-        
-    // }
-
-    /*
      *  Función para guardar los cambios en el estado entre flavours
      * 
      */

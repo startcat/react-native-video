@@ -445,7 +445,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             } else {
                 setMenuData(mergeMenuData(e, props.languagesMapping, hlsQualities, isDASH.current));
-                
+
             }
 
         }
@@ -688,3 +688,5 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     );
 
 };
+
+export default NormalFlavour;
