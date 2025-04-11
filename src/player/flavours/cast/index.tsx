@@ -558,3 +558,5 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     );
 
 };
+
+export default CastFlavour;

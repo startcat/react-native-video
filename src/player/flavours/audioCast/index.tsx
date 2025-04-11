@@ -499,3 +499,5 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     );
 
 };
+
+export default AudioCastFlavour;
