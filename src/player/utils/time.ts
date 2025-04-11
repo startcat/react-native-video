@@ -5,9 +5,9 @@
 
 function segmentDuration(durationInSeconds: number) {
 
-    const hours = Math.floor(durationInSeconds / 3600);
-    const minutes = Math.floor((durationInSeconds % 3600) / 60);
-    const seconds = durationInSeconds % 60;
+    const hours = typeof(durationInSeconds) === 'number' ? Math.floor(durationInSeconds / 3600) : 0;
+    const minutes = typeof(durationInSeconds) === 'number' ? Math.floor((durationInSeconds % 3600) / 60) : 0;
+    const seconds = typeof(durationInSeconds) === 'number' ? durationInSeconds % 60 : 0;
   
     return {
         hours: hours,
@@ -37,7 +37,7 @@ export function parseToCounter (durationInSeconds: number | string): string {
     if (typeof(durationInSeconds) !== 'number'){
         seconds = parseInt(durationInSeconds, 10);
 
-    } else {
+    } else if (typeof(durationInSeconds) === 'number'){
         seconds = durationInSeconds;
 
     }
