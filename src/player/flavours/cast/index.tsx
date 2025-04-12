@@ -1,44 +1,44 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { 
-    CastState, 
-    useCastState, 
-    useCastSession, 
-    useRemoteMediaClient, 
-    useMediaStatus, 
-    useStreamPosition,
-    MediaPlayerState,
-} from 'react-native-google-cast';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, type EmitterSubscription } from 'react-native';
-import { Overlay } from '../../overlay';
+import {
+    CastState,
+    MediaPlayerState,
+    useCastSession,
+    useCastState,
+    useMediaStatus,
+    useRemoteMediaClient,
+    useStreamPosition,
+} from 'react-native-google-cast';
 import { BackgroundPoster } from '../../components/poster';
+import { Overlay } from '../../overlay';
 
-import { 
+import {
     getBestManifest,
-    getVideoSourceUri,
-    getSourceMessageForCast,
     getDRM,
+    getSourceMessageForCast,
+    getVideoSourceUri,
     mergeCastMenuData,
     subtractMinutesFromDate
 } from '../../utils';
 
 import {
-    invokePlayerAction,
-    changeActiveTracks
+    changeActiveTracks,
+    invokePlayerAction
 } from './actions';
 
 import { styles } from '../styles';
 
-import { 
-    type CastFlavourProps,
-    type IManifest, 
-    type IMappedYoubora,
-    type IDrm,
-    type ICommonData,
-    type IPlayerMenuData,
-    type LiveSeekableCastRange,
+import {
     CONTROL_ACTION,
+    PLAYER_MENU_DATA_TYPE,
     YOUBORA_FORMAT,
-    PLAYER_MENU_DATA_TYPE
+    type CastFlavourProps,
+    type ICommonData,
+    type IDrm,
+    type IManifest,
+    type IMappedYoubora,
+    type IPlayerMenuData,
+    type LiveSeekableCastRange
 } from '../../types';
 
 export function CastFlavour (props: CastFlavourProps): React.ReactElement {
@@ -78,6 +78,8 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
     useEffect(() => {
 
+        castMessage.current = undefined;
+
         return () => {
             unregisterRemoteSubscriptions();
         };
@@ -88,6 +90,8 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         let uri,
             startingPoint = props.currentTime;
+
+        castMessage.current = undefined;
 
         // Cogemos el manifest adecuado
         currentManifest.current = getBestManifest(props?.manifests!, true);
@@ -133,11 +137,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             startPosition: startingPoint
         });
 
-        if (castState === CastState.CONNECTED && castClient){
-            console.log(`[Player] (Cast Flavour) Loading media after creating castMessage: ${JSON.stringify(castMessage.current)}`);
-            castClient?.loadMedia(castMessage.current!);
-
-        }
+        tryLoadMedia();
 
     }, [props.manifests]);
 
@@ -205,6 +205,8 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         lastCastState.current = castState;
 
+        tryLoadMedia();
+
     }, [castState]);
 
     useEffect(() => {
@@ -217,44 +219,15 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
         }
 
-        async function getCurrentMediaStatus(){
-            const mediaStatus = await castClient?.getMediaStatus();
-
-            // @ts-ignore
-            if (mediaStatus?.mediaInfo?.contentId !== castMessage.current?.mediaInfo?.contentId){
-                console.log(`[Player] (Cast Flavour) Different content so loading media: ${JSON.stringify(castMessage.current)}`);
-                castClient?.loadMedia(castMessage.current!);
-
-            } else {
-
-                if (props.mergeCastMenuData && typeof(props.mergeCastMenuData) === 'function'){
-                    setMenuData(props.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
-
-                } else {
-                    setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
-
-                }
-
-                setIsContentLoaded(true);
-
-            }
-
-        }
-
-        if (castState === CastState.CONNECTED && castClient && castMessage.current){
-            
-            try {
-                getCurrentMediaStatus();
-                
-            } catch (reason){
-                console.log(`[Player] (Cast Flavour) Loading media error: ${JSON.stringify(reason)}`);
-            }
-            
-        }
+        tryLoadMedia();
 
     }, [castClient]);
 
     useEffect(() => {
+
+        if (!castMediaStatus){
+            return;
+        }
 
         if (castMediaStatus?.playerState === MediaPlayerState.PLAYING && castMediaStatus?.liveSeekableRange){
             liveSeekableRange.current = castMediaStatus.liveSeekableRange;
@@ -316,6 +289,8 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             }
             
         });
+
+        tryLoadMedia();
 
     }, [castSession]);
 
@@ -479,9 +454,43 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         
     }
 
-    // const onError = () => {
+    async function getCurrentMediaStatus(){
+        const mediaStatus = await castClient?.getMediaStatus();
 
-    // }
+        // @ts-ignore
+        if (mediaStatus?.mediaInfo?.contentId !== castMessage.current?.mediaInfo?.contentId){
+            console.log(`[Player] (Cast Flavour) Different content so loading media: ${JSON.stringify(castMessage.current)}`);
+            castClient?.loadMedia(castMessage.current!);
+
+        } else {
+
+            if (props.mergeCastMenuData && typeof(props.mergeCastMenuData) === 'function'){
+                setMenuData(props.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+
+            } else {
+                setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+
+            }
+
+            setIsContentLoaded(true);
+
+        }
+
+    }
+
+    const tryLoadMedia = () => {
+
+        if (castState === CastState.CONNECTED && castClient){
+            try {
+                getCurrentMediaStatus();
+                
+            } catch (reason){
+                console.log(`[Player] (Cast Flavour) Loading media error: ${JSON.stringify(reason)}`);
+            }
+
+        }
+
+    }
 
     const onSlidingStart = (value: number) => {
 
