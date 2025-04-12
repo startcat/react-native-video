@@ -78,10 +78,10 @@ export const getBestManifest = (manifests: Array<IManifest>, isCasting?: boolean
             } else if (Platform.OS === 'ios' && !isCasting){
                 return item.type === STREAM_FORMAT_TYPE.HLS;
 
-            } else if (Platform.OS === 'android' && !!item.drmConfig){
+            } else if ((Platform.OS === 'android' || isCasting) && !!item.drmConfig){
                 return item.type === STREAM_FORMAT_TYPE.DASH && item.drmConfig.type === DRM_TYPE.WIDEVINE;
 
-            } else if (Platform.OS === 'android'){
+            } else if (Platform.OS === 'android' || isCasting){
                 return item.type === STREAM_FORMAT_TYPE.DASH;
 
             }

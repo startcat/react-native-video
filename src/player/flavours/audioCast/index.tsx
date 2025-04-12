@@ -14,9 +14,9 @@ import Animated, { useSharedValue } from 'react-native-reanimated';
 
 import {
     getBestManifest,
-    getVideoSourceUri,
     getDRM,
     getSourceMessageForCast,
+    getVideoSourceUri,
     subtractMinutesFromDate
 } from '../../utils';
 
@@ -73,6 +73,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     useEffect(() => {
 
+        castMessage.current = undefined;
+
         return () => {
             unregisterRemoteSubscriptions();
         };
@@ -122,6 +124,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         let uri,
             startingPoint = props.currentTime;
 
+        castMessage.current = undefined;
+
         // Cogemos el manifest adecuado
         currentManifest.current = getBestManifest(props?.manifests!, true);
 
@@ -165,11 +169,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             startPosition: startingPoint
         });
 
-        if (castState === CastState.CONNECTED && castClient){
-            console.log(`[Player] (Audio Cast Flavour) Loading media after creating castMessage: ${JSON.stringify(castMessage.current)}`);
-            castClient?.loadMedia(castMessage.current!);
-
-        }
+        tryLoadMedia();
 
     }, [props.manifests]);
 
@@ -184,6 +184,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         lastCastState.current = castState;
 
+        tryLoadMedia();
+
     }, [castState]);
 
     useEffect(() => {
@@ -196,35 +198,15 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
         }
 
-        async function getCurrentMediaStatus(){
-            const mediaStatus = await castClient?.getMediaStatus();
-
-            // @ts-ignore
-            if (mediaStatus?.mediaInfo?.contentId !== castMessage.current?.mediaInfo?.contentId){
-                console.log(`[Player] (Audio Cast Flavour) Different content so loading media: ${JSON.stringify(castMessage.current)}`);
-                castClient?.loadMedia(castMessage.current!);
-
-            } else {
-                setIsContentLoaded(true);
-
-            }
-
-        }
-
-        if (castState === CastState.CONNECTED && castClient && castMessage.current){
-            
-            try {
-                getCurrentMediaStatus();
-                
-            } catch (reason){
-                console.log(`[Player] (Audio Cast Flavour) Loading media error: ${JSON.stringify(reason)}`);
-            }
-            
-        }
+        tryLoadMedia();
 
     }, [castClient]);
 
     useEffect(() => {
+
+        if (!castMediaStatus){
+            return;
+        }
 
         if (castMediaStatus?.playerState === MediaPlayerState.PLAYING && castMediaStatus?.liveSeekableRange){
             liveSeekableRange.current = castMediaStatus.liveSeekableRange;
@@ -283,6 +265,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             }
             
         });
+
+        tryLoadMedia();
 
     }, [castSession]);
 
@@ -432,9 +416,34 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         
     }
 
-    // const onError = () => {
+    async function getCurrentMediaStatus(){
+        const mediaStatus = await castClient?.getMediaStatus();
 
-    // }
+        // @ts-ignore
+        if (mediaStatus?.mediaInfo?.contentId !== castMessage.current?.mediaInfo?.contentId){
+            console.log(`[Player] (Audio Cast Flavour) Different content so loading media: ${JSON.stringify(castMessage.current)}`);
+            castClient?.loadMedia(castMessage.current!);
+
+        } else {
+            setIsContentLoaded(true);
+
+        }
+
+    }
+
+    const tryLoadMedia = () => {
+
+        if (castState === CastState.CONNECTED && castClient){
+            try {
+                getCurrentMediaStatus();
+                
+            } catch (reason){
+                console.log(`[Player] (Audio Cast Flavour) Loading media error: ${JSON.stringify(reason)}`);
+            }
+
+        }
+
+    }
 
     const onSlidingStart = (value: number) => {
 
