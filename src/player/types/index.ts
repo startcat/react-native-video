@@ -65,6 +65,7 @@ export enum CONTROL_ACTION {
     FORWARD = 'forward',
     SEEK = 'seek',
     SEEK_OVER_EPG = 'seekOverEpg',
+    LIVE = 'goToLive',
     VIDEO_INDEX = 'videoIndex',
     AUDIO_INDEX = 'audioIndex',
     SUBTITLE_INDEX = 'subtitleIndex',
