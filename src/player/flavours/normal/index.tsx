@@ -353,16 +353,16 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
-        if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number'){
+        if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number' && typeof(seekableRange.current) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             setDvrTimeValue(value);
             onChangeDvrTimeValue(value);
-            if (typeof(duration) === 'number' && value >= duration){
+            if (typeof(duration) === 'number' && value >= seekableRange.current){
                 setHasSeekOverDRV(false);
             }
         }
 
-        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number'){
+        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Volver al directo en DVR
             setDvrTimeValue(duration);
             onChangeDvrTimeValue(duration);
@@ -374,11 +374,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         }
 
-        if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
+        if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(seekableRange.current) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             setDvrTimeValue(dvrTimeValue + value);
             onChangeDvrTimeValue(dvrTimeValue + value);
-            if (typeof(duration) === 'number' && (dvrTimeValue + value) >= duration){
+            if (typeof(duration) === 'number' && (dvrTimeValue + value) >= seekableRange.current){
                 setHasSeekOverDRV(false);
             }
         }
@@ -391,7 +391,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
-            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration);
+            invokePlayerAction(refVideoPlayer, id, value, currentTime, seekableRange.current || duration);
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
@@ -405,7 +405,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             setDvrTimeValue(overEpgValue!);
             onChangeDvrTimeValue(overEpgValue!);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, seekableRange.current || duration);
         }
 
         // Actions to be saved between flavours

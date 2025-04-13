@@ -333,10 +333,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
-        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number'){
+        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Volver al directo en DVR
             setDvrTimeValue(duration);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, seekableRange.current || duration);
 
         }
 
@@ -351,14 +351,14 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             console.log(`[DANI] SEEK_OVER_EPG -> Real seek to ${realSeek} (overEpgValue ${overEpgValue})`);
 
             setDvrTimeValue(overEpgValue);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, seekableRange.current || duration);
 
         }
 
-        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(duration) === 'number'){
+        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-                setDvrTimeValue((currentTime + value) > duration ? duration : currentTime + value);
+                setDvrTimeValue((currentTime + value) > seekableRange.current ? seekableRange.current : currentTime + value);
         
             } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
                 setDvrTimeValue((currentTime - value) < 0 ? 0 : currentTime - value);
@@ -372,7 +372,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
-            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration);
+            invokePlayerAction(refVideoPlayer, id, value, currentTime, seekableRange.current || duration);
         }
 
         if (id === CONTROL_ACTION.SLEEP && (value === 0 || !value)){
