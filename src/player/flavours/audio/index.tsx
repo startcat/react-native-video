@@ -340,6 +340,21 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         }
 
+        if (id === CONTROL_ACTION.SEEK_OVER_EPG && isDVR.current && typeof(value) === 'number'){
+            const overEpgValue = value;
+            let realSeek = overEpgValue;
+
+            if (typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
+                realSeek = overEpgValue + (seekableRange.current - duration);
+            }
+
+            console.log(`[DANI] SEEK_OVER_EPG -> Real seek to ${realSeek} (overEpgValue ${overEpgValue})`);
+
+            setDvrTimeValue(overEpgValue);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration);
+
+        }
+
         if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(duration) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
