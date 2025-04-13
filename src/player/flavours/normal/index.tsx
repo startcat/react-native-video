@@ -69,6 +69,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const isHLS = useRef<boolean>();
     const isDASH = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
+    const dvrLoadTimestamp = useRef<number>();
+    const seekableRange = useRef<number>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
@@ -360,6 +362,18 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
         }
 
+        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number'){
+            // Volver al directo en DVR
+            setDvrTimeValue(duration);
+            onChangeDvrTimeValue(duration);
+            if (typeof(duration) === 'number'){
+                setHasSeekOverDRV(false);
+            }
+
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration);
+
+        }
+
         if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             setDvrTimeValue(dvrTimeValue + value);
@@ -430,6 +444,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             if (isDVR.current){
                 setDuration(dvrWindowSeconds.current);
+                dvrLoadTimestamp.current = (new Date()).getTime();
 
                 if (props?.isLive && props?.onChangeCommonData){
                     props.onChangeCommonData({
@@ -494,6 +509,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             setCurrentTimeWithValidation(e.currentTime);
+        }
+
+        if (typeof(e.seekableDuration) === 'number' && seekableRange.current !== e.seekableDuration){
+            seekableRange.current = e.seekableDuration;
         }
 
         if (props?.onChangeCommonData){

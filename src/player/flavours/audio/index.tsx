@@ -58,6 +58,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const isDownloaded = useRef<boolean>();
     const isBinary = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
+    const dvrLoadTimestamp = useRef<number>();
+    const seekableRange = useRef<number>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
@@ -66,7 +68,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [preloading, setPreloading] = useState<boolean>(false);
     const [isPlayingExternalTudum, setIsPlayingExternalTudum] = useState<boolean>(!!props.showExternalTudum);
-    const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
 
     const [speedRate, setSpeedRate] = useState<number>(1);
 
@@ -332,6 +333,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
+        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number'){
+            // Volver al directo en DVR
+            setDvrTimeValue(duration);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration);
+
+        }
+
         if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(duration) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
@@ -390,6 +398,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             if (isDVR.current){
                 setDuration(dvrWindowSeconds.current);
+                dvrLoadTimestamp.current = (new Date()).getTime();
 
             } else if (typeof(e.duration) === 'number' && e.duration && duration !== e.duration){
                 setDuration(e.duration);
@@ -442,10 +451,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setCurrentTimeWithValidation(e.currentTime);
         }
 
-        // Calculamos la ventana de tiempo disponible en los directos ocasionales, según avanza el tiempo
-        // if (typeof(dvrWindowSeconds.current) === 'number' && dvrWindowSeconds.current > 0 && start_date){
-
-        // }
+        if (typeof(e.seekableDuration) === 'number' && seekableRange.current !== e.seekableDuration){
+            seekableRange.current = e.seekableDuration;
+        }
 
         if (!props?.isLive && props?.onChangeCommonData){
             props.onChangeCommonData({
