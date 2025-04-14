@@ -504,25 +504,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }
 
-    const setCurrentTimeWithValidation = (value: number) => {
-
-        if (value < 0){
-            setCurrentTime(0);
-
-        } else if (typeof(duration) === 'number' && value > duration){
-            setCurrentTime(duration);
-
-        } else if (typeof(duration) === 'number') {
-            setCurrentTime(value);
-
-        }
-
-    }
-
     const onProgress = (e: OnProgressData) => {
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
-            setCurrentTimeWithValidation(e.currentTime);
+            setCurrentTime(e.currentTime);
         }
 
         if (typeof(e.seekableDuration) === 'number' && seekableRange.current !== e.seekableDuration){
