@@ -312,7 +312,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'audioIndex', 'subtitleIndex'];
 
-        console.log(`[Player] (Normal Flavour) onControlsPress: ${id} (${value})`);
+        console.log(`[Player] (Normal Flavour) onControlsPress: ${id} -> ${value} (${currentTime}/${duration}) Seekable ${seekableRange.current}`);
 
         if (id === CONTROL_ACTION.PAUSE){
             setPaused(!!value);
@@ -357,7 +357,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             // Guardamos el estado de la barra de tiempo en DVR
             setDvrTimeValue(value);
             onChangeDvrTimeValue(value);
-            if (typeof(duration) === 'number' && value >= seekableRange.current){
+            if (typeof(duration) === 'number' && value >= duration){
                 setHasSeekOverDRV(false);
             }
         }
@@ -370,28 +370,30 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 setHasSeekOverDRV(false);
             }
 
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current);
 
         }
 
         if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(seekableRange.current) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
-            setDvrTimeValue(dvrTimeValue + value);
-            onChangeDvrTimeValue(dvrTimeValue + value);
-            if (typeof(duration) === 'number' && (dvrTimeValue + value) >= seekableRange.current){
+            const maxBarRange = Math.min(dvrTimeValue + value, duration!);
+            setDvrTimeValue(maxBarRange);
+            onChangeDvrTimeValue(maxBarRange);
+            if (typeof(duration) === 'number' && (maxBarRange) >= duration){
                 setHasSeekOverDRV(false);
             }
         }
 
         if (id === CONTROL_ACTION.BACKWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
-            setDvrTimeValue(dvrTimeValue - value);
-            onChangeDvrTimeValue(dvrTimeValue - value);
+            const minBarRange = Math.max(0, dvrTimeValue - value);
+            setDvrTimeValue(minBarRange);
+            onChangeDvrTimeValue(minBarRange);
         }
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
-            invokePlayerAction(refVideoPlayer, id, value, currentTime, seekableRange.current || duration);
+            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current);
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
@@ -405,7 +407,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             setDvrTimeValue(overEpgValue!);
             onChangeDvrTimeValue(overEpgValue!);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, seekableRange.current || duration);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current);
         }
 
         // Actions to be saved between flavours
