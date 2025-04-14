@@ -35,7 +35,7 @@ import {
 
 import {
     invokePlayerAction
-} from './actions';
+} from '../actions/player';
 
 import { styles } from '../styles';
 

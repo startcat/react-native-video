@@ -22,7 +22,7 @@ import {
 
 import {
     invokePlayerAction,
-} from './actions';
+} from '../actions/cast';
 
 import { styles } from '../styles';
 
