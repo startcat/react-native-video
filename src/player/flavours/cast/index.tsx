@@ -392,6 +392,18 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             }
         }
 
+        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(liveSeekableRange.current) === 'number'){
+            // Volver al directo en DVR
+            setDvrTimeValue(duration);
+            onChangeDvrTimeValue(duration);
+            if (typeof(duration) === 'number'){
+                setHasSeekOverDRV(false);
+            }
+
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current, currentTime, duration, liveSeekableRange.current);
+
+        }
+
         if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number'){
 
             // Si excedemos el rango, no hacemos nada
