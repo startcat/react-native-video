@@ -225,7 +225,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             return;
         }
 
-        if (castMediaStatus?.playerState === MediaPlayerState.PLAYING && castMediaStatus?.liveSeekableRange){
+        if (castMediaStatus?.liveSeekableRange){
             liveSeekableRange.current = castMediaStatus.liveSeekableRange;
 
             console.log(`[Player] (Audio Cast Flavour) liveSeekableRange ${JSON.stringify(liveSeekableRange.current)}`);
@@ -385,6 +385,21 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             // Volver al directo en DVR
             setDvrTimeValue(duration);
             invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current?.endTime, currentTime, duration, liveSeekableRange.current);
+
+        }
+
+        if (id === CONTROL_ACTION.SEEK_OVER_EPG && isDVR.current && typeof(value) === 'number'){
+            const overEpgValue = value;
+            let realSeek = overEpgValue;
+
+            if (typeof(duration) === 'number' && typeof(liveSeekableRange?.current?.endTime) === 'number'){
+                realSeek = overEpgValue + (liveSeekableRange?.current?.endTime - duration);
+            }
+
+            // console.log(`[DANI] SEEK_OVER_EPG -> Real seek to ${realSeek} (overEpgValue ${overEpgValue})`);
+
+            setDvrTimeValue(overEpgValue);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, liveSeekableRange.current);
 
         }
 
