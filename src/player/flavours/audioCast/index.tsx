@@ -225,7 +225,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             return;
         }
 
-        if (castMediaStatus?.liveSeekableRange){
+        if (castMediaStatus?.liveSeekableRange?.endTime && castMediaStatus?.liveSeekableRange?.endTime !== liveSeekableRange?.current?.endTime) {
             liveSeekableRange.current = castMediaStatus.liveSeekableRange;
 
             console.log(`[Player] (Audio Cast Flavour) liveSeekableRange ${JSON.stringify(liveSeekableRange.current)}`);

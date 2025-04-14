@@ -246,7 +246,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             return;
         }
 
-        if (castMediaStatus?.liveSeekableRange){
+        if (castMediaStatus?.liveSeekableRange?.endTime && castMediaStatus?.liveSeekableRange?.endTime !== liveSeekableRange?.current?.endTime) {
             liveSeekableRange.current = castMediaStatus.liveSeekableRange;
 
             console.log(`[Player] (Cast Flavour) liveSeekableRange ${JSON.stringify(liveSeekableRange.current)}`);
