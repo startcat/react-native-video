@@ -374,9 +374,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         }
 
-        if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(seekableRange.current) === 'number'){
+        if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
-            const maxBarRange = Math.min(dvrTimeValue + value, duration!);
+            const maxBarRange = Math.min(dvrTimeValue + value, duration);
             setDvrTimeValue(maxBarRange);
             onChangeDvrTimeValue(maxBarRange);
             if (typeof(duration) === 'number' && (maxBarRange) >= duration){
