@@ -384,6 +384,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(liveSeekableRange?.current?.endTime) === 'number'){
             // Volver al directo en DVR
             setDvrTimeValue(duration);
+            onChangeDvrTimeValue(duration);
             invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current?.endTime, currentTime, duration, liveSeekableRange.current);
 
         }
@@ -396,9 +397,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                 realSeek = overEpgValue + (liveSeekableRange?.current?.endTime - duration);
             }
 
-            // console.log(`[DANI] SEEK_OVER_EPG -> Real seek to ${realSeek} (overEpgValue ${overEpgValue})`);
-
             setDvrTimeValue(overEpgValue);
+            onChangeDvrTimeValue(overEpgValue);
             invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, liveSeekableRange.current);
 
         }
@@ -414,13 +414,16 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
                 const maxBarRange = Math.min(dvrTimeValue + value, duration);
                 setDvrTimeValue(maxBarRange);
+                onChangeDvrTimeValue(maxBarRange);
         
             } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
                 const minBarRange = Math.max(0, dvrTimeValue - value);
                 setDvrTimeValue(minBarRange);
+                onChangeDvrTimeValue(minBarRange);
         
             } else if (id === CONTROL_ACTION.SEEK){
                 setDvrTimeValue(value);
+                onChangeDvrTimeValue(value);
 
             }
             
@@ -502,14 +505,20 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     const onSlidingComplete = (value: number) => {
 
+        onChangeDvrTimeValue(value);
+
+    }
+
+    const onChangeDvrTimeValue = (value: number) => {
+
         let secondsToLive,
             date;
 
-        if (dvrTimeValue){
-            secondsToLive = dvrTimeValue - value;
-            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+        if (typeof(duration) === 'number' && duration >= 0){
+            secondsToLive = (duration > value) ? duration - value : 0;
+            date = (secondsToLive > 0) ? subtractMinutesFromDate(new Date(), secondsToLive / 60) : new Date();
 
-        }
+        }        
 
         if (props.onDVRChange){
             props.onDVRChange(value, secondsToLive, date);
