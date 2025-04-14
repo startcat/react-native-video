@@ -16,6 +16,8 @@ export const invokePlayerAction = async (playerRef:RefObject<VideoRef>, id: CONT
     let seekValue;
     const maxSeekRange = Math.max(seekableRange!, duration!);
 
+    console.log(`[Player] (Actions) invokePlayerAction: maxSeekRange ${maxSeekRange} -> ${duration}/${seekableRange}`);
+
     if (playerRef.current && id === CONTROL_ACTION.SEEK && typeof(value) === 'number'){
         seekValue = value;
 
@@ -28,7 +30,7 @@ export const invokePlayerAction = async (playerRef:RefObject<VideoRef>, id: CONT
     }
 
     if (typeof(seekValue) === 'number'){
-        console.log(`[Player] (Normal Flavour) invokePlayerAction SEEK to ${seekValue} -> ${currentTime}/${duration}`);
+        console.log(`[Player] (Normal Flavour) invokePlayerAction SEEK to ${seekValue} -> ${currentTime}/${duration}/${seekableRange}`);
         // @ts-ignore
         await playerRef.current.seek(seekValue);
     }
