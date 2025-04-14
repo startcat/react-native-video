@@ -17,7 +17,8 @@ import {
     getDRM,
     getSourceMessageForCast,
     getVideoSourceUri,
-    subtractMinutesFromDate
+    subtractMinutesFromDate,
+    useDvrPausedSeconds
 } from '../../utils';
 
 import {
@@ -70,6 +71,12 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     const [preloading, setPreloading] = useState<boolean>(true);
     const [loading, setLoading] = useState<boolean>(false);
     const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
+
+    const dvrPaused = useDvrPausedSeconds({
+        paused: paused,
+        isLive: !!props?.isLive,
+        isDVR: !!isDVR.current
+    });
 
     useEffect(() => {
 
@@ -172,6 +179,16 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         tryLoadMedia();
 
     }, [props.manifests]);
+
+    useEffect(() => {
+
+        if (typeof(dvrTimeValue) === 'number' && dvrPaused?.pausedDatum > 0 && dvrPaused?.pausedSeconds > 0){
+            const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
+
+            setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
+        }
+
+    }, [dvrPaused?.pausedDatum]);
 
     useEffect(() => {
 

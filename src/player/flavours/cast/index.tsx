@@ -18,7 +18,8 @@ import {
     getSourceMessageForCast,
     getVideoSourceUri,
     mergeCastMenuData,
-    subtractMinutesFromDate
+    subtractMinutesFromDate,
+    useDvrPausedSeconds
 } from '../../utils';
 
 import {
@@ -75,6 +76,12 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
     const [audioIndex, setAudioIndex] = useState<number>(props.audioIndex!);
     const [subtitleIndex, setSubtitleIndex] = useState<number>(props.subtitleIndex!);
+
+    const dvrPaused = useDvrPausedSeconds({
+        paused: paused,
+        isLive: !!props?.isLive,
+        isDVR: !!isDVR.current
+    });
 
     useEffect(() => {
 
@@ -193,6 +200,16 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         }
 
     }, [menuData]);
+
+    useEffect(() => {
+
+        if (typeof(dvrTimeValue) === 'number' && dvrPaused?.pausedDatum > 0 && dvrPaused?.pausedSeconds > 0){
+            const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
+
+            setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
+        }
+
+    }, [dvrPaused?.pausedDatum]);
 
     useEffect(() => {
 
