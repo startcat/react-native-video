@@ -364,10 +364,10 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             props.onPrevious();
         }
 
-        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(liveSeekableRange.current) === 'number'){
+        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(liveSeekableRange?.current?.endTime) === 'number'){
             // Volver al directo en DVR
             setDvrTimeValue(duration);
-            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current, currentTime, duration, liveSeekableRange.current);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current?.endTime, currentTime, duration, liveSeekableRange.current);
 
         }
 
