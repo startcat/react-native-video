@@ -336,6 +336,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Volver al directo en DVR
             setDvrTimeValue(duration);
+            onChangeDvrTimeValue(duration);
             invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current);
 
         }
@@ -348,9 +349,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 realSeek = overEpgValue + (seekableRange.current - duration);
             }
 
-            // console.log(`[DANI] SEEK_OVER_EPG -> Real seek to ${realSeek} (overEpgValue ${overEpgValue})`);
-
             setDvrTimeValue(overEpgValue);
+            onChangeDvrTimeValue(overEpgValue);
             invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current);
 
         }
@@ -365,14 +365,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             // Guardamos el estado de la barra de tiempo en DVR
             if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
                 const maxBarRange = Math.min(dvrTimeValue + value, duration);
+                onChangeDvrTimeValue(maxBarRange);
                 setDvrTimeValue(maxBarRange);
         
             } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
                 const minBarRange = Math.max(0, dvrTimeValue - value);
+                onChangeDvrTimeValue(minBarRange);
                 setDvrTimeValue(minBarRange);
         
             } else if (id === CONTROL_ACTION.SEEK){
                 setDvrTimeValue(value);
+                onChangeDvrTimeValue(value);
 
             }
             
@@ -497,14 +500,20 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onSlidingComplete = (value: number) => {
 
+        onChangeDvrTimeValue(value);
+
+    }
+
+    const onChangeDvrTimeValue = (value: number) => {
+
         let secondsToLive,
             date;
 
-        if (dvrTimeValue){
-            secondsToLive = dvrTimeValue - value;
-            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+        if (typeof(duration) === 'number' && duration >= 0){
+            secondsToLive = (duration > value) ? duration - value : 0;
+            date = (secondsToLive > 0) ? subtractMinutesFromDate(new Date(), secondsToLive / 60) : new Date();
 
-        }
+        }        
 
         if (props.onDVRChange){
             props.onDVRChange(value, secondsToLive, date);
