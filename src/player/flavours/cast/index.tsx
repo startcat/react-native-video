@@ -392,19 +392,27 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             }
         }
 
-        if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
+        if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number'){
+
+            // Si excedemos el rango, no hacemos nada
+            if ((dvrTimeValue + value) > duration){
+                return;
+            }
+
             // Guardamos el estado de la barra de tiempo en DVR
-            setDvrTimeValue(dvrTimeValue + value);
-            onChangeDvrTimeValue(dvrTimeValue + value);
-            if (typeof(duration) === 'number' && (dvrTimeValue + value) >= duration){
+            const maxBarRange = Math.min(dvrTimeValue + value, duration);
+            setDvrTimeValue(maxBarRange);
+            onChangeDvrTimeValue(maxBarRange);
+            if (typeof(duration) === 'number' && (maxBarRange) >= duration){
                 setHasSeekOverDRV(false);
             }
         }
 
         if (id === CONTROL_ACTION.BACKWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
-            setDvrTimeValue(dvrTimeValue - value);
-            onChangeDvrTimeValue(dvrTimeValue - value);
+            const minBarRange = Math.max(0, dvrTimeValue - value);
+            setDvrTimeValue(minBarRange);
+            onChangeDvrTimeValue(minBarRange);
         }
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD || id === CONTROL_ACTION.PAUSE || id === CONTROL_ACTION.MUTE){
@@ -415,9 +423,15 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
             setHasSeekOverDRV(true);
             const overEpgValue = props.onSeekOverEpg();
+            let realSeek = overEpgValue;
+
+            if (typeof(duration) === 'number' && typeof(liveSeekableRange.current) === 'number'){
+                realSeek = overEpgValue! + (liveSeekableRange.current - duration);
+            }
+
             setDvrTimeValue(overEpgValue!);
             onChangeDvrTimeValue(overEpgValue!);
-            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, props.onSeekOverEpg(), currentTime, duration, liveSeekableRange.current);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, liveSeekableRange.current);
         }
 
         // Actions to be saved between flavours
