@@ -24,7 +24,7 @@ import {
 import {
     changeActiveTracks,
     invokePlayerAction
-} from './actions';
+} from '../actions/cast';
 
 import { styles } from '../styles';
 
