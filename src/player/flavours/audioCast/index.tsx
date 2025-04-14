@@ -364,13 +364,28 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             props.onPrevious();
         }
 
-        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(duration) === 'number'){
+        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(liveSeekableRange.current) === 'number'){
+            // Volver al directo en DVR
+            setDvrTimeValue(duration);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current, currentTime, duration, liveSeekableRange.current);
+
+        }
+
+        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number'){
+
+            // Si excedemos el rango, no hacemos nada
+            if (id === CONTROL_ACTION.FORWARD && (dvrTimeValue + value) > duration){
+                return;
+            }
+
             // Guardamos el estado de la barra de tiempo en DVR
             if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-                setDvrTimeValue((currentTime + value) > duration ? duration : currentTime + value);
+                const maxBarRange = Math.min(dvrTimeValue + value, duration);
+                setDvrTimeValue(maxBarRange);
         
             } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-                setDvrTimeValue((currentTime - value) < 0 ? 0 : currentTime - value);
+                const minBarRange = Math.max(0, dvrTimeValue - value);
+                setDvrTimeValue(minBarRange);
         
             } else if (id === CONTROL_ACTION.SEEK){
                 setDvrTimeValue(value);
