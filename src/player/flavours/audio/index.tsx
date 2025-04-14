@@ -355,14 +355,20 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         }
 
-        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
+        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
+
+            // Si excedemos el rango, no hacemos nada
+            if (id === CONTROL_ACTION.FORWARD && (dvrTimeValue + value) > duration){
+                return;
+            }
+
             // Guardamos el estado de la barra de tiempo en DVR
             if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-                const maxBarRange = Math.min(currentTime + value, duration);
+                const maxBarRange = Math.min(dvrTimeValue + value, duration);
                 setDvrTimeValue(maxBarRange);
         
             } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-                const minBarRange = Math.max(0, currentTime - value);
+                const minBarRange = Math.max(0, dvrTimeValue - value);
                 setDvrTimeValue(minBarRange);
         
             } else if (id === CONTROL_ACTION.SEEK){
