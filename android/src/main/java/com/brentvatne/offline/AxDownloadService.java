@@ -117,6 +117,37 @@ public class AxDownloadService extends DownloadService {
         @Override
         public void onDownloadChanged(DownloadManager manager, Download download, Exception exception) {
 
+            // Añadir logging detallado para diagnóstico de fallas
+            if (download.state == Download.STATE_FAILED) {
+                Log.e("Downloads", "===== DOWNLOAD FAILED =====");
+                Log.e("Downloads", "Download ID: " + download.request.id);
+                Log.e("Downloads", "URI: " + download.request.uri);
+                Log.e("Downloads", "Progress at failure: " + download.getPercentDownloaded() + "%");
+                Log.e("Downloads", "Bytes downloaded: " + download.getBytesDownloaded() + " / " + download.contentLength);
+                Log.e("Downloads", "Failure reason code: " + download.failureReason);
+                
+                if (exception != null) {
+                    Log.e("Downloads", "Exception: " + exception.getMessage(), exception);
+                    Log.e("Downloads", "Exception type: " + exception.getClass().getName());
+                    
+                    // Registrar el stack trace completo
+                    StackTraceElement[] stackTrace = exception.getStackTrace();
+                    if (stackTrace != null && stackTrace.length > 0) {
+                        Log.e("Downloads", "Stack trace:");
+                        for (StackTraceElement element : stackTrace) {
+                            Log.e("Downloads", "  at " + element.toString());
+                        }
+                    }
+                    
+                    // Registrar causa raíz si existe
+                    Throwable cause = exception.getCause();
+                    if (cause != null) {
+                        Log.e("Downloads", "Root cause: " + cause.getMessage());
+                        Log.e("Downloads", "Root cause type: " + cause.getClass().getName());
+                    }
+                }
+            }
+
             Notification notification;
             if (download.state == Download.STATE_COMPLETED) {
                 notification =

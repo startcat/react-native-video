@@ -182,6 +182,26 @@ public class AxDownloadTracker {
         public void onDownloadChanged(
                 DownloadManager downloadManager, Download download, Exception exception) {
             mDownloads.put(download.request.uri, download);
+            
+            // Registrar información de estado y posible excepción
+            if (download.state == Download.STATE_FAILED) {
+                Log.e(TAG, "Download failed for: " + download.request.id + " - URI: " + download.request.uri);
+                if (exception != null) {
+                    Log.e(TAG, "Download exception: " + exception.getMessage(), exception);
+                    Log.e(TAG, "Download percentage: " + download.getPercentDownloaded() + "%");
+                    Log.e(TAG, "Bytes downloaded: " + download.getBytesDownloaded() + " / " + download.contentLength);
+                    // Propiedades adicionales que pueden ser útiles
+                    Log.e(TAG, "Download stop reason: " + download.stopReason);
+                    Log.e(TAG, "Download failure reason: " + download.failureReason);
+                }
+            } else if (download.state == Download.STATE_DOWNLOADING) {
+                // Opcional: Registrar progreso para depuración
+                if (download.getPercentDownloaded() > 95.0) {
+                    Log.d(TAG, "Download near completion: " + download.request.id + " - Progress: " + 
+                           download.getPercentDownloaded() + "%");
+                }
+            }
+            
             for (Listener listener : mListeners) {
                 listener.onDownloadsChanged(download.state, download.request.id);
             }
