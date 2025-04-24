@@ -378,19 +378,57 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
             // License is removed for the selected video
             onRemoveLicense();
             Uri uri = Utility.getPlaybackProperties(mediaItem).uri;
-            // Removes a download
-            //DownloadService.sendRemoveDownload(this.reactContext, AxDownloadService.class, mAxDownloadTracker.getDownloadRequest(uri).id, false);
-            DownloadRequest dr = mAxDownloadTracker.getDownloadRequest(uri);
-
-            if (dr != null){
-                DownloadService.sendRemoveDownload(this.reactContext, AxDownloadService.class, dr.id, false);
+            
+            try {
+                // Obtener el DownloadManager para operaciones directas
+                DownloadManager downloadManager = AxOfflineManager.getInstance().getDownloadManager();
+                
+                // Intentar obtener un download request directamente
+                DownloadRequest dr = mAxDownloadTracker.getDownloadRequest(uri);
+                String downloadId = null;
+                
+                if (dr != null) {
+                    // Si hay un request válido, usar su ID
+                    downloadId = dr.id;
+                } else {
+                    // Buscar la descarga directamente en el índice de descargas,
+                    // incluyendo las fallidas
+                    DownloadIndex downloadIndex = downloadManager.getDownloadIndex();
+                    try {
+                        // Intentar encontrar la descarga por URI
+                        DownloadCursor cursor = downloadIndex.getDownloads();
+                        while (cursor.moveToNext()) {
+                            Download download = cursor.getDownload();
+                            if (download.request.uri.equals(uri)) {
+                                downloadId = download.request.id;
+                                Log.d(TAG, "+++ [Downloads] Found download with state " + download.state + 
+                                    " and ID: " + downloadId);
+                                break;
+                            }
+                        }
+                    } catch (IOException e) {
+                        Log.e(TAG, "+++ [Downloads] Error accessing download index: " + e.getMessage());
+                    }
+                }
+                
+                // Si encontramos un ID, eliminarlo
+                if (downloadId != null) {
+                    Log.d(TAG, "+++ [Downloads] Removing download: " + downloadId);
+                    DownloadService.sendRemoveDownload(this.reactContext, AxDownloadService.class, downloadId, false);
+                    promise.resolve(null);
+                    return;
+                }
+                
+                // Si llegamos aquí, no se encontró la descarga
+                Log.w(TAG, "+++ [Downloads] No download found for URI: " + uri);
+                promise.resolve(null);
+            } catch (Exception e) {
+                Log.e(TAG, "+++ [Downloads] Error removing download: " + e.getMessage());
+                promise.reject("ERROR", "Failed to remove download: " + e.getMessage());
             }
-
-            promise.resolve(null);
         } else {
             promise.reject("No current item");
         }
-
     }
 
     @ReactMethod
