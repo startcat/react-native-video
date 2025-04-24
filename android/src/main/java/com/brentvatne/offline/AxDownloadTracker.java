@@ -199,19 +199,15 @@ public class AxDownloadTracker {
                     Log.w(TAG, "Progress at conversion: " + download.getPercentDownloaded() + "%");
                     Log.w(TAG, "Bytes downloaded: " + download.getBytesDownloaded() + " / " + download.contentLength);
                     
-                    // Crear una versión "completada" de la descarga para almacenar en nuestro mapa
+                    // Alternativa: en lugar de crear un nuevo objeto Download, simplemente
+                    // notificar a los listeners con un estado completado, pero mantener
+                    // la descarga original en el mapa.
                     try {
-                        // Usar reflexión para crear una nueva instancia de Download con estado completado
-                        Download completedDownload = new Download(
-                            download.request,
-                            Download.STATE_COMPLETED,  // Estado marcado como completado
-                            download.getBytesDownloaded(),
-                            download.contentLength > 0 ? download.contentLength : download.getBytesDownloaded(),
-                            0  // Sin razón de parada
-                        );
+                        Log.d(TAG, "Using compatible approach for handling MPD downloads");
                         
-                        // Actualizar nuestro mapa local con la versión "completada"
-                        mDownloads.put(download.request.uri, completedDownload);
+                        // Mantenemos la descarga original en el mapa - la UI la tratará como completada
+                        // porque notificaremos estado COMPLETED a los listeners
+                        mDownloads.put(download.request.uri, download);
                         
                         // Notificar a los oyentes sobre un estado COMPLETED, no FAILED
                         for (Listener listener : mListeners) {
