@@ -3,9 +3,12 @@ package com.brentvatne.offline;
 import android.content.Context;
 import android.util.Log;
 
+import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.StandaloneDatabaseProvider;
+import androidx.media3.exoplayer.offline.Download;
 import androidx.media3.exoplayer.offline.DownloadManager;
+import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
@@ -16,6 +19,7 @@ import androidx.media3.datasource.cache.NoOpCacheEvictor;
 import androidx.media3.datasource.cache.SimpleCache;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.util.concurrent.Executors;
 
 /**
@@ -124,6 +128,7 @@ public class AxOfflineManager {
     // Configure the DownloadManager to handle errors more gracefully
     private void configureDownloadManager() {
         if (mDownloadManager == null) {
+            Log.w(TAG, "DownloadManager is null, skipping configuration");
             return;
         }
 
