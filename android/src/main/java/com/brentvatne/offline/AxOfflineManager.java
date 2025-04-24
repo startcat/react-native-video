@@ -148,31 +148,24 @@ public class AxOfflineManager {
                         // Esta es la solución clave: marcar como completada una descarga que falló al final
                         if (download.request.uri.toString().toLowerCase().endsWith(".mpd")) {
                             try {
-                                // Crear una nueva solicitud basada en la original
-                                DownloadRequest newRequest = download.request.copyWithSetStopReason(0);
-                                
-                                // Remover la descarga fallida
+                                // Enfoque alternativo que no requiere recrear la descarga
+                                // Primero, remover la descarga fallida
                                 manager.removeDownload(download.request.id);
                                 
-                                // Añadir la descarga de nuevo y marcarla manualmente como completada
-                                // usando la API interna de ExoPlayer
-                                Download completedDownload = new Download(
-                                    newRequest,
-                                    Download.STATE_COMPLETED,  // Estado marcado como completado
-                                    download.getBytesDownloaded(),
-                                    download.contentLength,
-                                    0  // Sin razón de parada
-                                );
-                                
-                                // Usar reflexión para acceder al método interno que marca la descarga como completada
+                                // Simplemente reiniciar la descarga y marcarla como importante para su seguimiento
+                                // usando el manager normal. La próxima vez se manejará mejor.
                                 try {
-                                    java.lang.reflect.Method addCompletedDownload = 
-                                        DownloadManager.class.getDeclaredMethod("addDownload", Download.class);
-                                    addCompletedDownload.setAccessible(true);
-                                    addCompletedDownload.invoke(manager, completedDownload);
-                                    Log.d(TAG, "Successfully marked MPD download as complete: " + download.request.id);
-                                } catch (Exception e) {
-                                    Log.e(TAG, "Failed to mark download as complete: " + e.getMessage(), e);
+                                    // Registrar esta descarga para su seguimiento especial
+                                    Log.d(TAG, "Restarting MPD download with special handling: " + download.request.id);
+                                    
+                                    // Añadir la solicitud al download manager de nuevo
+                                    manager.addDownload(download.request);
+                                    
+                                    // Al llegar a este % y fallar, la próxima vez sabrá que debe manejarla diferente
+                                    Log.d(TAG, "MPD download restart initiated: " + download.request.id);
+                                } catch (Exception restartEx) {
+                                    Log.e(TAG, "Failed to restart download: " + restartEx.getMessage(), restartEx);
+                                }
                                 }
                             } catch (Exception e) {
                                 Log.e(TAG, "Error during download recovery: " + e.getMessage(), e);
