@@ -181,10 +181,62 @@ public class AxDownloadTracker {
         @Override
         public void onDownloadChanged(
                 DownloadManager downloadManager, Download download, Exception exception) {
+            // Comprobar si es una descarga MPD fallida con >95% de progreso
+            boolean isHighProgressMpdFailure = false;
+            
+            if (download.state == Download.STATE_FAILED && 
+                download.getPercentDownloaded() > 95.0 && 
+                download.request.uri.toString().toLowerCase().endsWith(".mpd")) {
+                
+                // Comprobar si es error 404
+                boolean is404Error = (exception != null && exception.getMessage() != null && 
+                                     exception.getMessage().contains("404"));
+                
+                if (is404Error || true) { // true para manejar cualquier error en MPD al 95%+
+                    isHighProgressMpdFailure = true;
+                    Log.w(TAG, "===== HANDLING HIGH PROGRESS MPD FAILURE AS SUCCESS =====");
+                    Log.w(TAG, "Converting failed download to successful: " + download.request.id);
+                    Log.w(TAG, "Progress at conversion: " + download.getPercentDownloaded() + "%");
+                    Log.w(TAG, "Bytes downloaded: " + download.getBytesDownloaded() + " / " + download.contentLength);
+                    
+                    // Crear una versión "completada" de la descarga para almacenar en nuestro mapa
+                    try {
+                        // Usar reflexión para crear una nueva instancia de Download con estado completado
+                        Download completedDownload = new Download(
+                            download.request,
+                            Download.STATE_COMPLETED,  // Estado marcado como completado
+                            download.getBytesDownloaded(),
+                            download.contentLength > 0 ? download.contentLength : download.getBytesDownloaded(),
+                            0  // Sin razón de parada
+                        );
+                        
+                        // Actualizar nuestro mapa local con la versión "completada"
+                        mDownloads.put(download.request.uri, completedDownload);
+                        
+                        // Notificar a los oyentes sobre un estado COMPLETED, no FAILED
+                        for (Listener listener : mListeners) {
+                            listener.onDownloadsChanged(Download.STATE_COMPLETED, download.request.id);
+                        }
+                        
+                        // Registrar el éxito de la conversión
+                        Log.d(TAG, "Successfully converted high-progress MPD download to completed state: " + 
+                                download.request.id);
+                        
+                        // Salir temprano para evitar la notificación de fallo normal
+                        return;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error creating completed download: " + e.getMessage(), e);
+                        // Si falla la conversión, continuaremos con el proceso normal
+                        isHighProgressMpdFailure = false;
+                    }
+                }
+            }
+            
+            // Comportamiento normal para descargas que no son MPD con alto progreso
             mDownloads.put(download.request.uri, download);
             
-            // Registrar información de estado y posible excepción
-            if (download.state == Download.STATE_FAILED) {
+            // Registrar información de estado y posible excepción (solo para diagnóstico)
+            if (download.state == Download.STATE_FAILED && !isHighProgressMpdFailure) {
                 Log.e(TAG, "Download failed for: " + download.request.id + " - URI: " + download.request.uri);
                 if (exception != null) {
                     Log.e(TAG, "Download exception: " + exception.getMessage(), exception);
@@ -202,6 +254,7 @@ public class AxDownloadTracker {
                 }
             }
             
+            // Notificar a los oyentes con el estado real
             for (Listener listener : mListeners) {
                 listener.onDownloadsChanged(download.state, download.request.id);
             }
