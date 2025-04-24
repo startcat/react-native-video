@@ -146,7 +146,24 @@ public class AxDownloadTracker {
     // Find an existing download request by a URI
     public DownloadRequest getDownloadRequest(Uri uri) {
         Download download = mDownloads.get(uri);
-        return download != null && download.state != Download.STATE_FAILED ? download.request : null;
+        
+        if (download == null) {
+            return null;
+        }
+        
+        // Permitir descargas con estado fallido si son MPD y tienen >95% de progreso
+        boolean isHighProgressMpdFailure = (download.state == Download.STATE_FAILED && 
+                                          download.getPercentDownloaded() > 95.0 && 
+                                          download.request.uri.toString().toLowerCase().endsWith(".mpd"));
+        
+        if (isHighProgressMpdFailure) {
+            Log.i(TAG, "Allowing offline playback of high-progress MPD download: " + 
+                  download.request.id + " (" + download.getPercentDownloaded() + "%)");
+            return download.request;
+        }
+        
+        // Comportamiento normal para descargas no especiales
+        return download.state != Download.STATE_FAILED ? download.request : null;
     }
 
     // Returns DownloadHelper
