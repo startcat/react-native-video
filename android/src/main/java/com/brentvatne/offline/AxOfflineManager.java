@@ -140,43 +140,47 @@ public class AxOfflineManager {
             mDownloadManager.addListener(new DownloadManager.Listener() {
                 @Override
                 public void onDownloadChanged(DownloadManager manager, Download download, Exception exception) {
-                    // Si la descarga falló pero estaba casi completa (>95%), marcarla como completada
-                    if (download.state == Download.STATE_FAILED && download.getPercentDownloaded() > 95.0) {
-                        Log.w(TAG, "Download nearly complete but failed: " + download.request.id + 
-                                " at " + download.getPercentDownloaded() + "%. Marking as complete...");
-                        
-                        // Esta es la solución clave: marcar como completada una descarga que falló al final
-                        if (download.request.uri.toString().toLowerCase().endsWith(".mpd")) {
-                            try {
-                                // Enfoque alternativo que no requiere recrear la descarga
-                                // Primero, remover la descarga fallida
-                                manager.removeDownload(download.request.id);
-                                
-                                // Simplemente reiniciar la descarga y marcarla como importante para su seguimiento
-                                // usando el manager normal. La próxima vez se manejará mejor.
+                    try {
+                        // Si la descarga falló pero estaba casi completa (>95%), marcarla como completada
+                        if (download.state == Download.STATE_FAILED && download.getPercentDownloaded() > 95.0) {
+                            Log.w(TAG, "Download nearly complete but failed: " + download.request.id + 
+                                    " at " + download.getPercentDownloaded() + "%. Marking as complete...");
+                            
+                            // Esta es la solución clave: marcar como completada una descarga que falló al final
+                            if (download.request.uri.toString().toLowerCase().endsWith(".mpd")) {
                                 try {
-                                    // Registrar esta descarga para su seguimiento especial
-                                    Log.d(TAG, "Restarting MPD download with special handling: " + download.request.id);
+                                    // Enfoque alternativo que no requiere recrear la descarga
+                                    // Primero, remover la descarga fallida
+                                    manager.removeDownload(download.request.id);
                                     
-                                    // Añadir la solicitud al download manager de nuevo
-                                    manager.addDownload(download.request);
-                                    
-                                    // Al llegar a este % y fallar, la próxima vez sabrá que debe manejarla diferente
-                                    Log.d(TAG, "MPD download restart initiated: " + download.request.id);
-                                } catch (Exception restartEx) {
-                                    Log.e(TAG, "Failed to restart download: " + restartEx.getMessage(), restartEx);
+                                    // Simplemente reiniciar la descarga y marcarla como importante para su seguimiento
+                                    // usando el manager normal. La próxima vez se manejará mejor.
+                                    try {
+                                        // Registrar esta descarga para su seguimiento especial
+                                        Log.d(TAG, "Restarting MPD download with special handling: " + download.request.id);
+                                        
+                                        // Añadir la solicitud al download manager de nuevo
+                                        manager.addDownload(download.request);
+                                        
+                                        // Al llegar a este % y fallar, la próxima vez sabrá que debe manejarla diferente
+                                        Log.d(TAG, "MPD download restart initiated: " + download.request.id);
+                                    } catch (Exception restartEx) {
+                                        Log.e(TAG, "Failed to restart download: " + restartEx.getMessage(), restartEx);
+                                    }
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error during download recovery: " + e.getMessage(), e);
                                 }
-                                }
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error during download recovery: " + e.getMessage(), e);
                             }
                         }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error in download listener: " + e.getMessage(), e);
                     }
                 }
             });
             
+            Log.d(TAG, "Successfully configured DownloadManager with MPD recovery handling");
         } catch (Exception e) {
-            Log.e(TAG, "Error configuring DownloadManager: " + e.getMessage());
+            Log.e(TAG, "Error configuring DownloadManager: " + e.getMessage(), e);
         }
     }
 }
