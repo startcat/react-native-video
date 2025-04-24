@@ -87,22 +87,61 @@ public class AxDownloadService extends DownloadService {
             int currentProgress = notification.extras.getInt(Notification.EXTRA_PROGRESS);
             
             // Enviar notificación para la descarga actual (comportamiento original)
-            sendNotification(currentProgress, currentDownloadId);
+            Download currentDownload = downloads.get(i);
+            // Solo enviar notificación de progreso si la descarga está realmente en progreso
+            if (currentDownload.state == Download.STATE_DOWNLOADING) {
+                sendNotification(currentProgress, currentDownloadId);
+                Log.d("Downloads", "Notificando descarga actual: " + currentDownloadId + 
+                      " - Estado: " + getStateString(currentDownload.state) + 
+                      " - Progreso: " + currentProgress + "%");
+            } else if (currentDownload.state == Download.STATE_QUEUED || 
+                      currentDownload.state == Download.STATE_RESTARTING) {
+                // Para descargas en cola o reiniciando, siempre enviar progreso 0
+                sendNotification(0, currentDownloadId);
+                Log.d("Downloads", "Notificando descarga en cola/reinicio: " + currentDownloadId + 
+                      " - Estado: " + getStateString(currentDownload.state) + 
+                      " - Progreso: 0%");
+            }
             
             // Opcional: enviar notificaciones individuales para todas las descargas activas
             for (int j = 0; j < downloads.size(); j++) {
                 Download download = downloads.get(j);
-                // Solo enviar para descargas que están en progreso y no son la actual
-                if (j != i && download.state == Download.STATE_DOWNLOADING) {
-                    // Calcular el progreso para esta descarga específica
-                    int downloadProgress = (int) download.getPercentDownloaded();
-                    sendNotification(downloadProgress, download.request.id);
+                if (j != i) {  // No es la descarga actual
+                    if (download.state == Download.STATE_DOWNLOADING) {
+                        // Solo para descargas realmente en progreso
+                        int downloadProgress = (int) download.getPercentDownloaded();
+                        sendNotification(downloadProgress, download.request.id);
+                        Log.d("Downloads", "Notificando descarga adicional: " + download.request.id + 
+                              " - Estado: " + getStateString(download.state) + 
+                              " - Progreso: " + downloadProgress + "%");
+                    } else if (download.state == Download.STATE_QUEUED || 
+                              download.state == Download.STATE_RESTARTING) {
+                        // Para descargas en cola o reiniciando, siempre enviar progreso 0
+                        sendNotification(0, download.request.id);
+                        Log.d("Downloads", "Notificando descarga adicional en cola/reinicio: " + 
+                              download.request.id + " - Estado: " + getStateString(download.state) + 
+                              " - Progreso: 0%");
+                    }
                 }
             }
         }
 
         return notification;
 
+    }
+
+    // Método auxiliar para obtener el estado como string para logging
+    private String getStateString(int state) {
+        switch (state) {
+            case Download.STATE_DOWNLOADING: return "DOWNLOADING";
+            case Download.STATE_COMPLETED: return "COMPLETED";
+            case Download.STATE_FAILED: return "FAILED";
+            case Download.STATE_QUEUED: return "QUEUED";
+            case Download.STATE_REMOVING: return "REMOVING";
+            case Download.STATE_RESTARTING: return "RESTARTING";
+            case Download.STATE_STOPPED: return "STOPPED";
+            default: return "UNKNOWN(" + state + ")";
+        }
     }
 
     // A method that sends a notification
