@@ -83,7 +83,22 @@ public class AxDownloadService extends DownloadService {
 
         if (notification != null && notification.extras != null && i < downloads.size()) {
             // Notification about download progress is sent here
-            sendNotification(notification.extras.getInt(Notification.EXTRA_PROGRESS), downloads.get(i).request.id);
+            String currentDownloadId = downloads.get(i).request.id;
+            int currentProgress = notification.extras.getInt(Notification.EXTRA_PROGRESS);
+            
+            // Enviar notificación para la descarga actual (comportamiento original)
+            sendNotification(currentProgress, currentDownloadId);
+            
+            // Opcional: enviar notificaciones individuales para todas las descargas activas
+            for (int j = 0; j < downloads.size(); j++) {
+                Download download = downloads.get(j);
+                // Solo enviar para descargas que están en progreso y no son la actual
+                if (j != i && download.state == Download.STATE_DOWNLOADING) {
+                    // Calcular el progreso para esta descarga específica
+                    int downloadProgress = (int) download.getPercentDownloaded();
+                    sendNotification(downloadProgress, download.request.id);
+                }
+            }
         }
 
         return notification;
