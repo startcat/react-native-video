@@ -353,12 +353,23 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
                 CMTimeGetSeconds(loadedTimeRange.duration) / CMTimeGetSeconds(timeRangeExpectedToLoad.duration)
         }
         
+        // Convertir a porcentaje para mejor legibilidad en los logs
+        let percentCompleteFormatted = percentComplete * 100.0
+        
+        // Log para depuración
+        RCTLog("[Native Downloads] (AssetDownloader) Progress update: \(percentCompleteFormatted)% for \(aggregateAssetDownloadTask.taskDescription ?? "unknown")")
+        
         // Prepare the basic userInfo dictionary that will be posted as part of our notification
         var userInfo = [String: Any]()
         userInfo[Asset.Keys.name] = aggregateAssetDownloadTask.taskDescription
         userInfo[Asset.Keys.percentDownloaded] = percentComplete
         userInfo[Asset.Keys.url] = aggregateAssetDownloadTask.taskDescription
+        userInfo[Asset.Keys.id] = aggregateAssetDownloadTask.taskDescription
         
+        // Asegurarnos de que la notificación se envía correctamente
         NotificationCenter.default.post(name: .AssetDownloadProgress, object: nil, userInfo: userInfo)
+        
+        // Log adicional para confirmar que la notificación fue enviada
+        RCTLog("[Native Downloads] (AssetDownloader) Posted progress notification: \(percentCompleteFormatted)%")
     }
 }
