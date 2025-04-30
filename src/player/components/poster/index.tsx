@@ -34,3 +34,5 @@ const arePropsEqual = (prevProps: BackgroundPosterProps, nextProps: BackgroundPo
 };
 
 export const BackgroundPoster = React.memo(BackgroundPosterComponent, arePropsEqual);
+
+export default BackgroundPoster;

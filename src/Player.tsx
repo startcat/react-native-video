@@ -1,16 +1,20 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, Suspense, lazy } from 'react';
 import DeviceInfo from 'react-native-device-info';
 import { activateKeepAwake, deactivateKeepAwake} from '@sayem314/react-native-keep-awake';
 import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
 import BackgroundTimer from 'react-native-background-timer';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { CastState, useCastState } from 'react-native-google-cast';
-import { Platform } from 'react-native';
-import { NormalFlavour, CastFlavour } from './player/flavours';
+import { Platform, ActivityIndicator, View } from 'react-native';
+// import { NormalFlavour, CastFlavour } from './player/flavours';
 import { default as Downloads } from './Downloads';
 
-// const NormalFlavour = React.lazy(() => import('./player/flavours/normal'));
-// const CastFlavour = React.lazy(() => import('./player/flavours/cast'));
+const NormalFlavour = lazy(() => import('./player/flavours/normal').then(module => ({ 
+    default: module.NormalFlavour 
+})));
+const CastFlavour = lazy(() => import('./player/flavours/cast').then(module => ({ 
+    default: module.CastFlavour 
+})));
 
 import { 
     type PlayerProps,
@@ -52,7 +56,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             setTimeout(() => {
                 setHasRotated(true);
 
-            }, 300);
+            }, 500);
         }
         
     });
@@ -185,129 +189,135 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         console.log(`[Player] Mounting CastFlavour...`);
         isCasting.current = true;
         return (
-            <CastFlavour
-                id={props.id}
-                title={props.title}
-                subtitle={props.subtitle}
-                description={props.description}
-                languagesMapping={props.languagesMapping}
-                mapHlsQualities={props.mapHlsQualities}
+            <Suspense fallback={props.loader}>
+                <CastFlavour
+                    id={props.id}
+                    title={props.title}
+                    subtitle={props.subtitle}
+                    description={props.description}
+                    languagesMapping={props.languagesMapping}
+                    mapHlsQualities={props.mapHlsQualities}
 
-                manifests={props.manifests}
-                headers={props.headers}
-                poster={props.poster}
-                squaredPoster={props.squaredPoster}
-                youbora={props.youbora}
-                adTagUrl={props.adTagUrl}
-                hasNext={props.hasNext}
+                    manifests={props.manifests}
+                    headers={props.headers}
+                    poster={props.poster}
+                    squaredPoster={props.squaredPoster}
+                    youbora={props.youbora}
+                    adTagUrl={props.adTagUrl}
+                    hasNext={props.hasNext}
 
-                paused={isPaused.current}
-                muted={isMuted.current}
+                    paused={isPaused.current}
+                    muted={isMuted.current}
 
-                isLive={props.isLive}
-                liveStartDate={props.liveStartDate}
+                    isLive={props.isLive}
+                    liveStartDate={props.liveStartDate}
 
-                currentTime={currentTime.current}
-                audioIndex={currentAudioIndex}
-                subtitleIndex={currentSubtitleIndex}
+                    currentTime={currentTime.current}
+                    audioIndex={currentAudioIndex}
+                    subtitleIndex={currentSubtitleIndex}
 
-                timeMarkers={props.timeMarkers}
-                avoidTimelineThumbnails={props.avoidTimelineThumbnails}
+                    timeMarkers={props.timeMarkers}
+                    avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
-                // Components
-                mosca={props.mosca}
-                headerMetadata={props.headerMetadata}
-                sliderVOD={props.sliderVOD}
-                sliderDVR={props.sliderDVR}
-                controlsHeaderBar={props.controlsHeaderBar}
-                controlsMiddleBar={props.controlsMiddleBar}
-                controlsBottomBar={props.controlsBottomBar}
-                nextButton={props.nextButton}
-                liveButton={props.liveButton}
-                skipIntroButton={props.skipIntroButton}
-                skipRecapButton={props.skipRecapButton}
-                skipCreditsButton={props.skipCreditsButton}
-                menu={props.menu}
-                settingsMenu={props.settingsMenu}
+                    // Components
+                    loader={props.loader}
+                    mosca={props.mosca}
+                    headerMetadata={props.headerMetadata}
+                    sliderVOD={props.sliderVOD}
+                    sliderDVR={props.sliderDVR}
+                    controlsHeaderBar={props.controlsHeaderBar}
+                    controlsMiddleBar={props.controlsMiddleBar}
+                    controlsBottomBar={props.controlsBottomBar}
+                    nextButton={props.nextButton}
+                    liveButton={props.liveButton}
+                    skipIntroButton={props.skipIntroButton}
+                    skipRecapButton={props.skipRecapButton}
+                    skipCreditsButton={props.skipCreditsButton}
+                    menu={props.menu}
+                    settingsMenu={props.settingsMenu}
 
-                // Utils
-                getYouboraOptions={props.getYouboraOptions}
-                mergeCastMenuData={props.mergeCastMenuData}
+                    // Utils
+                    getYouboraOptions={props.getYouboraOptions}
+                    mergeCastMenuData={props.mergeCastMenuData}
 
-                // Events
-                onChangeCommonData={changeCommonData}
-                onDVRChange={props.onDVRChange}
-                onSeekOverEpg={props.onSeekOverEpg}
-                onNext={props.onNext}
-                onEnd={props.onEnd}
-            />
+                    // Events
+                    onChangeCommonData={changeCommonData}
+                    onDVRChange={props.onDVRChange}
+                    onSeekOverEpg={props.onSeekOverEpg}
+                    onNext={props.onNext}
+                    onEnd={props.onEnd}
+                />
+            </Suspense>
         );
 
     } else if (hasRotated){
         console.log(`[Player] Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
-            <NormalFlavour
-                id={props.id}
-                title={props.title}
-                subtitle={props.subtitle}
-                description={props.description}
-                languagesMapping={props.languagesMapping}
-                mapHlsQualities={props.mapHlsQualities}
+            <Suspense fallback={props.loader}>
+                <NormalFlavour
+                    id={props.id}
+                    title={props.title}
+                    subtitle={props.subtitle}
+                    description={props.description}
+                    languagesMapping={props.languagesMapping}
+                    mapHlsQualities={props.mapHlsQualities}
 
-                manifests={props.manifests}
-                headers={props.headers}
-                showExternalTudum={props.showExternalTudum}
-                poster={props.poster}
-                squaredPoster={props.squaredPoster}
-                youbora={props.youbora}
-                adTagUrl={props.adTagUrl}
-                hasNext={props.hasNext}
+                    manifests={props.manifests}
+                    headers={props.headers}
+                    showExternalTudum={props.showExternalTudum}
+                    poster={props.poster}
+                    squaredPoster={props.squaredPoster}
+                    youbora={props.youbora}
+                    adTagUrl={props.adTagUrl}
+                    hasNext={props.hasNext}
 
-                paused={isPaused.current}
-                muted={isMuted.current}
-                
-                playOffline={props.playOffline}
-                multiSession={props.multiSession}
-                isLive={props.isLive}
-                liveStartDate={props.liveStartDate}
+                    paused={isPaused.current}
+                    muted={isMuted.current}
+                    
+                    playOffline={props.playOffline}
+                    multiSession={props.multiSession}
+                    isLive={props.isLive}
+                    liveStartDate={props.liveStartDate}
 
-                currentTime={currentTime.current}
-                audioIndex={currentAudioIndex}
-                subtitleIndex={currentSubtitleIndex}
+                    currentTime={currentTime.current}
+                    audioIndex={currentAudioIndex}
+                    subtitleIndex={currentSubtitleIndex}
 
-                timeMarkers={props.timeMarkers}
-                avoidTimelineThumbnails={props.avoidTimelineThumbnails}
+                    timeMarkers={props.timeMarkers}
+                    avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
-                // Components
-                mosca={props.mosca}
-                headerMetadata={props.headerMetadata}
-                sliderVOD={props.sliderVOD}
-                sliderDVR={props.sliderDVR}
-                controlsHeaderBar={props.controlsHeaderBar}
-                controlsMiddleBar={props.controlsMiddleBar}
-                controlsBottomBar={props.controlsBottomBar}
-                nextButton={props.nextButton}
-                liveButton={props.liveButton}
-                skipIntroButton={props.skipIntroButton}
-                skipRecapButton={props.skipRecapButton}
-                skipCreditsButton={props.skipCreditsButton}
-                menu={props.menu}
-                settingsMenu={props.settingsMenu}
+                    // Components
+                    loader={props.loader}
+                    mosca={props.mosca}
+                    headerMetadata={props.headerMetadata}
+                    sliderVOD={props.sliderVOD}
+                    sliderDVR={props.sliderDVR}
+                    controlsHeaderBar={props.controlsHeaderBar}
+                    controlsMiddleBar={props.controlsMiddleBar}
+                    controlsBottomBar={props.controlsBottomBar}
+                    nextButton={props.nextButton}
+                    liveButton={props.liveButton}
+                    skipIntroButton={props.skipIntroButton}
+                    skipRecapButton={props.skipRecapButton}
+                    skipCreditsButton={props.skipCreditsButton}
+                    menu={props.menu}
+                    settingsMenu={props.settingsMenu}
 
-                // Utils
-                getSourceUri={props.getSourceUri}
-                getTudumManifest={props.getTudumManifest}
-                getYouboraOptions={props.getYouboraOptions}
-                mergeMenuData={props.mergeMenuData}
+                    // Utils
+                    getSourceUri={props.getSourceUri}
+                    getTudumManifest={props.getTudumManifest}
+                    getYouboraOptions={props.getYouboraOptions}
+                    mergeMenuData={props.mergeMenuData}
 
-                // Events
-                onChangeCommonData={changeCommonData}
-                onDVRChange={props.onDVRChange}
-                onSeekOverEpg={props.onSeekOverEpg}
-                onNext={props.onNext}
-                onEnd={props.onEnd}
-            />
+                    // Events
+                    onChangeCommonData={changeCommonData}
+                    onDVRChange={props.onDVRChange}
+                    onSeekOverEpg={props.onSeekOverEpg}
+                    onNext={props.onNext}
+                    onEnd={props.onEnd}
+                />
+            </Suspense>
         );
 
     } else {

@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useRef, createElement, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, createElement, useCallback, useMemo, Suspense } from 'react';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Controls, TimeMarks } from './controls';
-import { Menu } from './menu';
-import { SettingsMenu } from './settingsMenu';
+// Importamos los componentes con lazy para carga diferida
+const Menu = React.lazy(() => import('./menu/wrapper'));
+const SettingsMenu = React.lazy(() => import('./settingsMenu/wrapper'));
 import { 
     type OverlayProps,
     CONTROL_ACTION 
@@ -37,6 +38,7 @@ const OverlayBase = ({
     speedRate,
     mosca,
     headerMetadata,
+    loader,
     sliderVOD,
     sliderDVR,
     controlsHeaderBar,
@@ -241,6 +243,7 @@ const OverlayBase = ({
                     headerMetadata={headerMetadata}
                     sliderVOD={sliderVOD}
                     sliderDVR={sliderDVR}
+                    loader={loader}
                     controlsHeaderBar={controlsHeaderBar}
                     controlsMiddleBar={controlsMiddleBar}
                     controlsBottomBar={controlsBottomBar}
@@ -259,26 +262,30 @@ const OverlayBase = ({
             {visibleMenu && PropMenu && PropMenu}
 
             {visibleMenu && !PropMenu && (
-                <Menu
-                    videoIndex={videoIndex}
-                    audioIndex={audioIndex}
-                    subtitleIndex={subtitleIndex}
-                    menuData={menuData}
-                    onPress={onPress}
-                    onClose={onCloseMenu}
-                />
+                <Suspense fallback={loader}>
+                    <Menu
+                        videoIndex={videoIndex}
+                        audioIndex={audioIndex}
+                        subtitleIndex={subtitleIndex}
+                        menuData={menuData}
+                        onPress={onPress}
+                        onClose={onCloseMenu}
+                    />
+                </Suspense>
             )}
 
             {visibleSettingsMenu && PropSettingsMenu && PropSettingsMenu}
 
             {visibleSettingsMenu && !PropSettingsMenu && (
-                <SettingsMenu
-                    speedRate={speedRate}
-                    videoIndex={videoIndex}
-                    menuData={menuData}
-                    onPress={onPress}
-                    onClose={onCloseMenu}
-                />
+                <Suspense fallback={loader}>
+                    <SettingsMenu
+                        speedRate={speedRate}
+                        videoIndex={videoIndex}
+                        menuData={menuData}
+                        onPress={onPress}
+                        onClose={onCloseMenu}
+                    />
+                </Suspense>
             )}
 
             {showTimeMarks && (

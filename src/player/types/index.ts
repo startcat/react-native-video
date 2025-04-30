@@ -482,6 +482,7 @@ export interface ControlsBarProps {
     isContentLoaded?: boolean;
     
     // Components
+    loader?:React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     nextButton?: FunctionComponent<NextButtonProps>;
     liveButton?: FunctionComponent<LiveButtonProps>;
@@ -512,6 +513,7 @@ export interface ControlsProps {
     isContentLoaded?: boolean;
 
     // Components
+    loader?:React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
     sliderDVR?: FunctionComponent<SliderDVRProps>;
@@ -585,6 +587,7 @@ export interface OverlayProps {
     speedRate?: number;
 
     // Components
+    loader?:React.ReactElement;
     mosca?: React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
@@ -746,6 +749,7 @@ export interface NormalFlavourProps {
     avoidTimelineThumbnails?: boolean;
 
     // Components
+    loader?:React.ReactElement;
     mosca?: React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
@@ -808,6 +812,7 @@ export interface CastFlavourProps {
     avoidTimelineThumbnails?: boolean;
 
     // Components
+    loader?:React.ReactElement;
     mosca?: React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
@@ -869,6 +874,7 @@ export interface PlayerProps {
     avoidDownloadsManagement?: boolean;
 
     // Components
+    loader?:React.ReactElement;
     mosca?: React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;

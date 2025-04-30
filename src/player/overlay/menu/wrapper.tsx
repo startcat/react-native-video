@@ -173,3 +173,6 @@ const arePropsEqual = (prevProps: MenuProps, nextProps: MenuProps): boolean => {
 };
 
 export const Menu = React.memo(MenuBase, arePropsEqual);
+
+// También exportamos como default para importar con lazy
+export default Menu;
