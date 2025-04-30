@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo, Suspense } from 'react';
 import { useSafeAreaInsets, EdgeInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { 
@@ -17,7 +17,7 @@ import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
 import { useAirplayConnectivity } from 'react-airplay';
 import { Overlay } from '../../overlay';
-import { BackgroundPoster } from '../../components/poster';
+const BackgroundPoster = React.lazy(() => import('../../components/poster'));
 import { View } from 'react-native';
 
 import { 
@@ -653,7 +653,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             {
                 isAirplayConnected ?
-                    <BackgroundPoster poster={props.poster} />
+                    <Suspense fallback={props.loader}>
+                        <BackgroundPoster poster={props.poster} />
+                    </Suspense>
                 : null
             }
 
@@ -687,6 +689,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         isContentLoaded={isContentLoaded}
 
                         // Components
+                        loader={props.loader}
                         mosca={props.mosca}
                         headerMetadata={props.headerMetadata}
                         sliderVOD={props.sliderVOD}

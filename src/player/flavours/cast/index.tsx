@@ -594,6 +594,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 isContentLoaded={isContentLoaded}
 
                 // Components
+                loader={props.loader}
                 mosca={props.mosca}
                 headerMetadata={props.headerMetadata}
                 sliderVOD={props.sliderVOD}
