@@ -710,7 +710,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         onSlidingStart={onSlidingStart}
                         onSlidingMove={onSlidingMove}
                         onSlidingComplete={onSlidingComplete}
-                        onExit={props?.onExit}
+                        onExit={props.onExit}
                     />
                 : null
             }
