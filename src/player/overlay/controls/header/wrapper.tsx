@@ -89,7 +89,8 @@ const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps)
     return (
         prevProps.preloading === nextProps.preloading &&
         prevProps.headerMetadata === nextProps.headerMetadata &&
-        prevProps.onPress === nextProps.onPress
+        prevProps.onPress === nextProps.onPress &&
+        prevProps.onExit === nextProps.onExit
     );
 };
 
