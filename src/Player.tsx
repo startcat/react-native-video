@@ -246,6 +246,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     onSeekOverEpg={props.onSeekOverEpg}
                     onNext={props.onNext}
                     onEnd={props.onEnd}
+                    onExit={props.onExit}
                 />
             </Suspense>
         );
@@ -316,6 +317,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     onSeekOverEpg={props.onSeekOverEpg}
                     onNext={props.onNext}
                     onEnd={props.onEnd}
+                    onExit={props.onExit}
                 />
             </Suspense>
         );
