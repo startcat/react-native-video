@@ -54,7 +54,8 @@ const OverlayBase = ({
     onPress: propOnPress,
     onSlidingStart: propOnSlidingStart,
     onSlidingMove: propOnSlidingMove,
-    onSlidingComplete: propOnSlidingComplete
+    onSlidingComplete: propOnSlidingComplete,
+    onExit
 }: OverlayProps): React.ReactElement => {
 
     const insets = useSafeAreaInsets();
@@ -256,6 +257,7 @@ const OverlayBase = ({
                     onSlidingStart={onSlidingStart}
                     onSlidingMove={onSlidingMove}
                     onSlidingComplete={onSlidingComplete}
+                    onExit={onExit}
                 />
             )}
 

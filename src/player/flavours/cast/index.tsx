@@ -615,6 +615,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 onSlidingStart={onSlidingStart}
                 onSlidingMove={onSlidingMove}
                 onSlidingComplete={onSlidingComplete}
+                onExit={props?.onExit}
             />
         </View>
     );
