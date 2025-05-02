@@ -19,14 +19,19 @@ const ANIMATION_SPEED = 150;
 const ControlsHeaderBarBase = ({ 
     preloading = false,
     headerMetadata,
-    onPress
+    onPress,
+    onExit
 }: ControlsBarProps): React.ReactElement => {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
 
     const handleBack = useCallback(() => {
-        navigation.goBack();
-    }, [navigation]);
+        if (typeof onExit === 'function') {
+            onExit();
+        } else {
+            navigation.goBack();
+        }
+    }, [navigation, onExit]);
 
     const BackButton = useMemo(() => (
         <Button

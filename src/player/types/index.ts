@@ -492,6 +492,7 @@ export interface ControlsBarProps {
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
+    onExit?: () => void;
 }
 
 export interface ControlsProps {
@@ -531,6 +532,7 @@ export interface ControlsProps {
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
+    onExit?: () => void;
 }
 
 export interface AudioControlsProps {
@@ -608,6 +610,7 @@ export interface OverlayProps {
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
+    onExit?: () => void;
 }
 
 export interface AudioFlavourProps {
@@ -778,6 +781,7 @@ export interface NormalFlavourProps {
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
     onEnd?: () => void;
+    onExit?: () => void;
 }
 
 export interface CastFlavourProps {
@@ -840,6 +844,7 @@ export interface CastFlavourProps {
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
     onEnd?: () => void;
+    onExit?: () => void;
 }
 
 export interface PlayerProps {

@@ -46,7 +46,8 @@ const ControlsBase = ({
     onPress: propOnPress,
     onSlidingStart,
     onSlidingMove,
-    onSlidingComplete
+    onSlidingComplete,
+    onExit
 }: ControlsProps): React.ReactElement => {
 
     const insets = useSafeAreaInsets();
@@ -77,11 +78,12 @@ const ControlsBase = ({
         onPress: handlePress,
         onSlidingStart,
         onSlidingMove,
-        onSlidingComplete
+        onSlidingComplete,
+        onExit
     }), [
         title, currentTime, dvrTimeValue, duration, paused, muted, volume,
         preloading, hasNext, isLive, isDVR, isDVRStart, isContentLoaded, nextButton,
-        liveButton, headerMetadata, handlePress, onSlidingStart, onSlidingMove, onSlidingComplete
+        liveButton, headerMetadata, handlePress, onSlidingStart, onSlidingMove, onSlidingComplete, onExit
     ]);
 
     const HeaderBar = useMemo(() => 
@@ -116,6 +118,7 @@ const ControlsBase = ({
                     paused={paused}
                     isContentLoaded={isContentLoaded}
                     onPress={handlePress}
+                    onExit={onExit}
                 />
             )}
 
@@ -124,6 +127,7 @@ const ControlsBase = ({
                     preloading={preloading}
                     isContentLoaded={isContentLoaded}
                     onPress={handlePress}
+                    onExit={onExit}
                 />
             )}
 
@@ -143,6 +147,7 @@ const ControlsBase = ({
                         volume={volume}
                         liveButton={liveButton}
                         onPress={handlePress}
+                        onExit={onExit}
                     />
                 )}
 
