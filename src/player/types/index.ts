@@ -665,6 +665,9 @@ export interface AudioFlavourProps {
     onClose?: () => void;
     onEnd?: () => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
+    onBuffering?: (value:boolean) => void;
+    onSeek?: (value: number) => void;
+    onStart?: () => void;
 }
 
 export interface AudioCastFlavourProps {
@@ -716,6 +719,9 @@ export interface AudioCastFlavourProps {
     onClose?: () => void;
     onEnd?: () => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
+    onBuffering?: (value:boolean) => void;
+    onSeek?: (value: number) => void;
+    onStart?: () => void;
 }
 
 export interface NormalFlavourProps {
@@ -782,6 +788,9 @@ export interface NormalFlavourProps {
     onNext?: () => void;
     onEnd?: () => void;
     onExit?: () => void;
+    onBuffering?: (value:boolean) => void;
+    onSeek?: (value: number) => void;
+    onStart?: () => void;
 }
 
 export interface CastFlavourProps {
@@ -845,6 +854,9 @@ export interface CastFlavourProps {
     onNext?: () => void;
     onEnd?: () => void;
     onExit?: () => void;
+    onBuffering?: (value:boolean) => void;
+    onSeek?: (value: number) => void;
+    onStart?: () => void;
 }
 
 export interface PlayerProps {
@@ -913,7 +925,12 @@ export interface PlayerProps {
     onChangeAudioIndex?: (index: number, label?: string) => void;
     onChangeSubtitleIndex?: (index: number, label?: string) => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
+    onSeek?: (value: number) => void;
     onSeekOverEpg?: () => number | null;
+    onBuffering?: (value:boolean) => void;
+    onStart?: () => void;
+    onPlay?: () => void;
+    onPause?: () => void;
 }
 
 export interface AudioPlayerContentsDpo {
@@ -948,12 +965,17 @@ export interface AudioPlayerContentsDpo {
     getTudumSource?: () => IVideoSource | null | undefined;
 
     // Events
+    onProgress?: (value: number, duration?: number) => void;
     onError?: () => void;
-    onExit?: () => void;
     onNext?: () => void;
     onPrevious?: () => void;
     onEnd?: () => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
+    onSeek?: (value: number) => void;
+    onBuffering?: (value:boolean) => void;
+    onStart?: () => void;
+    onPlay?: () => void;
+    onPause?: () => void;
 }
 
 export interface AudioPlayerProps {

@@ -156,6 +156,12 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         if (data?.paused !== undefined){
             isPaused.current = !!data.paused;
+
+            if (!!data.paused && props.onPause){
+                props.onPause();
+            } else if (props.onPlay){
+                props.onPlay();
+            }
         }
 
         if (data?.muted !== undefined){
@@ -247,6 +253,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     onNext={props.onNext}
                     onEnd={props.onEnd}
                     onExit={props.onExit}
+                    onBuffering={props.onBuffering}
+                    onSeek={props.onSeek}
+                    onStart={props.onStart}
                 />
             </Suspense>
         );
@@ -318,6 +327,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     onNext={props.onNext}
                     onEnd={props.onEnd}
                     onExit={props.onExit}
+                    onBuffering={props.onBuffering}
+                    onSeek={props.onSeek}
+                    onStart={props.onStart}
                 />
             </Suspense>
         );

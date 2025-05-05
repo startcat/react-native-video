@@ -280,6 +280,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         if (preloading !== newIsBuffering){
             setPreloading(newIsBuffering);
 
+            if (props.onBuffering){
+                props.onBuffering(newIsBuffering);
+            }
+
         }
 
     }
@@ -370,7 +374,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 setHasSeekOverDRV(false);
             }
 
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current, props.onSeek);
 
         }
 
@@ -399,7 +403,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
-            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current);
+            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current, props.onSeek);
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
@@ -413,7 +417,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             setDvrTimeValue(overEpgValue!);
             onChangeDvrTimeValue(overEpgValue!);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current, props.onSeek);
         }
 
         // Actions to be saved between flavours
@@ -454,6 +458,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             if (!isContentLoaded){
                 setIsContentLoaded(true);
+
+                if (props.onStart){
+                    props.onStart();
+                }
             }
 
             if (isDVR.current){
@@ -547,6 +555,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const onBuffer = (e: OnBufferData) => {
         maybeChangeBufferingState(e?.isBuffering);
+
     }
 
     // const onError = (e: OnVideoErrorData) => {

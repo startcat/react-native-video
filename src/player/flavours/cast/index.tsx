@@ -257,8 +257,16 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
             setLoading(true);
 
+            if (props.onBuffering){
+                props.onBuffering(true);
+            }
+
         } else if ((castMediaStatus?.playerState !== MediaPlayerState.BUFFERING && castMediaStatus?.playerState !== MediaPlayerState.LOADING) && loading){
             setLoading(false);
+
+            if (props.onBuffering){
+                props.onBuffering(false);
+            }
 
         }
 
@@ -353,7 +361,11 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
                     }
 
-                    setIsContentLoaded(true);                    
+                    setIsContentLoaded(true);
+
+                    if (props.onStart){
+                        props.onStart();
+                    }
                 }
                 
             });
@@ -417,7 +429,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 setHasSeekOverDRV(false);
             }
 
-            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current.endTime, currentTime, duration, liveSeekableRange.current);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current.endTime, currentTime, duration, liveSeekableRange.current, props.onSeek);
 
         }
 
@@ -446,7 +458,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD || id === CONTROL_ACTION.PAUSE || id === CONTROL_ACTION.MUTE){
             // Actions to invoke on player
-            invokePlayerAction(castClient, castSession, id, value, currentTime, duration, liveSeekableRange.current);
+            invokePlayerAction(castClient, castSession, id, value, currentTime, duration, liveSeekableRange.current, props.onSeek);
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
@@ -460,7 +472,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
             setDvrTimeValue(overEpgValue!);
             onChangeDvrTimeValue(overEpgValue!);
-            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, liveSeekableRange.current);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, liveSeekableRange.current, props.onSeek);
         }
 
         // Actions to be saved between flavours
