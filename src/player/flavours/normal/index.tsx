@@ -427,6 +427,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             if (id === CONTROL_ACTION.MUTE){
                 data.muted = !!value;
 
+            } else if (id === CONTROL_ACTION.PAUSE){
+                data.paused = !!value;
+                
             } else if (typeof(value) === 'number'){
                 data.volume = (id === CONTROL_ACTION.VOLUME) ? value : undefined;
                 data.audioIndex = (id === CONTROL_ACTION.AUDIO_INDEX) ? value : undefined;
