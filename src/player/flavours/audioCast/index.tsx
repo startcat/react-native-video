@@ -235,8 +235,16 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !loading){
             setLoading(true);
 
+            if (props.onBuffering){
+                props.onBuffering(true);
+            }
+
         } else if ((castMediaStatus?.playerState !== MediaPlayerState.BUFFERING && castMediaStatus?.playerState !== MediaPlayerState.LOADING) && loading){
             setLoading(false);
+
+            if (props.onBuffering){
+                props.onBuffering(false);
+            }
 
         }
 
@@ -321,6 +329,10 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
                 if (!isContentLoaded){
                     setIsContentLoaded(true);
+
+                    if (props.onStart){
+                        props.onStart();
+                    }
                 }
                 
             });
@@ -385,7 +397,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             // Volver al directo en DVR
             setDvrTimeValue(duration);
             onChangeDvrTimeValue(duration);
-            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current?.endTime, currentTime, duration, liveSeekableRange.current);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, liveSeekableRange.current?.endTime, currentTime, duration, liveSeekableRange.current, props.onSeek);
 
         }
 
@@ -399,7 +411,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
             setDvrTimeValue(overEpgValue);
             onChangeDvrTimeValue(overEpgValue);
-            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, liveSeekableRange.current);
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, liveSeekableRange.current, props.onSeek);
 
         }
 
@@ -431,7 +443,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD || id === CONTROL_ACTION.PAUSE || id === CONTROL_ACTION.MUTE){
             // Actions to invoke on player
-            invokePlayerAction(castClient, castSession, id, value, currentTime, duration, liveSeekableRange.current);
+            invokePlayerAction(castClient, castSession, id, value, currentTime, duration, liveSeekableRange.current, props.onSeek);
         }
 
         // Actions to be saved between flavours

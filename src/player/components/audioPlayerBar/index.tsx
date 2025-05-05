@@ -235,8 +235,18 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         }
 
+        if ((data?.time !== undefined || data?.duration !== undefined) && dpoData?.onProgress){
+            dpoData?.onProgress(currentTime.current, duration.current);
+        }
+
         if (data?.paused !== undefined){
             isPaused.current = !!data.paused;
+
+            if (!!data.paused && dpoData?.onPause){
+                dpoData?.onPause();
+            } else if (dpoData?.onPlay){
+                dpoData?.onPlay();
+            }
         }
 
         if (data?.muted !== undefined){
@@ -318,6 +328,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         onPrevious={dpoData.onPrevious}
                         onEnd={onEnd}
                         onClose={hidePlayer}
+                        onBuffering={dpoData?.onBuffering}
+                        onSeek={dpoData?.onSeek}
+                        onStart={dpoData?.onStart}
                     />
                 : null
             }
@@ -368,6 +381,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         onPrevious={dpoData.onPrevious}
                         onEnd={onEnd}
                         onClose={hidePlayer}
+                        onBuffering={dpoData?.onBuffering}
+                        onSeek={dpoData?.onSeek}
+                        onStart={dpoData?.onStart}
                     />
                 : null
             }

@@ -281,6 +281,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (preloading !== newIsBuffering){
             setPreloading(newIsBuffering);
 
+            if (props.onBuffering){
+                props.onBuffering(newIsBuffering);
+            }
+
         }
 
     }
@@ -337,7 +341,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             // Volver al directo en DVR
             setDvrTimeValue(duration);
             onChangeDvrTimeValue(duration);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current, props.onSeek);
 
         }
 
@@ -351,7 +355,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             setDvrTimeValue(overEpgValue);
             onChangeDvrTimeValue(overEpgValue);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current, props.onSeek);
 
         }
 
@@ -383,7 +387,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
-            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current);
+            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current, props.onSeek);
         }
 
         if (id === CONTROL_ACTION.SLEEP && (value === 0 || !value)){
@@ -421,6 +425,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (!isPlayingExternalTudum && !isContentLoaded){
 
             setIsContentLoaded(true);
+
+            if (props.onStart){
+                props.onStart();
+            }
 
             if (isDVR.current){
                 setDuration(dvrWindowSeconds.current);

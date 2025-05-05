@@ -9,7 +9,7 @@ import { CONTROL_ACTION } from '../../types';
  *
  */
 
-export const invokePlayerAction = async (playerRef:RefObject<VideoRef>, id: CONTROL_ACTION, value?:any, currentTime?:number, duration?:number, seekableRange?:number) => {
+export const invokePlayerAction = async (playerRef:RefObject<VideoRef>, id: CONTROL_ACTION, value?:any, currentTime?:number, duration?:number, seekableRange?:number, onSeek?:(value) => void) => {
 
     console.log(`[Player] (Actions) invokePlayerAction: ${id} / ${value}`);
 
@@ -31,6 +31,11 @@ export const invokePlayerAction = async (playerRef:RefObject<VideoRef>, id: CONT
         console.log(`[Player] (Normal Flavour) invokePlayerAction SEEK to ${seekValue} -> ${currentTime}/${duration}/${seekableRange}`);
         // @ts-ignore
         await playerRef.current.seek(seekValue);
+
+        if (onSeek){
+            onSeek(seekValue);
+        }
+
     }
 
 }
