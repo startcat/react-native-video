@@ -1,5 +1,5 @@
 import { FunctionComponent } from 'react';
-import { type OnLoadData } from '../../types';
+import { type OnLoadData, type SubtitleStyle } from '../../types';
 import { type MediaTrack } from 'react-native-google-cast';
 
 export enum STREAM_FORMAT_TYPE {
@@ -753,6 +753,7 @@ export interface NormalFlavourProps {
     subtitleIndex?: number;
     languagesMapping?:ILanguagesMapping;
     mapHlsQualities?: boolean;
+    subtitleStyle?: SubtitleStyle;
 
     timeMarkers?: Array<ITimeMarkers>;
     avoidTimelineThumbnails?: boolean;
@@ -885,6 +886,7 @@ export interface PlayerProps {
     mapHlsQualities?: boolean;
     audioIndex?: number;
     subtitleIndex?: number;
+    subtitleStyle?: SubtitleStyle;
 
     avoidTimelineThumbnails?: boolean;
     avoidRotation?: boolean;

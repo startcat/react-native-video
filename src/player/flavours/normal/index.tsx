@@ -649,6 +649,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             selectedVideoTrack={isPlayingExternalTudum ? undefined : selectedVideoTrack}
                             selectedAudioTrack={isPlayingExternalTudum ? undefined : selectedAudioTrack}
                             selectedTextTrack={isPlayingExternalTudum || (typeof(selectedTextTrack?.value) === 'number' && selectedTextTrack?.value < 0) ? undefined : selectedTextTrack}
+                            subtitleStyle={props.subtitleStyle}
 
                             //onVolumeChange={onVolumeChange}
                             onEnd={onEnd}
