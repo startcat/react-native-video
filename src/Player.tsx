@@ -293,6 +293,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     currentTime={currentTime.current}
                     audioIndex={currentAudioIndex}
                     subtitleIndex={currentSubtitleIndex}
+                    subtitleStyle={props.subtitleStyle}
 
                     timeMarkers={props.timeMarkers}
                     avoidTimelineThumbnails={props.avoidTimelineThumbnails}
