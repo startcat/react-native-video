@@ -87,8 +87,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const [selectedVideoTrack, setSelectedVideoTrack] = useState<SelectedVideoTrack>({
         type:SelectedVideoTrackType.AUTO
     });
+    const [maxBitRate, setMaxBitRate] = useState<number>(0);
 
     const refVideoPlayer = useRef<VideoRef>(null);
+    const videoQualityIndex = useRef<number>(-1);
 
     const dvrPaused = useDvrPausedSeconds({
         paused: paused,
@@ -287,30 +289,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }
 
-    const changeHlsVideoQuality = (index:number) => {
-
-        const quality = menuData?.find(item => item.type === 'video' && item.index === index);
-
-        if (quality && quality.code && videoSource.current){
-
-            videoSource.current = {
-                id: videoSource.current.id,
-                title: videoSource.current.title,
-                uri: quality.code,
-                type: videoSource.current.type,
-                headers: props.headers,
-                metadata: videoSource.current.metadata
-            };
-
-            setSelectedVideoTrack({
-                type:SelectedVideoTrackType.INDEX,
-                value:index
-            });
-
-        }
-
-    }
-
     const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'audioIndex', 'subtitleIndex'];
@@ -332,17 +310,27 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         
         if (isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
             // Cambio de calidad con HLS
-            changeHlsVideoQuality(value);
+            if (value === -1){
+                videoQualityIndex.current = -1;
+                setMaxBitRate(0);
+
+            } else {
+                videoQualityIndex.current = value;
+                setMaxBitRate(value);
+            }
+            
         }
         
         if (!isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
             // Cambio de calidad sin HLS
             if (value === -1){
+                videoQualityIndex.current = -1;
                 setSelectedVideoTrack({
                     type:SelectedVideoTrackType.AUTO
                 });
 
             } else {
+                videoQualityIndex.current = value;
                 setSelectedVideoTrack({
                     type:SelectedVideoTrackType.INDEX,
                     value:value
@@ -631,6 +619,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             muted={muted}
                             paused={paused}
                             rate={speedRate}
+                            maxBitRate={maxBitRate}
                             //pictureInPicture (ios)
                             playInBackground={isAirplayConnected}
                             playWhenInactive={isAirplayConnected}
@@ -680,7 +669,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
                         speedRate={speedRate}
-                        videoIndex={(typeof(selectedVideoTrack?.value) === 'number') ? selectedVideoTrack?.value : -1}
+                        videoIndex={videoQualityIndex.current}
                         audioIndex={props.audioIndex}
                         subtitleIndex={props.subtitleIndex}
                         menuData={menuData}
