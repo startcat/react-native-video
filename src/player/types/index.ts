@@ -641,7 +641,6 @@ export interface AudioFlavourProps {
 
     currentTime?: number;
     languagesMapping?:ILanguagesMapping;
-    mapHlsQualities?: boolean;
 
     // Extra data
     extraData?: any;
@@ -696,7 +695,6 @@ export interface AudioCastFlavourProps {
 
     currentTime?: number;
     languagesMapping?:ILanguagesMapping;
-    mapHlsQualities?: boolean;
 
     // Extra data
     extraData?: any;
@@ -752,7 +750,6 @@ export interface NormalFlavourProps {
     audioIndex?: number;
     subtitleIndex?: number;
     languagesMapping?:ILanguagesMapping;
-    mapHlsQualities?: boolean;
     subtitleStyle?: SubtitleStyle;
 
     timeMarkers?: Array<ITimeMarkers>;
@@ -779,7 +776,7 @@ export interface NormalFlavourProps {
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
-    mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, hlsQualities?: Array<IPlayerMenuData>, isDASH?: boolean) => Array<IPlayerMenuData>;
+    mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
@@ -820,7 +817,6 @@ export interface CastFlavourProps {
     audioIndex?: number;
     subtitleIndex?: number;
     languagesMapping?:ILanguagesMapping;
-    mapHlsQualities?: boolean;
 
     timeMarkers?: Array<ITimeMarkers>;
     avoidTimelineThumbnails?: boolean;
@@ -883,7 +879,6 @@ export interface PlayerProps {
     timeMarkers?: Array<ITimeMarkers>;
 
     languagesMapping?:ILanguagesMapping;
-    mapHlsQualities?: boolean;
     audioIndex?: number;
     subtitleIndex?: number;
     subtitleStyle?: SubtitleStyle;
@@ -915,7 +910,7 @@ export interface PlayerProps {
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
-    mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, hlsQualities?: Array<IPlayerMenuData>, isDASH?: boolean) => Array<IPlayerMenuData>;
+    mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
     mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 
     // Events
