@@ -2,7 +2,6 @@ export * from './ads';
 export * from './castMessage';
 export * from './connectionType';
 export * from './drm';
-export * from './hls';
 export * from './menu';
 export * from './offline';
 export * from './source';
