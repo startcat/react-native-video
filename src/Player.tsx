@@ -202,7 +202,6 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     subtitle={props.subtitle}
                     description={props.description}
                     languagesMapping={props.languagesMapping}
-                    mapHlsQualities={props.mapHlsQualities}
 
                     manifests={props.manifests}
                     headers={props.headers}
@@ -271,7 +270,6 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     subtitle={props.subtitle}
                     description={props.description}
                     languagesMapping={props.languagesMapping}
-                    mapHlsQualities={props.mapHlsQualities}
 
                     manifests={props.manifests}
                     headers={props.headers}

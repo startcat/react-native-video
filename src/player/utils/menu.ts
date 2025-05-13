@@ -39,7 +39,7 @@ const sortByIndex = (a: IPlayerMenuData, b: IPlayerMenuData) => {
 
 }
 
-export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguagesMapping, hlsQualities?:Array<IPlayerMenuData>, isDASH?: boolean):Array<IPlayerMenuData> => {
+export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguagesMapping, isDASH?: boolean):Array<IPlayerMenuData> => {
 
     let menuData:Array<IPlayerMenuData> = [];
 
@@ -79,31 +79,46 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
         label: '2x'
     });
 
-    if (hlsQualities && hlsQualities.length > 0){
-        // Añadimos las cualidades del HLS
-        menuData = menuData.concat(hlsQualities);
+    // Añadimos una opción de calidad que indique "Auto"
+    menuData.push({
+        type: PLAYER_MENU_DATA_TYPE.VIDEO,
+        index: -1,
+        code: 'none',
+        label: i18n.t('player_quality_auto')
+    });
 
-    } else {
-        // Añadimos una opción de calidad que indique "Auto"
+    if (loadedData.videoTracks && isDASH){
+        loadedData.videoTracks.forEach(item => {
+
+            menuData.push({
+                type: PLAYER_MENU_DATA_TYPE.VIDEO,
+                index: item.index,
+                label: `${item.height}p`
+            });
+
+        });
+    } else if (!isDASH){
+        // Añadimos las opciones de calidad genéricas por bitrate
         menuData.push({
             type: PLAYER_MENU_DATA_TYPE.VIDEO,
-            index: -1,
-            code: 'none',
-            label: i18n.t('player_quality_auto')
+            index: 0,
+            id:5000000,
+            label: 'Alta'
         });
-
-        if (loadedData.videoTracks && isDASH){
-            loadedData.videoTracks.forEach(item => {
-
-                menuData.push({
-                    type: PLAYER_MENU_DATA_TYPE.VIDEO,
-                    index: item.index,
-                    label: `${item.height}p`
-                });
-
-            });
-        }
-
+    
+        menuData.push({
+            type: PLAYER_MENU_DATA_TYPE.VIDEO,
+            index: 1,
+            id:2500000,
+            label: 'Media'
+        });
+    
+        menuData.push({
+            type: PLAYER_MENU_DATA_TYPE.VIDEO,
+            index: 2,
+            id:1000000,
+            label: 'Baja'
+        });
     }
 
     if (loadedData.audioTracks){

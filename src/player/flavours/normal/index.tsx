@@ -28,7 +28,6 @@ import {
     getMinutesSinceStart,
     onAdStarted,
     mergeMenuData,
-    getHlsQualities,
     subtractMinutesFromDate,
     useDvrPausedSeconds
 } from '../../utils';
@@ -447,17 +446,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const onLoad = async (e: OnLoadData) => {
 
-        let hlsQualities;
-
         console.log(`[Player] (Normal Flavour) onLoad ${JSON.stringify(e)}`);
 
         if (!isPlayingExternalTudum && !isContentLoaded){
-
-            // En caso de HLS, preparamos las calidades
-            if (isHLS.current && props.mapHlsQualities){
-                hlsQualities = await getHlsQualities(currentManifest.current?.manifestURL!);
-
-            }
 
             if (!isContentLoaded){
                 setIsContentLoaded(true);
@@ -489,10 +480,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
             if (props.mergeMenuData && typeof(props.mergeMenuData) === 'function'){
-                setMenuData(props.mergeMenuData(e, props.languagesMapping, hlsQualities, isDASH.current));
+                setMenuData(props.mergeMenuData(e, props.languagesMapping, isDASH.current));
 
             } else {
-                setMenuData(mergeMenuData(e, props.languagesMapping, hlsQualities, isDASH.current));
+                setMenuData(mergeMenuData(e, props.languagesMapping, isDASH.current));
 
             }
 
