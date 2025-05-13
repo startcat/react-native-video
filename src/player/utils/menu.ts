@@ -103,21 +103,21 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
             type: PLAYER_MENU_DATA_TYPE.VIDEO,
             index: 0,
             id:5000000,
-            label: 'Alta'
+            label: i18n.t('player_quality_high')
         });
     
         menuData.push({
             type: PLAYER_MENU_DATA_TYPE.VIDEO,
             index: 1,
             id:2500000,
-            label: 'Media'
+            label: i18n.t('player_quality_medium')
         });
     
         menuData.push({
             type: PLAYER_MENU_DATA_TYPE.VIDEO,
             index: 2,
             id:1000000,
-            label: 'Baja'
+            label: i18n.t('player_quality_low')
         });
     }
 
