@@ -209,7 +209,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     // Source Cooking
     const setPlayerSource = async () => {
 
-        let uri = "";
+        let uri = "",
+            startPosition;
 
         // Cogemos el manifest adecuado
         currentManifest.current = getBestManifest(props?.manifests!);
@@ -252,7 +253,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             if (dvrRecalculatedMinutes){
                 dvrWindowSeconds.current = dvrRecalculatedMinutes * 60;
                 setDvrTimeValue(dvrWindowSeconds.current);
+                startPosition = ((dvrRecalculatedMinutes * 60) + 600) * 1000;
             }
+        }
+
+        if (!isDVR.current && currentTime > 0){
+            startPosition = currentTime * 1000;
+
         }
 
         // Montamos el Source para el player
@@ -261,7 +268,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             title: props.title,
             uri: uri,
             type: getManifestSourceType(currentManifest.current!),
-            startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined,
+            startPosition: startPosition || undefined,
             headers: props.headers,
             metadata: {
                 title: props.title,
