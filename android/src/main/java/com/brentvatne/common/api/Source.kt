@@ -179,7 +179,7 @@ class Source {
                             //val current = propSrcHeadersArray.getMap(i)
 
                         for (i in 0 until propSrcHeadersArray.size()) {
-                            val current = propSrcHeadersArray.getMap(i) ?:
+                            val current = propSrcHeadersArray.getMap(i) ?: continue
 
                             //val key = if (current.hasKey("key")) current.getString("key") else null
                             //val value = if (current.hasKey("value")) current.getString("value") else null
