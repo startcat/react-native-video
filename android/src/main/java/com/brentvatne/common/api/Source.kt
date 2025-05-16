@@ -174,10 +174,19 @@ class Source {
                 val propSrcHeadersArray = safeGetArray(src, PROP_SRC_HEADERS)
                 if (propSrcHeadersArray != null) {
                     if (propSrcHeadersArray.size() > 0) {
+                        // Cambio Propuesto por Juan - Versiones de Kotlin nuevas
+                        //for (i in 0 until propSrcHeadersArray.size()) {
+                            //val current = propSrcHeadersArray.getMap(i)
+
                         for (i in 0 until propSrcHeadersArray.size()) {
-                            val current = propSrcHeadersArray.getMap(i)
-                            val key = if (current.hasKey("key")) current.getString("key") else null
-                            val value = if (current.hasKey("value")) current.getString("value") else null
+                            val current = propSrcHeadersArray.getMap(i) ?:
+
+                            //val key = if (current.hasKey("key")) current.getString("key") else null
+                            //val value = if (current.hasKey("value")) current.getString("value") else null
+
+                            val key = current.takeIf { it.hasKey("key") }?.getString("key")
+                            val value = current.takeIf { it.hasKey("value") }?.getString("value")
+
                             if (key != null && value != null) {
                                 source.headers[key] = value
                             }
