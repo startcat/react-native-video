@@ -184,8 +184,8 @@ class Source {
                             //val key = if (current.hasKey("key")) current.getString("key") else null
                             //val value = if (current.hasKey("value")) current.getString("value") else null
 
-                            val key = current.takeIf { it.hasKey("key") }?.getString("key")
-                            val value = current.takeIf { it.hasKey("value") }?.getString("value")
+                            val key = current.takeIf { map -> map.hasKey("key") }?.getString("key")
+                            val value = current.takeIf { map -> map.hasKey("value") }?.getString("value")
 
                             if (key != null && value != null) {
                                 source.headers[key] = value
