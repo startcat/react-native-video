@@ -99,7 +99,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     useEffect(() => {
         console.log(`[Player] (Audio Flavour) videoSource ${JSON.stringify(videoSource)}`);
-
     }, [videoSource]);
 
     useEffect(() => {
@@ -175,7 +174,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
-        if (props?.isLive && typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
+        if (props?.isLive && (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0) || props.forcedDvrWindowMinutes){
             isDVR.current = true;
             dvrWindowSeconds.current = props.forcedDvrWindowMinutes ? props.forcedDvrWindowMinutes * 60 : currentManifest.current?.dvr_window_minutes * 60;
             setDvrTimeValue(dvrWindowSeconds.current);
@@ -189,19 +188,18 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             uri = `file://${offlineBinary?.offlineData.fileUri}`;
 
         } else {
-
+            
+            const dvrWindowMinutes = dvrWindowSeconds?.current ? dvrWindowSeconds.current / 60 : undefined;
             if (props.getSourceUri){
-                uri = props.getSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
-
+                uri = props.getSourceUri(currentManifest.current!,  dvrWindowMinutes);
             } else {
-                uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
-
+                uri = getVideoSourceUri(currentManifest.current!,  dvrWindowMinutes);
             }
 
         }
 
         // Recalculamos la ventana de tiempo para el slider en DVR
-        if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
+        if ((typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0) || props.forcedDvrWindowMinutes){
             const dvrRecalculatedMinutes = getMinutesSinceStart(uri);
 
             if (dvrRecalculatedMinutes){
@@ -524,7 +522,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             secondsToLive = (duration > value) ? duration - value : 0;
             date = (secondsToLive > 0) ? subtractMinutesFromDate(new Date(), secondsToLive / 60) : new Date();
 
-        }        
+        }
+        
+        if (dvrTimeValue){
+            secondsToLive = dvrTimeValue - value;
+            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
+
+        }
 
         if (props.onDVRChange){
             props.onDVRChange(value, secondsToLive, date);
