@@ -1,36 +1,34 @@
-import React, { useEffect, useState, useRef, useMemo, Suspense } from 'react';
-import { useSafeAreaInsets, EdgeInsets } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
-import { 
-    type SelectedTrack,
-    type SelectedVideoTrack,
-    type OnProgressData,
-    type OnReceiveAdEventData,
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useAirplayConnectivity } from 'react-airplay';
+import { useWindowDimensions, View } from 'react-native';
+import { EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
     type OnBufferData,
     //type OnVideoErrorData,
     type OnLoadData,
+    type OnProgressData,
+    type OnReceiveAdEventData,
+    type SelectedTrack,
+    type SelectedVideoTrack,
+    SelectedTrackType,
     //type OnVolumeChangeData,
-    SelectedVideoTrackType,
-    SelectedTrackType
+    SelectedVideoTrackType
 } from '../../../types';
-import { type VideoRef } from '../../../Video';
-import Video from '../../../Video';
-import { useAirplayConnectivity } from 'react-airplay';
+import Video, { type VideoRef } from '../../../Video';
 import { Overlay } from '../../overlay';
 const BackgroundPoster = React.lazy(() => import('../../components/poster'));
-import { View } from 'react-native';
 
-import { 
+import {
     getBestManifest,
-    getManifestSourceType,
-    getVideoSourceUri,
     getDRM,
+    getManifestSourceType,
+    getMinutesFromTimestamp,
     getMinutesSinceStart,
-    onAdStarted,
+    getVideoSourceUri,
     mergeMenuData,
+    onAdStarted,
     subtractMinutesFromDate,
-    useDvrPausedSeconds,
-    getMinutesFromTimestamp
+    useDvrPausedSeconds
 } from '../../utils';
 
 import {
@@ -39,18 +37,18 @@ import {
 
 import { styles } from '../styles';
 
-import { 
-    type NormalFlavourProps,
-    type IManifest, 
-    type IMappedYoubora, 
-    type IDrm,
-    type IVideoSource,
+import {
     type ICommonData,
+    type IDrm,
+    type IManifest,
+    type IMappedYoubora,
     type IPlayerMenuData,
+    type IVideoSource,
+    type NormalFlavourProps,
     CONTROL_ACTION,
+    PLAYER_MENU_DATA_TYPE,
     STREAM_FORMAT_TYPE,
-    YOUBORA_FORMAT,
-    PLAYER_MENU_DATA_TYPE
+    YOUBORA_FORMAT
 } from '../../types';
 
 export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
@@ -69,9 +67,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const isHLS = useRef<boolean>();
     const isDASH = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
-    const dvrLoadTimestamp = useRef<number>();
     const seekableRange = useRef<number>();
     const liveStartProgramTimestamp = useRef<number>();
+    const needsLiveInitialSeek = useRef<boolean>(false);
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
@@ -192,6 +190,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }, [dvrPaused?.pausedDatum]);
 
+    useEffect(() => {
+        console.log(`[DANI] dvrTimeValue ${dvrTimeValue}`);
+    }, [dvrTimeValue]);
+
     const checkIfPlayerIsLandscape = (height: number, width: number, insets: EdgeInsets): boolean => {
 
         // Calculamos una dimension del player
@@ -235,6 +237,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
         if (props.isLive && typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
             isDVR.current = true;
+            needsLiveInitialSeek.current = false;
 
             if (typeof(liveStartProgramTimestamp.current) === 'number' && liveStartProgramTimestamp.current > 0){
                 const minutes = getMinutesFromTimestamp(liveStartProgramTimestamp.current);
@@ -243,7 +246,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 if (minutes < currentManifest.current?.dvr_window_minutes){
                     // Adecuamos el valor de la ventana de DVR, para la barra de progreso y los calculos de DVR
                     dvrWindowSeconds.current = minutes * 60;
-                    setDvrTimeValue(dvrWindowSeconds.current);
+                    setDvrTimeValue(0);
+                    needsLiveInitialSeek.current = true;
                 }
 
             } else {
@@ -262,7 +266,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         }
 
         // Recalculamos la ventana de tiempo para el slider en DVR
-        if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
+        if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0 && !liveStartProgramTimestamp.current){
             const dvrRecalculatedMinutes = getMinutesSinceStart(uri);
 
             if (dvrRecalculatedMinutes){
@@ -276,6 +280,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             startPosition = currentTime * 1000;
 
         }
+
+        console.log(`[Player] (Normal Flavour) setPlayerSource startPosition: ${startPosition}`);
 
         // Montamos el Source para el player
         videoSource.current = {
@@ -331,10 +337,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         }
         
         if (id === CONTROL_ACTION.LIVE_START_PROGRAM && isDVR.current){
+            setIsContentLoaded(false);
             const timestamp = props.onLiveStartProgram?.();
             
             if (typeof(timestamp) === 'number'){
                 liveStartProgramTimestamp.current = timestamp;
+                setDvrTimeValue(0);
             }
             
             setPlayerSource();
@@ -391,6 +399,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             // Si tenemos un timestamp de inicio de programa, lo eliminamos y refrescamos el source con la ventana original
             if (typeof(liveStartProgramTimestamp.current) === 'number' && liveStartProgramTimestamp.current > 0){
                 liveStartProgramTimestamp.current = undefined;
+                setIsContentLoaded(false);
                 setPlayerSource();
             }
 
@@ -480,6 +489,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             if (!isContentLoaded){
                 setIsContentLoaded(true);
 
+                if (needsLiveInitialSeek.current){
+                    // Al ir al inicio de un programa, debemos hacer seek para no ir al edge live
+                    invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, 0, currentTime);
+                }
+
                 if (props.onStart){
                     props.onStart();
                 }
@@ -487,7 +501,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             if (isDVR.current){
                 setDuration(dvrWindowSeconds.current);
-                dvrLoadTimestamp.current = (new Date()).getTime();
 
                 if (props?.isLive && props?.onChangeCommonData){
                     props.onChangeCommonData({
