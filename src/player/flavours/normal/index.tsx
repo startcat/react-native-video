@@ -242,6 +242,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             if (typeof(liveStartProgramTimestamp.current) === 'number' && liveStartProgramTimestamp.current > 0){
                 const minutes = getMinutesFromTimestamp(liveStartProgramTimestamp.current);
 
+                console.log(`[Player] (Normal Flavour) setPlayerSource -> liveStartProgramTimestamp minutes ${minutes}`);
+
                 // Revisamos que la ventana de DVR no sea inferior que el timestamp de inicio del programa
                 if (minutes < currentManifest.current?.dvr_window_minutes){
                     // Adecuamos el valor de la ventana de DVR, para la barra de progreso y los calculos de DVR
@@ -337,15 +339,17 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         }
         
         if (id === CONTROL_ACTION.LIVE_START_PROGRAM && isDVR.current){
-            setIsContentLoaded(false);
+            
             const timestamp = props.onLiveStartProgram?.();
             
             if (typeof(timestamp) === 'number'){
                 liveStartProgramTimestamp.current = timestamp;
+                setIsContentLoaded(false);
                 setDvrTimeValue(0);
+                setHasSeekOverDRV(false);
+                setPlayerSource();
             }
             
-            setPlayerSource();
         }
         
         if (isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
@@ -400,16 +404,23 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             if (typeof(liveStartProgramTimestamp.current) === 'number' && liveStartProgramTimestamp.current > 0){
                 liveStartProgramTimestamp.current = undefined;
                 setIsContentLoaded(false);
-                setPlayerSource();
-            }
 
-            setDvrTimeValue(duration);
-            onChangeDvrTimeValue(duration);
-            if (typeof(duration) === 'number'){
+                setDvrTimeValue(currentManifest.current?.dvr_window_minutes);
+                onChangeDvrTimeValue(currentManifest.current?.dvr_window_minutes!);
                 setHasSeekOverDRV(false);
-            }
+                setPlayerSource();
 
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current, props.onSeek);
+            } else {
+                setDvrTimeValue(duration);
+                onChangeDvrTimeValue(duration);
+
+                if (typeof(duration) === 'number'){
+                    setHasSeekOverDRV(false);
+                }
+
+                invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current, props.onSeek);
+
+            }
 
         }
 
@@ -499,7 +510,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 }
             }
 
+            console.log(`[Player] (Normal Flavour) onLoad -> isDVR ${isDVR.current}`);
             if (isDVR.current){
+                console.log(`[Player] (Normal Flavour) onLoad -> setDuration ${dvrWindowSeconds.current}`);
                 setDuration(dvrWindowSeconds.current);
 
                 if (props?.isLive && props?.onChangeCommonData){
@@ -509,6 +522,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 }
 
             } else if (typeof(e.duration) === 'number' && e.duration && duration !== e.duration){
+                console.log(`[Player] (Normal Flavour) onLoad -> B. setDuration ${e.duration}`);
                 setDuration(e.duration);
 
                 if (!props?.isLive && props?.onChangeCommonData){
