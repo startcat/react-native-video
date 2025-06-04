@@ -37,8 +37,19 @@ const subtractMinutesFromDate = (date: Date, min: number): Date => {
 
 export const getMinutesFromTimestamp = (timestamp: number): number => {
     
-    const date = new Date(timestamp * 1000);
-    return date.getMinutes();
+    const timestampDate = new Date(timestamp * 1000);
+    const currentDate = new Date();
+    
+    // Calculate difference in milliseconds
+    const diffMs = currentDate.getTime() - timestampDate.getTime();
+    
+    // Convert to minutes and round down
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    
+    log(`timestampDate from ${timestamp}: ${timestampDate.toLocaleTimeString()}`);
+    log(`Minutes from timestamp: ${diffMinutes}`);
+    
+    return diffMinutes;
 
 }
 
