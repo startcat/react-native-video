@@ -249,6 +249,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     onChangeCommonData={changeCommonData}
                     onDVRChange={props.onDVRChange}
                     onSeekOverEpg={props.onSeekOverEpg}
+                    onLiveStartProgram={props.onLiveStartProgram}
                     onNext={props.onNext}
                     onEnd={props.onEnd}
                     onExit={props.onExit}
@@ -323,6 +324,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     onChangeCommonData={changeCommonData}
                     onDVRChange={props.onDVRChange}
                     onSeekOverEpg={props.onSeekOverEpg}
+                    onLiveStartProgram={props.onLiveStartProgram}
                     onNext={props.onNext}
                     onEnd={props.onEnd}
                     onExit={props.onExit}

@@ -35,7 +35,14 @@ const subtractMinutesFromDate = (date: Date, min: number): Date => {
 
 }
 
-const addLiveTimestamp = (uri: string, subtractMinutes: number): string => {
+export const getMinutesFromTimestamp = (timestamp: number): number => {
+    
+    const date = new Date(timestamp * 1000);
+    return date.getMinutes();
+
+}
+
+const addLiveTimestamp = (uri: string, subtractMinutes: number, liveStartProgramTimestamp?: number): string => {
 
     let fromDate = new Date();
 
@@ -44,9 +51,13 @@ const addLiveTimestamp = (uri: string, subtractMinutes: number): string => {
 
     }
 
-    if (subtractMinutes){
+    if (typeof(liveStartProgramTimestamp) === 'number' && liveStartProgramTimestamp > 0){
+        fromDate = new Date(liveStartProgramTimestamp * 1000);
+        log(`DVR fromDate ${fromDate.toLocaleTimeString()} from timestamp ${liveStartProgramTimestamp}`);
+
+    } else if (subtractMinutes){
         fromDate = subtractMinutesFromDate(fromDate, subtractMinutes);
-        log(`DVR fromDate ${fromDate.toLocaleTimeString()}`);
+        log(`DVR fromDate ${fromDate.toLocaleTimeString()} from subtractMinutes ${subtractMinutes}`);
 
     }
 
@@ -128,11 +139,12 @@ export const getManifestSourceType = (manifest: IManifest): string | undefined =
 
 }
 
-export const getVideoSourceUri = (manifest: IManifest, dvrWindowMinutes?: number): string => {
+export const getVideoSourceUri = (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number): string => {
 
     let uri = getAbsoluteUri(manifest?.manifestURL),
         hasStartParam = false,
-        hasEndParam = false;
+        hasEndParam = false,
+        tempLiveStartProgramTimestamp;
 
     if (typeof(uri) === 'string' && uri?.indexOf('?') > 0){
         const queryString = uri.substring(uri.indexOf('?') + 1);
@@ -159,7 +171,18 @@ export const getVideoSourceUri = (manifest: IManifest, dvrWindowMinutes?: number
     }
     
     if (typeof(dvrWindowMinutes) === 'number' && dvrWindowMinutes > 0 && !hasStartParam){
-        uri = addLiveTimestamp(uri, dvrWindowMinutes);
+
+        if (typeof(liveStartProgramTimestamp) === 'number' && liveStartProgramTimestamp > 0){
+            const minutes = getMinutesFromTimestamp(liveStartProgramTimestamp);
+
+            // Revisamos que la ventana de DVR no sea inferior que el timestamp de inicio del programa
+            if (minutes < dvrWindowMinutes){
+                tempLiveStartProgramTimestamp = liveStartProgramTimestamp;
+            }
+            
+        }
+
+        uri = addLiveTimestamp(uri, dvrWindowMinutes, tempLiveStartProgramTimestamp);
     }
 
     log(`uri: ${uri}`);

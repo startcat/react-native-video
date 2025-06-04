@@ -63,6 +63,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     const castMessage = useRef();
     const isDVR = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
+    const liveStartProgramTimestamp = useRef<number>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();

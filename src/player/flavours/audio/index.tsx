@@ -60,6 +60,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const dvrWindowSeconds = useRef<number>();
     const dvrLoadTimestamp = useRef<number>();
     const seekableRange = useRef<number>();
+    const liveStartProgramTimestamp = useRef<number>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
