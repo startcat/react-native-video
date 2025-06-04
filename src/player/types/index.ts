@@ -66,6 +66,7 @@ export enum CONTROL_ACTION {
     SEEK = 'seek',
     SEEK_OVER_EPG = 'seekOverEpg',
     LIVE = 'goToLive',
+    LIVE_START_PROGRAM = 'goToLiveStartProgram',
     VIDEO_INDEX = 'videoIndex',
     AUDIO_INDEX = 'audioIndex',
     SUBTITLE_INDEX = 'subtitleIndex',
@@ -653,7 +654,7 @@ export interface AudioFlavourProps {
     controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
-    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumSource?: () => IVideoSource | null | undefined;
 
@@ -707,7 +708,7 @@ export interface AudioCastFlavourProps {
     controls?: FunctionComponent<AudioControlsProps>;
 
     // Utils
-    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
 
     // Events
@@ -773,7 +774,7 @@ export interface NormalFlavourProps {
     settingsMenu?: FunctionComponent<MenuProps>;
 
     // Utils
-    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
@@ -782,6 +783,7 @@ export interface NormalFlavourProps {
     onChangeCommonData?: (data: ICommonData) => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
     onSeekOverEpg?: () => number | null;
+    onLiveStartProgram?: () => number | null;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
     onEnd?: () => void;
@@ -839,7 +841,7 @@ export interface CastFlavourProps {
     settingsMenu?: FunctionComponent<MenuProps>;
 
     // Utils
-    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 
@@ -847,6 +849,7 @@ export interface CastFlavourProps {
     onChangeCommonData?: (data: ICommonData) => void;
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
     onSeekOverEpg?: () => number | null;
+    onLiveStartProgram?: () => number | null;
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onNext?: () => void;
     onEnd?: () => void;
@@ -907,7 +910,7 @@ export interface PlayerProps {
     // Utils
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
-    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
@@ -924,6 +927,7 @@ export interface PlayerProps {
     onDVRChange?: (value: number, offset?: number, date?: Date) => void;
     onSeek?: (value: number) => void;
     onSeekOverEpg?: () => number | null;
+    onLiveStartProgram?: () => number | null;
     onBuffering?: (value:boolean) => void;
     onStart?: () => void;
     onPlay?: () => void;
@@ -957,7 +961,7 @@ export interface AudioPlayerContentsDpo {
     // Utils
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
-    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
+    getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumSource?: () => IVideoSource | null | undefined;
 

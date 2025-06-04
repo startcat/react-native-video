@@ -29,7 +29,8 @@ import {
     onAdStarted,
     mergeMenuData,
     subtractMinutesFromDate,
-    useDvrPausedSeconds
+    useDvrPausedSeconds,
+    getMinutesFromTimestamp
 } from '../../utils';
 
 import {
@@ -70,6 +71,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const dvrWindowSeconds = useRef<number>();
     const dvrLoadTimestamp = useRef<number>();
     const seekableRange = useRef<number>();
+    const liveStartProgramTimestamp = useRef<number>();
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
@@ -233,16 +235,29 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
         if (props.isLive && typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
             isDVR.current = true;
-            dvrWindowSeconds.current = currentManifest.current?.dvr_window_minutes * 60;
-            setDvrTimeValue(dvrWindowSeconds.current);
+
+            if (typeof(liveStartProgramTimestamp.current) === 'number' && liveStartProgramTimestamp.current > 0){
+                const minutes = getMinutesFromTimestamp(liveStartProgramTimestamp.current);
+
+                // Revisamos que la ventana de DVR no sea inferior que el timestamp de inicio del programa
+                if (minutes < currentManifest.current?.dvr_window_minutes){
+                    // Adecuamos el valor de la ventana de DVR, para la barra de progreso y los calculos de DVR
+                    dvrWindowSeconds.current = minutes * 60;
+                    setDvrTimeValue(dvrWindowSeconds.current);
+                }
+
+            } else {
+                dvrWindowSeconds.current = currentManifest.current?.dvr_window_minutes * 60;
+                setDvrTimeValue(dvrWindowSeconds.current);
+            }
         }
 
         // Preparamos la uri por si necesitamos incorporar el start en el dvr
         if (props.getSourceUri){
-            uri = props.getSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+            uri = props.getSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes, liveStartProgramTimestamp.current);
 
         } else {
-            uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes);
+            uri = getVideoSourceUri(currentManifest.current!, currentManifest.current?.dvr_window_minutes, liveStartProgramTimestamp.current);
             
         }
 
@@ -315,6 +330,16 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             props.onNext();
         }
         
+        if (id === CONTROL_ACTION.LIVE_START_PROGRAM && isDVR.current){
+            const timestamp = props.onLiveStartProgram?.();
+            
+            if (typeof(timestamp) === 'number'){
+                liveStartProgramTimestamp.current = timestamp;
+            }
+            
+            setPlayerSource();
+        }
+        
         if (isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
             // Cambio de calidad con HLS
             if (value === -1){
@@ -362,6 +387,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Volver al directo en DVR
+
+            // Si tenemos un timestamp de inicio de programa, lo eliminamos y refrescamos el source con la ventana original
+            if (typeof(liveStartProgramTimestamp.current) === 'number' && liveStartProgramTimestamp.current > 0){
+                liveStartProgramTimestamp.current = undefined;
+                setPlayerSource();
+            }
+
             setDvrTimeValue(duration);
             onChangeDvrTimeValue(duration);
             if (typeof(duration) === 'number'){
