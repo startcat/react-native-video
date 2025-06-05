@@ -55,6 +55,7 @@ export const getMinutesFromTimestamp = (timestamp: number): number => {
 
 const addLiveTimestamp = (uri: string, subtractMinutes: number, liveStartProgramTimestamp?: number): string => {
 
+    const isLiveProgramStartingPoint = typeof(liveStartProgramTimestamp) === 'number' && liveStartProgramTimestamp > 0;
     let fromDate = new Date();
 
     if (!uri || typeof(uri) !== 'string'){
@@ -62,7 +63,7 @@ const addLiveTimestamp = (uri: string, subtractMinutes: number, liveStartProgram
 
     }
 
-    if (typeof(liveStartProgramTimestamp) === 'number' && liveStartProgramTimestamp > 0){
+    if (isLiveProgramStartingPoint){
         fromDate = new Date(liveStartProgramTimestamp * 1000);
         log(`DVR fromDate ${fromDate.toLocaleTimeString()} from timestamp ${liveStartProgramTimestamp}`);
 
@@ -80,6 +81,10 @@ const addLiveTimestamp = (uri: string, subtractMinutes: number, liveStartProgram
     } else {
         uri = `${uri}?start=${timestamp}`;
 
+    }
+
+    if (isLiveProgramStartingPoint){
+        uri += `&start-tag=true`;
     }
 
     return uri;
