@@ -481,6 +481,7 @@ export interface ControlsBarProps {
     isDVR?: boolean;
     isDVRStart?: boolean;
     isContentLoaded?: boolean;
+    isChangingSource?: boolean;
     
     // Components
     loader?:React.ReactElement;
@@ -513,6 +514,7 @@ export interface ControlsProps {
     isDVR?: boolean;
     isDVRStart?: boolean;
     isContentLoaded?: boolean;
+    isChangingSource?: boolean;
 
     // Components
     loader?:React.ReactElement;
@@ -577,6 +579,7 @@ export interface OverlayProps {
     avoidTimelineThumbnails?: boolean;
     
     alwaysVisible?: boolean;
+    isChangingSource?: boolean;
     
     isLive?: boolean;
     isDVR?: boolean;

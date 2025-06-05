@@ -29,6 +29,7 @@ const OverlayBase = ({
     isDVR,
     isDVRStart,
     isContentLoaded,
+    isChangingSource,
     hasNext,
     alwaysVisible,
     menuData,
@@ -212,8 +213,8 @@ const OverlayBase = ({
     , [avoidDissapear, visibleControls]);
 
     const showTimeMarks = useMemo(() => 
-        !visibleMenu && !visibleSettingsMenu && !visibleControls && !avoidDissapear
-    , [visibleMenu, visibleSettingsMenu, visibleControls, avoidDissapear]);
+        !isChangingSource && !visibleMenu && !visibleSettingsMenu && !visibleControls && !avoidDissapear
+    , [visibleMenu, visibleSettingsMenu, visibleControls, avoidDissapear, isChangingSource]);
 
     return (
         <Pressable 
@@ -236,6 +237,7 @@ const OverlayBase = ({
                     muted={muted}
                     volume={volume}
                     preloading={preloading}
+                    isChangingSource={isChangingSource}
                     isLive={isLive}
                     isDVR={isDVR}
                     isDVRStart={isDVRStart}
@@ -261,9 +263,9 @@ const OverlayBase = ({
                 />
             )}
 
-            {visibleMenu && PropMenu && PropMenu}
+            {!isChangingSource && visibleMenu && PropMenu}
 
-            {visibleMenu && !PropMenu && (
+            {!isChangingSource && visibleMenu && !PropMenu && (
                 <Suspense fallback={loader}>
                     <Menu
                         videoIndex={videoIndex}
@@ -276,9 +278,9 @@ const OverlayBase = ({
                 </Suspense>
             )}
 
-            {visibleSettingsMenu && PropSettingsMenu && PropSettingsMenu}
+            {!isChangingSource && visibleSettingsMenu && PropSettingsMenu}
 
-            {visibleSettingsMenu && !PropSettingsMenu && (
+            {!isChangingSource && visibleSettingsMenu && !PropSettingsMenu && (
                 <Suspense fallback={loader}>
                     <SettingsMenu
                         speedRate={speedRate}

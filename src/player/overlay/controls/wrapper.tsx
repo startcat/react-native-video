@@ -29,6 +29,7 @@ const ControlsBase = ({
     isDVR,
     isDVRStart,
     isContentLoaded,
+    isChangingSource,
     nextButton,
     liveButton,
     headerMetadata,
@@ -72,6 +73,7 @@ const ControlsBase = ({
         isDVRStart,
         isDVR,
         isContentLoaded,
+        isChangingSource,
         nextButton,
         liveButton,
         headerMetadata,
@@ -82,7 +84,7 @@ const ControlsBase = ({
         onExit
     }), [
         title, currentTime, dvrTimeValue, duration, paused, muted, volume,
-        preloading, hasNext, isLive, isDVR, isDVRStart, isContentLoaded, nextButton,
+        preloading, hasNext, isLive, isDVR, isDVRStart, isContentLoaded, isChangingSource, nextButton,
         liveButton, headerMetadata, handlePress, onSlidingStart, onSlidingMove, onSlidingComplete, onExit
     ]);
 
@@ -117,6 +119,7 @@ const ControlsBase = ({
                 <ControlsMiddleBar
                     paused={paused}
                     isContentLoaded={isContentLoaded}
+                    isChangingSource={isChangingSource}
                     onPress={handlePress}
                     onExit={onExit}
                 />
@@ -126,6 +129,7 @@ const ControlsBase = ({
                 <ControlsHeaderBar 
                     preloading={preloading}
                     isContentLoaded={isContentLoaded}
+                    isChangingSource={isChangingSource}
                     onPress={handlePress}
                     onExit={onExit}
                 />
@@ -143,6 +147,7 @@ const ControlsBase = ({
                         isDVR={isDVR}
                         isDVRStart={isDVRStart}
                         isContentLoaded={isContentLoaded}
+                        isChangingSource={isChangingSource}
                         hasNext={hasNext}
                         volume={volume}
                         liveButton={liveButton}
