@@ -70,6 +70,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const seekableRange = useRef<number>();
     const liveStartProgramTimestamp = useRef<number>();
     const needsLiveInitialSeek = useRef<boolean>(false);
+    const isChangingSource = useRef<boolean>(true);
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
@@ -111,6 +112,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             };
 
         } else {
+            isChangingSource.current = true;
             setPlayerSource();
 
         }
@@ -185,14 +187,23 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         if (typeof(dvrTimeValue) === 'number' && dvrPaused?.pausedDatum > 0 && dvrPaused?.pausedSeconds > 0){
             const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
 
-            setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
+            // Revisaremos si hay que hacer crecer la ventana de tiempo del directo
+            if (typeof(dvrWindowSeconds.current) === 'number'){
+                dvrWindowSeconds.current = dvrWindowSeconds.current + dvrPaused.pausedSeconds;
+                setDuration(dvrWindowSeconds.current);
+
+                if (props?.isLive && props?.onChangeCommonData){
+                    props.onChangeCommonData({
+                        duration: dvrWindowSeconds.current
+                    });
+                }
+            }
+
+            // Si nos detenemos tras volver al inicio de un programa en DVR, seguiremos viendo como nos alejamos del directo
+            setDvrTimeValue(moveDVRto);
         }
 
     }, [dvrPaused?.pausedDatum]);
-
-    useEffect(() => {
-        console.log(`[DANI] dvrTimeValue ${dvrTimeValue}`);
-    }, [dvrTimeValue]);
 
     const checkIfPlayerIsLandscape = (height: number, width: number, insets: EdgeInsets): boolean => {
 
@@ -245,12 +256,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 console.log(`[Player] (Normal Flavour) setPlayerSource -> liveStartProgramTimestamp minutes ${minutes}`);
 
                 // Revisamos que la ventana de DVR no sea inferior que el timestamp de inicio del programa
-                if (minutes < currentManifest.current?.dvr_window_minutes){
+                // Por ahora no lo hacemos, ya que el valor de la ventana de DVR es el que viene del manifest mientras que el stream tiene una ventana mucho mayor
+                // if (minutes < currentManifest.current?.dvr_window_minutes){
                     // Adecuamos el valor de la ventana de DVR, para la barra de progreso y los calculos de DVR
                     dvrWindowSeconds.current = minutes * 60;
                     setDvrTimeValue(0);
                     needsLiveInitialSeek.current = true;
-                }
+                // }
 
             } else {
                 dvrWindowSeconds.current = currentManifest.current?.dvr_window_minutes * 60;
@@ -343,6 +355,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             const timestamp = props.onLiveStartProgram?.();
             
             if (typeof(timestamp) === 'number'){
+                isChangingSource.current = true;
                 liveStartProgramTimestamp.current = timestamp;
                 setIsContentLoaded(false);
                 setDvrTimeValue(0);
@@ -402,6 +415,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             // Si tenemos un timestamp de inicio de programa, lo eliminamos y refrescamos el source con la ventana original
             if (typeof(liveStartProgramTimestamp.current) === 'number' && liveStartProgramTimestamp.current > 0){
+                isChangingSource.current = true;
                 liveStartProgramTimestamp.current = undefined;
                 setIsContentLoaded(false);
 
@@ -505,6 +519,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                     invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, 0, currentTime);
                 }
 
+                isChangingSource.current = false;
+
                 if (props.onStart){
                     props.onStart();
                 }
@@ -549,6 +565,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         if (isPlayingExternalTudum){
             // Acaba la reproducción del Tudum externo
+            isChangingSource.current = true;
             setPlayerSource();
             setIsPlayingExternalTudum(false);
 
@@ -746,6 +763,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         isDVR={isDVR.current}
                         isDVRStart={hasSeekOverDRV}
                         isContentLoaded={isContentLoaded}
+                        isChangingSource={isChangingSource.current}
 
                         // Components
                         loader={props.loader}

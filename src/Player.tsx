@@ -51,7 +51,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const castState = useCastState();
 
     useOrientationChange((o) => {
-        // Pequeño apaño para el lock de rotación
+        // Pequeño apaño para el lock de rotación (fallback para dispositivos viejos)
         if (!hasRotated){
             setTimeout(() => {
                 setHasRotated(true);
