@@ -2,7 +2,6 @@ struct YouboraParams {
     let accountCode: String?
     let contentTransactionCode: String?
     let username: String?
-    let userId: String?
     let contentId: String?
     let contentType: String?
     let contentTitle: String?
@@ -35,7 +34,6 @@ struct YouboraParams {
             self.accountCode = nil
             self.contentTransactionCode = nil
             self.username = nil
-            self.userId = nil
             self.contentId = nil
             self.contentType = nil
             self.contentTitle = nil
@@ -66,7 +64,6 @@ struct YouboraParams {
         self.accountCode = json["accountCode"] as? String
         self.contentTransactionCode = json["contentTransactionCode"] as? String
         self.username = json["username"] as? String
-        self.userId = json["userId"] as? String
         self.contentId = json["contentId"] as? String
         self.contentType = json["contentType"] as? String
         self.contentTitle = json["contentTitle"] as? String
