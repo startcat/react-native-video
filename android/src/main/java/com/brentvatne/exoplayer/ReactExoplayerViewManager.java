@@ -418,6 +418,10 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 				analyticsOptions.setUsername(youbora.getString("username"));
 			}
 
+            if (youbora.hasKey("userId")) {
+				analyticsOptions.setUserId(youbora.getString("userId"));
+			}
+
 			if (youbora.hasKey("contentId")) {
 				analyticsOptions.setContentId(youbora.getString("contentId"));
 			}
