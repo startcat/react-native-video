@@ -497,7 +497,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             
             analyticsOptions.contentTransactionCode = self._youbora?.contentTransactionCode
             analyticsOptions.userName = self._youbora?.username
-            analyticsOptions.userId = self._youbora?.userId
             analyticsOptions.contentId = self._youbora?.contentId
             analyticsOptions.contentType = self._youbora?.contentType
             analyticsOptions.contentTitle = self._youbora?.contentTitle
