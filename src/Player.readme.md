@@ -121,12 +121,15 @@ El Player lanza los siguientes eventos:
 <!-- Esta sección explicará cómo se genera el source para el reproductor y cómo configurar DRM -->
 
 ### 2. Valores iniciales de reproducción
+[Ver documentación detallada sobre valores iniciales](./player/docs/initial_values.md)
 <!-- Esta sección explicará cómo configurar la posición inicial, idioma, subtítulos, etc. -->
 
 ### 3. Generación de los metadatos
-<!-- Esta sección explicará cómo generar y pasar los metadatos necesarios al reproductor -->
+[Ver documentación detallada sobre metadatos](./player/docs/metadata.md)
+<!-- Esta sección explicará cómo se generan los metadatos y cómo se muestran en los widgets del sistema operativo -->
 
 ### 4. Metadatos en widgets del sistema operativo
+[Ver documentación detallada sobre widgets del sistema](./player/docs/system_widgets.md)
 <!-- Esta sección explicará cómo se muestran los metadatos en los widgets del sistema operativo -->
 
 ### 5. Continue Watching
@@ -140,23 +143,24 @@ El Player lanza los siguientes eventos:
 [Ver documentación detallada sobre Tudum](./player/docs/tudum.md)
 <!-- Esta sección explicará qué es Tudum y cómo utilizarlo -->
 
-### 8. Botones con time markers
-<!-- Esta sección explicará cómo configurar y utilizar los botones de marcadores de tiempo -->
+### 8. Acciones de control tipadas
+[Ver documentación detallada sobre acciones de control](./player/docs/control_actions.md)
+<!-- Esta sección explicará todas las acciones tipadas disponibles en CONTROL_ACTION -->
 
-### 9. Menús personalizados
-<!-- Esta sección explicará cómo implementar y personalizar los menús del reproductor -->
+### 9. Botones con time markers
+<!-- Esta sección explicará cómo configurar botones skipIntroButton, skipRecapButton, skipCreditsButton -->
 
-### 10. Youbora
-<!-- Esta sección explicará cómo configurar e implementar Youbora para analíticas -->
+### 10. Menús personalizados
+<!-- Esta sección explicará cómo crear y personalizar menús del reproductor -->
 
-### 11. Chromecast
-<!-- Esta sección explicará cómo configurar e implementar la funcionalidad de Chromecast -->
+### 11. Integración con Youbora
+<!-- Esta sección explicará cómo integrar analíticas con Youbora -->
 
-### 12. Airplay
-<!-- Esta sección explicará cómo configurar e implementar la funcionalidad de Airplay -->
+### 12. Funcionalidad Chromecast y Airplay
+<!-- Esta sección explicará cómo configurar y utilizar casting -->
 
-### 13. Reproducción Offline
-<!-- Esta sección explicará cómo implementar y utilizar la reproducción offline -->
+### 13. Reproducción offline y servicios en segundo plano
+<!-- Esta sección explicará cómo manejar contenido offline y servicios en background -->
 
 ### 14. Foreground Services y Background Modes
 <!-- Esta sección explicará cómo configurar los servicios en primer plano y los modos en segundo plano -->
