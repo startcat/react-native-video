@@ -6,7 +6,6 @@ import BackgroundTimer from 'react-native-background-timer';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { CastState, useCastState } from 'react-native-google-cast';
 import { Platform } from 'react-native';
-// import { NormalFlavour, CastFlavour } from './player/flavours';
 import { default as Downloads } from './Downloads';
 
 const NormalFlavour = lazy(() => import('./player/flavours/normal').then(module => ({ 
