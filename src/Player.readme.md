@@ -147,26 +147,30 @@ El Player lanza los siguientes eventos:
 [Ver documentación detallada sobre acciones de control](./player/docs/control_actions.md)
 <!-- Esta sección explicará todas las acciones tipadas disponibles en CONTROL_ACTION -->
 
-### 9. Botones con time markers
+### 9. Servicios y permisos
+[Ver documentación detallada sobre servicios y permisos](./player/docs/services.md)
+<!-- Esta sección explicará los permisos necesarios, servicios de background, widgets multimedia y requisitos para las tiendas de aplicaciones -->
+
+### 10. Botones con time markers
 <!-- Esta sección explicará cómo configurar botones skipIntroButton, skipRecapButton, skipCreditsButton -->
 
-### 10. Menús personalizados
+### 11. Menús personalizados
 <!-- Esta sección explicará cómo crear y personalizar menús del reproductor -->
 
-### 11. Integración con Youbora
+### 12. Integración con Youbora
 <!-- Esta sección explicará cómo integrar analíticas con Youbora -->
 
-### 12. Funcionalidad Chromecast y Airplay
+### 13. Funcionalidad Chromecast y Airplay
 <!-- Esta sección explicará cómo configurar y utilizar casting -->
 
-### 13. Reproducción offline y servicios en segundo plano
+### 14. Reproducción offline y servicios en segundo plano
 <!-- Esta sección explicará cómo manejar contenido offline y servicios en background -->
 
-### 14. Foreground Services y Background Modes
+### 15. Foreground Services y Background Modes
 <!-- Esta sección explicará cómo configurar los servicios en primer plano y los modos en segundo plano -->
 
-### 15. Personalización por usuario
+### 16. Personalización por usuario
 <!-- Esta sección explicará cómo personalizar la experiencia del reproductor por usuario -->
 
-### 16. Supervisión de permisos
+### 17. Supervisión de permisos
 <!-- Esta sección explicará cómo gestionar y supervisar los permisos necesarios para el reproductor -->
