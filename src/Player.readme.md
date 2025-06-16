@@ -9,6 +9,19 @@ El componente Player es un reproductor de medios avanzado para React Native que 
 
 El componente ha sido optimizado siguiendo varias estrategias para mejorar su rendimiento, incluyendo memorización con `useMemo`, optimización con `useCallback`, y uso de `React.memo` con comparadores personalizados.
 
+## Changelog
+
+Para ver el historial completo de cambios, mejoras y correcciones del componente Player:
+
+ **[Ver Changelog completo](./player/docs/changelog.md)**
+
+El changelog incluye:
+- **Nuevas funcionalidades** añadidas en cada versión
+- **Cambios** en funcionalidades existentes  
+- **Correcciones de errores** y mejoras de rendimiento
+- **Actualizaciones de seguridad** y dependencias
+- **Funcionalidades obsoletas** y eliminadas
+
 ## Props del Componente
 
 | Nombre | Tipo | Obligatorio | Descripción |
