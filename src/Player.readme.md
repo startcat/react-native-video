@@ -171,6 +171,7 @@ El Player lanza los siguientes eventos:
 <!-- Esta sección explicará cómo crear y personalizar menús del reproductor -->
 
 ### 12. Integración con Youbora
+[Ver documentación detallada sobre integración con Youbora](./player/docs/youbora.md)
 <!-- Esta sección explicará cómo integrar analíticas con Youbora -->
 
 ### 13. Funcionalidad Chromecast y Airplay
@@ -179,11 +180,8 @@ El Player lanza los siguientes eventos:
 ### 14. Reproducción offline y servicios en segundo plano
 <!-- Esta sección explicará cómo manejar contenido offline y servicios en background -->
 
-### 15. Foreground Services y Background Modes
-<!-- Esta sección explicará cómo configurar los servicios en primer plano y los modos en segundo plano -->
-
-### 16. Personalización por usuario
+### 15. Personalización por usuario
 <!-- Esta sección explicará cómo personalizar la experiencia del reproductor por usuario -->
 
-### 17. Supervisión de permisos
+### 16. Supervisión de permisos
 <!-- Esta sección explicará cómo gestionar y supervisar los permisos necesarios para el reproductor -->
