@@ -174,13 +174,17 @@ El Player lanza los siguientes eventos:
 [Ver documentación detallada sobre integración con Youbora](./player/docs/youbora.md)
 <!-- Esta sección explicará cómo integrar analíticas con Youbora -->
 
-### 13. Funcionalidad Chromecast y Airplay
+### 13. Funcionalidad Chromecast
 <!-- Esta sección explicará cómo configurar y utilizar casting -->
 
-### 14. Reproducción offline y servicios en segundo plano
+### 14. Funcionalidad Airplay
+[Ver documentación detallada sobre AirPlay](./player/docs/airplay.md)
+<!-- Esta sección explicará cómo configurar y utilizar airplay -->
+
+### 15. Reproducción offline y servicios en segundo plano
 <!-- Esta sección explicará cómo manejar contenido offline y servicios en background -->
 
-### 15. Personalización por usuario
+### 16. Personalización por usuario
 <!-- Esta sección explicará cómo personalizar la experiencia del reproductor por usuario -->
 
 ### 16. Supervisión de permisos
