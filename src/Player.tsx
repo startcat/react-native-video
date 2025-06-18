@@ -39,7 +39,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const isPaused = useRef<boolean>(false);
     const isMuted = useRef<boolean>(false);
     const isCasting = useRef<boolean>(false);
-    const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
+    const watchingProgressIntervalObj = useRef<number>();
     const hasBeenLoaded = useRef<boolean>(false);
 
     const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(typeof(props.audioIndex) === 'number' ? props.audioIndex : -1);
@@ -189,12 +189,11 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         
     }
 
-
     if (hasRotated && (castState === CastState.CONNECTING || castState === CastState.CONNECTED)){
         console.log(`[Player] Mounting CastFlavour...`);
         isCasting.current = true;
         return (
-            <Suspense fallback={props.loader}>
+            <Suspense fallback={props.suspenseLoader}>
                 <CastFlavour
                     id={props.id}
                     title={props.title}
@@ -263,7 +262,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         console.log(`[Player] Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
-            <Suspense fallback={props.loader}>
+            <Suspense fallback={props.suspenseLoader}>
                 <NormalFlavour
                     id={props.id}
                     title={props.title}
