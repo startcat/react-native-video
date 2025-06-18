@@ -895,6 +895,7 @@ export interface PlayerProps {
 
     // Components
     loader?:React.ReactElement;
+    suspenseLoader?: React.ReactElement;
     mosca?: React.ReactElement;
     headerMetadata?: FunctionComponent<HeaderMetadataProps>;
     sliderVOD?: FunctionComponent<SliderVODProps>;
