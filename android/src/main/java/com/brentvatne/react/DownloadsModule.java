@@ -16,6 +16,8 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.Arguments;
 
+import android.app.ActivityManager;
+import android.app.ForegroundServiceStartNotAllowedException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -77,6 +79,10 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     private DownloadHelper mDownloadHelper;
 
     private static MediaItem currentMediaItem;
+    
+    // Variable para trackear si hay un resumeAll pendiente
+    private boolean pendingResumeAll = false;
+    private Promise pendingResumePromise = null;
 
     public DownloadsModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -111,6 +117,43 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
             }
         }
     };
+
+    // Método para detectar si la app está en primer plano
+    private boolean isAppInForeground() {
+        try {
+            if (getCurrentActivity() == null) {
+                Log.w(TAG, "getCurrentActivity() returned null, assuming app is not in foreground");
+                return false;
+            }
+            
+            ActivityManager activityManager = (ActivityManager) getCurrentActivity().getSystemService(Context.ACTIVITY_SERVICE);
+            if (activityManager == null) {
+                Log.w(TAG, "ActivityManager is null, assuming app is not in foreground");
+                return false;
+            }
+            
+            List<ActivityManager.RunningAppProcessInfo> appProcesses = activityManager.getRunningAppProcesses();
+            if (appProcesses == null) {
+                Log.w(TAG, "Running app processes list is null, assuming app is not in foreground");
+                return false;
+            }
+            
+            String packageName = reactContext.getPackageName();
+            for (ActivityManager.RunningAppProcessInfo appProcess : appProcesses) {
+                if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND 
+                    && appProcess.processName.equals(packageName)) {
+                    Log.d(TAG, "App is in foreground");
+                    return true;
+                }
+            }
+            
+            Log.d(TAG, "App is not in foreground");
+            return false;
+        } catch (Exception e) {
+            Log.e(TAG, "Error checking if app is in foreground: " + e.getMessage(), e);
+            return false;
+        }
+    }
 
     private void initOfflineManager() {
         Log.d(TAG, "initOfflineManager");
@@ -275,14 +318,55 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
         DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
 
         if (this.reactContext != null && manager != null){
+            
+            // Verificar si la app está en primer plano antes de intentar iniciar el servicio
+            if (!isAppInForeground()) {
+                Log.w(TAG, "App not in foreground, deferring resumeAll()");
+                pendingResumeAll = true;
+                pendingResumePromise = promise;
+                
+                // Notificar al usuario que las descargas se reanudarán cuando la app vuelva al primer plano
+                WritableMap params = Arguments.createMap();
+                params.putString("message", "Downloads will resume when app returns to foreground");
+                getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                        .emit("downloadResumeDeferred", params);
+                
+                // No resolvemos la promise aquí, se resolverá cuando realmente se ejecute el resume
+                return;
+            }
+            
             try {
                 DownloadService.sendResumeDownloads(this.reactContext, AxDownloadService.class, false);
                 promise.resolve(null);
 
             } catch (IllegalStateException e) {
-                DownloadService.sendResumeDownloads(this.reactContext, AxDownloadService.class, true);
-                promise.resolve(null);
+                Log.w(TAG, "IllegalStateException in resumeAll, trying with foreground=true", e);
+                try {
+                    DownloadService.sendResumeDownloads(this.reactContext, AxDownloadService.class, true);
+                    promise.resolve(null);
+                } catch (Exception ex) {
+                    Log.e(TAG, "Failed to resume downloads even with foreground=true", ex);
+                    promise.reject("RESUME_FAILED", "Failed to resume downloads: " + ex.getMessage());
+                }
 
+            } catch (ForegroundServiceStartNotAllowedException e) {
+                Log.w(TAG, "ForegroundServiceStartNotAllowedException: Cannot start foreground service now, will retry when app comes to foreground", e);
+                pendingResumeAll = true;
+                pendingResumePromise = promise;
+                
+                // Notificar al usuario sobre el defer
+                WritableMap params = Arguments.createMap();
+                params.putString("message", "Downloads cannot start now due to Android restrictions. Will retry when app returns to foreground.");
+                params.putString("error", e.getMessage());
+                getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                        .emit("downloadResumeDeferred", params);
+                
+                // No resolvemos ni rechazamos la promise aquí, se resolverá cuando se ejecute el resume
+                return;
+                
+            } catch (Exception e) {
+                Log.e(TAG, "Unexpected error in resumeAll", e);
+                promise.reject("RESUME_ERROR", "Unexpected error resuming downloads: " + e.getMessage());
             }
 
         } else {
@@ -738,9 +822,58 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
 
     @Override
     public void onHostResume() {
-        /*
         Log.d(TAG, "+++ [Downloads] onHostResume");
 
+        // Intentar ejecutar resumeAll pendiente cuando la app vuelve al primer plano
+        if (pendingResumeAll) {
+            Log.d(TAG, "Executing pending resumeAll()");
+            pendingResumeAll = false;
+            
+            // Ejecutar el resume de forma asíncrona para dar tiempo a que la app se estabilice
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
+                        if (reactContext != null && manager != null) {
+                            try {
+                                DownloadService.sendResumeDownloads(reactContext, AxDownloadService.class, false);
+                                Log.d(TAG, "Successfully executed pending resumeAll()");
+                                
+                                // Resolver la promise pendiente si existe
+                                if (pendingResumePromise != null) {
+                                    pendingResumePromise.resolve(null);
+                                    pendingResumePromise = null;
+                                }
+                                
+                                // Notificar al JS que las descargas se han reanudado
+                                WritableMap params = Arguments.createMap();
+                                params.putString("message", "Downloads resumed successfully");
+                                getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                                        .emit("downloadResumedAfterDefer", params);
+                                
+                            } catch (Exception e) {
+                                Log.e(TAG, "Failed to execute pending resumeAll()", e);
+                                
+                                // Rechazar la promise pendiente si existe
+                                if (pendingResumePromise != null) {
+                                    pendingResumePromise.reject("RESUME_FAILED", "Failed to resume downloads after defer: " + e.getMessage());
+                                    pendingResumePromise = null;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error in pending resumeAll execution", e);
+                        if (pendingResumePromise != null) {
+                            pendingResumePromise.reject("RESUME_FAILED", "Error executing pending resume: " + e.getMessage());
+                            pendingResumePromise = null;
+                        }
+                    }
+                }
+            }, 1000); // Delay de 1 segundo para estabilidad
+        }
+
+        /*
         if (mAxDownloadTracker != null) {
             mAxDownloadTracker.addListener(this);
         }
@@ -754,9 +887,8 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
 
     @Override
     public void onHostPause() {
-        /*
         Log.d(TAG, "+++ [Downloads] onHostPause");
-
+        /*
         if (mAxDownloadTracker != null) {
             mAxDownloadTracker.removeListener(this);
         }
@@ -771,6 +903,13 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     @Override
     public void onHostDestroy() {
         Log.d(TAG, "+++ [Downloads] onHostDestroy");
+
+        // Limpiar promises pendientes
+        if (pendingResumePromise != null) {
+            pendingResumePromise.reject("APP_DESTROYED", "App was destroyed before resume could complete");
+            pendingResumePromise = null;
+        }
+        pendingResumeAll = false;
 
         if (mAxDownloadTracker != null) {
             mAxDownloadTracker.removeListener(this);
