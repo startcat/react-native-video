@@ -129,63 +129,67 @@ El Player lanza los siguientes eventos:
 
 ## Guía de Implementación y Uso
 
-### 1. Generación del Source y DRM
-[Ver documentación detallada sobre manifests y DRM](./player/docs/source_drm.md)
-<!-- Esta sección explicará cómo se genera el source para el reproductor y cómo configurar DRM -->
+### 1. Guía de Instalación y Configuración
+[Ver documentación detallada sobre instalación y configuración](./player/docs/setup.md)
+<!-- Esta sección explicará cómo instalar y configurar React Native Video con todas las funcionalidades avanzadas -->
 
-### 2. Valores iniciales de reproducción
-[Ver documentación detallada sobre valores iniciales](./player/docs/initial_values.md)
-<!-- Esta sección explicará cómo configurar la posición inicial, idioma, subtítulos, etc. -->
-
-### 3. Generación de los metadatos
-[Ver documentación detallada sobre metadatos](./player/docs/metadata.md)
-<!-- Esta sección explicará cómo se generan los metadatos y cómo se muestran en los widgets del sistema operativo -->
-
-### 4. Metadatos en widgets del sistema operativo
-[Ver documentación detallada sobre widgets del sistema](./player/docs/system_widgets.md)
-<!-- Esta sección explicará cómo se muestran los metadatos en los widgets del sistema operativo -->
-
-### 5. Continue Watching
-[Ver documentación detallada sobre Continue Watching](./player/docs/continue_watching.md)
-<!-- Esta sección explicará cómo implementar la funcionalidad de continuar viendo -->
-
-### 6. Directos y DVR
-<!-- Esta sección explicará cómo configurar y utilizar la funcionalidad de directo y DVR -->
-
-### 7. Tudum
-[Ver documentación detallada sobre Tudum](./player/docs/tudum.md)
-<!-- Esta sección explicará qué es Tudum y cómo utilizarlo -->
-
-### 8. Acciones de control tipadas
-[Ver documentación detallada sobre acciones de control](./player/docs/control_actions.md)
-<!-- Esta sección explicará todas las acciones tipadas disponibles en CONTROL_ACTION -->
-
-### 9. Servicios y permisos
+### 2. Servicios y permisos
 [Ver documentación detallada sobre servicios y permisos](./player/docs/services.md)
 <!-- Esta sección explicará los permisos necesarios, servicios de background, widgets multimedia y requisitos para las tiendas de aplicaciones -->
 
-### 10. Botones con time markers
+### 3. Generación del Source y DRM
+[Ver documentación detallada sobre manifests y DRM](./player/docs/source_drm.md)
+<!-- Esta sección explicará cómo se genera el source para el reproductor y cómo configurar DRM -->
+
+### 4. Valores iniciales de reproducción
+[Ver documentación detallada sobre valores iniciales](./player/docs/initial_values.md)
+<!-- Esta sección explicará cómo configurar la posición inicial, idioma, subtítulos, etc. -->
+
+### 5. Generación de los metadatos
+[Ver documentación detallada sobre metadatos](./player/docs/metadata.md)
+<!-- Esta sección explicará cómo se generan los metadatos y cómo se muestran en los widgets del sistema operativo -->
+
+### 6. Metadatos en widgets del sistema operativo
+[Ver documentación detallada sobre widgets del sistema](./player/docs/system_widgets.md)
+<!-- Esta sección explicará cómo se muestran los metadatos en los widgets del sistema operativo -->
+
+### 7. Continue Watching
+[Ver documentación detallada sobre Continue Watching](./player/docs/continue_watching.md)
+<!-- Esta sección explicará cómo implementar la funcionalidad de continuar viendo -->
+
+### 8. Directos y DVR
+<!-- Esta sección explicará cómo configurar y utilizar la funcionalidad de directo y DVR -->
+
+### 9. Tudum
+[Ver documentación detallada sobre Tudum](./player/docs/tudum.md)
+<!-- Esta sección explicará qué es Tudum y cómo utilizarlo -->
+
+### 10. Acciones de control tipadas
+[Ver documentación detallada sobre acciones de control](./player/docs/control_actions.md)
+<!-- Esta sección explicará todas las acciones tipadas disponibles en CONTROL_ACTION -->
+
+### 11. Botones con time markers
 <!-- Esta sección explicará cómo configurar botones skipIntroButton, skipRecapButton, skipCreditsButton -->
 
-### 11. Menús personalizados
+### 12. Menús personalizados
 <!-- Esta sección explicará cómo crear y personalizar menús del reproductor -->
 
-### 12. Integración con Youbora
+### 13. Integración con Youbora
 [Ver documentación detallada sobre integración con Youbora](./player/docs/youbora.md)
 <!-- Esta sección explicará cómo integrar analíticas con Youbora -->
 
-### 13. Funcionalidad Chromecast
+### 14. Funcionalidad Chromecast
 <!-- Esta sección explicará cómo configurar y utilizar casting -->
 
-### 14. Funcionalidad Airplay
+### 15. Funcionalidad Airplay
 [Ver documentación detallada sobre AirPlay](./player/docs/airplay.md)
 <!-- Esta sección explicará cómo configurar y utilizar airplay -->
 
-### 15. Reproducción offline y servicios en segundo plano
+### 16. Reproducción offline y servicios en segundo plano
 <!-- Esta sección explicará cómo manejar contenido offline y servicios en background -->
 
-### 16. Personalización por usuario
+### 17. Personalización por usuario
 <!-- Esta sección explicará cómo personalizar la experiencia del reproductor por usuario -->
 
-### 16. Supervisión de permisos
+### 18. Supervisión de permisos
 <!-- Esta sección explicará cómo gestionar y supervisar los permisos necesarios para el reproductor -->
