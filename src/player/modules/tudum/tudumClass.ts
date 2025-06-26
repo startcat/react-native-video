@@ -25,6 +25,8 @@ export class TudumClass {
     private _hasPlayed: boolean = false;
 
     constructor(props:TudumClassProps) {
+        console.log(`[Player] (TudumClass) constructor: ${JSON.stringify(props)}`);
+
         if (props.getTudumManifest && typeof props.getTudumManifest === 'function'){
             this._tudumManifest = props.getTudumManifest();
 
