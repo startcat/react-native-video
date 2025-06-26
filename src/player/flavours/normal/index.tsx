@@ -1,7 +1,7 @@
-import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useAirplayConnectivity } from 'react-airplay';
-import { useWindowDimensions, View } from 'react-native';
-import { EdgeInsets, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     type OnBufferData,
     //type OnVideoErrorData,
@@ -19,17 +19,32 @@ import { Overlay } from '../../overlay';
 const BackgroundPoster = React.lazy(() => import('../../components/poster'));
 
 import {
-    getBestManifest,
-    getDRM,
-    getManifestSourceType,
-    getMinutesFromTimestamp,
-    getMinutesSinceStart,
-    getVideoSourceUri,
+    useIsLandscape
+} from '../common/hooks';
+
+import {
+    useIsBuffering
+} from '../../modules/buffer';
+
+import {
     mergeMenuData,
     onAdStarted,
-    subtractMinutesFromDate,
-    useDvrPausedSeconds
+    subtractMinutesFromDate
 } from '../../utils';
+
+import {
+    type onSourceChangedProps,
+    SourceClass
+} from '../../modules/source';
+
+import {
+    TudumClass
+} from '../../modules/tudum';
+
+import {
+    handleDvrPausedDatum,
+    useDvrPausedSeconds,
+} from '../../modules/dvr';
 
 import {
     invokePlayerAction
@@ -40,14 +55,12 @@ import { styles } from '../styles';
 import {
     type ICommonData,
     type IDrm,
-    type IManifest,
     type IMappedYoubora,
     type IPlayerMenuData,
     type IVideoSource,
     type NormalFlavourProps,
     CONTROL_ACTION,
     PLAYER_MENU_DATA_TYPE,
-    STREAM_FORMAT_TYPE,
     YOUBORA_FORMAT
 } from '../../types';
 
@@ -55,17 +68,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const [isPlayingAd, setIsPlayingAd] = useState<boolean>(false);
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
-    const isAirplayConnected = useAirplayConnectivity();
+    
     const insets = useSafeAreaInsets();
-    const {height, width} = useWindowDimensions();
 
-    const currentManifest = useRef<IManifest>();
     const youboraForVideo = useRef<IMappedYoubora>();
     const drm = useRef<IDrm>();
-    const videoSource = useRef<IVideoSource>();
-    const isDVR = useRef<boolean>();
-    const isHLS = useRef<boolean>();
-    const isDASH = useRef<boolean>();
+    const [videoSource, setVideoSource] = useState<IVideoSource | undefined>(undefined);
+
     const dvrWindowSeconds = useRef<number>();
     const seekableRange = useRef<number>();
     const liveStartProgramTimestamp = useRef<number>();
@@ -77,8 +86,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
     const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
-    const [preloading, setPreloading] = useState<boolean>(false);
-    const [isPlayingExternalTudum, setIsPlayingExternalTudum] = useState<boolean>(!!props.showExternalTudum);
+    const [buffering, setBuffering] = useState<boolean>(false);
     const [menuData, setMenuData] = useState<Array<IPlayerMenuData>>();
     const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
 
@@ -93,27 +101,93 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const refVideoPlayer = useRef<VideoRef>(null);
     const videoQualityIndex = useRef<number>(-1);
 
+    // Source
+    const sourceRef = useRef<SourceClass | null>(null);
+
+    // Tudum
+    const tudumRef = useRef<TudumClass | null>(null);
+
+    // Hook para la orientación de la pantalla
+    const isLandscapePlayer = useIsLandscape();
+
+    // Hook para el estado de Airplay
+    const isAirplayConnected = useAirplayConnectivity();
+
+    // Hook para las pausas mediante DVR
     const dvrPaused = useDvrPausedSeconds({
         paused: paused,
         isLive: !!props?.isLive,
-        isDVR: !!isDVR.current
+        isDVR: !!sourceRef.current?.isDVR
     });
 
+    // Hook para el estado de buffering
+    const isBuffering = useIsBuffering({
+        buffering: buffering,
+        paused: paused,
+        onBufferingChange: props.onBuffering
+    });
+
+    /*
+        onChangeSource:
+            setBuffering(true);
+            mapYouboraOptions
+    */
+
     useEffect(() => {
+        console.log(`[Player] (Normal Flavour) useEffect videoSource ${JSON.stringify(videoSource)}`);
 
-        if (isPlayingExternalTudum && props.getTudumManifest){
-            let tudumManifest = props.getTudumManifest();
+    }, [videoSource?.uri]);
 
-            drm.current = getDRM(tudumManifest!);
+    useEffect(() => {
+        console.log(`[Player] (Normal Flavour) useEffect manifests ${JSON.stringify(props.manifests)}`);
 
+        if (!tudumRef.current){
+            tudumRef.current = new TudumClass({
+                enabled:!!props.showExternalTudum,
+                getTudumManifest:props.getTudumManifest
+            });
+        }
+
+        if (!sourceRef.current){
+            sourceRef.current = new SourceClass({
+                // Metadata
+                id:props.id,
+                title:props.title,
+                subtitle:props.subtitle,
+                description:props.description,
+                poster:props.poster,
+                squaredPoster:props.squaredPoster,
+        
+                // Main Source
+                manifests:props.manifests,
+                startPosition:props.currentTime,
+                headers:props.headers,
+        
+                // Callbacks
+                getSourceUri:props.getSourceUri,
+                onSourceChanged:onSourceChanged
+            });
+        }
+
+        if (tudumRef.current?.isReady){
             // Montamos el Source para el player
-            videoSource.current = {
-                uri: getVideoSourceUri(tudumManifest!)
-            };
+            drm.current = tudumRef.current?.drm;
+            setVideoSource(tudumRef.current?.source);
 
         } else {
             isChangingSource.current = true;
-            setPlayerSource();
+            
+            sourceRef.current.changeSource({
+                manifests:props.manifests,
+                startPosition:props.currentTime,
+                isLive:props.isLive,
+                headers:props.headers,
+                title:props.title,
+                subtitle:props.subtitle,
+                description:props.description,
+                poster:props.poster,
+                squaredPoster:props.squaredPoster
+            });
 
         }
 
@@ -183,47 +257,58 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }, [menuData]);
 
     useEffect(() => {
+        // Gestionamos la ventana al realizar pause sobre un DVR
+        const handleDvrPausedDatumResults = handleDvrPausedDatum(!!props.isLive, dvrWindowSeconds.current!, dvrPaused, dvrTimeValue, props?.onChangeCommonData);
 
-        if (typeof(dvrTimeValue) === 'number' && dvrPaused?.pausedDatum > 0 && dvrPaused?.pausedSeconds > 0){
-            const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
+        if (handleDvrPausedDatumResults.duration){
+            setDuration(handleDvrPausedDatumResults.duration);
+        }
 
-            // Revisaremos si hay que hacer crecer la ventana de tiempo del directo
-            if (typeof(dvrWindowSeconds.current) === 'number'){
-                dvrWindowSeconds.current = dvrWindowSeconds.current + dvrPaused.pausedSeconds;
-                setDuration(dvrWindowSeconds.current);
-
-                if (props?.isLive && props?.onChangeCommonData){
-                    props.onChangeCommonData({
-                        duration: dvrWindowSeconds.current
-                    });
-                }
-            }
-
-            // Si nos detenemos tras volver al inicio de un programa en DVR, seguiremos viendo como nos alejamos del directo
-            setDvrTimeValue(moveDVRto);
+        if (handleDvrPausedDatumResults.dvrTimeValue){
+            setDvrTimeValue(handleDvrPausedDatumResults.dvrTimeValue);
         }
 
     }, [dvrPaused?.pausedDatum]);
 
-    const checkIfPlayerIsLandscape = (height: number, width: number, insets: EdgeInsets): boolean => {
-
-        // Calculamos una dimension del player
-        const margins = Math.max(insets.left, insets.right);
-        const playerAspectRatio = 16/9;
-        const windowAspectRatio = (width - margins) / height;
-
-        return (windowAspectRatio >= playerAspectRatio);
-
-    }
-
-    const isLandscapePlayer = useMemo(
-        () => checkIfPlayerIsLandscape(height, width, insets),
-        [height, width, insets]
-    );
-
     // Source Cooking
-    const setPlayerSource = async () => {
+    const onSourceChanged = (data:onSourceChangedProps) => {
+        console.log(`[Player] (Normal Flavour) onSourceChanged`);
+        if (!tudumRef.current?.isPlaying){
+            setPlayerSource(data);
 
+        }
+        
+    };
+    
+    const setPlayerSource = (data?:onSourceChangedProps) => {
+        console.log(`[Player] (Normal Flavour) setPlayerSource (data isReady ${!!data?.isReady})`);
+        console.log(`[Player] (Normal Flavour) setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
+
+        if (data && data?.isReady){
+            setBuffering(true);
+            drm.current = data.drm;
+
+            // Preparamos los datos de Youbora
+            if (props.getYouboraOptions){
+                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+            }
+
+            setVideoSource(data.source!);
+        }
+
+        if (!data && sourceRef.current?.isReady){
+            setBuffering(true);
+            drm.current = sourceRef.current.playerSourceDrm;
+
+            // Preparamos los datos de Youbora
+            if (props.getYouboraOptions){
+                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+            }
+
+            setVideoSource(sourceRef.current.playerSource!);
+        }
+
+        /*
         let uri = "",
             startPosition;
 
@@ -312,25 +397,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 imageUri: props.squaredPoster || props.poster
             }
         };
+        */
 
     }
 
     // Functions
-    const maybeChangeBufferingState = (buffering: boolean) => {
-
-        const newIsBuffering = buffering && !paused;
-
-        if (preloading !== newIsBuffering){
-            setPreloading(newIsBuffering);
-
-            if (props.onBuffering){
-                props.onBuffering(newIsBuffering);
-            }
-
-        }
-
-    }
-
     const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'audioIndex', 'subtitleIndex'];
@@ -350,7 +421,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             props.onNext();
         }
         
-        if (id === CONTROL_ACTION.LIVE_START_PROGRAM && isDVR.current){
+        if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR){
             
             const timestamp = props.onLiveStartProgram?.();
             
@@ -365,7 +436,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             
         }
         
-        if (isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
+        if (sourceRef.current?.isHLS && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
             // Cambio de calidad con HLS
             if (value === -1){
                 videoQualityIndex.current = -1;
@@ -378,7 +449,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             
         }
         
-        if (!isHLS.current && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
+        if (!sourceRef.current?.isHLS && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
             // Cambio de calidad sin HLS
             if (value === -1){
                 videoQualityIndex.current = -1;
@@ -401,7 +472,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
-        if (id === CONTROL_ACTION.SEEK && isDVR.current && typeof(value) === 'number' && typeof(seekableRange.current) === 'number'){
+        if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR && typeof(value) === 'number' && typeof(seekableRange.current) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             setDvrTimeValue(value);
             onChangeDvrTimeValue(value);
@@ -410,7 +481,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
         }
 
-        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
+        if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Volver al directo en DVR
 
             // Si tenemos un timestamp de inicio de programa, lo eliminamos y refrescamos el source con la ventana original
@@ -419,8 +490,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 liveStartProgramTimestamp.current = undefined;
                 setIsContentLoaded(false);
 
-                setDvrTimeValue(currentManifest.current?.dvr_window_minutes);
-                onChangeDvrTimeValue(currentManifest.current?.dvr_window_minutes!);
+                setDvrTimeValue(sourceRef.current?.currentManifest?.dvr_window_minutes);
+                onChangeDvrTimeValue(sourceRef.current?.currentManifest?.dvr_window_minutes!);
                 setHasSeekOverDRV(false);
                 setPlayerSource();
 
@@ -438,7 +509,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         }
 
-        if (id === CONTROL_ACTION.FORWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
+        if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
 
             // Si excedemos el rango, no hacemos nada
             if ((dvrTimeValue + value) > duration){
@@ -454,7 +525,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
         }
 
-        if (id === CONTROL_ACTION.BACKWARD && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
+        if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             const minBarRange = Math.max(0, dvrTimeValue - value);
             setDvrTimeValue(minBarRange);
@@ -509,7 +580,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         console.log(`[Player] (Normal Flavour) onLoad ${JSON.stringify(e)}`);
 
-        if (!isPlayingExternalTudum && !isContentLoaded){
+        if (!tudumRef.current?.isPlaying && !isContentLoaded){
 
             if (!isContentLoaded){
                 setIsContentLoaded(true);
@@ -526,8 +597,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 }
             }
 
-            console.log(`[Player] (Normal Flavour) onLoad -> isDVR ${isDVR.current}`);
-            if (isDVR.current){
+            console.log(`[Player] (Normal Flavour) onLoad -> isDVR ${sourceRef.current?.isDVR}`);
+            if (sourceRef.current?.isDVR){
                 console.log(`[Player] (Normal Flavour) onLoad -> setDuration ${dvrWindowSeconds.current}`);
                 setDuration(dvrWindowSeconds.current);
 
@@ -550,10 +621,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
             if (props.mergeMenuData && typeof(props.mergeMenuData) === 'function'){
-                setMenuData(props.mergeMenuData(e, props.languagesMapping, isDASH.current));
+                setMenuData(props.mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH));
 
             } else {
-                setMenuData(mergeMenuData(e, props.languagesMapping, isDASH.current));
+                setMenuData(mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH));
 
             }
 
@@ -562,12 +633,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }
 
     const onEnd = () => {
-
-        if (isPlayingExternalTudum){
+        console.log(`[Player] (Normal Flavour) onEnd`);
+        if (tudumRef.current?.isPlaying){
             // Acaba la reproducción del Tudum externo
             isChangingSource.current = true;
+            tudumRef.current.isPlaying = false;
             setPlayerSource();
-            setIsPlayingExternalTudum(false);
 
         } else if (props.onEnd){
             // Termina el contenido
@@ -596,7 +667,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }
 
     const onReadyForDisplay = () => {
-        maybeChangeBufferingState(false);
+        setBuffering(false);
     }
 
     const onReceiveAdEvent = (e: OnReceiveAdEventData) => {
@@ -619,7 +690,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     // }
 
     const onBuffer = (e: OnBufferData) => {
-        maybeChangeBufferingState(e?.isBuffering);
+        setBuffering(!!e?.isBuffering);
 
     }
 
@@ -660,9 +731,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     return (
         <View style={styles.container}>
-
             {
-                videoSource.current ?
+                videoSource ?
                     <View style={{
                         ...styles.playerWrapper,
                         paddingHorizontal:Math.max(insets.left, insets.right),
@@ -675,7 +745,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                                 (isLandscapePlayer) ? { height:'100%' } : { width:'100%' }
                             ]}
                             // @ts-ignore
-                            source={videoSource.current}
+                            source={videoSource}
                             // @ts-ignore
                             drm={drm.current}
                             // @ts-ignore
@@ -709,9 +779,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             poster={props?.poster}
                             preventsDisplaySleepDuringVideoPlayback={!isAirplayConnected}
                             progressUpdateInterval={1000}
-                            selectedVideoTrack={isPlayingExternalTudum ? undefined : selectedVideoTrack}
-                            selectedAudioTrack={isPlayingExternalTudum ? undefined : selectedAudioTrack}
-                            selectedTextTrack={isPlayingExternalTudum || (typeof(selectedTextTrack?.value) === 'number' && selectedTextTrack?.value < 0) ? undefined : selectedTextTrack}
+                            selectedVideoTrack={tudumRef.current?.isPlaying ? undefined : selectedVideoTrack}
+                            selectedAudioTrack={tudumRef.current?.isPlaying ? undefined : selectedAudioTrack}
+                            selectedTextTrack={tudumRef.current?.isPlaying || (typeof(selectedTextTrack?.value) === 'number' && selectedTextTrack?.value < 0) ? undefined : selectedTextTrack}
                             subtitleStyle={props.subtitleStyle}
 
                             //onVolumeChange={onVolumeChange}
@@ -736,7 +806,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
             {
-                !isPlayingAd && !isPlayingExternalTudum ?
+                !isPlayingAd && !tudumRef.current?.isPlaying ?
                     <Overlay
                         title={props?.title}
                         currentTime={currentTime}
@@ -745,9 +815,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
                         muted={muted}
                         paused={paused}
-                        preloading={preloading}
+                        preloading={isBuffering}
                         hasNext={props?.hasNext}
-                        thumbnailsMetadata={currentManifest.current?.thumbnailMetadata}
+                        thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
                         timeMarkers={props.timeMarkers}
                         avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
@@ -760,7 +830,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         alwaysVisible={isAirplayConnected}
                         
                         isLive={props?.isLive}
-                        isDVR={isDVR.current}
+                        isDVR={sourceRef.current?.isDVR}
                         isDVRStart={hasSeekOverDRV}
                         isContentLoaded={isContentLoaded}
                         isChangingSource={isChangingSource.current}
