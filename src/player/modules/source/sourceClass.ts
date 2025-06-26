@@ -23,6 +23,7 @@ export interface onSourceChangedProps {
     isLive?:boolean;
     isDVR?:boolean;
     isReady?:boolean;
+    dvrWindowSeconds?:number;
 }
 
 export interface SourceClassProps {
@@ -50,6 +51,7 @@ export class SourceClass {
     private _currentManifest:IManifest | undefined = undefined;
     private _drm:IDrm | undefined = undefined;
     private _videoSource:IVideoSource | null = null;
+    private _dvrWindowSeconds?:number = undefined;
 
     private _startPosition?:number = 0;
 
@@ -79,6 +81,7 @@ export class SourceClass {
         this._currentManifest = undefined;
         this._drm = undefined;
         this._videoSource = null;
+        this._dvrWindowSeconds = undefined;
 
         this._startPosition = 0;
         this._needsLiveInitialSeek = false;
@@ -126,6 +129,9 @@ export class SourceClass {
         // Marcamos la posición inicial
         this._startPosition = props.startPosition || 0;
 
+        // Guardamos la ventana de DVR
+        this._dvrWindowSeconds = this._currentManifest?.dvr_window_minutes ? this._currentManifest?.dvr_window_minutes * 60 : undefined;
+
         this._videoSource = {
             id: props.id,
             title: props.title,
@@ -150,48 +156,12 @@ export class SourceClass {
                 drm:this._drm,
                 isLive:this._isLive,
                 isDVR:this._isDVR,
-                isReady:true
+                isReady:true,
+                dvrWindowSeconds:this._dvrWindowSeconds
             });
         }
 
     }
-
-    public reloadDvrStream(liveStartProgramTimestamp?:number) {
-        
-    }
-
-    private changeDvrUriParameters(liveStartProgramTimestamp?:number) {
-        
-    }
-
-    // private calculateDvrWindow() {
-
-    //     // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
-    //     if (this._isDVR){
-
-    //         this._needsLiveInitialSeek = false;
-
-    //         if (typeof(this._liveStartProgramTimestamp) === 'number' && this._liveStartProgramTimestamp > 0){
-    //             const minutes = getMinutesFromTimestamp(this._liveStartProgramTimestamp);
-
-    //             console.log(`[Player] (Normal Flavour) setPlayerSource -> liveStartProgramTimestamp minutes ${minutes}`);
-
-    //             // Revisamos que la ventana de DVR no sea inferior que el timestamp de inicio del programa
-    //             // Por ahora no lo hacemos, ya que el valor de la ventana de DVR es el que viene del manifest mientras que el stream tiene una ventana mucho mayor
-    //             // if (minutes < currentManifest.current?.dvr_window_minutes){
-    //                 // Adecuamos el valor de la ventana de DVR, para la barra de progreso y los calculos de DVR
-    //                 this._dvrWindowSeconds = minutes * 60;
-    //                 this._dvrTimeValue = 0;
-    //                 this._needsLiveInitialSeek = true;
-    //             // }
-
-    //         } else if (this._currentManifest?.dvr_window_minutes){
-    //             this._dvrWindowSeconds = this._currentManifest?.dvr_window_minutes * 60;
-    //             this._dvrTimeValue = this._dvrWindowSeconds;
-    //         }
-    //     }
-
-    // }
 
     private calculateSourceUri(): string | null {
 
@@ -209,21 +179,6 @@ export class SourceClass {
         return uri;
 
     }
-
-    // private calculateDvrSliderValues(uri: string | null) {
-
-    //     // Recalculamos la ventana de tiempo para el slider en DVR
-    //     if (typeof uri === 'string' && this._currentManifest && typeof(this._currentManifest?.dvr_window_minutes) === 'number' && this._currentManifest?.dvr_window_minutes > 0 && !this._liveStartProgramTimestamp){
-    //         const dvrRecalculatedMinutes = getMinutesSinceStart(uri);
-
-    //         if (dvrRecalculatedMinutes){
-    //             this._dvrWindowSeconds = dvrRecalculatedMinutes * 60;
-    //             this._dvrTimeValue = this._dvrWindowSeconds;
-    //             startPosition = ((dvrRecalculatedMinutes * 60) + 600) * 1000;
-    //         }
-    //     }
-
-    // }
 
     private calculateStartingPosition():number {
 
@@ -267,6 +222,10 @@ export class SourceClass {
 
     get isReady(): boolean {
         return this._isReady;
+    }
+
+    get dvrWindowSeconds(): number | undefined {
+        return this._dvrWindowSeconds;
     }
 
     get needsLiveInitialSeek(): boolean {
