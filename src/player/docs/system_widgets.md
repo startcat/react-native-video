@@ -22,6 +22,15 @@ Para que funcionen los widgets multimedia en Android, es necesario añadir los s
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
+<!-- Nuevos permisos para funcionalidades avanzadas -->
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
+<!-- Permisos adicionales para funcionalidad completa -->
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
+
 <!-- Permiso opcional para mostrar notificaciones -->
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 ```
@@ -30,16 +39,49 @@ Para que funcionen los widgets multimedia en Android, es necesario añadir los s
 
 ```xml
 <application>
-  <!-- Servicio para reproducción en segundo plano -->
+  <!-- Servicio para reproducción en segundo plano con casting y widgets -->
   <service
     android:name="com.brentvatne.exoplayer.VideoPlaybackService"
     android:exported="false"
-    android:foregroundServiceType="mediaPlayback">
+    android:foregroundServiceType="mediaPlayback|mediaProjection">
     <intent-filter>
       <action android:name="androidx.media3.session.MediaSessionService" />
     </intent-filter>
   </service>
+  
+  <!-- Servicio para descargas offline con sincronización de datos -->
+  <service
+    android:name="com.kesha.backgrounddownloader.AxDownloadService"
+    android:exported="false"
+    android:foregroundServiceType="mediaPlayback|dataSync">
+    <intent-filter>
+      <action android:name="com.kesha.backgrounddownloader.DOWNLOAD_SERVICE" />
+    </intent-filter>
+  </service>
+  
+  <!-- Receptor para reinicio del sistema -->
+  <receiver android:name="com.brentvatne.exoplayer.BootReceiver"
+    android:enabled="true"
+    android:exported="true">
+    <intent-filter android:priority="1000">
+      <action android:name="android.intent.action.BOOT_COMPLETED" />
+    </intent-filter>
+  </receiver>
+</application>
 ```
+
+#### Explicación de permisos para widgets multimedia:
+
+| Permiso | Propósito | Uso en Widgets |
+|---------|-----------|----------------|
+| `FOREGROUND_SERVICE` | Servicios en segundo plano | Base para todos los servicios multimedia |
+| `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Reproducción multimedia | Widget de reproducción, controles del sistema |
+| `FOREGROUND_SERVICE_DATA_SYNC` | Sincronización de datos | Metadatos, estado de reproducción, analytics |
+| `FOREGROUND_SERVICE_MEDIA_PROJECTION` | Proyección multimedia | Casting, AirPlay, widgets en dispositivos externos |
+| `RECEIVE_BOOT_COMPLETED` | Inicio automático | Restaurar widgets tras reinicio del dispositivo |
+| `ACCESS_NETWORK_STATE` | Estado de conectividad | Adaptar widgets según conectividad |
+| `WAKE_LOCK` | Mantener dispositivo activo | Evitar suspensión durante reproducción |
+| `POST_NOTIFICATIONS` | Mostrar notificaciones | Widgets de notificación, controles multimedia |
 
 ### iOS
 
@@ -52,7 +94,6 @@ Para iOS, los widgets multimedia funcionan automáticamente cuando se proporcion
 <key>UIBackgroundModes</key>
 <array>
   <string>audio</string>
-  <string>background-processing</string>
 </array>
 
 <!-- Categoría de audio -->
