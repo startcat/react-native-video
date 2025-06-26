@@ -12,6 +12,10 @@ import {
 import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
 
+import {
+    useIsBuffering
+} from '../../modules/buffer';
+
 import { 
     getBestManifest,
     getManifestSourceType,
@@ -22,8 +26,11 @@ import {
     getDRM,
     getMinutesSinceStart,
     subtractMinutesFromDate,
-    useDvrPausedSeconds
 } from '../../utils';
+
+import {
+    useDvrPausedSeconds
+} from '../../modules/dvr';
 
 import {
     invokePlayerAction
@@ -67,7 +74,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
     const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
-    const [preloading, setPreloading] = useState<boolean>(false);
+    const [buffering, setBuffering] = useState<boolean>(false);
     const [isPlayingExternalTudum, setIsPlayingExternalTudum] = useState<boolean>(!!props.showExternalTudum);
 
     const [speedRate, setSpeedRate] = useState<number>(1);
@@ -75,10 +82,18 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const refVideoPlayer = useRef<VideoRef>(null);
     const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
 
+    // Hook para las pausas mediante DVR
     const dvrPaused = useDvrPausedSeconds({
         paused: paused,
         isLive: !!props?.isLive,
         isDVR: !!isDVR.current
+    });
+
+    // Hook para el estado de buffering
+    const isBuffering = useIsBuffering({
+        buffering: buffering,
+        paused: paused,
+        onBufferingChange: props.onBuffering
     });
 
     useEffect(() => {
@@ -109,7 +124,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             // Montamos el Source del tudum para el player
             setVideoSource(tudumManifest);
-            setPreloading(false);
 
         } else {
             setPlayerSource();
@@ -128,7 +142,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             paused: paused,
             muted: muted,
             //volume: number;
-            preloading: preloading,
+            preloading: isBuffering,
             hasNext: props.hasNext,
             hasPrev: props.hasPrev,
             isLive: props.isLive,
@@ -138,7 +152,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             extraData: props.extraData
         });
 
-    }, [currentTime, dvrTimeValue, duration, paused, muted, preloading, isDVR.current, isContentLoaded, speedRate]);
+    }, [currentTime, dvrTimeValue, duration, paused, muted, isBuffering, isDVR.current, isContentLoaded, speedRate]);
 
     useEffect(() => {
 
@@ -227,8 +241,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             }
         });
 
-        setPreloading(!preloading);
-
     }
 
     // Sleep Timer
@@ -273,21 +285,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     // Functions
-    const maybeChangeBufferingState = (buffering: boolean) => {
-
-        const newIsBuffering = buffering && !paused;
-
-        if (preloading !== newIsBuffering){
-            setPreloading(newIsBuffering);
-
-            if (props.onBuffering){
-                props.onBuffering(newIsBuffering);
-            }
-
-        }
-
-    }
-
     const onControlsPress = useCallback((id: CONTROL_ACTION, value?:number | boolean) => {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause'];
@@ -485,7 +482,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onReadyForDisplay = () => {
-        maybeChangeBufferingState(false);
+        setBuffering(false);
     }
 
     // const onVolumeChange = (e: OnVolumeChangeData) => {
@@ -493,7 +490,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     // }
 
     const onBuffer = (e: OnBufferData) => {
-        maybeChangeBufferingState(e?.isBuffering);
+        setBuffering(!!e?.isBuffering);
     }
 
     // const onError = (e: OnVideoErrorData) => {
@@ -545,7 +542,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         duration: duration,
         paused: paused,
         muted: muted,
-        preloading: preloading,
+        preloading: isBuffering,
         hasNext: props.hasNext,
         hasPrev: props.hasPrev,
         isLive: props.isLive,

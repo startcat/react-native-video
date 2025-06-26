@@ -18,9 +18,14 @@ import {
     getSourceMessageForCast,
     getVideoSourceUri,
     mergeCastMenuData,
-    subtractMinutesFromDate,
-    useDvrPausedSeconds
+    subtractMinutesFromDate
 } from '../../utils';
+
+import {
+    useDvrPausedSeconds,
+    handleDvrPausedDatum,
+    type handleDvrPausedDatumResults
+} from '../../modules/dvr';
 
 import {
     changeActiveTracks,
@@ -64,6 +69,8 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     const isDVR = useRef<boolean>();
     const dvrWindowSeconds = useRef<number>();
     const liveStartProgramTimestamp = useRef<number>();
+    const needsLiveInitialSeek = useRef<boolean>(false);
+    const isChangingSource = useRef<boolean>(true);
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
@@ -100,6 +107,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             startingPoint = props.currentTime;
 
         castMessage.current = undefined;
+        isChangingSource.current = true;
 
         // Cogemos el manifest adecuado
         currentManifest.current = getBestManifest(props?.manifests!, true);
@@ -125,6 +133,8 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
         if (props.isLive && typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
             isDVR.current = true;
+            needsLiveInitialSeek.current = false;
+            
             dvrWindowSeconds.current = currentManifest.current?.dvr_window_minutes * 60;
             startingPoint = dvrWindowSeconds.current;
             setDvrTimeValue(dvrWindowSeconds.current);
@@ -203,11 +213,15 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     }, [menuData]);
 
     useEffect(() => {
+        // Gestionamos la ventana al realizar pause sobre un DVR
+        const handleDvrPausedDatumResults = handleDvrPausedDatum(!!props.isLive, dvrWindowSeconds.current!, dvrPaused, dvrTimeValue, props?.onChangeCommonData);
 
-        if (typeof(dvrTimeValue) === 'number' && dvrPaused?.pausedDatum > 0 && dvrPaused?.pausedSeconds > 0){
-            const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
+        if (handleDvrPausedDatumResults.duration){
+            setDuration(handleDvrPausedDatumResults.duration);
+        }
 
-            setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
+        if (handleDvrPausedDatumResults.dvrTimeValue){
+            setDvrTimeValue(handleDvrPausedDatumResults.dvrTimeValue);
         }
 
     }, [dvrPaused?.pausedDatum]);

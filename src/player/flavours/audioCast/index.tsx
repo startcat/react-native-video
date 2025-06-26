@@ -17,9 +17,12 @@ import {
     getDRM,
     getSourceMessageForCast,
     getVideoSourceUri,
-    subtractMinutesFromDate,
-    useDvrPausedSeconds
+    subtractMinutesFromDate
 } from '../../utils';
+
+import {
+    useDvrPausedSeconds
+} from '../../modules/dvr';
 
 import {
     invokePlayerAction,
