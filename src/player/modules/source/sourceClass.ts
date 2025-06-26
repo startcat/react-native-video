@@ -22,6 +22,7 @@ export interface onSourceChangedProps {
     drm?:IDrm;
     isLive?:boolean;
     isDVR?:boolean;
+    isReady?:boolean;
 }
 
 export interface SourceClassProps {
@@ -54,8 +55,6 @@ export class SourceClass {
 
     private _needsLiveInitialSeek:boolean = false;
     private _liveStartProgramTimestamp?:number;
-    private _dvrWindowSeconds?:number;
-    private _dvrTimeValue?:number;
 
     private _isLive:boolean = false;
     private _isDVR:boolean = false;
@@ -67,6 +66,7 @@ export class SourceClass {
 
 	constructor(props:SourceClassProps) {
 
+        console.log(`[Player] (SourceClass) constructor: ${JSON.stringify(props)}`);
         this._getSourceUri = props.getSourceUri;
 
         if (props.manifests && props.manifests.length > 0){
@@ -93,6 +93,8 @@ export class SourceClass {
     public changeSource(props:SourceClassProps) {
 
         this._isReady = false;
+        console.log(`[Player] (SourceClass) changeSource: ${JSON.stringify(props)}`);
+
         if (!props.manifests || props.manifests.length === 0){
             this.clearCurrentSource();
             throw new Error('No manifests provided');
@@ -147,7 +149,8 @@ export class SourceClass {
                 source:this._videoSource,
                 drm:this._drm,
                 isLive:this._isLive,
-                isDVR:this._isDVR
+                isDVR:this._isDVR,
+                isReady:true
             });
         }
 
