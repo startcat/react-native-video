@@ -224,12 +224,11 @@ Añade los permisos necesarios según las funcionalidades que uses:
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     
-    <!-- PERMISOS PARA SERVICIOS EN PRIMER PLANO -->
+    <!-- PERMISOS PARA SERVICIOS MULTIMEDIA -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_DOWNLOAD" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     
     <!-- PERMISOS ADICIONALES -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

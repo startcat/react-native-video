@@ -2,6 +2,7 @@ package com.brentvatne.exoplayer
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -12,6 +13,7 @@ import android.os.Binder
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
@@ -30,6 +32,7 @@ class VideoPlaybackService : MediaSessionService() {
     private var mediaSessionsList = mutableMapOf<ExoPlayer, MediaSession>()
     private var binder = PlaybackServiceBinder(this)
     private var sourceActivity: Class<Activity>? = null
+    private var isForegroundServiceStarted = false
 
     // Controls for Android 13+ - see buildNotification function
     private val commandSeekForward = SessionCommand(COMMAND.SEEK_FORWARD.stringValue, Bundle.EMPTY)
@@ -49,6 +52,59 @@ class VideoPlaybackService : MediaSessionService() {
         .setIconResId(R.drawable.ic_prev)
         .build()
 
+    // Método para verificar si la app está en primer plano
+    private fun isAppInForeground(): Boolean {
+        return try {
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager?
+            if (activityManager == null) {
+                Log.w(TAG, "ActivityManager is null, assuming app is not in foreground")
+                return false
+            }
+            
+            val appProcesses = activityManager.runningAppProcesses
+            if (appProcesses == null) {
+                Log.w(TAG, "Running app processes list is null, assuming app is not in foreground")
+                return false
+            }
+            
+            val packageName = packageName
+            for (appProcess in appProcesses) {
+                if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND 
+                    && appProcess.processName == packageName) {
+                    Log.d(TAG, "App is in foreground")
+                    return true
+                }
+            }
+            
+            Log.d(TAG, "App is not in foreground")
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking if app is in foreground: ${e.message}", e)
+            false
+        }
+    }
+
+    // Método seguro para iniciar foreground service
+    private fun startForegroundServiceSafely(id: Int, notification: Notification): Boolean {
+        return try {
+            if (!isAppInForeground()) {
+                Log.w(TAG, "Cannot start foreground service - app not in foreground")
+                return false
+            }
+            
+            startForeground(id, notification)
+            isForegroundServiceStarted = true
+            Log.d(TAG, "Foreground service started successfully")
+            true
+        } catch (e: SecurityException) {
+            Log.e(TAG, "SecurityException starting foreground service: ${e.message}", e)
+            false
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error starting foreground service: ${e.message}", e)
+            false
+        }
+    }
+
     // Player Registry
 
     fun registerPlayer(player: ExoPlayer, from: Class<Activity>) {
@@ -66,7 +122,13 @@ class VideoPlaybackService : MediaSessionService() {
         mediaSessionsList[player] = mediaSession
         addSession(mediaSession)
 
-        startForeground(mediaSession.player.hashCode(), buildNotification(mediaSession))
+        // Solo iniciar foreground service si la app está en primer plano
+        if (!isForegroundServiceStarted) {
+            if (!startForegroundServiceSafely(mediaSession.player.hashCode(), buildNotification(mediaSession))) {
+                Log.w(TAG, "Could not start foreground service, continuing without it")
+                // Continuar sin foreground service - la funcionalidad básica seguirá funcionando
+            }
+        }
     }
 
     fun unregisterPlayer(player: ExoPlayer) {
@@ -96,7 +158,8 @@ class VideoPlaybackService : MediaSessionService() {
             )
         }
 
-        startForeground(1, createDefaultNotification())
+        // NO llamar startForeground aquí - solo cuando se registre un player
+        Log.d(TAG, "VideoPlaybackService created, waiting for player registration")
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = null
@@ -256,10 +319,15 @@ class VideoPlaybackService : MediaSessionService() {
             session.release()
         }
         mediaSessionsList.clear()
+        isForegroundServiceStarted = false
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(1, createDefaultNotification())
+        // Solo iniciar foreground si no está ya iniciado y si la app está en primer plano
+        if (!isForegroundServiceStarted && isAppInForeground()) {
+            startForegroundServiceSafely(1, createDefaultNotification())
+        }
+        
         intent?.let {
             val playerId = it.getIntExtra("PLAYER_ID", -1)
             val actionCommand = it.getStringExtra("ACTION")

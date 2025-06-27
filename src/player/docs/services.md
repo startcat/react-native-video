@@ -1,6 +1,6 @@
 # Servicios y Permisos del Player
 
-En este documento se explican los permisos y servicios necesarios para el funcionamiento completo del reproductor de video, incluyendo reproducción en segundo plano, widgets multimedia, descarga de contenido, casting y proyección de medios. También se detallan los requisitos para la aprobación en las tiendas de aplicaciones.
+En este documento se explican los permisos y servicios necesarios para el funcionamiento completo del reproductor de video, incluyendo reproducción en segundo plano, widgets multimedia, descarga de contenido y casting. También se detallan los requisitos para la aprobación en las tiendas de aplicaciones.
 
 ## ¿Por qué son necesarios estos permisos?
 
@@ -9,7 +9,7 @@ El reproductor de video requiere permisos específicos para proporcionar una exp
 - **Reproducción en segundo plano**: Mantener la reproducción cuando la app no está en primer plano
 - **Widgets multimedia**: Mostrar controles en el sistema operativo (notificaciones, Control Center)
 - **Descarga de contenido**: Permitir descargas offline para visualización posterior
-- **Casting y proyección**: Enviar contenido a dispositivos externos (Chromecast, AirPlay, mirroring)
+- **Casting**: Enviar contenido a dispositivos externos (Chromecast, AirPlay)
 - **Sincronización de datos**: Gestionar metadatos y estados de reproducción
 - **Pantalla activa**: Evitar que la pantalla se apague durante la reproducción
 
@@ -29,9 +29,6 @@ Añade los siguientes permisos en `android/app/src/main/AndroidManifest.xml`:
 
 <!-- Servicios en primer plano para sincronización de datos -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-<!-- Servicios en primer plano para proyección de medios -->
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
 <!-- Reinicio automático de servicios tras reinicio del dispositivo -->
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -54,7 +51,6 @@ Añade los siguientes permisos en `android/app/src/main/AndroidManifest.xml`:
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Reproducción multimedia en primer plano | Widgets del sistema, reproducción en background |
 | `FOREGROUND_SERVICE_MEDIA_DOWNLOAD` | Descarga de contenido multimedia | Contenido offline, cache |
 | `FOREGROUND_SERVICE_DATA_SYNC` | Sincronización de datos multimedia | Metadatos, estados de reproducción, analytics |
-| `FOREGROUND_SERVICE_MEDIA_PROJECTION` | Proyección y casting de medios | Screen mirroring, casting a dispositivos externos |
 | `RECEIVE_BOOT_COMPLETED` | Recibir notificación de reinicio | Reanudar descargas pendientes |
 | `ACCESS_NETWORK_STATE` | Verificar estado de red | Adaptar calidad según conectividad |
 | `POST_NOTIFICATIONS` | Mostrar notificaciones | Controles multimedia en notificaciones |
@@ -78,12 +74,13 @@ Configura los siguientes servicios en `android/app/src/main/AndroidManifest.xml`
     </service>
 
     <!-- Servicio de reproducción multimedia -->
-    <service
+    <service 
         android:name="com.brentvatne.exoplayer.VideoPlaybackService"
-        android:exported="false"
-        android:foregroundServiceType="mediaPlayback|mediaProjection">
+        android:foregroundServiceType="mediaPlayback"
+        android:exported="false">
         <intent-filter>
-            <action android:name="androidx.media3.session.MediaSessionService" />
+            <action android:name="com.brentvatne.exoplayer.action.MEDIA_BUTTON"/>
+            <category android:name="android.intent.category.DEFAULT"/>
         </intent-filter>
     </service>
 </application>
@@ -91,10 +88,10 @@ Configura los siguientes servicios en `android/app/src/main/AndroidManifest.xml`
 
 #### Descripción de servicios
 
-| Servicio | Propósito | Tipos de servicio | Funcionalidades |
-|----------|-----------|-------------------|-----------------|
+| Servicio | Funcionalidad | Tipos | Características |
+|----------|-----------|-------------------|-----------------| 
 | `AxDownloadService` | Gestión de descargas | `mediaPlayback`, `dataSync` | Descarga offline, cache persistente, sincronización de metadatos, reanudación tras reinicio |
-| `VideoPlaybackService` | Reproducción multimedia | `mediaPlayback`, `mediaProjection` | Widgets del sistema, casting, reproducción en background, proyección de pantalla |
+| `VideoPlaybackService` | Reproducción multimedia | `mediaPlayback` | Widgets del sistema, reproducción en background |
 
 #### Tipos de servicios en primer plano
 
@@ -111,12 +108,6 @@ Los servicios utilizan múltiples tipos para proporcionar funcionalidades comple
 - Gestión de estado de reproducción
 - Actualización de analytics y estadísticas
 - Sincronización de marcadores y posiciones
-
-**mediaProjection:**
-- Casting a dispositivos externos (Chromecast)
-- Proyección de pantalla (screen mirroring)
-- Integración con AirPlay y similares
-- Envío de contenido a smart TVs
 
 ## Configuración iOS
 
@@ -182,7 +173,7 @@ iOS maneja automáticamente:
 - Gestión nativa de cache y descarga
 - Integración con el sistema de archivos iOS
 
-### 4. Casting y conectividad
+### 4. Casting
 
 **Android:**
 - Soporte completo para Chromecast
@@ -213,7 +204,6 @@ iOS maneja automáticamente:
 - `FOREGROUND_SERVICE_MEDIA_PLAYBACK`
 - `FOREGROUND_SERVICE_MEDIA_DOWNLOAD`
 - `FOREGROUND_SERVICE_DATA_SYNC`
-- `FOREGROUND_SERVICE_MEDIA_PROJECTION`
 - `POST_NOTIFICATIONS`
 
 #### 2. Formulario de declaración de permisos
@@ -221,9 +211,9 @@ iOS maneja automáticamente:
 En Google Play Console, debes completar:
 
 **Sección: Permisos de aplicación**
-- **Foreground Services**: Seleccionar "Media playback", "Media download", "Data sync" y "Media projection"
-- **Justificación**: "La aplicación reproduce contenido multimedia, permite descargas offline, sincroniza datos de reproducción y soporta casting/proyección a dispositivos externos"
-- **Uso**: "Reproducción de video/audio en segundo plano, descarga de contenido multimedia, sincronización de metadatos y proyección a dispositivos compatibles"
+- **Foreground Services**: Seleccionar "Media playback", "Media download", "Data sync"
+- **Justificación**: "La aplicación reproduce contenido multimedia, permite descargas offline y sincroniza datos de reproducción"
+- **Uso**: "Reproducción de video/audio en segundo plano, descarga de contenido multimedia y sincronización de metadatos"
 
 **Sección: Notificaciones**
 - **Tipo**: "Media controls"
@@ -252,13 +242,6 @@ Justificación: Mantiene sincronizados los estados de reproducción, marcadores 
 Experiencia de usuario: Continuidad de reproducción entre sesiones y dispositivos
 ```
 
-**Foreground Service - Media Projection:**
-```
-Funcionalidad: Casting y proyección de contenido a dispositivos externos
-Justificación: Permite enviar contenido a Chromecast, smart TVs y dispositivos compatibles
-Experiencia de usuario: Reproducción en pantallas más grandes y dispositivos externos
-```
-
 #### 3. Descripción en la ficha de la app
 
 ```
@@ -268,7 +251,6 @@ Esta aplicación utiliza servicios en segundo plano para:
 • Descarga de contenido para visualización offline
 • Integración con widgets multimedia del sistema
 • Sincronización de datos de reproducción y metadatos
-• Proyección de contenido a dispositivos externos
 ```
 
 #### 4. Políticas a cumplir
@@ -377,7 +359,7 @@ const requestNotificationPermission = async () => {
 - Verificar que el uso esté claramente justificado
 - Asegurar que solo se usan para funcionalidades multimedia
 - Proporcionar capturas de pantalla de la funcionalidad
-- Documentar específicamente el uso de cada tipo de servicio (mediaPlayback, dataSync, mediaProjection)
+- Documentar específicamente el uso de cada tipo de servicio (mediaPlayback, dataSync)
 
 **Rechazo por notificaciones:**
 - Verificar que las notificaciones son solo para controles multimedia
@@ -387,11 +369,6 @@ const requestNotificationPermission = async () => {
 - Demostrar que la sincronización es para datos multimedia únicamente
 - Explicar claramente qué datos se sincronizan (metadatos, posiciones, marcadores)
 - No usar para sincronización de datos no relacionados con multimedia
-
-**Rechazo por permisos de Media Projection:**
-- Documentar el uso específico para casting y proyección
-- Mostrar integración con Chromecast, AirPlay u otros servicios legítimos
-- No usar para captura de pantalla general o funcionalidades no relacionadas
 
 ### App Store
 
@@ -448,7 +425,6 @@ describe('Background Services', () => {
     expect(AxDownloadService.getServiceTypes()).toContain('mediaPlayback');
     expect(AxDownloadService.getServiceTypes()).toContain('dataSync');
     expect(VideoPlaybackService.getServiceTypes()).toContain('mediaPlayback');
-    expect(VideoPlaybackService.getServiceTypes()).toContain('mediaProjection');
   });
 });
 ```
