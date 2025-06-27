@@ -12,7 +12,8 @@ import {
     type SelectedVideoTrack,
     SelectedTrackType,
     //type OnVolumeChangeData,
-    SelectedVideoTrackType
+    SelectedVideoTrackType,
+    DVR_PLAYBACK_TYPE
 } from '../../../types';
 import Video, { type VideoRef } from '../../../Video';
 import { Overlay } from '../../overlay';
@@ -44,6 +45,15 @@ import {
 import {
     handleDvrPausedDatum,
     useDvrPausedSeconds,
+    DVRProgressManager,
+    type SeekableRange,
+    type Program,
+    type SliderValues,
+    type ProgramChangeData,
+    type ModeChangeData,
+    type ProgressUpdateData,
+    type UpdatePlayerData,
+    type DVRProgressManagerData
 } from '../../modules/dvr';
 
 import {
@@ -107,18 +117,14 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     // Tudum
     const tudumRef = useRef<TudumClass | null>(null);
 
+    // DVR Progress Manager
+    const dvrProgressManagerRef = useRef<DVRProgressManager | null>(null);
+
     // Hook para la orientación de la pantalla
     const isLandscapePlayer = useIsLandscape();
 
     // Hook para el estado de Airplay
     const isAirplayConnected = useAirplayConnectivity();
-
-    // Hook para las pausas mediante DVR
-    const dvrPaused = useDvrPausedSeconds({
-        paused: paused,
-        isLive: !!props?.isLive,
-        isDVR: !!sourceRef.current?.isDVR
-    });
 
     // Hook para el estado de buffering
     const isBuffering = useIsBuffering({
@@ -126,12 +132,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         paused: paused,
         onBufferingChange: props.onBuffering
     });
-
-    /*
-        onChangeSource:
-            setBuffering(true);
-            mapYouboraOptions
-    */
 
     useEffect(() => {
         console.log(`[Player] (Normal Flavour) useEffect videoSource ${JSON.stringify(videoSource)}`);
@@ -256,24 +256,46 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }, [menuData]);
 
-    useEffect(() => {
-        // Gestionamos la ventana al realizar pause sobre un DVR
-        const handleDvrPausedDatumResults = handleDvrPausedDatum(!!props.isLive, dvrWindowSeconds.current!, dvrPaused, dvrTimeValue, props?.onChangeCommonData);
-
-        if (handleDvrPausedDatumResults.duration){
-            setDuration(handleDvrPausedDatumResults.duration);
-        }
-
-        if (handleDvrPausedDatumResults.dvrTimeValue){
-            setDvrTimeValue(handleDvrPausedDatumResults.dvrTimeValue);
-        }
-
-    }, [dvrPaused?.pausedDatum]);
-
     // Source Cooking
     const onSourceChanged = (data:onSourceChangedProps) => {
         console.log(`[Player] (Normal Flavour) onSourceChanged`);
+
         if (!tudumRef.current?.isPlaying){
+            // No estamos reproduciendo el Tudum externo
+            setBuffering(true);
+
+            // Preparamos los datos de Youbora
+            if (props.getYouboraOptions){
+                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+
+            }
+
+            if (dvrProgressManagerRef.current){
+                // Si teniamos un DVR Progress Manager, lo eliminamos
+                dvrProgressManagerRef.current = null;
+            }
+
+            if (sourceRef.current?.isDVR && !dvrProgressManagerRef.current){
+                // El nuevo contenido es DVR, creamos un nuevo DVR Progress Manager
+                dvrProgressManagerRef.current = new DVRProgressManager({
+                    dvrWindowSeconds: data.dvrWindowSeconds,
+                    currentTime: currentTime,
+                    isPaused: paused,
+                    isBuffering: isBuffering,
+                    playbackType: props.moduleDVR?.playbackType || DVR_PLAYBACK_TYPE.WINDOW,
+                
+                    // EPG Provider
+                    getEPGProgramAt: props.moduleDVR?.getEPGProgramAt,
+                    getEPGNextProgram: props.moduleDVR?.getEPGNextProgram,
+                
+                    // Callbacks
+                    // onModeChange?: (data:ModeChangeData) => void;
+                    // onProgramChange?: (data:ProgramChangeData) => void;
+                    // onProgressUpdate?: (data:ProgressUpdateData) => void;
+                    // onSeekRequest?: (playerTime:number) => void;
+                });
+            }
+
             setPlayerSource(data);
 
         }
@@ -309,51 +331,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         }
 
         /*
-        let uri = "",
-            startPosition;
-
-        // Cogemos el manifest adecuado
-        currentManifest.current = getBestManifest(props?.manifests!);
-
-        // Preparamos el DRM adecuado al manifest y plataforma
-        drm.current = getDRM(currentManifest.current!);
-
-        // Marcamos si es HLS
-        isHLS.current = currentManifest.current?.type === STREAM_FORMAT_TYPE.HLS;
-
-        // Marcamos si es DASH
-        isDASH.current = currentManifest.current?.type === STREAM_FORMAT_TYPE.DASH;
-
-        // Preparamos los datos de Youbora
-        if (props.getYouboraOptions){
-            youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
-
-        }
-
-        // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
-        if (props.isLive && typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0){
-            isDVR.current = true;
-            needsLiveInitialSeek.current = false;
-
-            if (typeof(liveStartProgramTimestamp.current) === 'number' && liveStartProgramTimestamp.current > 0){
-                const minutes = getMinutesFromTimestamp(liveStartProgramTimestamp.current);
-
-                console.log(`[Player] (Normal Flavour) setPlayerSource -> liveStartProgramTimestamp minutes ${minutes}`);
-
-                // Revisamos que la ventana de DVR no sea inferior que el timestamp de inicio del programa
-                // Por ahora no lo hacemos, ya que el valor de la ventana de DVR es el que viene del manifest mientras que el stream tiene una ventana mucho mayor
-                // if (minutes < currentManifest.current?.dvr_window_minutes){
-                    // Adecuamos el valor de la ventana de DVR, para la barra de progreso y los calculos de DVR
-                    dvrWindowSeconds.current = minutes * 60;
-                    setDvrTimeValue(0);
-                    needsLiveInitialSeek.current = true;
-                // }
-
-            } else {
-                dvrWindowSeconds.current = currentManifest.current?.dvr_window_minutes * 60;
-                setDvrTimeValue(dvrWindowSeconds.current);
-            }
-        }
 
         // Preparamos la uri por si necesitamos incorporar el start en el dvr
         if (props.getSourceUri){
@@ -364,39 +341,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             
         }
 
-        // Recalculamos la ventana de tiempo para el slider en DVR
-        if (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0 && !liveStartProgramTimestamp.current){
-            const dvrRecalculatedMinutes = getMinutesSinceStart(uri);
-
-            if (dvrRecalculatedMinutes){
-                dvrWindowSeconds.current = dvrRecalculatedMinutes * 60;
-                setDvrTimeValue(dvrWindowSeconds.current);
-                startPosition = ((dvrRecalculatedMinutes * 60) + 600) * 1000;
-            }
-        }
-
-        if (!isDVR.current && currentTime > 0){
-            startPosition = currentTime * 1000;
-
-        }
-
-        console.log(`[Player] (Normal Flavour) setPlayerSource startPosition: ${startPosition}`);
-
-        // Montamos el Source para el player
-        videoSource.current = {
-            id: props.id,
-            title: props.title,
-            uri: uri,
-            type: getManifestSourceType(currentManifest.current!),
-            startPosition: startPosition || undefined,
-            headers: props.headers,
-            metadata: {
-                title: props.title,
-                subtitle: props.subtitle,
-                description: props.description,
-                imageUri: props.squaredPoster || props.poster
-            }
-        };
         */
 
     }
@@ -656,6 +600,18 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         if (typeof(e.seekableDuration) === 'number' && seekableRange.current !== e.seekableDuration){
             seekableRange.current = e.seekableDuration;
+        }
+
+        if (dvrProgressManagerRef.current){
+            dvrProgressManagerRef.current.updatePlayerData({
+                currentTime: e.currentTime,
+                seekableRange: {
+                    start: 0,
+                    end: seekableRange.current || 0
+                },
+                isBuffering: buffering,
+                isPaused: paused
+            });
         }
 
         if (props?.onChangeCommonData){

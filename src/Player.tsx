@@ -17,7 +17,8 @@ const CastFlavour = lazy(() => import('./player/flavours/cast').then(module => (
 
 import { 
     type PlayerProps,
-    type ICommonData
+    type ICommonData,
+    DVR_PLAYBACK_TYPE
 } from './player/types';
 
 
@@ -41,6 +42,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<number>();
     const hasBeenLoaded = useRef<boolean>(false);
+    const playbackType = useRef<DVR_PLAYBACK_TYPE>(props.moduleDVR?.playbackType || DVR_PLAYBACK_TYPE.WINDOW);
 
     const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(typeof(props.audioIndex) === 'number' ? props.audioIndex : -1);
     const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>(typeof(props.subtitleIndex) === 'number' ? props.subtitleIndex : -1);
@@ -186,6 +188,10 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 props.onChangeSubtitleIndex(data?.subtitleIndex, data?.subtitleLabel);
             }
         }
+
+        if (typeof(data?.playbackType) === 'string'){
+            playbackType.current = data.playbackType;
+        }
         
     }
 
@@ -238,6 +244,12 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     skipCreditsButton={props.skipCreditsButton}
                     menu={props.menu}
                     settingsMenu={props.settingsMenu}
+
+                    // Modules
+                    moduleDVR={{
+                        ...props.moduleDVR,
+                        playbackType: playbackType.current
+                    }}
 
                     // Utils
                     getYouboraOptions={props.getYouboraOptions}
@@ -311,6 +323,12 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     skipCreditsButton={props.skipCreditsButton}
                     menu={props.menu}
                     settingsMenu={props.settingsMenu}
+
+                    // Modules
+                    moduleDVR={{
+                        ...props.moduleDVR,
+                        playbackType: playbackType.current
+                    }}
 
                     // Utils
                     getSourceUri={props.getSourceUri}
