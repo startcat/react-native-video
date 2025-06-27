@@ -119,6 +119,7 @@ export interface ICommonData {
     subtitleIndex?: number;
     audioLabel?: string;
     subtitleLabel?: string;
+    playbackType?: DVR_PLAYBACK_TYPE
 }
 
 export interface IThumbnailMetadata {
@@ -264,6 +265,27 @@ export interface LiveSeekableCastRange {
     endTime: number;
 }
 
+export interface SeekableRange {
+    start: number;
+    end: number;
+}
+
+export interface Program {
+    id: string;
+    title?: string;
+    startDate: number;
+    endDate: number;
+}
+
+export interface SliderValues {
+    minimumValue: number;
+    maximumValue: number;
+    progress: number;
+    canSeekToEnd: boolean;
+    liveEdge?: number; // Usado en modo PLAYLIST para mostrar el límite real
+    isProgramLive?: boolean; // Indica si el programa está en directo
+}
+
 
 
 /*
@@ -303,6 +325,18 @@ export interface AudioPlayerProgressEventProps {
 
 }
 
+
+
+/*
+ *  Props Player Modules
+ *
+ */
+
+export interface ModuleDVRProps {
+    playbackType?: DVR_PLAYBACK_TYPE;
+    getEPGProgramAt?: (timestamp:number) => Program | null;
+    getEPGNextProgram?: (program:Program) => Program | null;   
+}
 
 
 /*
@@ -662,6 +696,9 @@ export interface AudioFlavourProps {
     // Components
     controls?: FunctionComponent<AudioControlsProps>;
 
+    // Modules
+    moduleDVR?: ModuleDVRProps;
+
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
@@ -715,6 +752,9 @@ export interface AudioCastFlavourProps {
 
     // Components
     controls?: FunctionComponent<AudioControlsProps>;
+
+    // Modules
+    moduleDVR?: ModuleDVRProps;
 
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
@@ -782,6 +822,9 @@ export interface NormalFlavourProps {
     menu?: FunctionComponent<MenuProps>;
     settingsMenu?: FunctionComponent<MenuProps>;
 
+    // Modules
+    moduleDVR?: ModuleDVRProps;
+
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
@@ -848,6 +891,9 @@ export interface CastFlavourProps {
     skipCreditsButton?: FunctionComponent<TimeMarkExternalButtonProps>;
     menu?: FunctionComponent<MenuProps>;
     settingsMenu?: FunctionComponent<MenuProps>;
+
+    // Modules
+    moduleDVR?: ModuleDVRProps;
 
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
@@ -917,6 +963,9 @@ export interface PlayerProps {
     menu?: FunctionComponent<MenuProps>;
     settingsMenu?: FunctionComponent<MenuProps>;
 
+    // Modules
+    moduleDVR?: ModuleDVRProps;
+
     // Utils
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
@@ -967,6 +1016,9 @@ export interface AudioPlayerContentsDpo {
     youbora?: IYoubora;
     extraData?: any;
     forcedDvrWindowMinutes?: number;
+
+    // Modules
+    moduleDVR?: ModuleDVRProps;
 
     // Utils
     watchingProgressInterval?: number;
