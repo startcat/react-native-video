@@ -1,25 +1,9 @@
-import { DVR_PLAYBACK_TYPE } from "../../types";
-
-export interface SeekableRange {
-    start: number;
-    end: number;
-}
-
-export interface Program {
-    id: string;
-    title?: string;
-    startDate: number;
-    endDate: number;
-}
-
-export interface SliderValues {
-    minimumValue: number;
-    maximumValue: number;
-    progress: number;
-    canSeekToEnd: boolean;
-    liveEdge?: number; // Usado en modo PLAYLIST para mostrar el límite real
-    isProgramLive?: boolean; // Indica si el programa está en directo
-}
+import { 
+    DVR_PLAYBACK_TYPE,
+    type SeekableRange,
+    type Program,
+    type SliderValues,
+} from "../../types";
 
 export interface ProgramChangeData {
     previousProgram: Program | null;
@@ -253,8 +237,14 @@ export class DVRProgressManager {
 
     goToLive() {
         this._isLiveEdgePosition = true;
-        this._totalPauseTime = 0;
-        this._currentTimeWindowSeconds = this._initialTimeWindowSeconds;
+        
+        // Para WINDOW y PROGRAM: resetear pausas pero mantener crecimiento natural
+        if (this._playbackType === DVR_PLAYBACK_TYPE.WINDOW || this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
+            this._totalPauseTime = 0;
+            this._pauseStartTime = 0;
+            // NO reseteamos _liveEdgeReference ni _currentTimeWindowSeconds 
+            // porque la ventana debe seguir creciendo naturalmente
+        }
       
         // En todos los tipos, ir al live edge (final del rango seekable)
         const targetTime = this._seekableRange.end;
@@ -359,15 +349,23 @@ export class DVRProgressManager {
     }
   
     _updateTimeWindow() {
-        // Calcular tiempo total de pausa/buffering incluyendo pausa actual
-        let totalPause = this._totalPauseTime;
-
-        if (this._pauseStartTime) {
-            totalPause += Date.now() - this._pauseStartTime;
+        // Para PLAYLIST, la ventana está definida por el programa actual, no por tiempo transcurrido
+        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
+            return;
         }
-      
-        // Expandir ventana de tiempo
-        this._currentTimeWindowSeconds = this._initialTimeWindowSeconds + (totalPause / 1000);
+
+        // Para WINDOW y PROGRAM: la ventana crece continuamente desde el inicio
+        const timeElapsedSinceStart = (Date.now() - this._liveEdgeReference) / 1000;
+        const naturalWindowSize = this._initialTimeWindowSeconds + timeElapsedSinceStart;
+        
+        // Calcular tiempo adicional por pausas/buffering
+        let totalPauseTime = this._totalPauseTime;
+        if (this._pauseStartTime > 0) {
+            totalPauseTime += Date.now() - this._pauseStartTime;
+        }
+        
+        // La ventana final incluye el crecimiento natural + pausas adicionales
+        this._currentTimeWindowSeconds = naturalWindowSize + (totalPauseTime / 1000);
     }
   
     _updateLiveStatus() {
@@ -531,11 +529,12 @@ export class DVRProgressManager {
      */
 
     reset() {
-        this._currentTimeWindowSeconds = this._initialTimeWindowSeconds;
+        // Resetear completamente - como si empezáramos de nuevo
         this._totalPauseTime = 0;
         this._pauseStartTime = 0;
         this._isLiveEdgePosition = true;
-        this._liveEdgeReference = Date.now();
+        this._liveEdgeReference = Date.now(); // Nueva referencia temporal
+        this._currentTimeWindowSeconds = this._initialTimeWindowSeconds; // Resetear ventana
         this.setPlaybackType(DVR_PLAYBACK_TYPE.WINDOW, null);
     }
   

@@ -1,14 +1,7 @@
-export interface SeekableRange {
-    start: number;
-    end: number;
-}
-
-export interface SliderValues {
-    minimumValue: number;
-    maximumValue: number;
-    progress: number;
-    canSeekToEnd: boolean;
-}
+import { 
+    type SeekableRange,
+    type SliderValues,
+} from "../../types";
 
 export interface ProgressUpdateData extends SliderValues {
     isEnded: boolean;
