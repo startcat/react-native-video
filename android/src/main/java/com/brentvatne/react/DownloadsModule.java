@@ -339,34 +339,38 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
                 DownloadService.sendResumeDownloads(this.reactContext, AxDownloadService.class, false);
                 promise.resolve(null);
 
-            } catch (IllegalStateException e) {
-                Log.w(TAG, "IllegalStateException in resumeAll, trying with foreground=true", e);
-                try {
-                    DownloadService.sendResumeDownloads(this.reactContext, AxDownloadService.class, true);
-                    promise.resolve(null);
-                } catch (Exception ex) {
-                    Log.e(TAG, "Failed to resume downloads even with foreground=true", ex);
-                    promise.reject("RESUME_FAILED", "Failed to resume downloads: " + ex.getMessage());
-                }
-
-            } catch (ForegroundServiceStartNotAllowedException e) {
-                Log.w(TAG, "ForegroundServiceStartNotAllowedException: Cannot start foreground service now, will retry when app comes to foreground", e);
-                pendingResumeAll = true;
-                pendingResumePromise = promise;
-                
-                // Notificar al usuario sobre el defer
-                WritableMap params = Arguments.createMap();
-                params.putString("message", "Downloads cannot start now due to Android restrictions. Will retry when app returns to foreground.");
-                params.putString("error", e.getMessage());
-                getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                        .emit("downloadResumeDeferred", params);
-                
-                // No resolvemos ni rechazamos la promise aquí, se resolverá cuando se ejecute el resume
-                return;
-                
             } catch (Exception e) {
-                Log.e(TAG, "Unexpected error in resumeAll", e);
-                promise.reject("RESUME_ERROR", "Unexpected error resuming downloads: " + e.getMessage());
+                // Manejar todas las excepciones de forma unificada
+                if (e.getClass().getSimpleName().contains("ForegroundServiceStartNotAllowedException") || 
+                    e.getMessage() != null && e.getMessage().contains("startForegroundService() not allowed")) {
+                    
+                    Log.w(TAG, "Cannot start foreground service now, will retry when app comes to foreground", e);
+                    pendingResumeAll = true;
+                    pendingResumePromise = promise;
+                    
+                    // Notificar al usuario sobre el defer
+                    WritableMap params = Arguments.createMap();
+                    params.putString("message", "Downloads cannot start now due to Android restrictions. Will retry when app returns to foreground.");
+                    params.putString("error", e.getMessage());
+                    getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                            .emit("downloadResumeDeferred", params);
+                    
+                    // No resolvemos ni rechazamos la promise aquí, se resolverá cuando se ejecute el resume
+                    return;
+                    
+                } else if (e instanceof IllegalStateException) {
+                    Log.w(TAG, "IllegalStateException in resumeAll, trying with foreground=true", e);
+                    try {
+                        DownloadService.sendResumeDownloads(this.reactContext, AxDownloadService.class, true);
+                        promise.resolve(null);
+                    } catch (Exception ex) {
+                        Log.e(TAG, "Failed to resume downloads even with foreground=true", ex);
+                        promise.reject("RESUME_FAILED", "Failed to resume downloads: " + ex.getMessage());
+                    }
+                } else {
+                    Log.e(TAG, "Unexpected error in resumeAll", e);
+                    promise.reject("RESUME_ERROR", "Unexpected error resuming downloads: " + e.getMessage());
+                }
             }
 
         } else {
