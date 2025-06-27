@@ -18,13 +18,10 @@ Para que los metadatos se muestren correctamente en los widgets multimedia del s
 Para que funcionen los widgets multimedia en Android, es necesario añadir los siguientes permisos en el archivo `android/app/src/main/AndroidManifest.xml`:
 
 ```xml
-<!-- Permisos requeridos para widgets multimedia -->
+<!-- Permisos necesarios para widgets multimedia -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-
-<!-- Nuevos permisos para funcionalidades avanzadas -->
 <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
 <!-- Permisos adicionales para funcionalidad completa -->
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -39,11 +36,11 @@ Para que funcionen los widgets multimedia en Android, es necesario añadir los s
 
 ```xml
 <application>
-  <!-- Servicio para reproducción en segundo plano con casting y widgets -->
+  <!-- Servicio para reproducción en segundo plano con widgets -->
   <service
     android:name="com.brentvatne.exoplayer.VideoPlaybackService"
     android:exported="false"
-    android:foregroundServiceType="mediaPlayback|mediaProjection">
+    android:foregroundServiceType="mediaPlayback">
     <intent-filter>
       <action android:name="androidx.media3.session.MediaSessionService" />
     </intent-filter>
@@ -51,16 +48,18 @@ Para que funcionen los widgets multimedia en Android, es necesario añadir los s
   
   <!-- Servicio para descargas offline con sincronización de datos -->
   <service
-    android:name="com.kesha.backgrounddownloader.AxDownloadService"
+    android:name="com.brentvatne.offline.AxDownloadService"
     android:exported="false"
     android:foregroundServiceType="mediaPlayback|dataSync">
     <intent-filter>
-      <action android:name="com.kesha.backgrounddownloader.DOWNLOAD_SERVICE" />
+      <action android:name="com.google.android.exoplayer.downloadService.action.RESTART"/>
+      <category android:name="android.intent.category.DEFAULT"/>
     </intent-filter>
   </service>
   
-  <!-- Receptor para reinicio del sistema -->
-  <receiver android:name="com.brentvatne.exoplayer.BootReceiver"
+  <!-- Receptor para inicio automático tras reinicio -->
+  <receiver
+    android:name="com.brentvatne.exoplayer.BootReceiver"
     android:enabled="true"
     android:exported="true">
     <intent-filter android:priority="1000">
@@ -77,7 +76,6 @@ Para que funcionen los widgets multimedia en Android, es necesario añadir los s
 | `FOREGROUND_SERVICE` | Servicios en segundo plano | Base para todos los servicios multimedia |
 | `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Reproducción multimedia | Widget de reproducción, controles del sistema |
 | `FOREGROUND_SERVICE_DATA_SYNC` | Sincronización de datos | Metadatos, estado de reproducción, analytics |
-| `FOREGROUND_SERVICE_MEDIA_PROJECTION` | Proyección multimedia | Casting, AirPlay, widgets en dispositivos externos |
 | `RECEIVE_BOOT_COMPLETED` | Inicio automático | Restaurar widgets tras reinicio del dispositivo |
 | `ACCESS_NETWORK_STATE` | Estado de conectividad | Adaptar widgets según conectividad |
 | `WAKE_LOCK` | Mantener dispositivo activo | Evitar suspensión durante reproducción |
