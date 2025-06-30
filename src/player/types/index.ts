@@ -717,6 +717,8 @@ export interface AudioCastFlavourProps {
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    getTudumManifest?: () => IManifest | null | undefined;
+    getTudumSource?: () => IVideoSource | null | undefined;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;

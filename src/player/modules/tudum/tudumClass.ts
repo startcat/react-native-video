@@ -52,6 +52,10 @@ export class TudumClass {
 
     }
 
+    reset = () => {
+        //this._hasPlayed = false;
+    };
+
     get source(): IVideoSource | undefined {
         return this._tudumSource;
     }
@@ -73,6 +77,8 @@ export class TudumClass {
     }
 
     set isPlaying(value: boolean) {
+
+        console.log(`[Player] (TudumClass) set isPlaying ${value} - _isPlaying ${this._isPlaying} - _hasPlayed ${this._hasPlayed}`);
 
         if (!value && this._isPlaying){
             this._hasPlayed = true;

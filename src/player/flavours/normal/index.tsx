@@ -171,6 +171,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         if (tudumRef.current?.isReady){
             // Montamos el Source para el player
+            tudumRef.current.isPlaying = true;
             drm.current = tudumRef.current?.drm;
             setVideoSource(tudumRef.current?.source);
 
