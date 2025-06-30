@@ -12,6 +12,7 @@ import {
 export interface TudumClassProps {
     enabled?: boolean;
     getTudumManifest?: () => IManifest | null | undefined;
+    getTudumSource?: () => IVideoSource | null | undefined;
 }
 
 export class TudumClass {
@@ -27,7 +28,15 @@ export class TudumClass {
     constructor(props:TudumClassProps) {
         console.log(`[Player] (TudumClass) constructor: ${JSON.stringify(props)}`);
 
-        if (props.getTudumManifest && typeof props.getTudumManifest === 'function'){
+        if (props.getTudumSource && typeof props.getTudumSource === 'function'){
+            const tudumSource = props.getTudumSource();
+
+            if (tudumSource){
+                this._tudumSource = tudumSource;
+                this._shouldPlay = !!props.enabled;
+            }
+
+        } else if (props.getTudumManifest && typeof props.getTudumManifest === 'function'){
             this._tudumManifest = props.getTudumManifest();
 
             if (this._tudumManifest){
@@ -40,6 +49,7 @@ export class TudumClass {
 
             }
         }
+
     }
 
     get source(): IVideoSource | undefined {

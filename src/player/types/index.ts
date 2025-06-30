@@ -662,6 +662,7 @@ export interface AudioFlavourProps {
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
 
     // Events
@@ -970,6 +971,7 @@ export interface AudioPlayerContentsDpo {
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
 
     // Events

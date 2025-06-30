@@ -12,6 +12,10 @@ import {
 import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
 
+import {
+    useIsBuffering
+} from '../../modules/buffer';
+
 import { 
     getBestManifest,
     getManifestSourceType,
@@ -24,6 +28,15 @@ import {
     subtractMinutesFromDate,
     useDvrPausedSeconds
 } from '../../utils';
+
+import {
+    type onSourceChangedProps,
+    SourceClass
+} from '../../modules/source';
+
+import {
+    TudumClass
+} from '../../modules/tudum';
 
 import {
     invokePlayerAction
@@ -49,37 +62,54 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
     const audioPlayerHeight = useSharedValue(0);
 
-    const currentManifest = useRef<IManifest>();
     const youboraForVideo = useRef<IMappedYoubora>();
     const drm = useRef<IDrm>();
-    const [videoSource, setVideoSource] = useState<IVideoSource | null>();
-    const isDVR = useRef<boolean>();
-    const isHLS = useRef<boolean>();
+    const [videoSource, setVideoSource] = useState<IVideoSource | undefined>(undefined);
+
     const isDownloaded = useRef<boolean>();
     const isBinary = useRef<boolean>();
+
     const dvrWindowSeconds = useRef<number>();
     const dvrLoadTimestamp = useRef<number>();
     const seekableRange = useRef<number>();
     const liveStartProgramTimestamp = useRef<number>();
+    const isChangingSource = useRef<boolean>(true);
 
     const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
     const [duration, setDuration] = useState<number>();
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
     const [paused, setPaused] = useState<boolean>(!!props.paused);
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
-    const [preloading, setPreloading] = useState<boolean>(false);
-    const [isPlayingExternalTudum, setIsPlayingExternalTudum] = useState<boolean>(!!props.showExternalTudum);
+    const [buffering, setBuffering] = useState<boolean>(false);
 
     const [speedRate, setSpeedRate] = useState<number>(1);
 
     const refVideoPlayer = useRef<VideoRef>(null);
     const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
 
+    // Source
+    const sourceRef = useRef<SourceClass | null>(null);
+
+    // Tudum
+    const tudumRef = useRef<TudumClass | null>(null);
+
     const dvrPaused = useDvrPausedSeconds({
         paused: paused,
         isLive: !!props?.isLive,
-        isDVR: !!isDVR.current
+        isDVR: !!sourceRef.current?.isDVR
     });
+
+    // Hook para el estado de buffering
+    const isBuffering = useIsBuffering({
+        buffering: buffering,
+        paused: paused,
+        onBufferingChange: props.onBuffering
+    });
+
+    useEffect(() => {
+        console.log(`[Player] (Audio Flavour) useEffect videoSource ${JSON.stringify(videoSource)}`);
+
+    }, [videoSource?.uri]);
 
     useEffect(() => {
 
@@ -99,20 +129,55 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }, [currentTime]);
 
     useEffect(() => {
-        console.log(`[Player] (Audio Flavour) videoSource ${JSON.stringify(videoSource)}`);
-    }, [videoSource]);
+        console.log(`[Player] (Audio Flavour) useEffect manifests ${JSON.stringify(props.manifests)}`);
 
-    useEffect(() => {
-        console.log(`[Player] (Audio Flavour) manifests ${JSON.stringify(props.manifests)}`);
-        if (isPlayingExternalTudum && props.getTudumSource){
-            let tudumManifest = props.getTudumSource();
+        if (!tudumRef.current){
+            tudumRef.current = new TudumClass({
+                enabled:!!props.showExternalTudum,
+                getTudumSource:props.getTudumSource
+            });
+        }
 
-            // Montamos el Source del tudum para el player
-            setVideoSource(tudumManifest);
-            setPreloading(false);
+        if (!sourceRef.current){
+            sourceRef.current = new SourceClass({
+                // Metadata
+                id:props.id,
+                title:props.title,
+                subtitle:props.subtitle,
+                description:props.description,
+                poster:props.poster,
+                squaredPoster:props.squaredPoster,
+        
+                // Main Source
+                manifests:props.manifests,
+                startPosition:props.currentTime,
+                headers:props.headers,
+        
+                // Callbacks
+                getSourceUri:props.getSourceUri,
+                onSourceChanged:onSourceChanged
+            });
+        }
+
+        if (tudumRef.current?.isReady){
+            // Montamos el Source para el player
+            drm.current = tudumRef.current?.drm;
+            setVideoSource(tudumRef.current?.source);
 
         } else {
-            setPlayerSource();
+            isChangingSource.current = true;
+            
+            sourceRef.current.changeSource({
+                manifests:props.manifests,
+                startPosition:props.currentTime,
+                isLive:props.isLive,
+                headers:props.headers,
+                title:props.title,
+                subtitle:props.subtitle,
+                description:props.description,
+                poster:props.poster,
+                squaredPoster:props.squaredPoster
+            });
 
         }
 
@@ -128,17 +193,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             paused: paused,
             muted: muted,
             //volume: number;
-            preloading: preloading,
+            preloading: isBuffering,
             hasNext: props.hasNext,
             hasPrev: props.hasPrev,
             isLive: props.isLive,
-            isDVR: props.isLive && isDVR.current,
+            isDVR: props.isLive && sourceRef.current?.isDVR,
             isContentLoaded: isContentLoaded,
             speedRate: speedRate,
             extraData: props.extraData
         });
 
-    }, [currentTime, dvrTimeValue, duration, paused, muted, preloading, isDVR.current, isContentLoaded, speedRate]);
+    }, [currentTime, dvrTimeValue, duration, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate]);
 
     useEffect(() => {
 
@@ -151,8 +216,45 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }, [dvrPaused?.pausedDatum]);
 
     // Source Cooking
-    const setPlayerSource = async () => {
+    const onSourceChanged = (data:onSourceChangedProps) => {
+        console.log(`[Player] (Audio Flavour) onSourceChanged`);
+        if (!tudumRef.current?.isPlaying){
+            setPlayerSource(data);
 
+        }
+        
+    };
+
+    const setPlayerSource = (data?:onSourceChangedProps) => {
+
+        console.log(`[Player] (Audio Flavour) setPlayerSource (data isReady ${!!data?.isReady})`);
+        console.log(`[Player] (Audio Flavour) setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
+
+        if (data && data?.isReady){
+            setBuffering(true);
+            drm.current = data.drm;
+
+            // Preparamos los datos de Youbora
+            if (props.getYouboraOptions){
+                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+            }
+
+            setVideoSource(data.source!);
+        }
+
+        if (!data && sourceRef.current?.isReady){
+            setBuffering(true);
+            drm.current = sourceRef.current.playerSourceDrm;
+
+            // Preparamos los datos de Youbora
+            if (props.getYouboraOptions){
+                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+            }
+
+            setVideoSource(sourceRef.current.playerSource!);
+        }
+
+        /*
         let uri;
 
         // Cogemos el manifest adecuado
@@ -228,6 +330,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         });
 
         setPreloading(!preloading);
+        */
 
     }
 
@@ -273,21 +376,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     // Functions
-    const maybeChangeBufferingState = (buffering: boolean) => {
-
-        const newIsBuffering = buffering && !paused;
-
-        if (preloading !== newIsBuffering){
-            setPreloading(newIsBuffering);
-
-            if (props.onBuffering){
-                props.onBuffering(newIsBuffering);
-            }
-
-        }
-
-    }
-
     const onControlsPress = useCallback((id: CONTROL_ACTION, value?:number | boolean) => {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause'];
@@ -336,7 +424,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
-        if (id === CONTROL_ACTION.LIVE && isDVR.current && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
+        if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Volver al directo en DVR
             setDvrTimeValue(duration);
             onChangeDvrTimeValue(duration);
@@ -344,7 +432,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         }
 
-        if (id === CONTROL_ACTION.SEEK_OVER_EPG && isDVR.current && typeof(value) === 'number'){
+        if (id === CONTROL_ACTION.SEEK_OVER_EPG && sourceRef.current?.isDVR && typeof(value) === 'number'){
             const overEpgValue = value;
             let realSeek = overEpgValue;
 
@@ -358,7 +446,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         }
 
-        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && isDVR.current && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
+        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && sourceRef.current?.isDVR && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
 
             // Si excedemos el rango, no hacemos nada
             if (id === CONTROL_ACTION.FORWARD && (dvrTimeValue + value) > duration){
@@ -424,15 +512,24 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         console.log(`[Player] (Audio Flavour) onLoad ${JSON.stringify(e)}`);
 
-        if (!isPlayingExternalTudum && !isContentLoaded){
+        if (!tudumRef.current?.isPlaying && !isContentLoaded){
 
-            setIsContentLoaded(true);
+            if (!isContentLoaded){
+                setIsContentLoaded(true);
 
-            if (props.onStart){
-                props.onStart();
+                // if (needsLiveInitialSeek.current){
+                //     // Al ir al inicio de un programa, debemos hacer seek para no ir al edge live
+                //     invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, 0, currentTime);
+                // }
+
+                isChangingSource.current = false;
+
+                if (props.onStart){
+                    props.onStart();
+                }
             }
 
-            if (isDVR.current){
+            if (sourceRef.current?.isDVR){
                 setDuration(dvrWindowSeconds.current);
                 dvrLoadTimestamp.current = (new Date()).getTime();
 
@@ -452,11 +549,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onEnd = () => {
-
-        if (isPlayingExternalTudum){
+        console.log(`[Player] (Audio Flavour) onEnd: tudum isPlaying ${tudumRef.current?.isPlaying}`);
+        if (tudumRef.current?.isPlaying){
             // Acaba la reproducción del Tudum externo
+            isChangingSource.current = true;
+            tudumRef.current.isPlaying = false;
             setPlayerSource();
-            setIsPlayingExternalTudum(false);
 
         } else if (props.onEnd){
             // Termina el contenido
@@ -485,7 +583,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onReadyForDisplay = () => {
-        maybeChangeBufferingState(false);
+        setBuffering(false);
     }
 
     // const onVolumeChange = (e: OnVolumeChangeData) => {
@@ -493,7 +591,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     // }
 
     const onBuffer = (e: OnBufferData) => {
-        maybeChangeBufferingState(e?.isBuffering);
+        setBuffering(!!e?.isBuffering);
     }
 
     // const onError = (e: OnVideoErrorData) => {
@@ -545,11 +643,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         duration: duration,
         paused: paused,
         muted: muted,
-        preloading: preloading,
+        preloading: isBuffering,
         hasNext: props.hasNext,
         hasPrev: props.hasPrev,
         isLive: props.isLive,
-        isDVR: isDVR.current,
+        isDVR: sourceRef.current?.isDVR,
         isContentLoaded: isContentLoaded,
         speedRate: speedRate,
         extraData: props.extraData,
