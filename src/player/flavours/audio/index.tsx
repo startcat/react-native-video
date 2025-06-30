@@ -130,6 +130,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     useEffect(() => {
         console.log(`[Player] (Audio Flavour) useEffect manifests ${JSON.stringify(props.manifests)}`);
+        console.log(`[Player] (Audio Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
+        console.log(`[Player] (Audio Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
 
         if (!tudumRef.current){
             tudumRef.current = new TudumClass({
@@ -161,6 +163,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         if (tudumRef.current?.isReady){
             // Montamos el Source para el player
+            tudumRef.current.isPlaying = true;
             drm.current = tudumRef.current?.drm;
             setVideoSource(tudumRef.current?.source);
 
@@ -217,7 +220,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // Source Cooking
     const onSourceChanged = (data:onSourceChangedProps) => {
-        console.log(`[Player] (Audio Flavour) onSourceChanged`);
+        console.log(`[Player] (Audio Flavour) onSourceChanged - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
         if (!tudumRef.current?.isPlaying){
             setPlayerSource(data);
 
