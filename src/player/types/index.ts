@@ -1,6 +1,9 @@
-import { FunctionComponent } from 'react';
+import React, { FunctionComponent } from 'react';
 import { type OnLoadData, type SubtitleStyle } from '../../types';
 import { type MediaTrack } from 'react-native-google-cast';
+
+// Define Headers locally to avoid circular dependency
+export type Headers = Record<string, string>;
 
 export enum STREAM_FORMAT_TYPE {
 	DASH = 'dash',
@@ -90,7 +93,7 @@ export enum YOUBORA_FORMAT {
     CAST = 'cast'
 }
 
-export type Headers = Record<string, string>;
+
 
 export interface IDrm {
     type?: DRM_TYPE;

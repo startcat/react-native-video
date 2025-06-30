@@ -1,4 +1,8 @@
 import React, { useState, useRef, Suspense, lazy } from 'react';
+
+// Declaraciones globales para TypeScript
+declare var __DEV__: boolean;
+declare var require: any;
 import DeviceInfo from 'react-native-device-info';
 import { activateKeepAwake, deactivateKeepAwake} from '@sayem314/react-native-keep-awake';
 import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
@@ -8,12 +12,25 @@ import { CastState, useCastState } from 'react-native-google-cast';
 import { Platform } from 'react-native';
 import { default as Downloads } from './Downloads';
 
-const NormalFlavour = lazy(() => import('./player/flavours/normal').then(module => ({ 
-    default: module.NormalFlavour 
-})));
-const CastFlavour = lazy(() => import('./player/flavours/cast').then(module => ({ 
-    default: module.CastFlavour 
-})));
+// Imports condicionales: lazy loading solo en producción
+let NormalFlavour: React.ComponentType<any>;
+let CastFlavour: React.ComponentType<any>;
+
+if (__DEV__) {
+    // En desarrollo: import estático para mejor debugging y hot reload
+    const { NormalFlavour: NormalDev } = require('./player/flavours/normal');
+    const { CastFlavour: CastDev } = require('./player/flavours/cast');
+    NormalFlavour = NormalDev;
+    CastFlavour = CastDev;
+} else {
+    // En producción: lazy loading para mejor performance
+    NormalFlavour = lazy(() => import('./player/flavours/normal').then(module => ({ 
+        default: module.NormalFlavour 
+    })));
+    CastFlavour = lazy(() => import('./player/flavours/cast').then(module => ({ 
+        default: module.CastFlavour 
+    })));
+}
 
 import { 
     type PlayerProps,
