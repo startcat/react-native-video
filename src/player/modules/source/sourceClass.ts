@@ -10,7 +10,10 @@ import {
     getBestManifest,
     getDRM,
     getManifestSourceType,
-    getVideoSourceUri
+    getVideoSourceUri,
+    getContentIdIsDownloaded,
+    getContentIdIsBinary,
+    getContentById,
 } from '../../utils';
 
 export interface onSourceChangedProps {
@@ -60,6 +63,8 @@ export class SourceClass {
     private _isHLS:boolean = false;
     private _isDASH:boolean = false;
     private _isReady:boolean = false;
+    private _isDownloaded:boolean = false;
+    private _isBinary:boolean = false;
 
     private _getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
 
@@ -86,6 +91,8 @@ export class SourceClass {
         this._isHLS = false;
         this._isDASH = false;
         this._isReady = false;
+        this._isDownloaded = false;
+        this._isBinary = false;
     }
 
     public changeSource(props:SourceClassProps) {
@@ -115,6 +122,12 @@ export class SourceClass {
         // Marcamos si es DASH
         this._isDASH = this._currentManifest?.type === STREAM_FORMAT_TYPE.DASH;
 
+        // Revisamos si se trata de un Binario descargado
+        if (props.id){
+            this._isDownloaded = getContentIdIsDownloaded(props.id);
+            this._isBinary = getContentIdIsBinary(props.id);
+        }
+
         // Marcamos si es Live
         this._isLive = !!props.isLive;
 
@@ -138,6 +151,14 @@ export class SourceClass {
                 imageUri: props.squaredPoster || props.poster
             }
         };
+
+        if (this._isDownloaded && this._isBinary){
+            const offlineBinary = getContentById(props.id!);
+            console.log(`[SourceClass] changeSource -> isDownloaded && isBinary`);
+
+            this._videoSource.uri = `file://${offlineBinary?.offlineData.fileUri}`;
+
+        }
 
         this._isReady = true;
         console.log(`[SourceClass] changeSource finished (isReady ${!!this._isReady})`);
@@ -262,6 +283,14 @@ export class SourceClass {
 
     get isDASH(): boolean {
         return !!this._isDASH;
+    }
+
+    get isDownloaded(): boolean {
+        return this._isDownloaded;
+    }
+
+    get isBinary(): boolean {
+        return this._isBinary;
     }
 
     get isReady(): boolean {
