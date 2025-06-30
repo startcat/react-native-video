@@ -319,6 +319,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         // Utils
                         getSourceUri={dpoData.getSourceUri}
                         getYouboraOptions={dpoData.getYouboraOptions}
+                        getTudumManifest={dpoData.getTudumManifest}
                         getTudumSource={dpoData.getTudumSource}
 
                         // Events
@@ -373,6 +374,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         // Utils
                         getYouboraOptions={dpoData.getYouboraOptions}
+                        getTudumManifest={dpoData.getTudumManifest}
+                        getTudumSource={dpoData.getTudumSource}
 
                         // Events
                         onChangeCommonData={changeCommonData}

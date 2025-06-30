@@ -1,8 +1,8 @@
 import {
+    type Headers,
     type IDrm,
     type IManifest,
     type IVideoSource,
-    type Headers,
     STREAM_FORMAT_TYPE,
 } from '../../types';
 
@@ -10,10 +10,7 @@ import {
     getBestManifest,
     getDRM,
     getManifestSourceType,
-    getMinutesFromTimestamp,
-    getMinutesSinceStart,
-    getVideoSourceUri,
-    subtractMinutesFromDate
+    getVideoSourceUri
 } from '../../utils';
 
 export interface onSourceChangedProps {
@@ -55,6 +52,8 @@ export class SourceClass {
 
     private _needsLiveInitialSeek:boolean = false;
     private _liveStartProgramTimestamp?:number;
+    private _dvrWindowSeconds?:number;
+    private _dvrTimeValue?:number;
 
     private _isLive:boolean = false;
     private _isDVR:boolean = false;
@@ -66,7 +65,6 @@ export class SourceClass {
 
 	constructor(props:SourceClassProps) {
 
-        console.log(`[Player] (SourceClass) constructor: ${JSON.stringify(props)}`);
         this._getSourceUri = props.getSourceUri;
 
         if (props.manifests && props.manifests.length > 0){
@@ -93,7 +91,7 @@ export class SourceClass {
     public changeSource(props:SourceClassProps) {
 
         this._isReady = false;
-        console.log(`[Player] (SourceClass) changeSource: ${JSON.stringify(props)}`);
+        console.log(`[SourceClass] changeSource (isReady ${!!this._isReady})`);
 
         if (!props.manifests || props.manifests.length === 0){
             this.clearCurrentSource();
@@ -142,6 +140,7 @@ export class SourceClass {
         };
 
         this._isReady = true;
+        console.log(`[SourceClass] changeSource finished (isReady ${!!this._isReady})`);
 
         if (props.onSourceChanged && typeof props.onSourceChanged === 'function'){
             props.onSourceChanged({
@@ -266,6 +265,7 @@ export class SourceClass {
     }
 
     get isReady(): boolean {
+        console.log(`[SourceClass] isReady ${this._isReady}`);
         return this._isReady;
     }
 
