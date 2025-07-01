@@ -8,6 +8,8 @@ import {
     //type OnVideoErrorData,
     type OnLoadData,
     //type OnVolumeChangeData,
+    type SliderValues,
+    DVR_PLAYBACK_TYPE
 } from '../../../types';
 import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
@@ -17,13 +19,6 @@ import {
 } from '../../modules/buffer';
 
 import { 
-    getBestManifest,
-    getManifestSourceType,
-    getVideoSourceUri,
-    getContentIdIsDownloaded,
-    getContentIdIsBinary,
-    getContentById,
-    getDRM,
     getMinutesSinceStart,
     subtractMinutesFromDate,
     useDvrPausedSeconds
@@ -85,6 +80,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [buffering, setBuffering] = useState<boolean>(false);
 
+    const [sliderValues, setSliderValues] = useState<SliderValues>();
+
     const [speedRate, setSpeedRate] = useState<number>(1);
 
     const refVideoPlayer = useRef<VideoRef>(null);
@@ -98,6 +95,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // DVR Progress Manager
     const dvrProgressManagerRef = useRef<DVRProgressManagerClass>(new DVRProgressManagerClass({
+        playbackType: DVR_PLAYBACK_TYPE.WINDOW,
+        // Metadata
         getEPGProgramAt: getDVREPGProgramAt,
         getEPGNextProgram: getDVREPGNextProgram,
     
@@ -276,26 +275,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         /*
-        let uri;
-
-        // Cogemos el manifest adecuado
-        currentManifest.current = getBestManifest(props?.manifests!);
-
-        // Preparamos el DRM adecuado al manifest y plataforma
-        drm.current = getDRM(currentManifest.current!);
-
-        // Marcamos si es HLS
-        isHLS.current = currentManifest.current?.type === STREAM_FORMAT_TYPE.HLS;
-
-        // Revisamos si se trata de un Binario descargado
-        isDownloaded.current = getContentIdIsDownloaded(props.id!);
-        isBinary.current = getContentIdIsBinary(props.id!);
-
-        // Preparamos los datos de Youbora
-        if (props.getYouboraOptions){
-            youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
-
-        }
 
         // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
         if (props?.isLive && (typeof(currentManifest.current?.dvr_window_minutes) === 'number' && currentManifest.current?.dvr_window_minutes > 0) || props.forcedDvrWindowMinutes){
@@ -331,26 +310,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 setDvrTimeValue(dvrWindowSeconds.current);
             }
         }
-
-        console.log(`[Player] (Audio Flavour) uri ${JSON.stringify(uri)}`);
-
-        // Montamos el Source para el player
-        setVideoSource({
-            id: props.id,
-            title: props.title,
-            uri: uri,
-            type: getManifestSourceType(currentManifest.current!),
-            startPosition: (!isDVR.current && currentTime > 0) ? currentTime * 1000 : undefined,
-            headers: props.headers,
-            metadata: {
-                title: props.title,
-                subtitle: props.subtitle,
-                description: props.description,
-                imageUri: props.squaredPoster || props.poster
-            }
-        });
-
-        setPreloading(!preloading);
         */
 
     }
@@ -376,7 +335,14 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     };
 
     function onDVRProgressUpdate(data:ProgressUpdateData) {
-
+        setSliderValues({
+            minimumValue: data.minimumValue,
+            maximumValue: data.maximumValue,
+            progress: data.progress,
+            canSeekToEnd: data.canSeekToEnd,
+            liveEdge: data.liveEdge,
+            isProgramLive: data.isProgramLive
+        });
     };
 
     function onDVRSeekRequest(playerTime:number) {
@@ -711,6 +677,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         isContentLoaded: isContentLoaded,
         speedRate: speedRate,
         extraData: props.extraData,
+
+        // Slider Values
+        sliderValues: sliderValues,
     
         //Events
         onPress: onControlsPress,

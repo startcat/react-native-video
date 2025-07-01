@@ -311,6 +311,27 @@ export interface AudioPlayerProgressEventProps {
  *
  */
 
+export interface SeekableRange {
+    start: number;
+    end: number;
+}
+
+export interface Program {
+    id: string;
+    title?: string;
+    startDate: number;
+    endDate: number;
+}
+
+export interface SliderValues {
+    minimumValue: number;
+    maximumValue: number;
+    progress: number;
+    canSeekToEnd: boolean;
+    liveEdge?: number; // Usado en modo PLAYLIST para mostrar el límite real
+    isProgramLive?: boolean; // Indica si el programa está en directo
+}
+
 export interface ButtonProps {
     id: CONTROL_ACTION;
     iconName?: string;
@@ -489,6 +510,9 @@ export interface ControlsBarProps {
     isDVRStart?: boolean;
     isContentLoaded?: boolean;
     isChangingSource?: boolean;
+
+    // Slider Values
+    sliderValues?: SliderValues;
     
     // Components
     loader?:React.ReactElement;
@@ -522,6 +546,9 @@ export interface ControlsProps {
     isDVRStart?: boolean;
     isContentLoaded?: boolean;
     isChangingSource?: boolean;
+
+    // Slider Values
+    sliderValues?: SliderValues;
 
     // Components
     loader?:React.ReactElement;
@@ -564,6 +591,9 @@ export interface AudioControlsProps {
     speedRate?: number;
     extraData?: any;
 
+    // Slider Values
+    sliderValues?: SliderValues;
+
     //Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onSlidingStart?: (value: number) => void;
@@ -598,6 +628,9 @@ export interface OverlayProps {
     audioIndex?: number;
     subtitleIndex?: number;
     speedRate?: number;
+
+    // Slider Values
+    sliderValues?: SliderValues;
 
     // Components
     loader?:React.ReactElement;
