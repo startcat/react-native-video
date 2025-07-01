@@ -134,6 +134,8 @@ export class SourceClass {
         // Marcamos si es DVR
         this._isDVR = this._isLive && typeof(this._currentManifest?.dvr_window_minutes) === 'number' && this._currentManifest?.dvr_window_minutes > 0;
 
+        this._dvrWindowSeconds = this._isDVR && this._currentManifest?.dvr_window_minutes ? this._currentManifest?.dvr_window_minutes * 60 : undefined;
+
         // Marcamos la posición inicial
         this._startPosition = props.startPosition || 0;
 
@@ -267,6 +269,10 @@ export class SourceClass {
 
     get playerSourceDrm(): IDrm | undefined {
         return this._drm;
+    }
+
+    get dvrWindowSeconds(): number | undefined {
+        return this._dvrWindowSeconds;
     }
 
     get isLive(): boolean {

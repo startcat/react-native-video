@@ -39,6 +39,14 @@ import {
 } from '../../modules/tudum';
 
 import {
+    type Program,
+    type ModeChangeData,
+    type ProgramChangeData,
+    type ProgressUpdateData,
+    DVRProgressManagerClass
+} from '../../modules/dvr';
+
+import {
     invokePlayerAction
 } from '../actions/player';
 
@@ -46,14 +54,12 @@ import { styles } from '../styles';
 
 import { 
     type AudioFlavourProps,
-    type IManifest, 
     type IMappedYoubora, 
     type IDrm,
     type IVideoSource,
     type ICommonData,
     type AudioPlayerActionEventProps,
     CONTROL_ACTION,
-    STREAM_FORMAT_TYPE,
     YOUBORA_FORMAT,
 } from '../../types';
 
@@ -65,9 +71,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const youboraForVideo = useRef<IMappedYoubora>();
     const drm = useRef<IDrm>();
     const [videoSource, setVideoSource] = useState<IVideoSource | undefined>(undefined);
-
-    const isDownloaded = useRef<boolean>();
-    const isBinary = useRef<boolean>();
 
     const dvrWindowSeconds = useRef<number>();
     const dvrLoadTimestamp = useRef<number>();
@@ -92,6 +95,18 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // Tudum
     const tudumRef = useRef<TudumClass | null>(null);
+
+    // DVR Progress Manager
+    const dvrProgressManagerRef = useRef<DVRProgressManagerClass>(new DVRProgressManagerClass({
+        getEPGProgramAt: getDVREPGProgramAt,
+        getEPGNextProgram: getDVREPGNextProgram,
+    
+        // Callbacks
+        onModeChange: onDVRModeChange,
+        onProgramChange: onDVRProgramChange,
+        onProgressUpdate: onDVRProgressUpdate,
+        onSeekRequest: onDVRSeekRequest
+    }));
 
     const dvrPaused = useDvrPausedSeconds({
         paused: paused,
@@ -224,6 +239,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (!tudumRef.current?.isPlaying){
             setPlayerSource(data);
 
+        } else if (sourceRef.current?.isLive && sourceRef.current?.isDVR){
+            dvrProgressManagerRef.current?.reset();
+
         }
         
     };
@@ -336,6 +354,34 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         */
 
     }
+
+    /*
+     *  DVR Progress Manager
+     */
+
+    function getDVREPGProgramAt(timestamp:number): Program | null {
+        return null;
+    };
+
+    function getDVREPGNextProgram(program:Program): Program | null {
+        return null;
+    };
+
+    function onDVRModeChange(data:ModeChangeData) {
+
+    };
+
+    function onDVRProgramChange(data:ProgramChangeData) {
+
+    };
+
+    function onDVRProgressUpdate(data:ProgressUpdateData) {
+
+    };
+
+    function onDVRSeekRequest(playerTime:number) {
+
+    };
 
     // Sleep Timer
     const cancelSleepTimer = () => {
@@ -533,17 +579,19 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             }
 
             if (sourceRef.current?.isDVR){
-                setDuration(dvrWindowSeconds.current);
-                dvrLoadTimestamp.current = (new Date()).getTime();
+                dvrProgressManagerRef.current?.setInitialTimeWindowSeconds(sourceRef.current.dvrWindowSeconds);
 
-            } else if (typeof(e.duration) === 'number' && e.duration && duration !== e.duration){
-                setDuration(e.duration);
+                // setDuration(dvrWindowSeconds.current);
+                // dvrLoadTimestamp.current = (new Date()).getTime();
 
-                if (!props?.isLive && props?.onChangeCommonData){
-                    props.onChangeCommonData({
-                        duration: e.duration
-                    });
-                }
+            // } else if (typeof(e.duration) === 'number' && e.duration && duration !== e.duration){
+            //     setDuration(e.duration);
+
+            //     if (!props?.isLive && props?.onChangeCommonData){
+            //         props.onChangeCommonData({
+            //             duration: e.duration
+            //         });
+            //     }
 
             }
 
@@ -575,6 +623,15 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         if (typeof(e.seekableDuration) === 'number' && seekableRange.current !== e.seekableDuration){
             seekableRange.current = e.seekableDuration;
+        }
+
+        if (sourceRef.current?.isDVR){
+            dvrProgressManagerRef.current?.updatePlayer({
+                currentTime: e.currentTime,
+                seekableRange: { start: 0, end: e.seekableDuration },
+                isBuffering: isBuffering,
+                isPaused: paused
+            });
         }
 
         if (!props?.isLive && props?.onChangeCommonData){

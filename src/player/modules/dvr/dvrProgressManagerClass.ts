@@ -1,3 +1,4 @@
+import { DVR_PLAYBACK_TYPE } from "../../types";
 export interface SeekableRange {
     start: number;
     end: number;
@@ -15,7 +16,8 @@ export interface SliderValues {
     maximumValue: number;
     progress: number;
     canSeekToEnd: boolean;
-    liveEdge?: number; // Usado en modo EPG
+    liveEdge?: number; // Usado en modo PLAYLIST para mostrar el límite real
+    isProgramLive?: boolean; // Indica si el programa está en directo
 }
 
 export interface ProgramChangeData {
@@ -24,19 +26,16 @@ export interface ProgramChangeData {
 }
 
 export interface ModeChangeData {
-    isEPGMode: boolean;
+    previousType: DVR_PLAYBACK_TYPE;
+    playbackType: DVR_PLAYBACK_TYPE;
     program: Program | null;
 }
 
-export interface ProgressUpdateData {
-    minimumValue: number;
-    maximumValue: number;
-    progress: number;
-    canSeekToEnd: boolean;
+export interface ProgressUpdateData extends SliderValues {
     isLiveEdgePosition: boolean;
     isPaused: boolean;
     isBuffering: boolean;
-    isEPGMode: boolean;
+    playbackType: DVR_PLAYBACK_TYPE;
     currentProgram: Program | null;
     currentRealTime: number;
 }
@@ -53,7 +52,7 @@ export interface DVRProgressManagerData {
     currentTime?: number;
     isPaused?: boolean;
     isBuffering?: boolean;
-    isEPGMode?: boolean;
+    playbackType?: DVR_PLAYBACK_TYPE;
 
     // EPG Provider
     getEPGProgramAt?: (timestamp:number) => Program | null;
@@ -66,7 +65,7 @@ export interface DVRProgressManagerData {
     onSeekRequest?: (playerTime:number) => void;
 }
 
-export class DVRProgressManager {
+export class DVRProgressManagerClass {
 
     private _initialTimeWindowSeconds:number;
     private _currentTimeWindowSeconds:number;
@@ -80,7 +79,7 @@ export class DVRProgressManager {
     private _isPaused:boolean = false;
     private _isBuffering:boolean = false;
     private _isLiveEdgePosition:boolean = false;
-    private _isEPGMode:boolean = false;
+    private _playbackType:DVR_PLAYBACK_TYPE = DVR_PLAYBACK_TYPE.WINDOW;
 
     private _currentProgram:Program | null = null;
 
@@ -109,8 +108,8 @@ export class DVRProgressManager {
         this._pauseStartTime = 0;
         this._totalPauseTime = 0;
       
-        // Modo EPG
-        this._isEPGMode = options.isEPGMode || false;
+        // Tipo de reproducción del directo
+        this._playbackType = options.playbackType || DVR_PLAYBACK_TYPE.WINDOW;
         this._currentProgram = null;
       
         // Callbacks
@@ -130,6 +129,14 @@ export class DVRProgressManager {
             this._updateLiveStatus();
         }
         
+    }
+
+    setInitialTimeWindowSeconds(seconds:number) {
+        this._initialTimeWindowSeconds = seconds;
+        this._currentTimeWindowSeconds = this._initialTimeWindowSeconds;
+
+        // Referencia de tiempo inicial (timestamp del edge live inicial)
+        this._liveEdgeReference = Date.now();
     }
   
     /*
@@ -152,8 +159,8 @@ export class DVRProgressManager {
         // Determinar si estamos en vivo
         this._updateLiveStatus();
       
-        // Si estamos en modo EPG, verificar cambios de programa
-        if (this._isEPGMode) {
+        // Verificar cambios de programa según el tipo de reproducción
+        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
             this._checkProgramChange();
         }
       
@@ -168,41 +175,82 @@ export class DVRProgressManager {
     
     getSliderValues(): SliderValues {
 
-        if (this._isEPGMode) {
-            return this._getEPGSliderValues();
-
-        } else {
-            return this._getDVRSliderValues();
+        switch (this._playbackType) {
+            case DVR_PLAYBACK_TYPE.WINDOW:
+                return this._getWindowSliderValues();
+            
+            case DVR_PLAYBACK_TYPE.PLAYLIST:
+                return this._getPlaylistSliderValues();
+            
+            case DVR_PLAYBACK_TYPE.PROGRAM:
+                return this._getProgramSliderValues();
+            
+            default:
+                return this._getWindowSliderValues();
         }
-
 
     }
   
     /*
-     *  Activar/desactivar modo EPG
+     *  Cambiar tipo de reproducción
      * 
      */
     
-    setEPGMode(enabled:boolean, program:Program | null = null) {
-        this._isEPGMode = enabled;
+    setPlaybackType(playbackType: DVR_PLAYBACK_TYPE, program: Program | null = null) {
+        const previousType = this._playbackType;
+        
+        // Si no cambia el tipo, solo actualizamos el programa si es necesario
+        if (previousType === playbackType && !program) {
+            return;
+        }
+        
+        this._playbackType = playbackType;
       
-        if (enabled && this._getEPGProgramAt) {
-            // Obtener programa actual si no se proporciona
-            if (!program) {
-                const currentRealTime = this._getCurrentRealTime();
-                this._currentProgram = this._getEPGProgramAt(currentRealTime);
-            } else {
-                this._currentProgram = program;
+        // Manejar programa según el tipo
+        if (playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
+            if (this._getEPGProgramAt) {
+                // Obtener programa actual si no se proporciona
+                if (!program) {
+                    const currentRealTime = this._getCurrentRealTime();
+                    this._currentProgram = this._getEPGProgramAt(currentRealTime);
+                } else {
+                    this._currentProgram = program;
+                }
             }
         } else {
+            // En modo WINDOW no necesitamos programa
             this._currentProgram = null;
+        }
+
+        // Para PROGRAM, iniciar desde el comienzo del programa
+        if (playbackType === DVR_PLAYBACK_TYPE.PROGRAM && this._currentProgram) {
+            this._isLiveEdgePosition = false;
+            this._seekToRealTime(this._currentProgram.startDate);
         }
       
         if (this._onModeChange){
-            this._onModeChange({ isEPGMode: this._isEPGMode, program: this._currentProgram });
+            this._onModeChange({ 
+                previousType: previousType,
+                playbackType: this._playbackType, 
+                program: this._currentProgram 
+            });
         }
 
         this._emitProgressUpdate();
+    }
+  
+    /*
+     *  Ir al inicio del programa actual (solo para tipos PROGRAM y PLAYLIST)
+     * 
+     */
+
+    goToProgramStart() {
+        if (!this._currentProgram) return;
+        
+        if (this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM || this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
+            this._isLiveEdgePosition = false;
+            this._seekToRealTime(this._currentProgram.startDate);
+        }
     }
   
     /*
@@ -215,17 +263,9 @@ export class DVRProgressManager {
         this._totalPauseTime = 0;
         this._currentTimeWindowSeconds = this._initialTimeWindowSeconds;
       
-        // En modo DVR, ir al final del rango seekable
-        if (!this._isEPGMode) {
-            const targetTime = this._seekableRange.end;
-            this._seekTo(targetTime);
-
-        } else {
-            // En modo EPG, ir al tiempo actual real
-            const currentRealTime = this._getCurrentRealTime();
-            this._seekToRealTime(currentRealTime);
-
-        }
+        // En todos los tipos, ir al live edge (final del rango seekable)
+        const targetTime = this._seekableRange.end;
+        this._seekTo(targetTime);
     }
   
     /*
@@ -236,14 +276,12 @@ export class DVRProgressManager {
     goToTime(timestamp:number) {
         this._isLiveEdgePosition = false;
       
-        if (this._isEPGMode) {
+        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
             this._seekToRealTime(timestamp);
-
         } else {
-            // Convertir timestamp a tiempo del reproductor
+            // Para WINDOW y PROGRAM, convertir timestamp a tiempo del reproductor
             const targetTime = this._timestampToPlayerTime(timestamp);
             this._seekTo(targetTime);
-
         }
     }
   
@@ -281,9 +319,10 @@ export class DVRProgressManager {
         const tolerance = 0.95; // 95% del slider
         this._isLiveEdgePosition = progress >= tolerance;
       
-        if (this._isEPGMode) {
+        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
             this._seekToRealTime(targetValue);
         } else {
+            // Para WINDOW y PROGRAM, buscar directamente al valor
             this._seekTo(targetValue);
         }
     }
@@ -327,15 +366,23 @@ export class DVRProgressManager {
     }
   
     _updateTimeWindow() {
-        // Calcular tiempo total de pausa/buffering incluyendo pausa actual
-        let totalPause = this._totalPauseTime;
-
-        if (this._pauseStartTime) {
-            totalPause += Date.now() - this._pauseStartTime;
+        // Para PLAYLIST, la ventana está definida por el programa actual, no por tiempo transcurrido
+        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
+            return;
         }
-      
-        // Expandir ventana de tiempo
-        this._currentTimeWindowSeconds = this._initialTimeWindowSeconds + (totalPause / 1000);
+
+        // Para WINDOW y PROGRAM: la ventana crece continuamente desde el inicio
+        const timeElapsedSinceStart = (Date.now() - this._liveEdgeReference) / 1000;
+        const naturalWindowSize = this._initialTimeWindowSeconds + timeElapsedSinceStart;
+        
+        // Calcular tiempo adicional por pausas/buffering
+        let totalPauseTime = this._totalPauseTime;
+        if (this._pauseStartTime > 0) {
+            totalPauseTime += Date.now() - this._pauseStartTime;
+        }
+        
+        // La ventana final incluye el crecimiento natural + pausas adicionales
+        this._currentTimeWindowSeconds = naturalWindowSize + (totalPauseTime / 1000);
     }
   
     _updateLiveStatus() {
@@ -351,13 +398,24 @@ export class DVRProgressManager {
       
         const currentRealTime = this._getCurrentRealTime();
       
+        // Verificar si hemos salido del programa actual
         if (currentRealTime >= this._currentProgram.endDate) {
+            const previousProgram = this._currentProgram;
             const nextProgram = this._getEPGNextProgram(this._currentProgram);
         
             if (nextProgram) {
-                const previousProgram = this._currentProgram;
                 this._currentProgram = nextProgram;
-    
+
+                // Comportamiento según el tipo de reproducción
+                if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
+                    // En PLAYLIST, continuar con el siguiente programa automáticamente
+                    // No necesitamos hacer seek, el contenido continúa
+                } else if (this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
+                    // En PROGRAM, empezar desde el inicio del nuevo programa
+                    this._isLiveEdgePosition = false;
+                    this._seekToRealTime(nextProgram.startDate);
+                }
+
                 if (this._onProgramChange){
                     this._onProgramChange({
                         previousProgram: previousProgram,
@@ -368,7 +426,7 @@ export class DVRProgressManager {
         }
     }
   
-    _getDVRSliderValues(): SliderValues {
+    _getWindowSliderValues(): SliderValues {
         const now = Date.now();
         const liveEdge = this._liveEdgeReference + (now - this._liveEdgeReference);
         const windowStart = liveEdge - (this._currentTimeWindowSeconds * 1000);
@@ -377,13 +435,14 @@ export class DVRProgressManager {
             minimumValue: windowStart,
             maximumValue: liveEdge,
             progress: this._getCurrentRealTime(),
-            canSeekToEnd: true
+            canSeekToEnd: true,
+            isProgramLive: false // En modo WINDOW no hay restricciones de programa en directo
         };
     }
-  
-    _getEPGSliderValues(): SliderValues {
+
+    _getPlaylistSliderValues(): SliderValues {
         if (!this._currentProgram) {
-            return this._getDVRSliderValues();
+            return this._getWindowSliderValues();
         }
       
         const now = Date.now();
@@ -391,15 +450,35 @@ export class DVRProgressManager {
         const programEnd = this._currentProgram.endDate;
         const currentRealTime = this._getCurrentRealTime();
       
-        // Si el programa está en directo, limitar el máximo al tiempo actual
-        const effectiveEnd = Math.min(programEnd, now);
+        // Determinar si el programa está en directo
+        const isProgramLive = programEnd > now;
       
         return {
             minimumValue: programStart,
             maximumValue: programEnd,
             progress: currentRealTime,
-            canSeekToEnd: programEnd <= now, // Solo se puede ir al final si el programa ya terminó
-            liveEdge: effectiveEnd // Límite real para seeking
+            canSeekToEnd: !isProgramLive, // Solo se puede ir al final si el programa ya terminó
+            liveEdge: isProgramLive ? now : undefined, // En vivo: límite es "ahora", terminado: sin límite
+            isProgramLive: isProgramLive
+        };
+    }
+
+    _getProgramSliderValues(): SliderValues {
+        if (!this._currentProgram) {
+            return this._getWindowSliderValues();
+        }
+      
+        const now = Date.now();
+        const programStart = this._currentProgram.startDate;
+        const liveEdge = this._liveEdgeReference + (now - this._liveEdgeReference);
+        const currentRealTime = this._getCurrentRealTime();
+      
+        return {
+            minimumValue: programStart,
+            maximumValue: liveEdge, // El edge live, no el final del programa
+            progress: currentRealTime,
+            canSeekToEnd: true, // Siempre se puede ir al live edge
+            isProgramLive: false // No hay restricciones como en PLAYLIST
         };
     }
   
@@ -435,7 +514,7 @@ export class DVRProgressManager {
         const playerTime = this._timestampToPlayerTime(timestamp);
         this._seekTo(playerTime);
     }
-  
+
     _emitProgressUpdate() {
         const sliderValues = this.getSliderValues();
       
@@ -445,7 +524,7 @@ export class DVRProgressManager {
                 isLiveEdgePosition: this._isLiveEdgePosition,
                 isPaused: this._isPaused,
                 isBuffering: this._isBuffering,
-                isEPGMode: this._isEPGMode,
+                playbackType: this._playbackType,
                 currentProgram: this._currentProgram,
                 currentRealTime: this._getCurrentRealTime()
             });
@@ -472,7 +551,7 @@ export class DVRProgressManager {
         this._pauseStartTime = 0;
         this._isLiveEdgePosition = true;
         this._liveEdgeReference = Date.now();
-        this.setEPGMode(false, null);
+        this.setPlaybackType(DVR_PLAYBACK_TYPE.WINDOW, null);
     }
   
     /*
@@ -486,7 +565,7 @@ export class DVRProgressManager {
             currentTimeWindowSeconds: this._currentTimeWindowSeconds,
             totalPauseTime: this._totalPauseTime / 1000, // en segundos
             isLiveEdgePosition: this._isLiveEdgePosition,
-            isEPGMode: this._isEPGMode,
+            playbackType: this._playbackType,
             currentProgram: this._currentProgram
         };
     }
@@ -505,8 +584,8 @@ export class DVRProgressManager {
         return this._isLiveEdgePosition;
     }
 
-    get isEPGMode() {
-        return this._isEPGMode;
+    get playbackType() {
+        return this._playbackType;
     }
 
     get currentProgram() {
