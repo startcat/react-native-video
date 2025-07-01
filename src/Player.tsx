@@ -239,6 +239,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     timeMarkers={props.timeMarkers}
                     avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
+                    dvrPlaybackType={props.dvrPlaybackType}
+
                     // Components
                     loader={props.loader}
                     mosca={props.mosca}
@@ -258,6 +260,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
                     // Utils
                     getYouboraOptions={props.getYouboraOptions}
+                    getEPGProgramAt={props.getEPGProgramAt}
+                    getEPGNextProgram={props.getEPGNextProgram}
                     mergeCastMenuData={props.mergeCastMenuData}
 
                     // Events
@@ -312,6 +316,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     timeMarkers={props.timeMarkers}
                     avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
+                    dvrPlaybackType={props.dvrPlaybackType}
+
                     // Components
                     loader={props.loader}
                     mosca={props.mosca}
@@ -333,6 +339,8 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     getSourceUri={props.getSourceUri}
                     getTudumManifest={props.getTudumManifest}
                     getYouboraOptions={props.getYouboraOptions}
+                    getEPGProgramAt={props.getEPGProgramAt}
+                    getEPGNextProgram={props.getEPGNextProgram}
                     mergeMenuData={props.mergeMenuData}
 
                     // Events
