@@ -9,6 +9,7 @@ import {
     type OnLoadData,
     //type OnVolumeChangeData,
     type SliderValues,
+    type Program,
     DVR_PLAYBACK_TYPE
 } from '../../../types';
 import { type VideoRef } from '../../../Video';
@@ -34,7 +35,6 @@ import {
 } from '../../modules/tudum';
 
 import {
-    type Program,
     type ModeChangeData,
     type ProgramChangeData,
     type ProgressUpdateData,
@@ -80,7 +80,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [muted, setMuted] = useState<boolean>(!!props?.muted);
     const [buffering, setBuffering] = useState<boolean>(false);
 
-    const [sliderValues, setSliderValues] = useState<SliderValues>();
+    const sliderValues = useRef<SliderValues>();
 
     const [speedRate, setSpeedRate] = useState<number>(1);
 
@@ -94,18 +94,24 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const tudumRef = useRef<TudumClass | null>(null);
 
     // DVR Progress Manager
-    const dvrProgressManagerRef = useRef<DVRProgressManagerClass>(new DVRProgressManagerClass({
-        playbackType: DVR_PLAYBACK_TYPE.WINDOW,
-        // Metadata
-        getEPGProgramAt: getDVREPGProgramAt,
-        getEPGNextProgram: getDVREPGNextProgram,
-    
-        // Callbacks
-        onModeChange: onDVRModeChange,
-        onProgramChange: onDVRProgramChange,
-        onProgressUpdate: onDVRProgressUpdate,
-        onSeekRequest: onDVRSeekRequest
-    }));
+    const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
+
+    // Initialize DVR Progress Manager only once
+    if (!dvrProgressManagerRef.current) {
+        dvrProgressManagerRef.current = new DVRProgressManagerClass({
+            playbackType: props.dvrPlaybackType,
+
+            // Metadata
+            getEPGProgramAt: props.getEPGProgramAt,
+            getEPGNextProgram: props.getEPGNextProgram,
+        
+            // Callbacks
+            onModeChange: onDVRModeChange,
+            onProgramChange: onDVRProgramChange,
+            onProgressUpdate: onDVRProgressUpdate,
+            onSeekRequest: onDVRSeekRequest
+        });
+    }
 
     const dvrPaused = useDvrPausedSeconds({
         paused: paused,
@@ -318,31 +324,24 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
      *  DVR Progress Manager
      */
 
-    function getDVREPGProgramAt(timestamp:number): Program | null {
-        return null;
-    };
-
-    function getDVREPGNextProgram(program:Program): Program | null {
-        return null;
-    };
-
     function onDVRModeChange(data:ModeChangeData) {
-
+        console.log(`[Player] (Audio Flavour) onDVRModeChange: ${JSON.stringify(data)}`);
     };
 
     function onDVRProgramChange(data:ProgramChangeData) {
-
+        console.log(`[Player] (Audio Flavour) onDVRProgramChange: ${JSON.stringify(data)}`);
     };
 
     function onDVRProgressUpdate(data:ProgressUpdateData) {
-        setSliderValues({
+        console.log(`[Player] (Audio Flavour) onDVRProgressUpdate: ${JSON.stringify(data)}`);
+        sliderValues.current = {
             minimumValue: data.minimumValue,
             maximumValue: data.maximumValue,
             progress: data.progress,
             canSeekToEnd: data.canSeekToEnd,
             liveEdge: data.liveEdge,
             isProgramLive: data.isProgramLive
-        });
+        };
     };
 
     function onDVRSeekRequest(playerTime:number) {
@@ -583,6 +582,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onProgress = (e: OnProgressData) => {
 
+        console.log(`[DANI] onProgress - isDVR ${sourceRef.current?.isDVR}`);
+        console.log(`[DANI] onProgress - dvrProgressManagerRef ${dvrProgressManagerRef.current}`);
+
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             setCurrentTime(e.currentTime);
         }
@@ -592,7 +594,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         if (sourceRef.current?.isDVR){
-            dvrProgressManagerRef.current?.updatePlayer({
+            dvrProgressManagerRef.current?.updatePlayerData({
                 currentTime: e.currentTime,
                 seekableRange: { start: 0, end: e.seekableDuration },
                 isBuffering: isBuffering,
@@ -679,7 +681,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         extraData: props.extraData,
 
         // Slider Values
-        sliderValues: sliderValues,
+        sliderValues: sliderValues.current,
     
         //Events
         onPress: onControlsPress,

@@ -686,6 +686,8 @@ export interface AudioFlavourProps {
     currentTime?: number;
     languagesMapping?:ILanguagesMapping;
 
+    dvrPlaybackType?: DVR_PLAYBACK_TYPE;
+
     // Extra data
     extraData?: any;
 
@@ -701,6 +703,8 @@ export interface AudioFlavourProps {
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
+    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
+    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
@@ -741,6 +745,8 @@ export interface AudioCastFlavourProps {
     currentTime?: number;
     languagesMapping?:ILanguagesMapping;
 
+    dvrPlaybackType?: DVR_PLAYBACK_TYPE;
+
     // Extra data
     extraData?: any;
 
@@ -756,6 +762,8 @@ export interface AudioCastFlavourProps {
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
+    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
+    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
@@ -802,6 +810,8 @@ export interface NormalFlavourProps {
     timeMarkers?: Array<ITimeMarkers>;
     avoidTimelineThumbnails?: boolean;
 
+    dvrPlaybackType?: DVR_PLAYBACK_TYPE;
+
     // Components
     loader?:React.ReactElement;
     mosca?: React.ReactElement;
@@ -823,6 +833,8 @@ export interface NormalFlavourProps {
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
+    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
     mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
 
     // Events
@@ -869,6 +881,8 @@ export interface CastFlavourProps {
     timeMarkers?: Array<ITimeMarkers>;
     avoidTimelineThumbnails?: boolean;
 
+    dvrPlaybackType?: DVR_PLAYBACK_TYPE;
+
     // Components
     loader?:React.ReactElement;
     mosca?: React.ReactElement;
@@ -889,6 +903,8 @@ export interface CastFlavourProps {
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
+    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
     mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 
     // Events
@@ -936,6 +952,8 @@ export interface PlayerProps {
     avoidRotation?: boolean;
     avoidDownloadsManagement?: boolean;
 
+    dvrPlaybackType?: DVR_PLAYBACK_TYPE;
+
     // Components
     loader?:React.ReactElement;
     suspenseLoader?: React.ReactElement;
@@ -960,6 +978,8 @@ export interface PlayerProps {
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
+    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
+    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
     mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
     mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 
@@ -1004,6 +1024,7 @@ export interface AudioPlayerContentsDpo {
     youbora?: IYoubora;
     extraData?: any;
     forcedDvrWindowMinutes?: number;
+    dvrPlaybackType?: DVR_PLAYBACK_TYPE;
 
     // Utils
     watchingProgressInterval?: number;
@@ -1012,6 +1033,8 @@ export interface AudioPlayerContentsDpo {
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
+    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
+    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
 
     // Events
     onProgress?: (value: number, duration?: number) => void;

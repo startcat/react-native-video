@@ -303,6 +303,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         showExternalTudum={dpoData.showExternalTudum}
                         forcedDvrWindowMinutes={dpoData.forcedDvrWindowMinutes}
                         // liveStartDate={props.liveStartDate}
+                        dvrPlaybackType={dpoData.dvrPlaybackType}
 
                         currentTime={currentTime.current}
 
@@ -321,6 +322,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         getYouboraOptions={dpoData.getYouboraOptions}
                         getTudumManifest={dpoData.getTudumManifest}
                         getTudumSource={dpoData.getTudumSource}
+                        getEPGProgramAt={dpoData.getEPGProgramAt}
+                        getEPGNextProgram={dpoData.getEPGNextProgram}
 
                         // Events
                         onChangeCommonData={changeCommonData}
@@ -359,6 +362,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         isLive={dpoData.isLive}
                         forcedDvrWindowMinutes={dpoData.forcedDvrWindowMinutes}
                         // liveStartDate={props.liveStartDate}
+                        dvrPlaybackType={dpoData.dvrPlaybackType}
 
                         currentTime={currentTime.current}
 
@@ -376,6 +380,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         getYouboraOptions={dpoData.getYouboraOptions}
                         getTudumManifest={dpoData.getTudumManifest}
                         getTudumSource={dpoData.getTudumSource}
+                        getEPGProgramAt={dpoData.getEPGProgramAt}
+                        getEPGNextProgram={dpoData.getEPGNextProgram}
 
                         // Events
                         onChangeCommonData={changeCommonData}
