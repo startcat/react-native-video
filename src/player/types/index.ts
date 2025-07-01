@@ -93,7 +93,11 @@ export enum YOUBORA_FORMAT {
     CAST = 'cast'
 }
 
-
+export enum DVR_PLAYBACK_TYPE {
+    WINDOW = 'window',
+    PROGRAM = 'program',
+    PLAYLIST = 'playlist'
+}
 
 export interface IDrm {
     type?: DRM_TYPE;
