@@ -38,4 +38,5 @@ export interface IInnerPlayerEvents extends IPlayerEvents {
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
+    onClose?: () => void;
 }

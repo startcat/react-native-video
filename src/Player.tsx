@@ -52,12 +52,12 @@ import {
 export function Player (props: PlayerProps): React.ReactElement | null {
 
     const playerProgress = useRef<IPlayerProgress | null>(null);
-    
-    const currentTime = useRef<number>(props.startPosition || 0);
-    const duration = useRef<number>(0);
-    const volume = useRef<number>();
-    const isPaused = useRef<boolean>(false);
-    const isMuted = useRef<boolean>(false);
+
+    // const currentTime = useRef<number>(props.startPosition || 0);
+    // const duration = useRef<number>(0);
+    // const volume = useRef<number>();
+    // const isPaused = useRef<boolean>(false);
+    // const isMuted = useRef<boolean>(false);
     const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<number>();
     const hasBeenLoaded = useRef<boolean>(false);
@@ -68,6 +68,13 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const [hasRotated, setHasRotated] = useState<boolean>(!!props.avoidRotation || DeviceInfo.isTablet());
 
     const castState = useCastState();
+
+    if (!playerProgress.current){
+        playerProgress.current = {
+            ...props.playerProgress,
+            currentTime: props.initialState?.startPosition || 0,
+        };
+    }
 
     useOrientationChange((o) => {
         // Pequeño apaño para el lock de rotación (fallback para dispositivos viejos)
@@ -105,16 +112,16 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         }
 
         // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
-        if (typeof(props.watchingProgressInterval) === 'number' && props.watchingProgressInterval > 0 && props.addContentProgress){
+        if (typeof(props.hooks?.watchingProgressInterval) === 'number' && props.hooks?.watchingProgressInterval > 0 && props.hooks?.addContentProgress){
             watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
 
                 // Evitamos mandar el watching progress en directos y en Chromecast
-                if (hasBeenLoaded.current && !props.isLive && !isCasting.current){
+                if (hasBeenLoaded.current && !props.playerProgress?.isLive && !isCasting.current){
                     // @ts-ignore
-                    props.addContentProgress(currentTime.current, duration.current, props.id);
+                    props.hooks?.addContentProgress(currentTime.current, duration.current, props.id);
                 }
 
-            }, props.watchingProgressInterval);
+            }, props.hooks?.watchingProgressInterval);
 
         }
 
@@ -157,11 +164,11 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const changeCommonData = (data: ICommonData) => {
 
         if (data?.time !== undefined){
-            currentTime.current = data.time;
+            playerProgress.current.currentTime = data.time;
         }
 
         if (data?.duration !== undefined){
-            duration.current = data.duration;
+            playerProgress.current.duration = data.duration;
 
             if (!hasBeenLoaded.current){
                 hasBeenLoaded.current = true;
@@ -169,41 +176,41 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         }
 
-        if ((data?.time !== undefined || data?.duration !== undefined) && props.onProgress){
-            props.onProgress(currentTime.current, duration.current);
+        if ((data?.time !== undefined || data?.duration !== undefined) && props.events?.onProgress){
+            props.events.onProgress(playerProgress.current.currentTime, playerProgress.current.duration);
         }
 
         if (data?.paused !== undefined){
-            isPaused.current = !!data.paused;
+            playerProgress.current.isPaused = !!data.paused;
 
-            if (!!data.paused && props.onPause){
-                props.onPause();
-            } else if (props.onPlay){
-                props.onPlay();
+            if (!!data.paused && props.events?.onPause){
+                props.events.onPause();
+            } else if (props.events?.onPlay){
+                props.events.onPlay();
             }
         }
 
         if (data?.muted !== undefined){
-            isMuted.current = !!data.muted;
+            playerProgress.current.isMuted = !!data.muted;
         }
 
         if (typeof(data?.volume) === 'number'){
-            volume.current = data.volume;
+            playerProgress.current.volume = data.volume;
         }
 
         if (typeof(data?.audioIndex) === 'number'){
             setCurrentAudioIndex(data.audioIndex);
 
-            if (props.onChangeAudioIndex){
-                props.onChangeAudioIndex(data?.audioIndex, data?.audioLabel);
+            if (props.events?.onChangeAudioIndex){
+                props.events.onChangeAudioIndex(data?.audioIndex, data?.audioLabel);
             }
         }
 
         if (typeof(data?.subtitleIndex) === 'number'){
             setCurrentSubtitleIndex(data.subtitleIndex);
 
-            if (props.onChangeSubtitleIndex){
-                props.onChangeSubtitleIndex(data?.subtitleIndex, data?.subtitleLabel);
+            if (props.events?.onChangeSubtitleIndex){
+                props.events.onChangeSubtitleIndex(data?.subtitleIndex, data?.subtitleLabel);
             }
         }
         
@@ -213,80 +220,40 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         console.log(`[Player] Mounting CastFlavour...`);
         isCasting.current = true;
         return (
-            <Suspense fallback={props.suspenseLoader}>
+            <Suspense fallback={props.components?.suspenseLoader}>
                 <CastFlavour
-                    id={props.id}
-                    title={props.title}
-                    subtitle={props.subtitle}
-                    description={props.description}
-                    languagesMapping={props.languagesMapping}
-
                     manifests={props.manifests}
                     headers={props.headers}
-                    poster={props.poster}
-                    squaredPoster={props.squaredPoster}
-                    youbora={props.youbora}
-                    adTagUrl={props.adTagUrl}
-                    hasNext={props.hasNext}
-
-                    paused={isPaused.current}
-                    muted={isMuted.current}
-
-                    isLive={props.isLive}
+                    languagesMapping={props.languagesMapping}
                     liveStartDate={props.liveStartDate}
 
-                    currentTime={currentTime.current}
                     audioIndex={currentAudioIndex}
                     subtitleIndex={currentSubtitleIndex}
 
                     timeMarkers={props.timeMarkers}
                     avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
-                    dvrPlaybackType={props.dvrPlaybackType}
-
                     // Initial State
                     initialState={props.initialState}
 
                     // Nuevas Props Agrupadas
                     playerMetadata={props.playerMetadata}
+                    playerProgress={playerProgress.current}
                     playerAnalytics={props.playerAnalytics}
                     playerTimeMarkers={props.playerTimeMarkers}
                     playerAds={props.playerAds}
 
-                    // Components
-                    loader={props.loader}
-                    mosca={props.mosca}
-                    headerMetadata={props.headerMetadata}
-                    sliderVOD={props.sliderVOD}
-                    sliderDVR={props.sliderDVR}
-                    controlsHeaderBar={props.controlsHeaderBar}
-                    controlsMiddleBar={props.controlsMiddleBar}
-                    controlsBottomBar={props.controlsBottomBar}
-                    nextButton={props.nextButton}
-                    liveButton={props.liveButton}
-                    skipIntroButton={props.skipIntroButton}
-                    skipRecapButton={props.skipRecapButton}
-                    skipCreditsButton={props.skipCreditsButton}
-                    menu={props.menu}
-                    settingsMenu={props.settingsMenu}
+                    // Custom Components
+                    components={props.components}
 
-                    // Utils
-                    getYouboraOptions={props.getYouboraOptions}
-                    getEPGProgramAt={props.getEPGProgramAt}
-                    getEPGNextProgram={props.getEPGNextProgram}
-                    mergeCastMenuData={props.mergeCastMenuData}
+                    // Hooks
+                    hooks={props.hooks}
 
                     // Events
-                    onChangeCommonData={changeCommonData}
-                    onDVRChange={props.onDVRChange}
-                    onSeekOverEpg={props.onSeekOverEpg}
-                    onLiveStartProgram={props.onLiveStartProgram}
-                    onNext={props.onNext}
-                    onEnd={props.onEnd}
-                    onExit={props.onExit}
-                    onBuffering={props.onBuffering}
-                    onSeek={props.onSeek}
-                    onStart={props.onStart}
+                    events={{
+                        ...props.events,
+                        onChangeCommonData: changeCommonData,
+                    }}
                 />
             </Suspense>
         );
@@ -295,32 +262,16 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         console.log(`[Player] Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
-            <Suspense fallback={props.suspenseLoader}>
+            <Suspense fallback={props.components?.suspenseLoader}>
                 <NormalFlavour
-                    id={props.id}
-                    title={props.title}
-                    subtitle={props.subtitle}
-                    description={props.description}
-                    languagesMapping={props.languagesMapping}
-
                     manifests={props.manifests}
                     headers={props.headers}
+                    languagesMapping={props.languagesMapping}
                     showExternalTudum={props.showExternalTudum}
-                    poster={props.poster}
-                    squaredPoster={props.squaredPoster}
-                    youbora={props.youbora}
-                    adTagUrl={props.adTagUrl}
-                    hasNext={props.hasNext}
 
-                    paused={isPaused.current}
-                    muted={isMuted.current}
-                    
                     playOffline={props.playOffline}
-                    multiSession={props.multiSession}
-                    isLive={props.isLive}
                     liveStartDate={props.liveStartDate}
 
-                    currentTime={currentTime.current}
                     audioIndex={currentAudioIndex}
                     subtitleIndex={currentSubtitleIndex}
                     subtitleStyle={props.subtitleStyle}
@@ -328,53 +279,27 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     timeMarkers={props.timeMarkers}
                     avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
-                    dvrPlaybackType={props.dvrPlaybackType}
-
                     // Initial State
                     initialState={props.initialState}
 
                     // Nuevas Props Agrupadas
                     playerMetadata={props.playerMetadata}
+                    playerProgress={playerProgress.current}
                     playerAnalytics={props.playerAnalytics}
                     playerTimeMarkers={props.playerTimeMarkers}
                     playerAds={props.playerAds}
 
-                    // Components
-                    loader={props.loader}
-                    mosca={props.mosca}
-                    headerMetadata={props.headerMetadata}
-                    sliderVOD={props.sliderVOD}
-                    sliderDVR={props.sliderDVR}
-                    controlsHeaderBar={props.controlsHeaderBar}
-                    controlsMiddleBar={props.controlsMiddleBar}
-                    controlsBottomBar={props.controlsBottomBar}
-                    nextButton={props.nextButton}
-                    liveButton={props.liveButton}
-                    skipIntroButton={props.skipIntroButton}
-                    skipRecapButton={props.skipRecapButton}
-                    skipCreditsButton={props.skipCreditsButton}
-                    menu={props.menu}
-                    settingsMenu={props.settingsMenu}
+                    // Custom Components
+                    components={props.components}
 
-                    // Utils
-                    getSourceUri={props.getSourceUri}
-                    getTudumManifest={props.getTudumManifest}
-                    getYouboraOptions={props.getYouboraOptions}
-                    getEPGProgramAt={props.getEPGProgramAt}
-                    getEPGNextProgram={props.getEPGNextProgram}
-                    mergeMenuData={props.mergeMenuData}
+                    // Hooks
+                    hooks={props.hooks}
 
                     // Events
-                    onChangeCommonData={changeCommonData}
-                    onDVRChange={props.onDVRChange}
-                    onSeekOverEpg={props.onSeekOverEpg}
-                    onLiveStartProgram={props.onLiveStartProgram}
-                    onNext={props.onNext}
-                    onEnd={props.onEnd}
-                    onExit={props.onExit}
-                    onBuffering={props.onBuffering}
-                    onSeek={props.onSeek}
-                    onStart={props.onStart}
+                    events={{
+                        ...props.events,
+                        onChangeCommonData: changeCommonData,
+                    }}
                 />
             </Suspense>
         );

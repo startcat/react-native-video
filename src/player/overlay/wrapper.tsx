@@ -222,7 +222,6 @@ const OverlayBase = ({
 
             {showControls && (
                 <Controls 
-                    duration={duration}
                     thumbnailsMetadata={thumbnailsMetadata}
                     timeMarkers={timeMarkers}
                     avoidTimelineThumbnails={avoidTimelineThumbnails}
