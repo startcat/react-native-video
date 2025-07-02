@@ -10,6 +10,7 @@ import {
     type OnLoadData,
     //type OnVolumeChangeData,
     type SliderValues,
+    type AudioControlsProps
 } from '../../../types';
 import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
@@ -203,23 +204,25 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     useEffect(() => {
         EventRegister.emit('audioPlayerProgress', {
-            title: props.playerMetadata?.title,
-            description: props.playerMetadata?.description,
-            currentTime: currentTime,
-            // dvrTimeValue: dvrTimeValue,
-            duration: sourceRef.current?.duration,
-            paused: paused,
-            muted: muted,
-            volume: props.playerProgress?.volume,
             preloading: isBuffering,
-            hasNext: !!props.playerProgress?.hasNext,
-            hasPrev: !!props.playerProgress?.hasPrev,
-            isLive: !!props.playerProgress?.isLive,
-            isDVR: !!props.playerProgress?.isLive && sourceRef.current?.isDVR,
             isContentLoaded: isContentLoaded,
             speedRate: speedRate,
-            extraData: props.extraData
-        });
+            extraData: props.extraData,
+            // Nuevas Props Agrupadas
+            playerMetadata: props.playerMetadata,
+            playerProgress: {
+                ...props.playerProgress,
+                currentTime: currentTime,
+                duration: sourceRef.current?.duration,
+                isPaused: paused,
+                isMuted: muted,
+                
+            },
+            playerAnalytics: props.playerAnalytics,
+            playerTimeMarkers: props.playerTimeMarkers,
+            //Events
+            events: props.events,
+        } as AudioControlsProps);
 
     }, [currentTime, props.playerMetadata, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate]);
 
