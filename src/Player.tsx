@@ -11,6 +11,7 @@ import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { CastState, useCastState } from 'react-native-google-cast';
 import { Platform } from 'react-native';
 import { default as Downloads } from './Downloads';
+import { IPlayerProgress } from './player/types';
 
 // Imports condicionales: lazy loading solo en producción
 let NormalFlavour: React.ComponentType<any>;
@@ -50,6 +51,8 @@ import {
 
 export function Player (props: PlayerProps): React.ReactElement | null {
 
+    const playerProgress = useRef<IPlayerProgress | null>(null);
+    
     const currentTime = useRef<number>(props.startPosition || 0);
     const duration = useRef<number>(0);
     const volume = useRef<number>();

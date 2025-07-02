@@ -15,6 +15,7 @@ import {
     type AudioPlayerProps,
     type IAudioPlayerContent,
     type ICommonData,
+    type IPlayerProgress,
     CONTROL_ACTION,
 } from '../../types';
 
@@ -38,6 +39,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const [contentId, setContentId] = useState<IAudioPlayerContent | null>();
     const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo | null>(null);
 
+    const playerProgress = useRef<IPlayerProgress | null>(null);
+    
     const currentTime = useRef<number>(0);
     const duration = useRef<number>(0);
     const volume = useRef<number>();
