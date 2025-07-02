@@ -1,19 +1,19 @@
 import { 
     DVR_PLAYBACK_TYPE,
     type SeekableRange,
-    type Program,
+    type IBasicProgram,
     type SliderValues
 } from "../../types";
 
 export interface ProgramChangeData {
-    previousProgram: Program | null;
-    currentProgram: Program | null;
+    previousProgram: IBasicProgram | null;
+    currentProgram: IBasicProgram | null;
 }
 
 export interface ModeChangeData {
     previousType: DVR_PLAYBACK_TYPE;
     playbackType: DVR_PLAYBACK_TYPE;
-    program: Program | null;
+    program: IBasicProgram | null;
 }
 
 export interface ProgressUpdateData extends SliderValues {
@@ -21,7 +21,7 @@ export interface ProgressUpdateData extends SliderValues {
     isPaused: boolean;
     isBuffering: boolean;
     playbackType: DVR_PLAYBACK_TYPE;
-    currentProgram: Program | null;
+    currentProgram: IBasicProgram | null;
     currentRealTime: number;
 }
 
@@ -40,8 +40,8 @@ export interface DVRProgressManagerData {
     playbackType?: DVR_PLAYBACK_TYPE;
 
     // EPG Provider
-    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
-    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
+    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
 
     // Callbacks
     onModeChange?: (data:ModeChangeData) => void;
@@ -66,10 +66,10 @@ export class DVRProgressManagerClass {
     private _isLiveEdgePosition:boolean = false;
     private _playbackType:DVR_PLAYBACK_TYPE = DVR_PLAYBACK_TYPE.WINDOW;
 
-    private _currentProgram:Program | null = null;
+    private _currentProgram:IBasicProgram | null = null;
 
-    private _getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
-    private _getEPGNextProgram?: (program:Program) => Promise<Program | null>;
+    private _getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    private _getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
 
     private _onProgramChange?: (data:ProgramChangeData) => void;
     private _onModeChange?: (data:ModeChangeData) => void;
@@ -194,7 +194,7 @@ export class DVRProgressManagerClass {
      * 
      */
     
-    async setPlaybackType(playbackType: DVR_PLAYBACK_TYPE, program: Program | null = null) {
+    async setPlaybackType(playbackType: DVR_PLAYBACK_TYPE, program: IBasicProgram | null = null) {
         const previousType = this._playbackType;
         
         // Si no cambia el tipo, solo actualizamos el programa si es necesario
@@ -354,7 +354,7 @@ export class DVRProgressManagerClass {
      * 
      */
 
-    async getCurrentProgramInfo(): Promise<Program | null> {
+    async getCurrentProgramInfo(): Promise<IBasicProgram | null> {
         if (!this._getEPGProgramAt) return null;
       
         const currentRealTime = this._getCurrentRealTime();

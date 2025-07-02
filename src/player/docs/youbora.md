@@ -167,7 +167,7 @@ export const mapYouboraOptions = (data, offline = false) => {
     transactionCode: youbora_transaction_code,
     id: paramToString(data?.external_id),
     title: paramToString(data?.title),
-    type: paramToString(data?.media_type),
+    type: paramToString(data?.mediaType),
     customDimension: customDimensions,
   };
 
