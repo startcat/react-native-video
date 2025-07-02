@@ -96,6 +96,7 @@ export enum YOUBORA_FORMAT {
 export enum DVR_PLAYBACK_TYPE {
     WINDOW = 'window',
     PROGRAM = 'program',
+    PLAYLIST_EXPAND_RIGHT = 'playlistExpandRight',
     PLAYLIST = 'playlist'
 }
 
