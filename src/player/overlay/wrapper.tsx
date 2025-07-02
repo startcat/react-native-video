@@ -13,52 +13,12 @@ import { styles } from './styles';
 
 const PLAYER_HIDE_CONTROLS = 5000;
 
-const OverlayBase = ({
-    duration,
-    thumbnailsMetadata,
-    timeMarkers,
-    avoidTimelineThumbnails,
-    preloading,
-    isDVRStart,
-    isContentLoaded,
-    isChangingSource,
-    alwaysVisible,
-    menuData,
-    videoIndex,
-    audioIndex,
-    subtitleIndex,
-    speedRate,
-    mosca,
-    headerMetadata,
-    loader,
-    sliderVOD,
-    sliderDVR,
-    controlsHeaderBar,
-    controlsMiddleBar,
-    controlsBottomBar,
-    nextButton,
-    liveButton,
-    skipIntroButton,
-    skipRecapButton,
-    skipCreditsButton,
-    menu,
-    settingsMenu,
-    onPress: propOnPress,
-    onSlidingStart: propOnSlidingStart,
-    onSlidingMove: propOnSlidingMove,
-    onSlidingComplete: propOnSlidingComplete,
-    onExit,
-    playerMetadata,
-    playerProgress,
-    playerAnalytics,
-    playerTimeMarkers,
-    playerAds
-}: OverlayProps): React.ReactElement => {
+const OverlayBase = (props: OverlayProps): React.ReactElement => {
 
     const insets = useSafeAreaInsets();
 
-    const [avoidDissapear, setAvoidDissapear] = useState<boolean>(!!alwaysVisible);
-    const [visibleControls, setVisibleControls] = useState<boolean>(!!alwaysVisible);
+    const [avoidDissapear, setAvoidDissapear] = useState<boolean>(!!props.alwaysVisible);
+    const [visibleControls, setVisibleControls] = useState<boolean>(!!props.alwaysVisible);
     const [visibleMenu, setVisibleMenu] = useState<boolean>(false);
     const [visibleSettingsMenu, setVisibleSettingsMenu] = useState<boolean>(false);
     //const [currentTime, setCurrentTime] = useState<number>(playerProgress?.currentTime || 0);
@@ -68,11 +28,11 @@ const OverlayBase = ({
 
     useEffect(() => {
         // If we are connected to Airplay, don't let the controls disappear
-        setAvoidDissapear(!!alwaysVisible);
-        if (!!alwaysVisible) {
+        setAvoidDissapear(!!props.alwaysVisible);
+        if (!!props.alwaysVisible) {
             setVisibleControls(true);
         }
-    }, [alwaysVisible]);
+    }, [props.alwaysVisible]);
 
     // useEffect(() => {
     //     if (playerProgress?.currentTime !== undefined) {
@@ -116,7 +76,7 @@ const OverlayBase = ({
 
     const onToggle = useCallback(() => {
         if (!avoidDissapear) {
-            setVisibleControls(prev => !prev);
+            setVisibleControls((prev: boolean) => !prev);
         }
     }, [avoidDissapear]);
 
@@ -139,59 +99,59 @@ const OverlayBase = ({
             cancelControlsTimer();
         } else if (id === CONTROL_ACTION.MENU_CLOSE) {
             onCloseMenu();
-        } else if (typeof propOnPress === 'function') {
-            propOnPress(id, value);
+        } else if (typeof props.events?.onPress === 'function') {
+            props.events.onPress(id, value);
         }
-    }, [avoidDissapear, cancelControlsTimer, onCloseMenu, propOnPress, resetControlsTimer]);
+    }, [avoidDissapear, cancelControlsTimer, onCloseMenu, props.events?.onPress, resetControlsTimer]);
 
     const onSlidingStart = useCallback((value: number) => {
         cancelControlsTimer();
 
-        if (!avoidDissapear && typeof propOnPress === 'function') {
-            propOnPress(CONTROL_ACTION.PAUSE, true);
+        if (!avoidDissapear && typeof props.events?.onPress === 'function') {
+            props.events.onPress(CONTROL_ACTION.PAUSE, true);
         }
 
-        if (typeof propOnSlidingStart === 'function') {
-            propOnSlidingStart(value);
+        if (typeof props.events?.onSlidingStart === 'function') {
+            props.events.onSlidingStart(value);
         }
-    }, [avoidDissapear, cancelControlsTimer, propOnPress, propOnSlidingStart]);
+    }, [avoidDissapear, cancelControlsTimer, props.events?.onPress, props.events?.onSlidingStart]);
 
     const onSlidingMove = useCallback((value: number) => {
-        if (typeof propOnSlidingMove === 'function') {
-            propOnSlidingMove(value);
+        if (typeof props.events?.onSlidingMove === 'function') {
+            props.events.onSlidingMove(value);
         }
-    }, [propOnSlidingMove]);
+    }, [props.events?.onSlidingMove]);
 
     const onSlidingComplete = useCallback((value: number) => {
         resetControlsTimer();
 
-        if (!avoidDissapear && typeof propOnSlidingComplete === 'function') {
-            propOnSlidingComplete(value);
+        if (!avoidDissapear && typeof props.events?.onSlidingComplete === 'function') {
+            props.events.onSlidingComplete(value);
         }
 
-        if (typeof propOnPress === 'function') {
-            propOnPress(CONTROL_ACTION.SEEK, value);
-            propOnPress(CONTROL_ACTION.PAUSE, false);
+        if (typeof props.events?.onPress === 'function') {
+            props.events.onPress(CONTROL_ACTION.SEEK, value);
+            props.events.onPress(CONTROL_ACTION.PAUSE, false);
         }
-    }, [avoidDissapear, propOnPress, propOnSlidingComplete, resetControlsTimer]);
+    }, [avoidDissapear, props.events?.onPress, props.events?.onSlidingComplete, resetControlsTimer]);
 
     const commonMenuProps = useMemo(() => ({
-        menuData,
-        videoIndex,
-        audioIndex,
-        subtitleIndex,
-        speedRate,
-        onPress,
+        menuData: props.menuData,
+        videoIndex: props.videoIndex,
+        audioIndex: props.audioIndex,
+        subtitleIndex: props.subtitleIndex,
+        speedRate: props.speedRate,
+        onPress: onPress,
         onClose: onCloseMenu
-    }), [audioIndex, menuData, onCloseMenu, onPress, speedRate, subtitleIndex, videoIndex]);
+    }), [props.audioIndex, props.menuData, onCloseMenu, onPress, props.speedRate, props.subtitleIndex, props.videoIndex]);
 
     const PropMenu = useMemo(() => 
-        menu ? createElement(menu, commonMenuProps) : null
-    , [menu, commonMenuProps]);
+        props.components?.menu ? createElement(props.components.menu, commonMenuProps) : null
+    , [props.components?.menu, commonMenuProps]);
 
     const PropSettingsMenu = useMemo(() => 
-        settingsMenu ? createElement(settingsMenu, commonMenuProps) : null
-    , [settingsMenu, commonMenuProps]);
+        props.components?.settingsMenu ? createElement(props.components.settingsMenu, commonMenuProps) : null
+    , [props.components?.settingsMenu, commonMenuProps]);
 
     const temporalButtonsBarStyle = useMemo(() => ({
         ...styles.temporalButtonsBar,
@@ -201,16 +161,16 @@ const OverlayBase = ({
     }), [insets]);
 
     const showMosca = useMemo(() => 
-        !visibleMenu && !visibleControls && mosca
-    , [visibleMenu, visibleControls, mosca]);
+        !visibleMenu && !visibleControls && props.components?.mosca
+    , [visibleMenu, visibleControls, props.components?.mosca]);
 
     const showControls = useMemo(() => 
         avoidDissapear || visibleControls
     , [avoidDissapear, visibleControls]);
 
     const showTimeMarks = useMemo(() => 
-        !isChangingSource && !visibleMenu && !visibleSettingsMenu && !visibleControls && !avoidDissapear
-    , [visibleMenu, visibleSettingsMenu, visibleControls, avoidDissapear, isChangingSource]);
+        !props.playerProgress?.isChangingSource && !visibleMenu && !visibleSettingsMenu && !visibleControls && !avoidDissapear
+    , [visibleMenu, visibleSettingsMenu, visibleControls, avoidDissapear, props.playerProgress?.isChangingSource]);
 
     return (
         <Pressable 
@@ -218,67 +178,61 @@ const OverlayBase = ({
             style={styles.container} 
             accessible={!avoidDissapear && !visibleControls && !visibleMenu} 
         >
-            {showMosca && mosca}
+            {showMosca && props.components?.mosca}
 
             {showControls && (
                 <Controls 
-                    thumbnailsMetadata={thumbnailsMetadata}
-                    timeMarkers={timeMarkers}
-                    avoidTimelineThumbnails={avoidTimelineThumbnails}
-                    preloading={preloading}
-                    isChangingSource={isChangingSource}
-                    isContentLoaded={isContentLoaded}
-                    hasNext={playerProgress?.hasNext || false}
-                    headerMetadata={headerMetadata}
-                    sliderVOD={sliderVOD}
-                    sliderDVR={sliderDVR}
-                    loader={loader}
-                    controlsHeaderBar={controlsHeaderBar}
-                    controlsMiddleBar={controlsMiddleBar}
-                    controlsBottomBar={controlsBottomBar}
-                    nextButton={nextButton}
-                    liveButton={liveButton}
-                    skipIntroButton={skipIntroButton}
-                    skipRecapButton={skipRecapButton}
-                    skipCreditsButton={skipCreditsButton}
-                    onPress={onPress}
-                    onSlidingStart={onSlidingStart}
-                    onSlidingMove={onSlidingMove}
-                    onSlidingComplete={onSlidingComplete}
-                    onExit={onExit}
+                    preloading={props.preloading}
+                    thumbnailsMetadata={props.thumbnailsMetadata}
+                    timeMarkers={props.timeMarkers}
+                    avoidTimelineThumbnails={props.avoidTimelineThumbnails}
+                    isContentLoaded={props.isContentLoaded}
+                    isChangingSource={props.isChangingSource}
 
                     // Nuevas Props Agrupadas
-                    playerMetadata={playerMetadata}
-                    playerProgress={playerProgress}
-                    playerAnalytics={playerAnalytics}
-                    playerTimeMarkers={playerTimeMarkers}
-                    playerAds={playerAds}
+                    playerMetadata={props.playerMetadata}
+                    playerProgress={props.playerProgress}
+                    playerAnalytics={props.playerAnalytics}
+                    playerTimeMarkers={props.playerTimeMarkers}
+                    playerAds={props.playerAds}
+
+                    // Custom Components
+                    components={props.components}
+
+                    //Events
+                    events={{
+                        ...props.events,
+                        onPress: onPress,
+                        onSlidingStart: onSlidingStart,
+                        onSlidingMove: onSlidingMove,
+                        onSlidingComplete: onSlidingComplete,
+                    }}
                 />
             )}
 
-            {!isChangingSource && visibleMenu && PropMenu}
+            {!props.playerProgress?.isChangingSource && visibleMenu && PropMenu}
 
-            {!isChangingSource && visibleMenu && !PropMenu && (
-                <Suspense fallback={loader}>
+            {!props.playerProgress?.isChangingSource && visibleMenu && !PropMenu && (
+                <Suspense fallback={props.components?.loader}>
                     <Menu
-                        videoIndex={videoIndex}
-                        audioIndex={audioIndex}
-                        subtitleIndex={subtitleIndex}
-                        menuData={menuData}
+                        videoIndex={props.videoIndex}
+                        audioIndex={props.audioIndex}
+                        subtitleIndex={props.subtitleIndex}
+                        menuData={props.menuData}
                         onPress={onPress}
                         onClose={onCloseMenu}
                     />
                 </Suspense>
             )}
 
-            {!isChangingSource && visibleSettingsMenu && PropSettingsMenu}
+            {!props.playerProgress?.isChangingSource && visibleSettingsMenu && PropSettingsMenu}
 
-            {!isChangingSource && visibleSettingsMenu && !PropSettingsMenu && (
-                <Suspense fallback={loader}>
+            {!props.playerProgress?.isChangingSource && visibleSettingsMenu && !PropSettingsMenu && (
+                <Suspense fallback={props.components?.loader}>
                     <SettingsMenu
-                        speedRate={speedRate}
-                        videoIndex={videoIndex}
-                        menuData={menuData}
+                        speedRate={props.speedRate}
+                        videoIndex={props.videoIndex}
+                        menuData={props.menuData}
                         onPress={onPress}
                         onClose={onCloseMenu}
                     />
@@ -288,14 +242,14 @@ const OverlayBase = ({
             {showTimeMarks && (
                 <View style={temporalButtonsBarStyle}>
                     <TimeMarks 
-                        currentTime={playerProgress?.currentTime || 0}
-                        duration={duration}
-                        timeMarkers={timeMarkers}
-                        hasNext={playerProgress?.hasNext || false}
-                        nextButton={nextButton}
-                        skipIntroButton={skipIntroButton}
-                        skipRecapButton={skipRecapButton}
-                        skipCreditsButton={skipCreditsButton}
+                        currentTime={props.playerProgress?.currentTime || 0}
+                        duration={props.playerProgress?.duration}
+                        timeMarkers={props.playerTimeMarkers}
+                        hasNext={props.playerProgress?.hasNext || false}
+                        nextButton={props.components?.nextButton}
+                        skipIntroButton={props.components?.skipIntroButton}
+                        skipRecapButton={props.components?.skipRecapButton}
+                        skipCreditsButton={props.components?.skipCreditsButton}
                         onPress={onPress}
                     />
                 </View>
