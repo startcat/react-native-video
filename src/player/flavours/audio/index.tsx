@@ -10,8 +10,6 @@ import {
     type OnLoadData,
     //type OnVolumeChangeData,
     type SliderValues,
-    type IBasicProgram,
-    DVR_PLAYBACK_TYPE
 } from '../../../types';
 import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
