@@ -314,6 +314,15 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         backgroundColor={props.backgroundColor}
                         topDividerColor={props.topDividerColor}
 
+                        // Initial State
+                        initialState={dpoData.initialState}
+
+                        // Nuevas Props Agrupadas
+                        playerMetadata={dpoData.playerMetadata}
+                        playerAnalytics={dpoData.playerAnalytics}
+                        playerTimeMarkers={dpoData.playerTimeMarkers}
+                        playerAds={dpoData.playerAds}
+
                         // Components
                         controls={props.controls}
 
@@ -372,6 +381,15 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         // Styles
                         backgroundColor={props.backgroundColor}
                         topDividerColor={props.topDividerColor}
+
+                        // Initial State
+                        initialState={dpoData.initialState}
+
+                        // Nuevas Props Agrupadas
+                        playerMetadata={dpoData.playerMetadata}
+                        playerAnalytics={dpoData.playerAnalytics}
+                        playerTimeMarkers={dpoData.playerTimeMarkers}
+                        playerAds={dpoData.playerAds}
 
                         // Components
                         controls={props.controls}

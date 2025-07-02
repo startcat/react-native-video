@@ -279,7 +279,7 @@ export interface AudioPlayerEventProps {
     slug: string;
     collection?: string;
     type?: string;
-    media_type?: MEDIA_TYPE;
+    mediaType?: MEDIA_TYPE;
     media_format?: string;
     stream?: {
         id: number;
@@ -288,7 +288,7 @@ export interface AudioPlayerEventProps {
         slug: string;
         title?: string;
         station?: number;
-        media_type: MEDIA_TYPE,
+        mediaType: MEDIA_TYPE,
     },
     // Pensado para los falsos media (streams de directo cortados para simular un media)
     epgEntry?: any;
@@ -308,6 +308,63 @@ export interface AudioPlayerProgressEventProps {
 
 
 /*
+ *  Player Logical Props
+ *
+ */
+
+export interface IPlayerMetadata {
+    id: number;
+    slug: string;
+	title: string;
+    subtitle?: string
+    description?: string;
+    poster?: string;
+    squaredPoster?: string;
+}
+
+export interface IPlayerInitialState {
+    currentTime: number;
+    duration?: number;
+    isPaused?: boolean;
+    isMuted?: boolean;
+    volume?: number;
+}
+export interface IPlayerProgress {
+    currentTime: number;
+    duration?: number;
+    isBuffering: boolean;
+    isPaused: boolean;
+    isLive: boolean;
+    isDVR: boolean;
+    isMuted: boolean;
+    volume: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+    mediaType?: MEDIA_TYPE;
+    sliderValues?: SliderValues;
+    liveValues?: {
+        playbackType: DVR_PLAYBACK_TYPE;
+        currentProgram: IBasicProgram | null;
+        currentRealTime: number;
+        isLiveEdgePosition: boolean;
+    };
+}
+
+export interface IPlayerAnalytics {
+    youbora?: IYoubora;
+}
+
+export interface IPlayerAds {
+    adTagUrl?: string;
+}
+
+export interface IPlayerTimeMarkers {
+    
+}
+
+
+
+/*
  *  Props Componentes
  *
  */
@@ -317,7 +374,7 @@ export interface SeekableRange {
     end: number;
 }
 
-export interface Program {
+export interface IBasicProgram {
     id: string;
     title?: string;
     startDate: number;
@@ -496,7 +553,15 @@ export interface IAudioPlayerContent {
     next?: AudioPlayerEventProps | null;
 }
 
-export interface ControlsBarProps {
+export interface ICommonPlayerProps {
+    playerMetadata?: IPlayerMetadata;
+    playerProgress?: IPlayerProgress;
+    playerAnalytics?: IPlayerAnalytics;
+    playerTimeMarkers?: IPlayerTimeMarkers;
+    playerAds?: IPlayerAds;    
+}
+
+export interface ControlsBarProps extends ICommonPlayerProps {
     title?:string;
     currentTime?: number;
     dvrTimeValue?: number;
@@ -511,9 +576,6 @@ export interface ControlsBarProps {
     isDVRStart?: boolean;
     isContentLoaded?: boolean;
     isChangingSource?: boolean;
-
-    // Slider Values
-    sliderValues?: SliderValues;
     
     // Components
     loader?:React.ReactElement;
@@ -529,7 +591,7 @@ export interface ControlsBarProps {
     onExit?: () => void;
 }
 
-export interface ControlsProps {
+export interface ControlsProps extends ICommonPlayerProps{
     title?:string;
     currentTime?: number;
     dvrTimeValue?: number;
@@ -547,9 +609,6 @@ export interface ControlsProps {
     isDVRStart?: boolean;
     isContentLoaded?: boolean;
     isChangingSource?: boolean;
-
-    // Slider Values
-    sliderValues?: SliderValues;
 
     // Components
     loader?:React.ReactElement;
@@ -573,7 +632,7 @@ export interface ControlsProps {
     onExit?: () => void;
 }
 
-export interface AudioControlsProps {
+export interface AudioControlsProps extends ICommonPlayerProps{
     title?:string;
     description?:string;
     currentTime?: number;
@@ -592,9 +651,6 @@ export interface AudioControlsProps {
     speedRate?: number;
     extraData?: any;
 
-    // Slider Values
-    sliderValues?: SliderValues;
-
     //Events
     onPress?: (id: CONTROL_ACTION, value?:any) => void;
     onSlidingStart?: (value: number) => void;
@@ -602,7 +658,7 @@ export interface AudioControlsProps {
     onSlidingComplete?: (value: number) => void;
 }
 
-export interface OverlayProps {
+export interface OverlayProps extends ICommonPlayerProps {
     title?:string;
     currentTime?: number;
     dvrTimeValue?: number;
@@ -630,9 +686,6 @@ export interface OverlayProps {
     subtitleIndex?: number;
     speedRate?: number;
 
-    // Slider Values
-    sliderValues?: SliderValues;
-
     // Components
     loader?:React.ReactElement;
     mosca?: React.ReactElement;
@@ -658,7 +711,7 @@ export interface OverlayProps {
     onExit?: () => void;
 }
 
-export interface AudioFlavourProps {
+export interface AudioFlavourProps extends ICommonPlayerProps {
     id?:number;
     title?:string;
     subtitle?:string;
@@ -696,6 +749,9 @@ export interface AudioFlavourProps {
     backgroundColor?: string;
     topDividerColor?: string;
 
+    // Initial State
+    initialState?: IPlayerInitialState;
+
     // Components
     controls?: FunctionComponent<AudioControlsProps>;
 
@@ -704,8 +760,8 @@ export interface AudioFlavourProps {
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
-    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
-    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
+    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
@@ -719,7 +775,7 @@ export interface AudioFlavourProps {
     onStart?: () => void;
 }
 
-export interface AudioCastFlavourProps {
+export interface AudioCastFlavourProps extends ICommonPlayerProps {
     id?:number;
     title?:string;
     subtitle?:string;
@@ -755,6 +811,9 @@ export interface AudioCastFlavourProps {
     backgroundColor?: string;
     topDividerColor?: string;
 
+    // Initial State
+    initialState?: IPlayerInitialState;
+
     // Components
     controls?: FunctionComponent<AudioControlsProps>;
 
@@ -763,8 +822,8 @@ export interface AudioCastFlavourProps {
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
-    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
-    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
+    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
 
     // Events
     onChangeCommonData?: (data: ICommonData) => void;
@@ -778,7 +837,7 @@ export interface AudioCastFlavourProps {
     onStart?: () => void;
 }
 
-export interface NormalFlavourProps {
+export interface NormalFlavourProps extends ICommonPlayerProps {
     id?:number;
     title?:string;
     subtitle?:string;
@@ -813,6 +872,9 @@ export interface NormalFlavourProps {
 
     dvrPlaybackType?: DVR_PLAYBACK_TYPE;
 
+    // Initial State
+    initialState?: IPlayerInitialState;
+
     // Components
     loader?:React.ReactElement;
     mosca?: React.ReactElement;
@@ -834,8 +896,8 @@ export interface NormalFlavourProps {
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
-    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
-    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
+    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
     mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
 
     // Events
@@ -852,7 +914,7 @@ export interface NormalFlavourProps {
     onStart?: () => void;
 }
 
-export interface CastFlavourProps {
+export interface CastFlavourProps extends ICommonPlayerProps {
     id?:number;
     title?:string;
     subtitle?:string;
@@ -884,6 +946,9 @@ export interface CastFlavourProps {
 
     dvrPlaybackType?: DVR_PLAYBACK_TYPE;
 
+    // Initial State
+    initialState?: IPlayerInitialState;
+
     // Components
     loader?:React.ReactElement;
     mosca?: React.ReactElement;
@@ -904,8 +969,8 @@ export interface CastFlavourProps {
     // Utils
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
-    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
-    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
+    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
     mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 
     // Events
@@ -922,7 +987,7 @@ export interface CastFlavourProps {
     onStart?: () => void;
 }
 
-export interface PlayerProps {
+export interface PlayerProps extends ICommonPlayerProps {
     id?:number,
     title?:string;
     subtitle?:string;
@@ -955,6 +1020,9 @@ export interface PlayerProps {
 
     dvrPlaybackType?: DVR_PLAYBACK_TYPE;
 
+    // Initial State
+    initialState?: IPlayerInitialState;
+
     // Components
     loader?:React.ReactElement;
     suspenseLoader?: React.ReactElement;
@@ -979,8 +1047,8 @@ export interface PlayerProps {
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getTudumManifest?: () => IManifest | null | undefined;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
-    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
-    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
+    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
     mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
     mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 
@@ -1002,14 +1070,14 @@ export interface PlayerProps {
     onPause?: () => void;
 }
 
-export interface AudioPlayerContentsDpo {
+export interface AudioPlayerContentsDpo extends ICommonPlayerProps {
     collection: COLLECTION;
 	id: number;
 	slug: string;
 	title: string;
     subtitle?: string
     description?: string;
-	media_type?: MEDIA_TYPE;
+	mediaType?: MEDIA_TYPE;
     type?: STREAM_TYPE;
     startPosition?: number;
     showExternalTudum?: boolean;
@@ -1027,6 +1095,9 @@ export interface AudioPlayerContentsDpo {
     forcedDvrWindowMinutes?: number;
     dvrPlaybackType?: DVR_PLAYBACK_TYPE;
 
+    // Initial State
+    initialState?: IPlayerInitialState;
+
     // Utils
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
@@ -1034,8 +1105,8 @@ export interface AudioPlayerContentsDpo {
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
-    getEPGProgramAt?: (timestamp:number) => Promise<Program | null>;
-    getEPGNextProgram?: (program:Program) => Promise<Program | null>;
+    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
 
     // Events
     onProgress?: (value: number, duration?: number) => void;

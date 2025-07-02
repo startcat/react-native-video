@@ -241,6 +241,15 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
                     dvrPlaybackType={props.dvrPlaybackType}
 
+                    // Initial State
+                    initialState={props.initialState}
+
+                    // Nuevas Props Agrupadas
+                    playerMetadata={props.playerMetadata}
+                    playerAnalytics={props.playerAnalytics}
+                    playerTimeMarkers={props.playerTimeMarkers}
+                    playerAds={props.playerAds}
+
                     // Components
                     loader={props.loader}
                     mosca={props.mosca}
@@ -317,6 +326,15 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 
                     dvrPlaybackType={props.dvrPlaybackType}
+
+                    // Initial State
+                    initialState={props.initialState}
+
+                    // Nuevas Props Agrupadas
+                    playerMetadata={props.playerMetadata}
+                    playerAnalytics={props.playerAnalytics}
+                    playerTimeMarkers={props.playerTimeMarkers}
+                    playerAds={props.playerAds}
 
                     // Components
                     loader={props.loader}
