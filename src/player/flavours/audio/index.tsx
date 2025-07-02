@@ -23,7 +23,6 @@ import {
 import { 
     getMinutesSinceStart,
     subtractMinutesFromDate,
-    useDvrPausedSeconds
 } from '../../utils';
 
 import {
@@ -68,17 +67,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const drm = useRef<IDrm>();
     const [videoSource, setVideoSource] = useState<IVideoSource | undefined>(undefined);
 
-    const dvrWindowSeconds = useRef<number>();
-    const dvrLoadTimestamp = useRef<number>();
+    // const dvrWindowSeconds = useRef<number>();
+    // const dvrLoadTimestamp = useRef<number>();
     const seekableRange = useRef<number>();
-    const liveStartProgramTimestamp = useRef<number>();
+    // const liveStartProgramTimestamp = useRef<number>();
     const isChangingSource = useRef<boolean>(true);
 
-    const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
-    const [duration, setDuration] = useState<number>();
-    const [dvrTimeValue, setDvrTimeValue] = useState<number>();
-    const [paused, setPaused] = useState<boolean>(!!props.paused);
-    const [muted, setMuted] = useState<boolean>(!!props?.muted);
+    const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
+    // const [duration, setDuration] = useState<number>();
+    // const [dvrTimeValue, setDvrTimeValue] = useState<number>();
+    const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
+    const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
     const [buffering, setBuffering] = useState<boolean>(false);
 
     const sliderValues = useRef<SliderValues>();
@@ -103,11 +102,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     // Initialize DVR Progress Manager only once
     if (!dvrProgressManagerRef.current) {
         dvrProgressManagerRef.current = new DVRProgressManagerClass({
-            playbackType: props.dvrPlaybackType,
+            playbackType: props.playerProgress?.liveValues?.playbackType,
 
             // Metadata
-            getEPGProgramAt: props.getEPGProgramAt,
-            getEPGNextProgram: props.getEPGNextProgram,
+            getEPGProgramAt: props.hooks?.getEPGProgramAt,
+            getEPGNextProgram: props.hooks?.getEPGNextProgram,
         
             // Callbacks
             onModeChange: onDVRModeChange,
@@ -117,17 +116,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         });
     }
 
-    const dvrPaused = useDvrPausedSeconds({
-        paused: paused,
-        isLive: !!props?.isLive,
-        isDVR: !!sourceRef.current?.isDVR
-    });
-
     // Hook para el estado de buffering
     const isBuffering = useIsBuffering({
         buffering: buffering,
         paused: paused,
-        onBufferingChange: props.onBuffering
+        onBufferingChange: props.events?.onBuffering
     });
 
     useEffect(() => {
@@ -160,28 +153,28 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (!tudumRef.current){
             tudumRef.current = new TudumClass({
                 enabled:!!props.showExternalTudum,
-                getTudumSource:props.getTudumSource
+                getTudumSource:props.hooks?.getTudumSource
             });
         }
 
         if (!sourceRef.current){
             sourceRef.current = new SourceClass({
                 // Metadata
-                id:props.id,
-                title:props.title,
-                subtitle:props.subtitle,
-                description:props.description,
-                poster:props.poster,
-                squaredPoster:props.squaredPoster,
+                id: props.playerMetadata?.id,
+                title: props.playerMetadata?.title,
+                subtitle: props.playerMetadata?.subtitle,
+                description: props.playerMetadata?.description,
+                poster: props.playerMetadata?.poster,
+                squaredPoster: props.playerMetadata?.squaredPoster,
         
                 // Main Source
-                manifests:props.manifests,
-                startPosition:props.currentTime,
-                headers:props.headers,
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime || 0,
+                headers: props.headers,
         
                 // Callbacks
-                getSourceUri:props.getSourceUri,
-                onSourceChanged:onSourceChanged
+                getSourceUri: props.hooks?.getSourceUri,
+                onSourceChanged: onSourceChanged
             });
         }
 
@@ -195,15 +188,15 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             isChangingSource.current = true;
             
             sourceRef.current.changeSource({
-                manifests:props.manifests,
-                startPosition:props.currentTime,
-                isLive:props.isLive,
-                headers:props.headers,
-                title:props.title,
-                subtitle:props.subtitle,
-                description:props.description,
-                poster:props.poster,
-                squaredPoster:props.squaredPoster
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime || 0,
+                isLive: !!props.playerProgress?.isLive,
+                headers: props.headers,
+                title: props.playerMetadata?.title,
+                subtitle: props.playerMetadata?.subtitle,
+                description: props.playerMetadata?.description,
+                poster: props.playerMetadata?.poster,
+                squaredPoster: props.playerMetadata?.squaredPoster,
             });
 
         }
@@ -212,35 +205,25 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     useEffect(() => {
         EventRegister.emit('audioPlayerProgress', {
-            title:props.title,
-            description:props.description,
+            title: props.playerMetadata?.title,
+            description: props.playerMetadata?.description,
             currentTime: currentTime,
-            dvrTimeValue: dvrTimeValue,
-            duration: duration,
+            // dvrTimeValue: dvrTimeValue,
+            duration: sourceRef.current?.duration,
             paused: paused,
             muted: muted,
-            //volume: number;
+            volume: props.playerProgress?.volume,
             preloading: isBuffering,
-            hasNext: props.hasNext,
-            hasPrev: props.hasPrev,
-            isLive: props.isLive,
-            isDVR: props.isLive && sourceRef.current?.isDVR,
+            hasNext: !!props.playerProgress?.hasNext,
+            hasPrev: !!props.playerProgress?.hasPrev,
+            isLive: !!props.playerProgress?.isLive,
+            isDVR: !!props.playerProgress?.isLive && sourceRef.current?.isDVR,
             isContentLoaded: isContentLoaded,
             speedRate: speedRate,
             extraData: props.extraData
         });
 
-    }, [currentTime, dvrTimeValue, duration, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate]);
-
-    useEffect(() => {
-
-        if (typeof(dvrTimeValue) === 'number' && dvrPaused?.pausedDatum > 0 && dvrPaused?.pausedSeconds > 0){
-            const moveDVRto = dvrTimeValue - dvrPaused.pausedSeconds;
-
-            setDvrTimeValue(moveDVRto > 0 ? moveDVRto : 0);
-        }
-
-    }, [dvrPaused?.pausedDatum]);
+    }, [currentTime, props.playerMetadata, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate]);
 
     // Source Cooking
     const onSourceChanged = (data:onSourceChangedProps) => {
@@ -265,8 +248,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             drm.current = data.drm;
 
             // Preparamos los datos de Youbora
-            if (props.getYouboraOptions){
-                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+            if (props.hooks?.getYouboraOptions){
+                youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
             setVideoSource(data.source!);
@@ -277,8 +260,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             drm.current = sourceRef.current.playerSourceDrm;
 
             // Preparamos los datos de Youbora
-            if (props.getYouboraOptions){
-                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+            if (props.hooks?.getYouboraOptions){
+                youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
             setVideoSource(sourceRef.current.playerSource!);
@@ -417,8 +400,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 type: null
             });
 
-            if (props.onClose){
-                props.onClose();
+            if (props.events?.onClose){
+                props.events.onClose();
 
             }
 
@@ -428,20 +411,21 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setMuted(!!value);
         }
         
-        if (id === CONTROL_ACTION.NEXT && props.onNext){            
+        if (id === CONTROL_ACTION.NEXT && props.events?.onNext){            
             setIsContentLoaded(false);
-            props.onNext();
+            props.events.onNext();
         }
 
-        if (id === CONTROL_ACTION.PREVIOUS && props.onPrevious){
+        if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious){
             setIsContentLoaded(false);
-            props.onPrevious();
+            props.events.onPrevious();
         }
         
         if (id === CONTROL_ACTION.SPEED_RATE && typeof(value) === 'number'){
             setSpeedRate(value);
         }
 
+        /*
         if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Volver al directo en DVR
             setDvrTimeValue(duration);
@@ -494,6 +478,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             // Actions to invoke on player
             invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current, props.onSeek);
         }
+        */
 
         if (id === CONTROL_ACTION.SLEEP && (value === 0 || !value)){
             // Desactivamos el sleeper
@@ -506,7 +491,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         // Actions to be saved between flavours
-        if (COMMON_DATA_FIELDS.includes(id) && props?.onChangeCommonData){
+        if (COMMON_DATA_FIELDS.includes(id) && props?.events?.onChangeCommonData){
             let data:ICommonData = {};
 
             if (id === CONTROL_ACTION.MUTE){
@@ -520,7 +505,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 
             }
             
-            props.onChangeCommonData(data);
+            props.events.onChangeCommonData(data);
 
         }
 
@@ -542,8 +527,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
                 isChangingSource.current = false;
 
-                if (props.onStart){
-                    props.onStart();
+                if (props.events?.onStart){
+                    props.events.onStart();
                 }
             }
 
@@ -576,9 +561,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             tudumRef.current.isPlaying = false;
             setPlayerSource();
 
-        } else if (props.onEnd){
+        } else if (props.events?.onEnd){
             // Termina el contenido
-            props.onEnd();
+            props.events.onEnd();
             
         }
 
@@ -606,8 +591,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             });
         }
 
-        if (!props?.isLive && props?.onChangeCommonData){
-            props.onChangeCommonData({
+        if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData){
+            props.events.onChangeCommonData({
                 time: e.currentTime
             });
         }
@@ -668,18 +653,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const Controls = props.controls ? createElement(props.controls, { 
-        title: props.title,
-        description: props.description,
-        currentTime: currentTime,
-        dvrTimeValue: dvrTimeValue,
-        duration: duration,
-        paused: paused,
-        muted: muted,
         preloading: isBuffering,
-        hasNext: props.hasNext,
-        hasPrev: props.hasPrev,
-        isLive: props.isLive,
-        isDVR: sourceRef.current?.isDVR,
         isContentLoaded: isContentLoaded,
         speedRate: speedRate,
         extraData: props.extraData,
@@ -692,10 +666,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         playerAds: props.playerAds,
 
         //Events
-        onPress: onControlsPress,
-        onSlidingStart: onSlidingStart,
-        onSlidingMove: onSlidingMove,
-        onSlidingComplete: onSlidingComplete
+        events: {
+            onPress: onControlsPress,
+            onSlidingStart: onSlidingStart,
+            onSlidingMove: onSlidingMove,
+            onSlidingComplete: onSlidingComplete
+        }
 
     }) : null;
 
@@ -721,7 +697,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                         // @ts-ignore
                         youbora={youboraForVideo.current}
                         playOffline={props.playOffline}
-                        multiSession={props.multiSession}
+                        multiSession={props.playerProgress?.liveValues?.multiSession}
 
                         focusable={false}
                         disableDisconnectError={true}
@@ -756,7 +732,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                         //pictureInPicture (ios)
                         playInBackground={true}
                         playWhenInactive={true}
-                        poster={props?.poster}
+                        poster={props?.playerMetadata?.poster}
                         preventsDisplaySleepDuringVideoPlayback={false}
                         progressUpdateInterval={1000}
 

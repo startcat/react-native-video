@@ -31,7 +31,7 @@ export interface IPlayerMetadata {
 }
 
 export interface IPlayerInitialState {
-    currentTime: number;
+    startPosition: number;
     duration?: number;
     isPaused?: boolean;
     isMuted?: boolean;
