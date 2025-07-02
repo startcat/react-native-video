@@ -13,9 +13,9 @@ import {
 
 export interface IPlayerLiveValues {
     playbackType: Enums.DVR_PLAYBACK_TYPE;
-    currentProgram: IBasicProgram | null;
-    currentRealTime: number;
-    isLiveEdgePosition: boolean;
+    currentProgram?: IBasicProgram | null;
+    currentRealTime?: number;
+    isLiveEdgePosition?: boolean;
     multiSession?: boolean;
     forcedDvrWindowMinutes?: number;
 }
@@ -38,16 +38,17 @@ export interface IPlayerInitialState {
     volume?: number;
 }
 export interface IPlayerProgress {
-    currentTime: number;
+    currentTime?: number;
     duration?: number;
-    isBuffering: boolean;
-    isPaused: boolean;
-    isLive: boolean;
-    isDVR: boolean;
-    isMuted: boolean;
-    volume: number;
-    hasNext: boolean;
-    hasPrev: boolean;
+    isBuffering?: boolean;
+    isContentLoaded?: boolean;
+    isPaused?: boolean;
+    isLive?: boolean;
+    isDVR?: boolean;
+    isMuted?: boolean;
+    volume?: number;
+    hasNext?: boolean;
+    hasPrev?: boolean;
     type?: Enums.STREAM_TYPE;
     mediaType?: Enums.MEDIA_TYPE;
     sliderValues?: SliderValues;
