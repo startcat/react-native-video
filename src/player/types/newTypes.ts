@@ -9,6 +9,7 @@ import {
     type IBasicProgram,
     type SliderValues,
     type IYoubora,
+    type ITimeMarkers
 } from './index';
 
 export interface IPlayerLiveValues {
@@ -42,6 +43,7 @@ export interface IPlayerProgress {
     duration?: number;
     isBuffering?: boolean;
     isContentLoaded?: boolean;
+    isChangingSource?: boolean;
     isPaused?: boolean;
     isLive?: boolean;
     isDVR?: boolean;
@@ -64,7 +66,7 @@ export interface IPlayerAds {
 }
 
 export interface IPlayerTimeMarkers {
-    
+    timeMarkers?: Array<ITimeMarkers>;
 }
 
 export interface ICommonPlayerProps {

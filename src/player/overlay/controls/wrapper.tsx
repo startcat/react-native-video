@@ -15,90 +15,67 @@ import { styles } from './styles';
 
 const ANIMATION_SPEED = 150;
 
-const ControlsBase = ({
-    title,
-    currentTime,
-    dvrTimeValue,
-    duration,
-    paused,
-    muted,
-    volume,
-    preloading,
-    hasNext,
-    isLive,
-    isDVR,
-    isDVRStart,
-    isContentLoaded,
-    isChangingSource,
-    nextButton,
-    liveButton,
-    headerMetadata,
-    timeMarkers,
-    thumbnailsMetadata,
-    avoidTimelineThumbnails,
-    controlsHeaderBar,
-    controlsMiddleBar,
-    controlsBottomBar,
-    sliderVOD,
-    sliderDVR,
-    skipIntroButton,
-    skipRecapButton,
-    skipCreditsButton,
-    onPress: propOnPress,
-    onSlidingStart,
-    onSlidingMove,
-    onSlidingComplete,
-    onExit
-}: ControlsProps): React.ReactElement => {
+const ControlsBase = (props: ControlsProps): React.ReactElement => {
+    const {
+        playerMetadata,
+        playerProgress, 
+        playerAnalytics,
+        playerTimeMarkers,
+        playerAds,
+        preloading,
+        isContentLoaded,
+        isChangingSource,
+        components,
+        events
+    } = props;
 
     const insets = useSafeAreaInsets();
 
     const handlePress = useCallback((id: CONTROL_ACTION, value?: any) => {
-        if (typeof propOnPress === 'function') {
-            propOnPress(id, value);
+        if (typeof events?.onPress === 'function') {
+            events.onPress(id, value);
         }
-    }, [propOnPress]);
+    }, [events?.onPress]);
 
     const commonProps = useMemo(() => ({
-        title,
-        currentTime,
-        dvrTimeValue,
-        duration,
-        paused,
-        muted,
-        volume,
+        playerMetadata,
+        playerProgress,
+        playerAnalytics,
+        playerTimeMarkers,
+        playerAds,
         preloading,
-        hasNext,
-        isLive,
-        isDVRStart,
-        isDVR,
         isContentLoaded,
         isChangingSource,
-        nextButton,
-        liveButton,
-        headerMetadata,
-        onPress: handlePress,
-        onSlidingStart,
-        onSlidingMove,
-        onSlidingComplete,
-        onExit
+        components,
+        events: {
+            ...events,
+            onPress: handlePress
+        }
     }), [
-        title, currentTime, dvrTimeValue, duration, paused, muted, volume,
-        preloading, hasNext, isLive, isDVR, isDVRStart, isContentLoaded, isChangingSource, nextButton,
-        liveButton, headerMetadata, handlePress, onSlidingStart, onSlidingMove, onSlidingComplete, onExit
+        playerMetadata,
+        playerProgress,
+        playerAnalytics,
+        playerTimeMarkers,
+        playerAds,
+        preloading,
+        isContentLoaded,
+        isChangingSource,
+        components,
+        events,
+        handlePress
     ]);
 
     const HeaderBar = useMemo(() => 
-        controlsHeaderBar ? createElement(controlsHeaderBar, commonProps) : null
-    , [controlsHeaderBar, commonProps]);
+        components?.controlsHeaderBar ? createElement(components.controlsHeaderBar, commonProps) : null
+    , [components?.controlsHeaderBar, commonProps]);
 
     const MiddleBar = useMemo(() => 
-        controlsMiddleBar ? createElement(controlsMiddleBar, commonProps) : null
-    , [controlsMiddleBar, commonProps]);
+        components?.controlsMiddleBar ? createElement(components.controlsMiddleBar, commonProps) : null
+    , [components?.controlsMiddleBar, commonProps]);
 
     const BottomBar = useMemo(() => 
-        controlsBottomBar ? createElement(controlsBottomBar, commonProps) : null
-    , [controlsBottomBar, commonProps]);
+        components?.controlsBottomBar ? createElement(components.controlsBottomBar, commonProps) : null
+    , [components?.controlsBottomBar, commonProps]);
 
     const bottomContainerStyle = useMemo(() => ({
         ...styles.bottom,
@@ -117,71 +94,39 @@ const ControlsBase = ({
 
             {MiddleBar || (
                 <ControlsMiddleBar
-                    paused={paused}
-                    isContentLoaded={isContentLoaded}
-                    isChangingSource={isChangingSource}
-                    onPress={handlePress}
-                    onExit={onExit}
+                    {...commonProps}
                 />
             )}
 
             {HeaderBar || (
                 <ControlsHeaderBar 
-                    preloading={preloading}
-                    isContentLoaded={isContentLoaded}
-                    isChangingSource={isChangingSource}
-                    onPress={handlePress}
-                    onExit={onExit}
+                    {...commonProps}
                 />
             )}
 
             <View style={bottomContainerStyle}>
                 {BottomBar || (
                     <ControlsBottomBar 
-                        currentTime={currentTime}
-                        duration={duration}
-                        dvrTimeValue={dvrTimeValue}
-                        title={title}
-                        muted={muted}
-                        isLive={isLive}
-                        isDVR={isDVR}
-                        isDVRStart={isDVRStart}
-                        isContentLoaded={isContentLoaded}
-                        isChangingSource={isChangingSource}
-                        hasNext={hasNext}
-                        volume={volume}
-                        liveButton={liveButton}
-                        onPress={handlePress}
-                        onExit={onExit}
+                        {...commonProps}
                     />
                 )}
 
                 <Timeline 
-                    currentTime={currentTime}
-                    dvrTimeValue={dvrTimeValue}
-                    duration={duration}
-                    isLive={isLive}
-                    isDVR={isDVR}
-                    isDVRStart={isDVRStart}
-                    thumbnailsMetadata={thumbnailsMetadata}
-                    avoidThumbnails={avoidTimelineThumbnails}
-                    sliderVOD={sliderVOD}
-                    sliderDVR={sliderDVR}
-                    onSlidingStart={onSlidingStart}
-                    onSlidingMove={onSlidingMove}
-                    onSlidingComplete={onSlidingComplete}
+                    playerProgress={playerProgress}
+                    thumbnailsMetadata={props.thumbnailsMetadata}
+                    avoidThumbnails={props.avoidTimelineThumbnails}
+                    sliderVOD={components?.sliderVOD}
+                    sliderDVR={components?.sliderDVR}
+                    onSlidingStart={events?.onSlidingStart}
+                    onSlidingMove={events?.onSlidingMove}
+                    onSlidingComplete={events?.onSlidingComplete}
                 />
 
                 <View style={styles.temporalButtonsBar}>
                     <TimeMarks 
-                        currentTime={currentTime}
-                        duration={duration}
-                        timeMarkers={timeMarkers}
-                        hasNext={hasNext}
-                        nextButton={nextButton}
-                        skipIntroButton={skipIntroButton}
-                        skipRecapButton={skipRecapButton}
-                        skipCreditsButton={skipCreditsButton}
+                        timeMarkers={playerTimeMarkers}
+                        playerProgress={playerProgress}
+                        components={components}
                         onPress={handlePress}
                     />
                 </View>
