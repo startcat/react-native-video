@@ -3,6 +3,7 @@ import Animated, { useSharedValue } from 'react-native-reanimated';
 import { EventRegister } from 'react-native-event-listeners';
 import BackgroundTimer from 'react-native-background-timer';
 import { 
+    type IPlayerProgress,
     type OnProgressData,
     type OnBufferData,
     //type OnVideoErrorData,
@@ -86,6 +87,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const refVideoPlayer = useRef<VideoRef>(null);
     const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
+
+    // Player Progress
+    const playerProgressRef = useRef<IPlayerProgress>();
 
     // Source
     const sourceRef = useRef<SourceClass | null>(null);
@@ -680,9 +684,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         speedRate: speedRate,
         extraData: props.extraData,
 
-        // Slider Values
-        sliderValues: sliderValues.current,
-    
+        // Nuevas Props Agrupadas
+        playerMetadata: props.playerMetadata,
+        playerProgress: playerProgressRef.current,
+        playerAnalytics: props.playerAnalytics,
+        playerTimeMarkers: props.playerTimeMarkers,
+        playerAds: props.playerAds,
+
         //Events
         onPress: onControlsPress,
         onSlidingStart: onSlidingStart,

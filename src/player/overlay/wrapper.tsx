@@ -14,23 +14,14 @@ import { styles } from './styles';
 const PLAYER_HIDE_CONTROLS = 5000;
 
 const OverlayBase = ({
-    currentTime: propCurrentTime,
-    dvrTimeValue: propDvrTimeValue,
     duration,
-    title,
     thumbnailsMetadata,
     timeMarkers,
     avoidTimelineThumbnails,
-    paused,
-    muted,
-    volume,
     preloading,
-    isLive,
-    isDVR,
     isDVRStart,
     isContentLoaded,
     isChangingSource,
-    hasNext,
     alwaysVisible,
     menuData,
     videoIndex,
@@ -56,7 +47,12 @@ const OverlayBase = ({
     onSlidingStart: propOnSlidingStart,
     onSlidingMove: propOnSlidingMove,
     onSlidingComplete: propOnSlidingComplete,
-    onExit
+    onExit,
+    playerMetadata,
+    playerProgress,
+    playerAnalytics,
+    playerTimeMarkers,
+    playerAds
 }: OverlayProps): React.ReactElement => {
 
     const insets = useSafeAreaInsets();
@@ -65,8 +61,8 @@ const OverlayBase = ({
     const [visibleControls, setVisibleControls] = useState<boolean>(!!alwaysVisible);
     const [visibleMenu, setVisibleMenu] = useState<boolean>(false);
     const [visibleSettingsMenu, setVisibleSettingsMenu] = useState<boolean>(false);
-    const [currentTime, setCurrentTime] = useState<number>(propCurrentTime || 0);
-    const [dvrTimeValue, setDvrTimeValue] = useState<number>(propDvrTimeValue || duration!);
+    //const [currentTime, setCurrentTime] = useState<number>(playerProgress?.currentTime || 0);
+    //const [dvrTimeValue, setDvrTimeValue] = useState<number>(propDvrTimeValue || duration!);
 
     const controlsTimeout = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -78,17 +74,17 @@ const OverlayBase = ({
         }
     }, [alwaysVisible]);
 
-    useEffect(() => {
-        if (propCurrentTime !== undefined) {
-            setCurrentTime(propCurrentTime);
-        }
-    }, [propCurrentTime]);
+    // useEffect(() => {
+    //     if (playerProgress?.currentTime !== undefined) {
+    //         setCurrentTime(playerProgress?.currentTime);
+    //     }
+    // }, [playerProgress?.currentTime]);
 
-    useEffect(() => {
-        if (propDvrTimeValue !== undefined) {
-            setDvrTimeValue(propDvrTimeValue);
-        }
-    }, [propDvrTimeValue]);
+    // useEffect(() => {
+    //     if (propDvrTimeValue !== undefined) {
+    //         setDvrTimeValue(propDvrTimeValue);
+    //     }
+    // }, [propDvrTimeValue]);
 
     const cancelControlsTimer = useCallback(() => {
         if (controlsTimeout.current) {
@@ -226,23 +222,14 @@ const OverlayBase = ({
 
             {showControls && (
                 <Controls 
-                    currentTime={currentTime}
                     duration={duration}
-                    dvrTimeValue={dvrTimeValue}
-                    title={title}
                     thumbnailsMetadata={thumbnailsMetadata}
                     timeMarkers={timeMarkers}
                     avoidTimelineThumbnails={avoidTimelineThumbnails}
-                    paused={paused}
-                    muted={muted}
-                    volume={volume}
                     preloading={preloading}
                     isChangingSource={isChangingSource}
-                    isLive={isLive}
-                    isDVR={isDVR}
-                    isDVRStart={isDVRStart}
                     isContentLoaded={isContentLoaded}
-                    hasNext={hasNext}
+                    hasNext={playerProgress?.hasNext || false}
                     headerMetadata={headerMetadata}
                     sliderVOD={sliderVOD}
                     sliderDVR={sliderDVR}
@@ -260,6 +247,13 @@ const OverlayBase = ({
                     onSlidingMove={onSlidingMove}
                     onSlidingComplete={onSlidingComplete}
                     onExit={onExit}
+
+                    // Nuevas Props Agrupadas
+                    playerMetadata={playerMetadata}
+                    playerProgress={playerProgress}
+                    playerAnalytics={playerAnalytics}
+                    playerTimeMarkers={playerTimeMarkers}
+                    playerAds={playerAds}
                 />
             )}
 
@@ -295,10 +289,10 @@ const OverlayBase = ({
             {showTimeMarks && (
                 <View style={temporalButtonsBarStyle}>
                     <TimeMarks 
-                        currentTime={currentTime}
+                        currentTime={playerProgress?.currentTime || 0}
                         duration={duration}
                         timeMarkers={timeMarkers}
-                        hasNext={hasNext}
+                        hasNext={playerProgress?.hasNext || false}
                         nextButton={nextButton}
                         skipIntroButton={skipIntroButton}
                         skipRecapButton={skipRecapButton}
