@@ -2,7 +2,8 @@ import {
     DVR_PLAYBACK_TYPE,
     type SeekableRange,
     type IBasicProgram,
-    type SliderValues
+    type SliderValues,
+    type ProgressUpdateData
 } from "../../types";
 
 export interface ProgramChangeData {
@@ -14,15 +15,6 @@ export interface ModeChangeData {
     previousType: DVR_PLAYBACK_TYPE;
     playbackType: DVR_PLAYBACK_TYPE;
     program: IBasicProgram | null;
-}
-
-export interface ProgressUpdateData extends SliderValues {
-    isLiveEdgePosition: boolean;
-    isPaused: boolean;
-    isBuffering: boolean;
-    playbackType: DVR_PLAYBACK_TYPE;
-    currentProgram: IBasicProgram | null;
-    currentRealTime: number;
 }
 
 export interface UpdatePlayerData {

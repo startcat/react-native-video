@@ -1,12 +1,9 @@
 import { 
     type SeekableRange,
-    type SliderValues
+    type SliderValues,
+    type ProgressUpdateData
 } from "../../types";
 
-export interface VODProgressUpdateData extends SliderValues {
-    isPaused: boolean;
-    isBuffering: boolean;
-}
 
 export interface UpdatePlayerData {
     currentTime: number;
@@ -23,7 +20,7 @@ export interface VODProgressManagerData {
     isBuffering?: boolean;
 
     // Callbacks
-    onProgressUpdate?: (data:VODProgressUpdateData) => void;
+    onProgressUpdate?: (data:ProgressUpdateData) => void;
     onSeekRequest?: (playerTime:number) => void;
 }
 
@@ -36,7 +33,7 @@ export class VODProgressManagerClass {
     private _isPaused: boolean = false;
     private _isBuffering: boolean = false;
 
-    private _onProgressUpdate?: (data:VODProgressUpdateData) => void;
+    private _onProgressUpdate?: (data:ProgressUpdateData) => void;
     private _onSeekRequest?: (playerTime:number) => void;
     
     constructor(options: VODProgressManagerData = {}) {
@@ -156,6 +153,7 @@ export class VODProgressManagerClass {
                 ...sliderValues,
                 isPaused: this._isPaused,
                 isBuffering: this._isBuffering,
+                isLiveEdgePosition: false,
             });
         }
     }

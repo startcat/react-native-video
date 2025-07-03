@@ -263,6 +263,15 @@ export interface SliderValues {
     isProgramLive?: boolean; // Indica si el programa está en directo
 }
 
+export interface ProgressUpdateData extends SliderValues {
+    isLiveEdgePosition: boolean;
+    isPaused: boolean;
+    isBuffering: boolean;
+    playbackType?: Enums.DVR_PLAYBACK_TYPE;
+    currentProgram?: IBasicProgram | null;
+    currentRealTime?: number;
+}
+
 export interface ButtonProps {
     id: Enums.CONTROL_ACTION;
     iconName?: string;
