@@ -78,10 +78,16 @@ export class VODProgressManagerClass {
      */
     
     getSliderValues(): SliderValues {
+        // Calcular porcentaje de progreso (0.0 - 1.0)
+        const totalDuration = this._seekableRange.end - this._seekableRange.start;
+        const currentProgress = this._currentTime - this._seekableRange.start;
+        const percentProgress = totalDuration > 0 ? Math.max(0, Math.min(1, currentProgress / totalDuration)) : 0;
+        
         return {
             minimumValue: this._seekableRange.start,
             maximumValue: this._seekableRange.end,
             progress: this._currentTime,
+            percentProgress: percentProgress,
             duration: this._duration,
             canSeekToEnd: true,
             isProgramLive: false // VOD nunca está en vivo

@@ -459,14 +459,29 @@ export class DVRProgressManagerClass {
         const now = Date.now();
         const liveEdge = this._liveEdgeReference + (now - this._liveEdgeReference);
         const windowStart = liveEdge - (this._currentTimeWindowSeconds * 1000);
+        const currentRealTime = this._getCurrentRealTime();
+        
+        // Calcular porcentaje de progreso (0.0 - 1.0)
+        const totalDuration = liveEdge - windowStart;
+        const currentProgress = currentRealTime - windowStart;
+        const percentProgress = totalDuration > 0 ? Math.max(0, Math.min(1, currentProgress / totalDuration)) : 0;
+        
+        // Calcular progressDatum (timestamp del momento actual de reproducción)
+        const progressDatum = currentRealTime;
+        
+        // Calcular liveEdgeOffset (segundos por detrás del liveEdge)
+        const liveEdgeOffset = Math.max(0, (liveEdge - currentRealTime) / 1000);
       
         return {
             minimumValue: windowStart,
             maximumValue: liveEdge,
-            progress: this._getCurrentRealTime(),
+            progress: currentRealTime,
+            percentProgress: percentProgress,
             duration: this._duration,
             canSeekToEnd: true,
-            isProgramLive: false // En modo WINDOW no hay restricciones de programa en directo
+            isProgramLive: false, // En modo WINDOW no hay restricciones de programa en directo
+            progressDatum: progressDatum,
+            liveEdgeOffset: liveEdgeOffset
         };
     }
 
@@ -480,17 +495,31 @@ export class DVRProgressManagerClass {
         const programEnd = this._currentProgram.endDate;
         const currentRealTime = this._getCurrentRealTime();
       
-        // Determinar si el programa está en directo
-        const isProgramLive = programEnd > now;
+        // Determinar si el programa está actualmente en emisión (no ha terminado)
+        const isProgramCurrentlyAiring = programEnd > now;
+        
+        // Calcular porcentaje de progreso (0.0 - 1.0)
+        const totalDuration = programEnd - programStart;
+        const currentProgress = currentRealTime - programStart;
+        const percentProgress = totalDuration > 0 ? Math.max(0, Math.min(1, currentProgress / totalDuration)) : 0;
+        
+        // Calcular progressDatum (timestamp del momento actual de reproducción)
+        const progressDatum = currentRealTime;
+        
+        // Calcular liveEdgeOffset (segundos por detrás del liveEdge, solo si el programa está en emisión)
+        const liveEdgeOffset = isProgramCurrentlyAiring ? Math.max(0, (now - currentRealTime) / 1000) : 0;
       
         return {
             minimumValue: programStart,
             maximumValue: programEnd,
             progress: currentRealTime,
+            percentProgress: percentProgress,
             duration: this._duration,
-            canSeekToEnd: !isProgramLive, // Solo se puede ir al final si el programa ya terminó
-            liveEdge: isProgramLive ? now : undefined, // En vivo: límite es "ahora", terminado: sin límite
-            isProgramLive: isProgramLive
+            canSeekToEnd: !isProgramCurrentlyAiring, // Solo se puede ir al final si el programa ya terminó
+            liveEdge: isProgramCurrentlyAiring ? now : undefined, // En emisión: límite es "ahora", terminado: sin límite
+            isProgramLive: isProgramCurrentlyAiring, // Mantener compatibilidad con la interfaz
+            progressDatum: progressDatum,
+            liveEdgeOffset: liveEdgeOffset
         };
     }
 
@@ -503,14 +532,28 @@ export class DVRProgressManagerClass {
         const programStart = this._currentProgram.startDate;
         const liveEdge = this._liveEdgeReference + (now - this._liveEdgeReference);
         const currentRealTime = this._getCurrentRealTime();
+        
+        // Calcular porcentaje de progreso (0.0 - 1.0)
+        const totalDuration = liveEdge - programStart;
+        const currentProgress = currentRealTime - programStart;
+        const percentProgress = totalDuration > 0 ? Math.max(0, Math.min(1, currentProgress / totalDuration)) : 0;
+        
+        // Calcular progressDatum (timestamp del momento actual de reproducción)
+        const progressDatum = currentRealTime;
+        
+        // Calcular liveEdgeOffset (segundos por detrás del liveEdge)
+        const liveEdgeOffset = Math.max(0, (liveEdge - currentRealTime) / 1000);
       
         return {
             minimumValue: programStart,
             maximumValue: liveEdge, // El edge live, no el final del programa
             progress: currentRealTime,
+            percentProgress: percentProgress,
             duration: this._duration,
             canSeekToEnd: true, // Siempre se puede ir al live edge
-            isProgramLive: false // No hay restricciones como en PLAYLIST
+            isProgramLive: false, // No hay restricciones como en PLAYLIST
+            progressDatum: progressDatum,
+            liveEdgeOffset: liveEdgeOffset
         };
     }
 
@@ -523,14 +566,28 @@ export class DVRProgressManagerClass {
         const programStart = this._currentProgram.startDate;
         const currentRealTime = this._getCurrentRealTime();
         
+        // Calcular porcentaje de progreso (0.0 - 1.0)
+        const totalDuration = now - programStart;
+        const currentProgress = currentRealTime - programStart;
+        const percentProgress = totalDuration > 0 ? Math.max(0, Math.min(1, currentProgress / totalDuration)) : 0;
+        
+        // Calcular progressDatum (timestamp del momento actual de reproducción)
+        const progressDatum = currentRealTime;
+        
+        // Calcular liveEdgeOffset (segundos por detrás del liveEdge)
+        const liveEdgeOffset = Math.max(0, (now - currentRealTime) / 1000);
+        
         // El slider va desde el inicio del programa hasta "ahora" (edge live)
         // No muestra el futuro, solo lo que ha pasado del programa hasta el momento
         return {
             minimumValue: programStart,
             maximumValue: now, // Hasta "ahora", no hasta el final del programa
             progress: currentRealTime,
+            percentProgress: percentProgress,
             canSeekToEnd: true, // Siempre se puede ir hasta "ahora"
-            isProgramLive: false // No hay restricciones de futuro
+            isProgramLive: false, // No hay restricciones de futuro
+            progressDatum: progressDatum,
+            liveEdgeOffset: liveEdgeOffset
         };
     }
   
