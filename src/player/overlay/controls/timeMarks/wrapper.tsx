@@ -15,16 +15,27 @@ import {
 const ANIMATION_SPEED = 150;
 
 const TimeMarksComponent = ({
-    currentTime: propCurrentTime = 0,
-    timeMarkers = [],
-    duration,
+    playerProgress,
+    timeMarkers,
+    components,
     onPress: propOnPress,
-    skipIntroButton,
-    skipRecapButton,
-    skipCreditsButton,
-    nextButton,
     style
 }: TimeMarksProps): React.ReactElement => {
+    
+    // Extract values from playerProgress
+    const propCurrentTime = playerProgress?.currentTime || 0;
+    const duration = playerProgress?.duration;
+    
+    // Safe timeMarkers with fallback
+    const safeTimeMarkers = timeMarkers || [];
+    
+    // Extract components
+    const {
+        skipIntroButton,
+        skipRecapButton,
+        skipCreditsButton,
+        nextButton
+    } = components || {};
 
     const safeOnPress = useCallback((id: CONTROL_ACTION, value?: any) => {
         if (typeof propOnPress === 'function') {
@@ -33,18 +44,18 @@ const TimeMarksComponent = ({
     }, [propOnPress]);
 
     const onPressSkipIntroExternalComponent = useCallback(() => {
-        const timeEntry = timeMarkers.find(item => item.type === TIME_MARK_TYPE.INTRO);
+        const timeEntry = safeTimeMarkers.find(item => item.type === TIME_MARK_TYPE.INTRO);
         if (timeEntry) {
             safeOnPress(CONTROL_ACTION.SEEK, timeEntry.end);
         }
-    }, [timeMarkers, safeOnPress]);
+    }, [safeTimeMarkers, safeOnPress]);
 
     const onPressSkipRecapExternalComponent = useCallback(() => {
-        const timeEntry = timeMarkers.find(item => item.type === TIME_MARK_TYPE.RECAP);
+        const timeEntry = safeTimeMarkers.find(item => item.type === TIME_MARK_TYPE.RECAP);
         if (timeEntry) {
             safeOnPress(CONTROL_ACTION.SEEK, timeEntry.end);
         }
-    }, [timeMarkers, safeOnPress]);
+    }, [safeTimeMarkers, safeOnPress]);
 
     const onPressSkipCreditsExternalComponent = useCallback(() => {
         safeOnPress(CONTROL_ACTION.NEXT);
@@ -56,7 +67,7 @@ const TimeMarksComponent = ({
 
     // Memoizamos el renderizado de los timeMarkers
     const renderedTimeMarkers = useMemo(() => {
-        return timeMarkers.map((item, index) => {
+        return safeTimeMarkers.map((item, index) => {
             // Verificamos si el marcador de tiempo debe mostrarse
             const shouldShowTimeMark = item && propCurrentTime && (
                 (item.secondsToEnd && duration && (duration - propCurrentTime) >= item.secondsToEnd) ||
@@ -144,7 +155,7 @@ const TimeMarksComponent = ({
         });
     }, [
         propCurrentTime, 
-        timeMarkers, 
+        safeTimeMarkers, 
         duration, 
         safeOnPress, 
         skipIntroButton, 
