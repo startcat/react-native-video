@@ -34,6 +34,10 @@ import {
 } from '../../modules/tudum';
 
 import {
+    VODProgressManagerClass,
+} from '../../modules/vod';
+
+import {
     type ModeChangeData,
     type ProgramChangeData,
     type ProgressUpdateData,
@@ -95,8 +99,20 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     // Tudum
     const tudumRef = useRef<TudumClass | null>(null);
 
+    // VOD Progress Manager
+    const vodProgressManagerRef = useRef<VODProgressManagerClass | null>(null);
+
     // DVR Progress Manager
     const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
+
+    // Initialize VOD Progress Manager only once
+    if (!vodProgressManagerRef.current) {
+        vodProgressManagerRef.current = new VODProgressManagerClass({
+            // Callbacks
+            onProgressUpdate: onProgressUpdate,
+            onSeekRequest: onSeekRequest
+        });
+    }
 
     // Initialize DVR Progress Manager only once
     if (!dvrProgressManagerRef.current) {
@@ -110,8 +126,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             // Callbacks
             onModeChange: onDVRModeChange,
             onProgramChange: onDVRProgramChange,
-            onProgressUpdate: onDVRProgressUpdate,
-            onSeekRequest: onDVRSeekRequest
+            onProgressUpdate: onProgressUpdate,
+            onSeekRequest: onSeekRequest
         });
     }
 
@@ -320,8 +336,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         console.log(`[Player] (Audio Flavour) onDVRProgramChange: ${JSON.stringify(data)}`);
     };
 
-    function onDVRProgressUpdate(data:ProgressUpdateData) {
-        console.log(`[Player] (Audio Flavour) onDVRProgressUpdate: ${JSON.stringify(data)}`);
+    function onProgressUpdate(data:ProgressUpdateData) {
+        console.log(`[Player] (Audio Flavour) onProgressUpdate: ${JSON.stringify(data)}`);
         sliderValues.current = {
             minimumValue: data.minimumValue,
             maximumValue: data.maximumValue,
@@ -332,8 +348,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         };
     };
 
-    function onDVRSeekRequest(playerTime:number) {
-
+    function onSeekRequest(playerTime:number) {
+        console.log(`[Player] (Audio Flavour) onSeekRequest: ${playerTime}`);
     };
 
     // Sleep Timer
@@ -573,6 +589,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const onProgress = (e: OnProgressData) => {
 
         console.log(`[DANI] onProgress - isDVR ${sourceRef.current?.isDVR}`);
+        console.log(`[DANI] onProgress - vodProgressManagerRef ${vodProgressManagerRef.current}`);
         console.log(`[DANI] onProgress - dvrProgressManagerRef ${dvrProgressManagerRef.current}`);
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
@@ -581,6 +598,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         if (typeof(e.seekableDuration) === 'number' && seekableRange.current !== e.seekableDuration){
             seekableRange.current = e.seekableDuration;
+        }
+
+        if (!sourceRef.current?.isLive){
+            vodProgressManagerRef.current?.updatePlayerData({
+                currentTime: e.currentTime,
+                seekableRange: { start: 0, end: e.seekableDuration },
+                duration: e.playableDuration,
+                isBuffering: isBuffering,
+                isPaused: paused
+            });
         }
 
         if (sourceRef.current?.isDVR){
