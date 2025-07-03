@@ -6,7 +6,8 @@ import * as Enums from './enums';
 import {
     type IPlayerInitialState,
     type IPlayerProgress,
-    type ICommonPlayerProps
+    type ICommonPlayerProps,
+    type IPlayerTimeMarkers
 } from './newTypes';
 
 import { 
@@ -396,7 +397,7 @@ export interface TimelineProps {
 
 export interface TimeMarksProps {
     playerProgress?: IPlayerProgress;
-    timeMarkers?: Array<ITimeMarkers>;
+    playerTimeMarkers?: IPlayerTimeMarkers;
     style?:any;
 
     // Custom Components

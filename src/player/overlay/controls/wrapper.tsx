@@ -124,7 +124,7 @@ const ControlsBase = (props: ControlsProps): React.ReactElement => {
 
                 <View style={styles.temporalButtonsBar}>
                     <TimeMarks 
-                        timeMarkers={playerTimeMarkers}
+                        playerTimeMarkers={playerTimeMarkers}
                         playerProgress={playerProgress}
                         components={components}
                         onPress={handlePress}

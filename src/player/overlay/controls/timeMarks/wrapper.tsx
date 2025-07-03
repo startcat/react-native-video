@@ -9,14 +9,15 @@ import {
 import { 
     CONTROL_ACTION,
     TIME_MARK_TYPE,
-    type TimeMarksProps
+    type TimeMarksProps,
+    type ITimeMarkers
 } from '../../../types';
 
 const ANIMATION_SPEED = 150;
 
 const TimeMarksComponent = ({
     playerProgress,
-    timeMarkers,
+    playerTimeMarkers,
     components,
     onPress: propOnPress,
     style
@@ -27,7 +28,7 @@ const TimeMarksComponent = ({
     const duration = playerProgress?.duration;
     
     // Safe timeMarkers with fallback
-    const safeTimeMarkers = timeMarkers || [];
+    const safeTimeMarkers = playerTimeMarkers?.timeMarkers || [];
     
     // Extract components
     const {
@@ -44,14 +45,14 @@ const TimeMarksComponent = ({
     }, [propOnPress]);
 
     const onPressSkipIntroExternalComponent = useCallback(() => {
-        const timeEntry = safeTimeMarkers.find(item => item.type === TIME_MARK_TYPE.INTRO);
+        const timeEntry = safeTimeMarkers.find((item: ITimeMarkers) => item.type === TIME_MARK_TYPE.INTRO);
         if (timeEntry) {
             safeOnPress(CONTROL_ACTION.SEEK, timeEntry.end);
         }
     }, [safeTimeMarkers, safeOnPress]);
 
     const onPressSkipRecapExternalComponent = useCallback(() => {
-        const timeEntry = safeTimeMarkers.find(item => item.type === TIME_MARK_TYPE.RECAP);
+        const timeEntry = safeTimeMarkers.find((item: ITimeMarkers) => item.type === TIME_MARK_TYPE.RECAP);
         if (timeEntry) {
             safeOnPress(CONTROL_ACTION.SEEK, timeEntry.end);
         }
@@ -67,7 +68,7 @@ const TimeMarksComponent = ({
 
     // Memoizamos el renderizado de los timeMarkers
     const renderedTimeMarkers = useMemo(() => {
-        return safeTimeMarkers.map((item, index) => {
+        return safeTimeMarkers.map((item: ITimeMarkers, index: number) => {
             // Verificamos si el marcador de tiempo debe mostrarse
             const shouldShowTimeMark = item && propCurrentTime && (
                 (item.secondsToEnd && duration && (duration - propCurrentTime) >= item.secondsToEnd) ||
