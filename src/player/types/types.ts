@@ -258,6 +258,7 @@ export interface SliderValues {
     minimumValue: number;
     maximumValue: number;
     progress: number;
+    duration?: number;
     canSeekToEnd: boolean;
     liveEdge?: number; // Usado en modo PLAYLIST para mostrar el límite real
     isProgramLive?: boolean; // Indica si el programa está en directo

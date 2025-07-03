@@ -57,7 +57,7 @@ export class VODProgressManagerClass {
      */
 
     updatePlayerData(data: UpdatePlayerData) {
-        console.log(`[Player] (VOD Progress Manager) updatePlayerData...`);
+        // console.log(`[Player] (VOD Progress Manager) updatePlayerData...`);
         const { currentTime, seekableRange, duration, isPaused, isBuffering } = data;
       
         this._currentTime = currentTime || 0;
@@ -69,7 +69,7 @@ export class VODProgressManagerClass {
         // Emitir actualización
         this._emitProgressUpdate();
 
-        console.log(`[Player] (VOD Progress Manager) updatePlayerData - Stats ${JSON.stringify(this.getStats())}`);
+        // console.log(`[Player] (VOD Progress Manager) updatePlayerData - Stats ${JSON.stringify(this.getStats())}`);
     }
   
     /*
@@ -82,6 +82,7 @@ export class VODProgressManagerClass {
             minimumValue: this._seekableRange.start,
             maximumValue: this._seekableRange.end,
             progress: this._currentTime,
+            duration: this._duration,
             canSeekToEnd: true,
             isProgramLive: false // VOD nunca está en vivo
         };
@@ -175,6 +176,7 @@ export class VODProgressManagerClass {
     reset() {
         // Resetear completamente - como si empezáramos de nuevo
         this._currentTime = 0;
+        this._duration = 0;
         this._seekableRange = { start: 0, end: this._duration };
 
         console.log(`[Player] (VOD Progress Manager) reset - Stats ${JSON.stringify(this.getStats())}`);

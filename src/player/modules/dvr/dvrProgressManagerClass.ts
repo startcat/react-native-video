@@ -19,6 +19,7 @@ export interface ModeChangeData {
 
 export interface UpdatePlayerData {
     currentTime: number;
+    duration: number;
     seekableRange: SeekableRange;
     isBuffering: boolean;
     isPaused: boolean;
@@ -27,6 +28,7 @@ export interface UpdatePlayerData {
 export interface DVRProgressManagerData {
     dvrWindowSeconds?: number;
     currentTime?: number;
+    
     isPaused?: boolean;
     isBuffering?: boolean;
     playbackType?: DVR_PLAYBACK_TYPE;
@@ -47,6 +49,7 @@ export class DVRProgressManagerClass {
     private _initialTimeWindowSeconds:number;
     private _currentTimeWindowSeconds:number;
     private _currentTime:number;
+    private _duration:number;
     private _seekableRange:SeekableRange;
     private _liveEdgeReference:number;
 
@@ -76,6 +79,7 @@ export class DVRProgressManagerClass {
       
         // Estado del reproductor
         this._currentTime = options.currentTime || 0;
+        this._duration = 0;
         this._seekableRange = { start: 0, end: 0 };
         this._isLiveEdgePosition = true;
         this._isPaused = options.isPaused || false;
@@ -128,9 +132,10 @@ export class DVRProgressManagerClass {
 
     updatePlayerData(data:UpdatePlayerData) {
         console.log(`[Player] (DVR Progress Manager) updatePlayerData...`);
-        const { currentTime, seekableRange, isBuffering, isPaused } = data;
+        const { currentTime, duration, seekableRange, isBuffering, isPaused } = data;
       
         this._currentTime = currentTime || 0;
+        this._duration = duration || this._duration;
         this._seekableRange = seekableRange || this._seekableRange;
       
         // Manejar cambios de estado de pausa/buffering
@@ -459,6 +464,7 @@ export class DVRProgressManagerClass {
             minimumValue: windowStart,
             maximumValue: liveEdge,
             progress: this._getCurrentRealTime(),
+            duration: this._duration,
             canSeekToEnd: true,
             isProgramLive: false // En modo WINDOW no hay restricciones de programa en directo
         };
@@ -481,6 +487,7 @@ export class DVRProgressManagerClass {
             minimumValue: programStart,
             maximumValue: programEnd,
             progress: currentRealTime,
+            duration: this._duration,
             canSeekToEnd: !isProgramLive, // Solo se puede ir al final si el programa ya terminó
             liveEdge: isProgramLive ? now : undefined, // En vivo: límite es "ahora", terminado: sin límite
             isProgramLive: isProgramLive
@@ -501,6 +508,7 @@ export class DVRProgressManagerClass {
             minimumValue: programStart,
             maximumValue: liveEdge, // El edge live, no el final del programa
             progress: currentRealTime,
+            duration: this._duration,
             canSeekToEnd: true, // Siempre se puede ir al live edge
             isProgramLive: false // No hay restricciones como en PLAYLIST
         };
@@ -593,6 +601,7 @@ export class DVRProgressManagerClass {
         // Resetear completamente - como si empezáramos de nuevo
         this._totalPauseTime = 0;
         this._pauseStartTime = 0;
+        this._duration = 0;
         this._isLiveEdgePosition = true;
         this._liveEdgeReference = Date.now(); // Nueva referencia temporal
         this._currentTimeWindowSeconds = this._initialTimeWindowSeconds; // Resetear ventana
@@ -608,6 +617,7 @@ export class DVRProgressManagerClass {
     getStats() {
         console.log(`[Player] (DVR Progress Manager) getStats...`);
         return {
+            duration: this._duration,
             initialTimeWindowSeconds: this._initialTimeWindowSeconds,
             currentTimeWindowSeconds: this._currentTimeWindowSeconds,
             totalPauseTime: this._totalPauseTime / 1000, // en segundos
@@ -639,4 +649,7 @@ export class DVRProgressManagerClass {
         return this._currentProgram;
     }
 
+    get duration() {
+        return this._duration;
+    }
 }
