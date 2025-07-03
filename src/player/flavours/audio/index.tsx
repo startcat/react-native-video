@@ -10,7 +10,8 @@ import {
     type OnLoadData,
     //type OnVolumeChangeData,
     type SliderValues,
-    type AudioControlsProps
+    type AudioControlsProps,
+    type ProgressUpdateData,
 } from '../../../types';
 import { type VideoRef } from '../../../Video';
 import Video from '../../../Video';
@@ -40,7 +41,6 @@ import {
 import {
     type ModeChangeData,
     type ProgramChangeData,
-    type ProgressUpdateData,
     DVRProgressManagerClass
 } from '../../modules/dvr';
 
@@ -256,7 +256,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     };
 
     const setPlayerSource = (data?:onSourceChangedProps) => {
-
         console.log(`[Player] (Audio Flavour) setPlayerSource (data isReady ${!!data?.isReady})`);
         console.log(`[Player] (Audio Flavour) setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
 
@@ -653,12 +652,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onSlidingComplete = (value: number) => {
 
-        onChangeDvrTimeValue(value);
+        //onChangeDvrTimeValue(value);
 
     }
 
     const onChangeDvrTimeValue = (value: number) => {
-
+        /*
         let secondsToLive,
             date;
 
@@ -677,6 +676,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (props.onDVRChange){
             props.onDVRChange(value, secondsToLive, date);
         }
+        */
 
     }
 

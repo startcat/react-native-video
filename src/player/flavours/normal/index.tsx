@@ -10,6 +10,8 @@ import {
     type OnReceiveAdEventData,
     type SelectedTrack,
     type SelectedVideoTrack,
+    type SliderValues,
+    type ProgressUpdateData,
     SelectedTrackType,
     //type OnVolumeChangeData,
     SelectedVideoTrackType
@@ -42,8 +44,13 @@ import {
 } from '../../modules/tudum';
 
 import {
-    handleDvrPausedDatum,
-    useDvrPausedSeconds,
+    VODProgressManagerClass,
+} from '../../modules/vod';
+
+import {
+    type ModeChangeData,
+    type ProgramChangeData,
+    DVRProgressManagerClass
 } from '../../modules/dvr';
 
 import {
@@ -77,18 +84,18 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const dvrWindowSeconds = useRef<number>();
     const seekableRange = useRef<number>();
-    const liveStartProgramTimestamp = useRef<number>();
+    // const liveStartProgramTimestamp = useRef<number>();
     const needsLiveInitialSeek = useRef<boolean>(false);
     const isChangingSource = useRef<boolean>(true);
 
     const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
     const [duration, setDuration] = useState<number>();
-    const [dvrTimeValue, setDvrTimeValue] = useState<number>();
+    // const [dvrTimeValue, setDvrTimeValue] = useState<number>();
     const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
     const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
     const [buffering, setBuffering] = useState<boolean>(false);
     const [menuData, setMenuData] = useState<Array<IPlayerMenuData>>();
-    const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
+    // const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
 
     const [speedRate, setSpeedRate] = useState<number>(1);
     const [selectedAudioTrack, setSelectedAudioTrack] = useState<SelectedTrack>();
@@ -100,6 +107,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const refVideoPlayer = useRef<VideoRef>(null);
     const videoQualityIndex = useRef<number>(-1);
+    const sliderValues = useRef<SliderValues>();
 
     // Source
     const sourceRef = useRef<SourceClass | null>(null);
@@ -107,18 +115,43 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     // Tudum
     const tudumRef = useRef<TudumClass | null>(null);
 
+    // VOD Progress Manager
+    const vodProgressManagerRef = useRef<VODProgressManagerClass | null>(null);
+
+    // DVR Progress Manager
+    const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
+
+    // Initialize VOD Progress Manager only once
+    if (!vodProgressManagerRef.current) {
+        vodProgressManagerRef.current = new VODProgressManagerClass({
+            // Callbacks
+            onProgressUpdate: onProgressUpdate,
+            onSeekRequest: onSeekRequest
+        });
+    }
+
+    // Initialize DVR Progress Manager only once
+    if (!dvrProgressManagerRef.current) {
+        dvrProgressManagerRef.current = new DVRProgressManagerClass({
+            playbackType: props.playerProgress?.liveValues?.playbackType,
+
+            // Metadata
+            getEPGProgramAt: props.hooks?.getEPGProgramAt,
+            getEPGNextProgram: props.hooks?.getEPGNextProgram,
+        
+            // Callbacks
+            onModeChange: onDVRModeChange,
+            onProgramChange: onDVRProgramChange,
+            onProgressUpdate: onProgressUpdate,
+            onSeekRequest: onSeekRequest
+        });
+    }
+
     // Hook para la orientación de la pantalla
     const isLandscapePlayer = useIsLandscape();
 
     // Hook para el estado de Airplay
     const isAirplayConnected = useAirplayConnectivity();
-
-    // Hook para las pausas mediante DVR
-    const dvrPaused = useDvrPausedSeconds({
-        paused: paused,
-        isLive: !!props?.playerProgress?.isLive,
-        isDVR: !!sourceRef.current?.isDVR
-    });
 
     // Hook para el estado de buffering
     const isBuffering = useIsBuffering({
@@ -126,12 +159,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         paused: paused,
         onBufferingChange: props.events?.onBuffering
     });
-
-    /*
-        onChangeSource:
-            setBuffering(true);
-            mapYouboraOptions
-    */
 
     useEffect(() => {
         console.log(`[Player] (Normal Flavour) useEffect videoSource ${JSON.stringify(videoSource)}`);
@@ -143,29 +170,29 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         if (!tudumRef.current){
             tudumRef.current = new TudumClass({
-                enabled:!!props.showExternalTudum,
-                getTudumManifest:props.hooks?.getTudumManifest
+                enabled: !!props.showExternalTudum,
+                getTudumManifest: props.hooks?.getTudumManifest
             });
         }
 
         if (!sourceRef.current){
             sourceRef.current = new SourceClass({
                 // Metadata
-                id:props.playerMetadata?.id,
-                title:props.playerMetadata?.title,
-                subtitle:props.playerMetadata?.subtitle,
-                description:props.playerMetadata?.description,
-                poster:props.playerMetadata?.poster,
-                squaredPoster:props.playerMetadata?.squaredPoster,
+                id: props.playerMetadata?.id,
+                title: props.playerMetadata?.title,
+                subtitle: props.playerMetadata?.subtitle,
+                description: props.playerMetadata?.description,
+                poster: props.playerMetadata?.poster,
+                squaredPoster: props.playerMetadata?.squaredPoster,
         
                 // Main Source
-                manifests:props.manifests,
-                startPosition:props.playerProgress?.currentTime,
-                headers:props.headers,
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime,
+                headers: props.headers,
         
                 // Callbacks
-                getSourceUri:props.hooks?.getSourceUri,
-                onSourceChanged:onSourceChanged
+                getSourceUri: props.hooks?.getSourceUri,
+                onSourceChanged: onSourceChanged
             });
         }
 
@@ -179,15 +206,15 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             isChangingSource.current = true;
             
             sourceRef.current.changeSource({
-                manifests:props.manifests,
-                startPosition:props.playerProgress?.currentTime,
-                isLive:props.playerProgress?.isLive,
-                headers:props.headers,
-                title:props.playerMetadata?.title,
-                subtitle:props.playerMetadata?.subtitle,
-                description:props.playerMetadata?.description,
-                poster:props.playerMetadata?.poster,
-                squaredPoster:props.playerMetadata?.squaredPoster
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime,
+                isLive: props.playerProgress?.isLive,
+                headers: props.headers,
+                title: props.playerMetadata?.title,
+                subtitle: props.playerMetadata?.subtitle,
+                description: props.playerMetadata?.description,
+                poster: props.playerMetadata?.poster,
+                squaredPoster: props.playerMetadata?.squaredPoster
             });
 
         }
@@ -257,25 +284,29 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }, [menuData]);
 
-    useEffect(() => {
-        // Gestionamos la ventana al realizar pause sobre un DVR
-        const handleDvrPausedDatumResults = handleDvrPausedDatum(!!props.playerProgress?.isLive, dvrWindowSeconds.current!, dvrPaused, dvrTimeValue, props?.events?.onChangeCommonData);
+    // useEffect(() => {
+    //     // Gestionamos la ventana al realizar pause sobre un DVR
+    //     const handleDvrPausedDatumResults = handleDvrPausedDatum(!!props.playerProgress?.isLive, dvrWindowSeconds.current!, dvrPaused, dvrTimeValue, props?.events?.onChangeCommonData);
 
-        if (handleDvrPausedDatumResults.duration){
-            setDuration(handleDvrPausedDatumResults.duration);
-        }
+    //     if (handleDvrPausedDatumResults.duration){
+    //         setDuration(handleDvrPausedDatumResults.duration);
+    //     }
 
-        if (handleDvrPausedDatumResults.dvrTimeValue){
-            setDvrTimeValue(handleDvrPausedDatumResults.dvrTimeValue);
-        }
+    //     if (handleDvrPausedDatumResults.dvrTimeValue){
+    //         setDvrTimeValue(handleDvrPausedDatumResults.dvrTimeValue);
+    //     }
 
-    }, [dvrPaused?.pausedDatum]);
+    // }, [dvrPaused?.pausedDatum]);
 
     // Source Cooking
     const onSourceChanged = (data:onSourceChangedProps) => {
         console.log(`[Player] (Normal Flavour) onSourceChanged`);
+
         if (!tudumRef.current?.isPlaying){
             setPlayerSource(data);
+
+        } else if (sourceRef.current?.isLive && sourceRef.current?.isDVR){
+            dvrProgressManagerRef.current?.reset();
 
         }
         
@@ -422,6 +453,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             props.events?.onNext();
         }
         
+        /*
         if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR){
             
             const timestamp = props.events?.onLiveStartProgram?.();
@@ -436,6 +468,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
             
         }
+        */
         
         if (sourceRef.current?.isHLS && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
             // Cambio de calidad con HLS
@@ -473,6 +506,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
+        /*
         if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR && typeof(value) === 'number' && typeof(seekableRange.current) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             setDvrTimeValue(value);
@@ -481,7 +515,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 setHasSeekOverDRV(false);
             }
         }
+        */
 
+        /*
         if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
             // Volver al directo en DVR
 
@@ -509,7 +545,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
         }
+        */
 
+        /*
         if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
 
             // Si excedemos el rango, no hacemos nada
@@ -525,19 +563,22 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 setHasSeekOverDRV(false);
             }
         }
-
+        */
+        /*
         if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number'){
             // Guardamos el estado de la barra de tiempo en DVR
             const minBarRange = Math.max(0, dvrTimeValue - value);
             setDvrTimeValue(minBarRange);
             onChangeDvrTimeValue(minBarRange);
         }
+        */
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
             invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current, props.events?.onSeek);
         }
 
+        /*
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.events?.onSeekOverEpg){
             setHasSeekOverDRV(true);
             const overEpgValue = props.events?.onSeekOverEpg();
@@ -551,6 +592,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             onChangeDvrTimeValue(overEpgValue!);
             invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current, props.events?.onSeek);
         }
+        */
 
         // Actions to be saved between flavours
         if (COMMON_DATA_FIELDS.includes(id) && props?.events?.onChangeCommonData){
@@ -577,6 +619,34 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }
 
+    /*
+     *  DVR Progress Manager
+     */
+
+    function onDVRModeChange(data:ModeChangeData) {
+        console.log(`[Player] (Audio Flavour) onDVRModeChange: ${JSON.stringify(data)}`);
+    };
+
+    function onDVRProgramChange(data:ProgramChangeData) {
+        console.log(`[Player] (Audio Flavour) onDVRProgramChange: ${JSON.stringify(data)}`);
+    };
+
+    function onProgressUpdate(data:ProgressUpdateData) {
+        console.log(`[Player] (Audio Flavour) onProgressUpdate: ${JSON.stringify(data)}`);
+        sliderValues.current = {
+            minimumValue: data.minimumValue,
+            maximumValue: data.maximumValue,
+            progress: data.progress,
+            canSeekToEnd: data.canSeekToEnd,
+            liveEdge: data.liveEdge,
+            isProgramLive: data.isProgramLive
+        };
+    };
+
+    function onSeekRequest(playerTime:number) {
+        console.log(`[Player] (Audio Flavour) onSeekRequest: ${playerTime}`);
+    };
+
     const onLoad = async (e: OnLoadData) => {
 
         console.log(`[Player] (Normal Flavour) onLoad ${JSON.stringify(e)}`);
@@ -586,10 +656,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             if (!isContentLoaded){
                 setIsContentLoaded(true);
 
-                if (needsLiveInitialSeek.current){
-                    // Al ir al inicio de un programa, debemos hacer seek para no ir al edge live
-                    invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, 0, currentTime);
-                }
+                // if (needsLiveInitialSeek.current){
+                //     // Al ir al inicio de un programa, debemos hacer seek para no ir al edge live
+                //     invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, 0, currentTime);
+                // }
 
                 isChangingSource.current = false;
 
@@ -600,26 +670,31 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             console.log(`[Player] (Normal Flavour) onLoad -> isDVR ${sourceRef.current?.isDVR}`);
             if (sourceRef.current?.isDVR){
-                console.log(`[Player] (Normal Flavour) onLoad -> setDuration ${dvrWindowSeconds.current}`);
-                setDuration(dvrWindowSeconds.current);
-
-                if (props?.playerProgress?.isLive && props?.events?.onChangeCommonData){
-                    props.events?.onChangeCommonData({
-                        duration: dvrWindowSeconds.current
-                    });
-                }
-
-            } else if (typeof(e.duration) === 'number' && e.duration && duration !== e.duration){
-                console.log(`[Player] (Normal Flavour) onLoad -> B. setDuration ${e.duration}`);
-                setDuration(e.duration);
-
-                if (!props?.playerProgress?.isLive && props?.events?.onChangeCommonData){
-                    props.events?.onChangeCommonData({
-                        duration: e.duration
-                    });
-                }
+                dvrProgressManagerRef.current?.setInitialTimeWindowSeconds(sourceRef.current.dvrWindowSeconds);
 
             }
+
+            // if (sourceRef.current?.isDVR){
+            //     console.log(`[Player] (Normal Flavour) onLoad -> setDuration ${dvrWindowSeconds.current}`);
+            //     setDuration(dvrWindowSeconds.current);
+
+            //     if (props?.playerProgress?.isLive && props?.events?.onChangeCommonData){
+            //         props.events?.onChangeCommonData({
+            //             duration: dvrWindowSeconds.current
+            //         });
+            //     }
+
+            // } else if (typeof(e.duration) === 'number' && e.duration && duration !== e.duration){
+            //     console.log(`[Player] (Normal Flavour) onLoad -> B. setDuration ${e.duration}`);
+            //     setDuration(e.duration);
+
+            //     if (!props?.playerProgress?.isLive && props?.events?.onChangeCommonData){
+            //         props.events?.onChangeCommonData({
+            //             duration: e.duration
+            //         });
+            //     }
+
+            // }
 
             if (props.hooks?.mergeMenuData && typeof(props.hooks.mergeMenuData) === 'function'){
                 setMenuData(props.hooks.mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH));
@@ -659,7 +734,26 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             seekableRange.current = e.seekableDuration;
         }
 
-        if (props.events?.onChangeCommonData){
+        if (!sourceRef.current?.isLive){
+            vodProgressManagerRef.current?.updatePlayerData({
+                currentTime: e.currentTime,
+                seekableRange: { start: 0, end: e.seekableDuration },
+                duration: e.playableDuration,
+                isBuffering: isBuffering,
+                isPaused: paused
+            });
+        }
+
+        if (sourceRef.current?.isDVR){
+            dvrProgressManagerRef.current?.updatePlayerData({
+                currentTime: e.currentTime,
+                seekableRange: { start: 0, end: e.seekableDuration },
+                isBuffering: isBuffering,
+                isPaused: paused
+            });
+        }
+
+        if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData){
             props.events.onChangeCommonData({
                 time: e.currentTime
             });
@@ -709,12 +803,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const onSlidingComplete = (value: number) => {
 
-        onChangeDvrTimeValue(value);
+        // onChangeDvrTimeValue(value);
 
     }
 
     const onChangeDvrTimeValue = (value: number) => {
 
+        /*
         let secondsToLive,
             date;
 
@@ -727,6 +822,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         if (props.events?.onDVRChange){
             props.events?.onDVRChange(value, secondsToLive, date);
         }
+        */
 
     }
 

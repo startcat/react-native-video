@@ -142,7 +142,7 @@ export class SourceClass {
         this._videoSource = {
             id: props.id,
             title: props.title,
-            uri: this._isLive ? this.calculateSourceUri() || this._currentManifest?.manifestURL : this._currentManifest?.manifestURL,
+            uri: this.calculateSourceUri() || this._currentManifest?.manifestURL,
             type: getManifestSourceType(this._currentManifest),
             startPosition: this.calculateStartingPosition(),
             headers: props.headers,
