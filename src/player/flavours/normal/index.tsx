@@ -81,11 +81,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const needsLiveInitialSeek = useRef<boolean>(false);
     const isChangingSource = useRef<boolean>(true);
 
-    const [currentTime, setCurrentTime] = useState<number>(props.currentTime!);
+    const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
     const [duration, setDuration] = useState<number>();
     const [dvrTimeValue, setDvrTimeValue] = useState<number>();
-    const [paused, setPaused] = useState<boolean>(!!props.paused);
-    const [muted, setMuted] = useState<boolean>(!!props?.muted);
+    const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
+    const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
     const [buffering, setBuffering] = useState<boolean>(false);
     const [menuData, setMenuData] = useState<Array<IPlayerMenuData>>();
     const [hasSeekOverDRV, setHasSeekOverDRV] = useState<boolean>(false);
@@ -116,7 +116,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     // Hook para las pausas mediante DVR
     const dvrPaused = useDvrPausedSeconds({
         paused: paused,
-        isLive: !!props?.isLive,
+        isLive: !!props?.playerProgress?.isLive,
         isDVR: !!sourceRef.current?.isDVR
     });
 
@@ -124,7 +124,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const isBuffering = useIsBuffering({
         buffering: buffering,
         paused: paused,
-        onBufferingChange: props.onBuffering
+        onBufferingChange: props.events?.onBuffering
     });
 
     /*
@@ -144,27 +144,27 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         if (!tudumRef.current){
             tudumRef.current = new TudumClass({
                 enabled:!!props.showExternalTudum,
-                getTudumManifest:props.getTudumManifest
+                getTudumManifest:props.hooks?.getTudumManifest
             });
         }
 
         if (!sourceRef.current){
             sourceRef.current = new SourceClass({
                 // Metadata
-                id:props.id,
-                title:props.title,
-                subtitle:props.subtitle,
-                description:props.description,
-                poster:props.poster,
-                squaredPoster:props.squaredPoster,
+                id:props.playerMetadata?.id,
+                title:props.playerMetadata?.title,
+                subtitle:props.playerMetadata?.subtitle,
+                description:props.playerMetadata?.description,
+                poster:props.playerMetadata?.poster,
+                squaredPoster:props.playerMetadata?.squaredPoster,
         
                 // Main Source
                 manifests:props.manifests,
-                startPosition:props.currentTime,
+                startPosition:props.playerProgress?.currentTime,
                 headers:props.headers,
         
                 // Callbacks
-                getSourceUri:props.getSourceUri,
+                getSourceUri:props.hooks?.getSourceUri,
                 onSourceChanged:onSourceChanged
             });
         }
@@ -180,14 +180,14 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             
             sourceRef.current.changeSource({
                 manifests:props.manifests,
-                startPosition:props.currentTime,
-                isLive:props.isLive,
+                startPosition:props.playerProgress?.currentTime,
+                isLive:props.playerProgress?.isLive,
                 headers:props.headers,
-                title:props.title,
-                subtitle:props.subtitle,
-                description:props.description,
-                poster:props.poster,
-                squaredPoster:props.squaredPoster
+                title:props.playerMetadata?.title,
+                subtitle:props.playerMetadata?.subtitle,
+                description:props.playerMetadata?.description,
+                poster:props.playerMetadata?.poster,
+                squaredPoster:props.playerMetadata?.squaredPoster
             });
 
         }
@@ -227,7 +227,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     useEffect(() => {
 
-        if (menuData && props.onChangeCommonData){
+        if (menuData && props.events?.onChangeCommonData){
             // Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
             // Lo necesitamos para pintar el idioma por encima del player con componentes externos
 
@@ -250,7 +250,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex)?.label;
         
             if (data){
-                props.onChangeCommonData(data);
+                props.events?.onChangeCommonData(data);
             }
 
         }
@@ -259,7 +259,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     useEffect(() => {
         // Gestionamos la ventana al realizar pause sobre un DVR
-        const handleDvrPausedDatumResults = handleDvrPausedDatum(!!props.isLive, dvrWindowSeconds.current!, dvrPaused, dvrTimeValue, props?.onChangeCommonData);
+        const handleDvrPausedDatumResults = handleDvrPausedDatum(!!props.playerProgress?.isLive, dvrWindowSeconds.current!, dvrPaused, dvrTimeValue, props?.events?.onChangeCommonData);
 
         if (handleDvrPausedDatumResults.duration){
             setDuration(handleDvrPausedDatumResults.duration);
@@ -290,8 +290,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             drm.current = data.drm;
 
             // Preparamos los datos de Youbora
-            if (props.getYouboraOptions){
-                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+            if (props.hooks?.getYouboraOptions){
+                youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
             setVideoSource(data.source!);
@@ -302,8 +302,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             drm.current = sourceRef.current.playerSourceDrm;
 
             // Preparamos los datos de Youbora
-            if (props.getYouboraOptions){
-                youboraForVideo.current = props.getYouboraOptions(props.youbora!, YOUBORA_FORMAT.MOBILE);
+            if (props.hooks?.getYouboraOptions){
+                youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
             setVideoSource(sourceRef.current.playerSource!);
@@ -417,14 +417,14 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             setMuted(!!value);
         }
         
-        if (id === CONTROL_ACTION.NEXT && props.onNext){
+        if (id === CONTROL_ACTION.NEXT && props.events?.onNext){
             setIsContentLoaded(false);
-            props.onNext();
+            props.events?.onNext();
         }
         
         if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR){
             
-            const timestamp = props.onLiveStartProgram?.();
+            const timestamp = props.events?.onLiveStartProgram?.();
             
             if (typeof(timestamp) === 'number'){
                 isChangingSource.current = true;
@@ -504,7 +504,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                     setHasSeekOverDRV(false);
                 }
 
-                invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current, props.onSeek);
+                invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current, props.events?.onSeek);
 
             }
 
@@ -535,12 +535,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
             // Actions to invoke on player
-            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current, props.onSeek);
+            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current, props.events?.onSeek);
         }
 
-        if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.onSeekOverEpg){
+        if (id === CONTROL_ACTION.SEEK_OVER_EPG && props.events?.onSeekOverEpg){
             setHasSeekOverDRV(true);
-            const overEpgValue = props.onSeekOverEpg();
+            const overEpgValue = props.events?.onSeekOverEpg();
             let realSeek = overEpgValue;
 
             if (typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
@@ -549,11 +549,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             setDvrTimeValue(overEpgValue!);
             onChangeDvrTimeValue(overEpgValue!);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current, props.onSeek);
+            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current, props.events?.onSeek);
         }
 
         // Actions to be saved between flavours
-        if (COMMON_DATA_FIELDS.includes(id) && props?.onChangeCommonData){
+        if (COMMON_DATA_FIELDS.includes(id) && props?.events?.onChangeCommonData){
             let data:ICommonData = {};
 
             if (id === CONTROL_ACTION.MUTE){
@@ -571,7 +571,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 
             }
             
-            props.onChangeCommonData(data);
+            props.events?.onChangeCommonData(data);
 
         }
 
@@ -593,8 +593,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
                 isChangingSource.current = false;
 
-                if (props.onStart){
-                    props.onStart();
+                if (props.events?.onStart){
+                    props.events?.onStart();
                 }
             }
 
@@ -603,8 +603,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 console.log(`[Player] (Normal Flavour) onLoad -> setDuration ${dvrWindowSeconds.current}`);
                 setDuration(dvrWindowSeconds.current);
 
-                if (props?.isLive && props?.onChangeCommonData){
-                    props.onChangeCommonData({
+                if (props?.playerProgress?.isLive && props?.events?.onChangeCommonData){
+                    props.events?.onChangeCommonData({
                         duration: dvrWindowSeconds.current
                     });
                 }
@@ -613,16 +613,16 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 console.log(`[Player] (Normal Flavour) onLoad -> B. setDuration ${e.duration}`);
                 setDuration(e.duration);
 
-                if (!props?.isLive && props?.onChangeCommonData){
-                    props.onChangeCommonData({
+                if (!props?.playerProgress?.isLive && props?.events?.onChangeCommonData){
+                    props.events?.onChangeCommonData({
                         duration: e.duration
                     });
                 }
 
             }
 
-            if (props.mergeMenuData && typeof(props.mergeMenuData) === 'function'){
-                setMenuData(props.mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH));
+            if (props.hooks?.mergeMenuData && typeof(props.hooks.mergeMenuData) === 'function'){
+                setMenuData(props.hooks.mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH));
 
             } else {
                 setMenuData(mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH));
@@ -641,9 +641,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             tudumRef.current.isPlaying = false;
             setPlayerSource();
 
-        } else if (props.onEnd){
+        } else if (props.events?.onEnd){
             // Termina el contenido
-            props.onEnd();
+            props.events.onEnd();
             
         }
 
@@ -659,8 +659,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             seekableRange.current = e.seekableDuration;
         }
 
-        if (props?.onChangeCommonData){
-            props.onChangeCommonData({
+        if (props.events?.onChangeCommonData){
+            props.events.onChangeCommonData({
                 time: e.currentTime
             });
         }
@@ -724,8 +724,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         }        
 
-        if (props.onDVRChange){
-            props.onDVRChange(value, secondsToLive, date);
+        if (props.events?.onDVRChange){
+            props.events?.onDVRChange(value, secondsToLive, date);
         }
 
     }
@@ -752,7 +752,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             // @ts-ignore
                             youbora={youboraForVideo.current}
                             playOffline={props.playOffline}
-                            multiSession={props.multiSession}
+                            multiSession={props.playerProgress?.liveValues?.multiSession}
 
                             disableDisconnectError={true}
                             debug={{
@@ -760,7 +760,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                                 thread: true,
                             }}
 
-                            adTagUrl={props?.adTagUrl}
+                            adTagUrl={props?.playerAds?.adTagUrl}
                             allowsExternalPlayback={true}
                             //volume={10}
                             controls={false}
@@ -777,7 +777,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             //pictureInPicture (ios)
                             playInBackground={isAirplayConnected}
                             playWhenInactive={isAirplayConnected}
-                            poster={props?.poster}
+                            poster={props?.playerMetadata?.poster}
                             preventsDisplaySleepDuringVideoPlayback={!isAirplayConnected}
                             progressUpdateInterval={1000}
                             selectedVideoTrack={tudumRef.current?.isPlaying ? undefined : selectedVideoTrack}
@@ -800,8 +800,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             {
                 isAirplayConnected ?
-                    <Suspense fallback={props.loader}>
-                        <BackgroundPoster poster={props.poster} />
+                    <Suspense fallback={props.components?.loader}>
+                        <BackgroundPoster poster={props.playerMetadata?.poster} />
                     </Suspense>
                 : null
             }
@@ -809,56 +809,51 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             {
                 !isPlayingAd && !tudumRef.current?.isPlaying ?
                     <Overlay
-                        title={props?.title}
-                        currentTime={currentTime}
-                        duration={duration}
-                        dvrTimeValue={dvrTimeValue}
-
-                        muted={muted}
-                        paused={paused}
                         preloading={isBuffering}
-                        hasNext={props?.hasNext}
                         thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
                         timeMarkers={props.timeMarkers}
                         avoidTimelineThumbnails={props.avoidTimelineThumbnails}
-
-                        speedRate={speedRate}
+                        
+                        alwaysVisible={isAirplayConnected}
+                        isChangingSource={isChangingSource.current}
+                        
+                        isContentLoaded={isContentLoaded}
+                        
+                        menuData={menuData}
                         videoIndex={videoQualityIndex.current}
                         audioIndex={props.audioIndex}
                         subtitleIndex={props.subtitleIndex}
-                        menuData={menuData}
+                        speedRate={speedRate}
 
-                        alwaysVisible={isAirplayConnected}
-                        
-                        isLive={props?.isLive}
-                        isDVR={sourceRef.current?.isDVR}
-                        isDVRStart={hasSeekOverDRV}
-                        isContentLoaded={isContentLoaded}
-                        isChangingSource={isChangingSource.current}
+                        // Nuevas Props Agrupadas
+                        playerMetadata={props.playerMetadata}
+                        playerProgress={{
+                            ...props.playerProgress,
+                            currentTime: currentTime,
+                            duration: duration,
+                            isBuffering: isBuffering,
+                            isContentLoaded: isContentLoaded,
+                            isChangingSource: isChangingSource.current,
+                            isDVR: sourceRef.current?.isDVR,
+                            isLive: sourceRef.current?.isLive,
+                            isPaused: paused,
+                            isMuted: muted,
+                        }}
+                        playerAnalytics={props.playerAnalytics}
+                        playerTimeMarkers={props.playerTimeMarkers}
+                        playerAds={props.playerAds}
 
-                        // Components
-                        loader={props.loader}
-                        mosca={props.mosca}
-                        headerMetadata={props.headerMetadata}
-                        sliderVOD={props.sliderVOD}
-                        sliderDVR={props.sliderDVR}
-                        controlsHeaderBar={props.controlsHeaderBar}
-                        controlsMiddleBar={props.controlsMiddleBar}
-                        controlsBottomBar={props.controlsBottomBar}
-                        nextButton={props.nextButton}
-                        liveButton={props.liveButton}
-                        skipIntroButton={props.skipIntroButton}
-                        skipRecapButton={props.skipRecapButton}
-                        skipCreditsButton={props.skipCreditsButton}
-                        menu={props.menu}
-                        settingsMenu={props.settingsMenu}
+                        // Custom Components
+                        components={props.components}
 
                         // Events
-                        onPress={onControlsPress}
-                        onSlidingStart={onSlidingStart}
-                        onSlidingMove={onSlidingMove}
-                        onSlidingComplete={onSlidingComplete}
-                        onExit={props.onExit}
+                        events={{
+                            ...props.events,
+                            onPress: onControlsPress,
+                            onSlidingStart: onSlidingStart,
+                            onSlidingMove: onSlidingMove,
+                            onSlidingComplete: onSlidingComplete,
+                        }}
                     />
                 : null
             }
