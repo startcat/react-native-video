@@ -10,11 +10,7 @@ import {
 import { styles } from './styles';
 
 const TimelineBase = ({
-    currentTime,
-    duration,
-    dvrTimeValue,
-    isLive = false,
-    isDVR = false,
+    playerProgress,
     sliderVOD,
     sliderDVR,
     avoidThumbnails = false,
@@ -23,6 +19,13 @@ const TimelineBase = ({
     onSlidingMove: propOnSlidingMove,
     onSlidingComplete: propOnSlidingComplete
 }: TimelineProps): React.ReactElement => {
+
+    // Extract values from playerProgress
+    const currentTime = playerProgress?.currentTime || 0;
+    const duration = playerProgress?.duration;
+    const dvrTimeValue = playerProgress?.liveValues?.currentRealTime;
+    const isLive = playerProgress?.isLive || false;
+    const isDVR = playerProgress?.isDVR || false;
 
     const [showThumbnails, setShowThumbnails] = useState<boolean>(false);
     const [sliderValueVOD, setSliderValueVOD] = useState<number | undefined>(currentTime);
@@ -128,12 +131,20 @@ const TimelineBase = ({
 
 // Comparador personalizado para evitar renderizados innecesarios
 const arePropsEqual = (prevProps: TimelineProps, nextProps: TimelineProps): boolean => {
+    // Compare playerProgress values
+    const prevProgress = prevProps.playerProgress;
+    const nextProgress = nextProps.playerProgress;
+    
+    const progressEqual = (
+        prevProgress?.currentTime === nextProgress?.currentTime &&
+        prevProgress?.duration === nextProgress?.duration &&
+        prevProgress?.liveValues?.currentRealTime === nextProgress?.liveValues?.currentRealTime &&
+        prevProgress?.isLive === nextProgress?.isLive &&
+        prevProgress?.isDVR === nextProgress?.isDVR
+    );
+    
     return (
-        prevProps.currentTime === nextProps.currentTime &&
-        prevProps.duration === nextProps.duration &&
-        prevProps.dvrTimeValue === nextProps.dvrTimeValue &&
-        prevProps.isLive === nextProps.isLive &&
-        prevProps.isDVR === nextProps.isDVR &&
+        progressEqual &&
         prevProps.sliderVOD === nextProps.sliderVOD &&
         prevProps.sliderDVR === nextProps.sliderDVR &&
         prevProps.avoidThumbnails === nextProps.avoidThumbnails &&
