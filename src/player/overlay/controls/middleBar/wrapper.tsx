@@ -10,10 +10,19 @@ import { i18n } from '../../../locales';
 import { styles } from './styles';
 
 const ControlsMiddleBarBase = ({ 
-    paused = false,
+    playerProgress,
+    events,
+    preloading = false,
     isContentLoaded = false,
-    onPress
+    isChangingSource = false
 }: ControlsBarProps): React.ReactElement => {
+    
+    // Extract values from playerProgress and events
+    const paused = playerProgress?.isPaused ?? false;
+    const contentLoaded = playerProgress?.isContentLoaded ?? isContentLoaded;
+    
+    // Extract events
+    const onPress = events?.onPress;
     
     // Manejo seguro de la función onPress
     const handlePress = useCallback((id: CONTROL_ACTION, value?: any) => {
@@ -37,11 +46,11 @@ const ControlsMiddleBarBase = ({
             size={BUTTON_SIZE.BIG}
             iconName={paused ? 'play-circle-outline' : 'pause-circle-outline'}
             value={!paused}
-            disabled={!isContentLoaded}
+            disabled={!contentLoaded}
             accessibilityLabel={paused ? accessibilityLabels.play : accessibilityLabels.pause}
             onPress={handlePress}
         />
-    ), [paused, isContentLoaded, accessibilityLabels, handlePress]);
+    ), [paused, contentLoaded, accessibilityLabels, handlePress]);
 
     // Memoiza el componente del botón de retroceso
     const BackwardButton = useMemo(() => (
@@ -50,11 +59,11 @@ const ControlsMiddleBarBase = ({
             size={BUTTON_SIZE.MEDIUM}
             iconName='play-back-outline'
             value={15}
-            disabled={!isContentLoaded}
+            disabled={!contentLoaded}
             accessibilityLabel={accessibilityLabels.backward}
             onPress={handlePress}
         />
-    ), [isContentLoaded, accessibilityLabels, handlePress]);
+    ), [contentLoaded, accessibilityLabels, handlePress]);
 
     // Memoiza el componente del botón de avance
     const ForwardButton = useMemo(() => (
@@ -63,11 +72,11 @@ const ControlsMiddleBarBase = ({
             size={BUTTON_SIZE.MEDIUM}
             iconName='play-forward-outline'
             value={15}
-            disabled={!isContentLoaded}
+            disabled={!contentLoaded}
             accessibilityLabel={accessibilityLabels.forward}
             onPress={handlePress}
         />
-    ), [isContentLoaded, accessibilityLabels, handlePress]);
+    ), [contentLoaded, accessibilityLabels, handlePress]);
 
     return (
         <View style={styles.container}>
@@ -83,9 +92,10 @@ const ControlsMiddleBarBase = ({
 // Comparador personalizado para evitar renderizados innecesarios
 const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps): boolean => {
     return (
-        prevProps.paused === nextProps.paused &&
+        prevProps.playerProgress?.isPaused === nextProps.playerProgress?.isPaused &&
+        prevProps.playerProgress?.isContentLoaded === nextProps.playerProgress?.isContentLoaded &&
         prevProps.isContentLoaded === nextProps.isContentLoaded &&
-        prevProps.onPress === nextProps.onPress
+        prevProps.events?.onPress === nextProps.events?.onPress
     );
 };
 

@@ -17,13 +17,22 @@ import { styles } from './styles';
 const ANIMATION_SPEED = 150;
 
 const ControlsHeaderBarBase = ({ 
+    playerProgress,
+    playerMetadata,
+    components,
+    events,
     preloading = false,
-    headerMetadata,
-    onPress,
-    onExit
+    isContentLoaded = false,
+    isChangingSource = false
 }: ControlsBarProps): React.ReactElement => {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
+    
+    // Extract values from structured props
+    const isPreloading = playerProgress?.isBuffering ?? preloading;
+    const headerMetadata = components?.headerMetadata;
+    const onPress = events?.onPress;
+    const onExit = events?.onExit;
 
     const handleBack = useCallback(() => {
         if (typeof onExit === 'function') {
@@ -76,7 +85,7 @@ const ControlsHeaderBarBase = ({
             </View>
 
             <View style={styles.right}>
-                {preloading && Loader}
+                {isPreloading && Loader}
                 {showIosComponent && <AirplayButton />}
                 <CastButton />
             </View>
@@ -87,10 +96,11 @@ const ControlsHeaderBarBase = ({
 // Comparador personalizado para evitar renderizados innecesarios
 const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps): boolean => {
     return (
+        prevProps.playerProgress?.isBuffering === nextProps.playerProgress?.isBuffering &&
         prevProps.preloading === nextProps.preloading &&
-        prevProps.headerMetadata === nextProps.headerMetadata &&
-        prevProps.onPress === nextProps.onPress &&
-        prevProps.onExit === nextProps.onExit
+        prevProps.components?.headerMetadata === nextProps.components?.headerMetadata &&
+        prevProps.events?.onPress === nextProps.events?.onPress &&
+        prevProps.events?.onExit === nextProps.events?.onExit
     );
 };
 
