@@ -10,22 +10,34 @@ import {
 import { styles } from './styles';
 
 const ControlsBottomBarBase = ({ 
-    title,
-    muted = false,
-    hasNext = false,
-    volume,
-    isLive = false,
-    isDVR = false,
-    liveButton,
-    currentTime,
-    duration,
-    dvrTimeValue,
+    playerMetadata,
+    playerProgress,
+    components,
+    events,
+    preloading = false,
     isContentLoaded = false,
-    onPress
+    isChangingSource = false
 }: ControlsBarProps): React.ReactElement => {
 
+    // Extract values from playerProgress and playerMetadata
+    const title = playerMetadata?.title;
+    const muted = playerProgress?.isMuted ?? false;
+    const hasNext = playerProgress?.hasNext ?? false;
+    const volume = playerProgress?.volume;
+    const isLive = playerProgress?.isLive ?? false;
+    const isDVR = playerProgress?.isDVR ?? false;
+    const currentTime = playerProgress?.currentTime;
+    const duration = playerProgress?.duration;
+    const dvrTimeValue = playerProgress?.currentTime; // For DVR, currentTime represents the DVR position
+    
+    // Extract custom components
+    const liveButton = components?.liveButton;
+    
+    // Extract events
+    const onPress = events?.onPress;
+
     const handlePress = useCallback((id: CONTROL_ACTION, value?: any) => {
-        if (typeof onPress === 'function') {
+        if (onPress) {
             onPress(id, value);
         }
     }, [onPress]);
@@ -156,18 +168,17 @@ const ControlsBottomBarBase = ({
 // Comparador personalizado para evitar renderizados innecesarios
 const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps): boolean => {
     return (
-        prevProps.title === nextProps.title &&
-        prevProps.muted === nextProps.muted &&
-        prevProps.hasNext === nextProps.hasNext &&
-        prevProps.volume === nextProps.volume &&
-        prevProps.isLive === nextProps.isLive &&
-        prevProps.isDVR === nextProps.isDVR &&
-        prevProps.currentTime === nextProps.currentTime &&
-        prevProps.duration === nextProps.duration &&
-        prevProps.dvrTimeValue === nextProps.dvrTimeValue &&
+        prevProps.playerMetadata?.title === nextProps.playerMetadata?.title &&
+        prevProps.playerProgress?.isMuted === nextProps.playerProgress?.isMuted &&
+        prevProps.playerProgress?.hasNext === nextProps.playerProgress?.hasNext &&
+        prevProps.playerProgress?.volume === nextProps.playerProgress?.volume &&
+        prevProps.playerProgress?.isLive === nextProps.playerProgress?.isLive &&
+        prevProps.playerProgress?.isDVR === nextProps.playerProgress?.isDVR &&
+        prevProps.playerProgress?.currentTime === nextProps.playerProgress?.currentTime &&
+        prevProps.playerProgress?.duration === nextProps.playerProgress?.duration &&
         prevProps.isContentLoaded === nextProps.isContentLoaded &&
-        prevProps.liveButton === nextProps.liveButton &&
-        prevProps.onPress === nextProps.onPress
+        prevProps.components?.liveButton === nextProps.components?.liveButton &&
+        prevProps.events?.onPress === nextProps.events?.onPress
     );
 };
 
