@@ -85,6 +85,7 @@ export class TudumClass {
         }
 
         this._isPlaying = value;
+        console.log(`[Player] (TudumClass) isPlaying ${this._isPlaying}`);
     }
 
 }

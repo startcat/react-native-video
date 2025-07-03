@@ -637,6 +637,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             minimumValue: data.minimumValue,
             maximumValue: data.maximumValue,
             progress: data.progress,
+            duration: data.duration,
             canSeekToEnd: data.canSeekToEnd,
             liveEdge: data.liveEdge,
             isProgramLive: data.isProgramLive
@@ -934,6 +935,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             isLive: sourceRef.current?.isLive,
                             isPaused: paused,
                             isMuted: muted,
+                            sliderValues: sliderValues.current,
                         }}
                         playerAnalytics={props.playerAnalytics}
                         playerTimeMarkers={props.playerTimeMarkers}
