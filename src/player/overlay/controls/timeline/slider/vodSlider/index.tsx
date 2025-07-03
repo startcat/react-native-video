@@ -13,8 +13,9 @@ import { styles } from './styles';
 const PLAYER_SLIDER_THROTTLE = 50;
 
 const VODSliderBase = ({
-    currentTime,
-    duration,
+    minimumValue,
+    maximumValue,
+    progress,
     onSlidingStart: propOnSlidingStart,
     onSlidingMove: propOnSlidingMove,
     onSlidingComplete: propOnSlidingComplete
@@ -38,21 +39,21 @@ const VODSliderBase = ({
     const checkContentIsEnded = useCallback(() => {
         if (
             !isDraggingRef.current && 
-            typeof duration === 'number' && 
-            typeof currentTime === 'number' && 
-            isFinite(duration)
+            typeof maximumValue === 'number' && 
+            typeof progress === 'number' && 
+            isFinite(maximumValue)
         ) {
             try {
-                if (!isEnded && Math.abs(duration - currentTime) < 5) {
+                if (!isEnded && Math.abs(maximumValue - progress) < 5) {
                     setIsEnded(true);
-                } else if (isEnded && Math.abs(duration - currentTime) >= 5) {
+                } else if (isEnded && Math.abs(maximumValue - progress) >= 5) {
                     setIsEnded(false);
                 }
             } catch (ex: any) {
                 console.log(ex?.message);
             }
         }
-    }, [duration, currentTime, isEnded]);
+    }, [maximumValue, progress, isEnded]);
     
     useEffect(() => {
         checkContentIsEnded();
@@ -87,28 +88,28 @@ const VODSliderBase = ({
     }, [handleDragThrottled]);
     
     const shouldRenderSlider = useMemo(() => 
-        typeof duration === 'number' && 
-        duration > 0 && 
-        typeof currentTime === 'number' && 
-        currentTime > 0 && 
-        isFinite(duration)
-    , [duration, currentTime]);
+        typeof maximumValue === 'number' && 
+        maximumValue > 0 && 
+        typeof progress === 'number' && 
+        progress >= 0 && 
+        isFinite(maximumValue)
+    , [maximumValue, progress]);
     
     const sliderStep = useMemo(() => 
-        duration && duration > 120 ? 20 : 1
-    , [duration]);
+        maximumValue && maximumValue > 120 ? 20 : 1
+    , [maximumValue]);
     
     const maximumTrackTintColor = useMemo(() => 
         isEnded ? COLOR.theme.main : 'white'
     , [isEnded]);
     
     const CurrentTimeText = useMemo(() => 
-        <TimelineText value={currentTime} />
-    , [currentTime]);
+        <TimelineText value={progress} />
+    , [progress]);
     
     const DurationText = useMemo(() => 
-        <TimelineText value={duration} />
-    , [duration]);
+        <TimelineText value={maximumValue} />
+    , [maximumValue]);
     
     if (!shouldRenderSlider) {
         return null;
@@ -122,11 +123,11 @@ const VODSliderBase = ({
             
             <Slider
                 style={styles.slider}
-                minimumValue={0}
-                maximumValue={duration}
+                minimumValue={minimumValue}
+                maximumValue={maximumValue}
                 minimumTrackTintColor={COLOR.theme.main}
                 maximumTrackTintColor={maximumTrackTintColor}
-                value={currentTime}
+                value={progress}
                 step={sliderStep}
                 tapToSeek={true}
                 thumbTintColor={thumbTintColor}
@@ -145,8 +146,13 @@ const VODSliderBase = ({
 
 const arePropsEqual = (prevProps: SliderVODProps, nextProps: SliderVODProps): boolean => {
     return (
-        prevProps.currentTime === nextProps.currentTime &&
-        prevProps.duration === nextProps.duration &&
+        prevProps.minimumValue === nextProps.minimumValue &&
+        prevProps.maximumValue === nextProps.maximumValue &&
+        prevProps.progress === nextProps.progress &&
+        prevProps.canSeekToEnd === nextProps.canSeekToEnd &&
+        prevProps.liveEdge === nextProps.liveEdge &&
+        prevProps.isProgramLive === nextProps.isProgramLive &&
+        prevProps.thumbnailsMetadata === nextProps.thumbnailsMetadata &&
         prevProps.onSlidingStart === nextProps.onSlidingStart &&
         prevProps.onSlidingMove === nextProps.onSlidingMove &&
         prevProps.onSlidingComplete === nextProps.onSlidingComplete

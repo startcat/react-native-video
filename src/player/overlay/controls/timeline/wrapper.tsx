@@ -56,48 +56,85 @@ const TimelineBase = ({
     }, [propOnSlidingComplete]);
 
     // Componentes creados con createElement memorizados
-    const SliderVODComponent = useMemo(() => 
-        sliderVOD ? React.createElement(sliderVOD, { 
-            currentTime,
-            duration,
+    const SliderVODComponent = useMemo(() => {
+        if (!sliderVOD) return null;
+        
+        const sliderValues = playerProgress?.sliderValues || {
+            minimumValue: 0,
+            maximumValue: duration || 0,
+            progress: currentTime,
+            canSeekToEnd: true
+        };
+        
+        return React.createElement(sliderVOD, {
+            ...sliderValues,
             thumbnailsMetadata,
             onSlidingStart: handleSlidingStart,
             onSlidingMove: handleSlidingMove,
             onSlidingComplete: handleSlidingComplete
-        }) : null
-    , [sliderVOD, currentTime, duration, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+        });
+    }, [sliderVOD, playerProgress?.sliderValues, currentTime, duration, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
-    const SliderDVRComponent = useMemo(() => 
-        sliderDVR ? React.createElement(sliderDVR, { 
-            value: dvrTimeValue,
-            liveLoadTime: duration,
+    const SliderDVRComponent = useMemo(() => {
+        if (!sliderDVR) return null;
+        
+        const dvrSliderValues = {
+            minimumValue: 0,
+            maximumValue: duration || 0,
+            progress: dvrTimeValue || 0,
+            canSeekToEnd: true,
+            liveEdge: duration,
+            isProgramLive: isLive
+        };
+        
+        return React.createElement(sliderDVR, { 
+            ...dvrSliderValues,
             thumbnailsMetadata,
             onSlidingStart: handleSlidingStart,
             onSlidingMove: handleSlidingMove,
             onSlidingComplete: handleSlidingComplete
-        }) : null
-    , [sliderDVR, dvrTimeValue, duration, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+        });
+    }, [sliderDVR, dvrTimeValue, duration, isLive, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
     // Componentes default memorizados
-    const DefaultVODSlider = useMemo(() => (
-        <VODSlider
-            currentTime={currentTime}
-            duration={duration}
-            onSlidingStart={handleSlidingStart}
-            onSlidingMove={handleSlidingMove}
-            onSlidingComplete={handleSlidingComplete}
-        />
-    ), [currentTime, duration, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+    const DefaultVODSlider = useMemo(() => {
+        const sliderValues = playerProgress?.sliderValues || {
+            minimumValue: 0,
+            maximumValue: duration || 0,
+            progress: currentTime,
+            canSeekToEnd: true
+        };
+        
+        return (
+            <VODSlider
+                {...sliderValues}
+                thumbnailsMetadata={thumbnailsMetadata}
+                onSlidingStart={handleSlidingStart}
+                onSlidingMove={handleSlidingMove}
+                onSlidingComplete={handleSlidingComplete}
+            />
+        );
+    }, [playerProgress?.sliderValues, currentTime, duration, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
-    const DefaultDVRSlider = useMemo(() => (
-        <DVRSlider
-            value={dvrTimeValue}
-            liveLoadTime={duration}
-            onSlidingStart={handleSlidingStart}
-            onSlidingMove={handleSlidingMove}
-            onSlidingComplete={handleSlidingComplete}
-        />
-    ), [dvrTimeValue, duration, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+    const DefaultDVRSlider = useMemo(() => {
+        const dvrSliderValues = {
+            minimumValue: 0,
+            maximumValue: duration || 0,
+            progress: dvrTimeValue || 0,
+            canSeekToEnd: true,
+            liveEdge: duration,
+            isProgramLive: isLive
+        };
+
+        return (
+            <DVRSlider
+                {...dvrSliderValues}
+                onSlidingStart={handleSlidingStart}
+                onSlidingMove={handleSlidingMove}
+                onSlidingComplete={handleSlidingComplete}
+            />
+        );
+    }, [dvrTimeValue, duration, isLive, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
     // Condiciones memorizadas para renderizado condicional
     const showVODSlider = useMemo(() => !isLive, [isLive]);

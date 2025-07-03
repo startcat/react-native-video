@@ -14,8 +14,10 @@ import { styles } from './styles';
 const PLAYER_SLIDER_THROTTLE = 50;
 
 const DVRSliderBase = ({
-    value,
-    liveLoadTime,
+    minimumValue,
+    maximumValue,
+    progress,
+    liveEdge,
     onSlidingStart: propOnSlidingStart,
     onSlidingMove: propOnSlidingMove,
     onSlidingComplete: propOnSlidingComplete
@@ -66,32 +68,32 @@ const DVRSliderBase = ({
     // Memoización de valores calculados
     const formatOffsetTime = useCallback(() => {
         if (
-            typeof liveLoadTime === 'number' && 
-            typeof value === 'number' && 
-            Math.abs(liveLoadTime - value) > 30
+            typeof liveEdge === 'number' && 
+            typeof progress === 'number' && 
+            Math.abs(liveEdge - progress) > 30
         ) {
-            return `- ${parseToCounter(Math.abs(liveLoadTime - value))}`;
+            return `- ${parseToCounter(Math.abs(liveEdge - progress))}`;
         }
         return '';
-    }, [liveLoadTime, value]);
+    }, [liveEdge, progress]);
 
     // Determinar si debemos renderizar el slider
     const shouldRenderSlider = useMemo(() => 
-        typeof liveLoadTime === 'number' && 
-        liveLoadTime > 0 && 
-        typeof value === 'number' && 
-        isFinite(liveLoadTime)
-    , [liveLoadTime, value]);
+        typeof maximumValue === 'number' && 
+        maximumValue > 0 && 
+        typeof progress === 'number' && 
+        isFinite(maximumValue)
+    , [maximumValue, progress]);
 
     // Calcular el paso adecuado para el slider
     const sliderStep = useMemo(() => 
-        liveLoadTime && liveLoadTime > 120 ? 20 : 1
-    , [liveLoadTime]);
+        maximumValue && maximumValue > 120 ? 20 : 1
+    , [maximumValue]);
 
     // Componentes memoizados
     const CurrentTimeText = useMemo(() => 
-        <TimelineText value={value} />
-    , [value]);
+        <TimelineText value={progress} />
+    , [progress]);
 
     const OffsetTimeText = useMemo(() => 
         <TimelineText value={formatOffsetTime()} />
@@ -109,11 +111,11 @@ const DVRSliderBase = ({
 
             <Slider
                 style={styles.slider}
-                minimumValue={0}
-                maximumValue={liveLoadTime}
+                minimumValue={minimumValue}
+                maximumValue={maximumValue}
                 minimumTrackTintColor={COLOR.theme.main}
                 maximumTrackTintColor={'white'}
-                value={value}
+                value={progress}
                 step={sliderStep}
                 tapToSeek={true}
                 thumbTintColor={thumbTintColor}
@@ -133,8 +135,10 @@ const DVRSliderBase = ({
 // Comparador personalizado para evitar renderizados innecesarios
 const arePropsEqual = (prevProps: SliderDVRProps, nextProps: SliderDVRProps): boolean => {
     return (
-        prevProps.value === nextProps.value &&
-        prevProps.liveLoadTime === nextProps.liveLoadTime &&
+        prevProps.minimumValue === nextProps.minimumValue &&
+        prevProps.maximumValue === nextProps.maximumValue &&
+        prevProps.progress === nextProps.progress &&
+        prevProps.liveEdge === nextProps.liveEdge &&
         prevProps.onSlidingStart === nextProps.onSlidingStart &&
         prevProps.onSlidingMove === nextProps.onSlidingMove &&
         prevProps.onSlidingComplete === nextProps.onSlidingComplete
