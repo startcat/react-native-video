@@ -369,10 +369,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             isLiveEdgePosition: data.isLiveEdgePosition,
         };
         
-        if (paused || isBuffering){
-            // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues en caso de no disponer de onProgress
-            setSliderValuesUpdate((prev: number) => prev + 1);
-        }
+        // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues en caso de no disponer de onProgress
+        setSliderValuesUpdate((prev: number) => prev + 1);
 
         try {
             playerProgressRef.current = {
@@ -565,9 +563,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onLoad = async (e: OnLoadData) => {
 
-        console.log(`[Player] (Audio Flavour) onLoad (${sourceRef.current?.playerSource?.uri}) ${JSON.stringify(e)}`);
-        console.log(`[Player] (Audio Flavour) onLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-        console.log(`[Player] (Audio Flavour) onLoad isContentLoaded ${isContentLoaded}`);
+        // console.log(`[Player] (Audio Flavour) onLoad (${sourceRef.current?.playerSource?.uri}) ${JSON.stringify(e)}`);
+        // console.log(`[Player] (Audio Flavour) onLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
+        // console.log(`[Player] (Audio Flavour) onLoad isContentLoaded ${isContentLoaded}`);
 
         if (!tudumRef.current?.isPlaying && !isContentLoaded){
 
@@ -609,7 +607,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onProgress = (e: OnProgressData) => {
 
-        console.log(`[DANI] onProgress ${JSON.stringify(e)}`);
+        // console.log(`[DANI] onProgress ${JSON.stringify(e)}`);
         // console.log(`[DANI] onProgress - vodProgressManagerRef ${vodProgressManagerRef.current}`);
         // console.log(`[DANI] onProgress - dvrProgressManagerRef ${dvrProgressManagerRef.current}`);
 
