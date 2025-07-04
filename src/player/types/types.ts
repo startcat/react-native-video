@@ -259,7 +259,7 @@ export interface SliderValues {
     maximumValue: number;
     progress: number;
     percentProgress: number; // Porcentaje del slider (0.0 - 1.0)
-    duration?: number;
+    duration?: number; // Duración del media para VODs
     canSeekToEnd: boolean;
     liveEdge?: number; // Usado en modo PLAYLIST para mostrar el límite real
     isProgramLive?: boolean; // Indica si el programa está en directo

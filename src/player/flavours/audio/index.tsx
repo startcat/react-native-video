@@ -92,6 +92,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // Player Progress
     const playerProgressRef = useRef<IPlayerProgress>();
+    
+    // Trigger para forzar re-render cuando sliderValues cambie
+    const [sliderValuesUpdate, setSliderValuesUpdate] = useState<number>(0);
 
     // Source
     const sourceRef = useRef<SourceClass | null>(null);
@@ -104,7 +107,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // DVR Progress Manager
     const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
-
+    
     // Initialize VOD Progress Manager only once
     if (!vodProgressManagerRef.current) {
         vodProgressManagerRef.current = new VODProgressManagerClass({
@@ -232,6 +235,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 duration: sliderValues.current?.duration || 0,
                 isPaused: paused,
                 isMuted: muted,
+                isLive: sourceRef.current?.isLive,
+                isDVR: sourceRef.current?.isDVR,
+                isBinary: sourceRef.current?.isBinary,
+                isChangingSource: isChangingSource.current,
                 sliderValues: sliderValues.current,
             },
             playerAnalytics: props.playerAnalytics,
@@ -240,7 +247,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             events: props.events,
         } as AudioControlsProps);
 
-    }, [currentTime, props.playerMetadata, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate]);
+    }, [currentTime, props.playerMetadata, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate, sliderValuesUpdate]);
 
     // Source Cooking
     const onSourceChanged = (data:onSourceChangedProps) => {
@@ -358,11 +365,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             minimumValue: data.minimumValue,
             maximumValue: data.maximumValue,
             progress: data.progress,
+            percentProgress: data.percentProgress,
             duration: data.duration,
             canSeekToEnd: data.canSeekToEnd,
             liveEdge: data.liveEdge,
-            isProgramLive: data.isProgramLive
+            isProgramLive: data.isProgramLive,
+            progressDatum: data.progressDatum,
+            liveEdgeOffset: data.liveEdgeOffset,
         };
+        
+        // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues
+        setSliderValuesUpdate((prev: number) => prev + 1);
 
         try {
             playerProgressRef.current = {
@@ -606,7 +619,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onProgress = (e: OnProgressData) => {
 
-        // console.log(`[DANI] onProgress - isDVR ${sourceRef.current?.isDVR}`);
+        console.log(`[DANI] onProgress ${JSON.stringify(e)}`);
         // console.log(`[DANI] onProgress - vodProgressManagerRef ${vodProgressManagerRef.current}`);
         // console.log(`[DANI] onProgress - dvrProgressManagerRef ${dvrProgressManagerRef.current}`);
 
@@ -614,9 +627,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setCurrentTime(e.currentTime);
         }
 
-        if (typeof(e.seekableDuration) === 'number' && seekableRange.current !== e.seekableDuration){
-            seekableRange.current = e.seekableDuration;
-        }
+        const liveEndValue = e.playableDuration;
 
         if (!sourceRef.current?.isLive){
             vodProgressManagerRef.current?.updatePlayerData({
@@ -629,10 +640,23 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         if (sourceRef.current?.isDVR){
+            // Log valores del reproductor antes de pasarlos al DVR manager
+            const videoPlayerData = {
+                currentTime: e.currentTime,
+                duration: e.playableDuration,
+                seekableDuration: liveEndValue, //e.seekableDuration,
+                stableSeekableDuration: liveEndValue,
+                isBuffering: isBuffering,
+                isPaused: paused
+            };
+            
+            console.log(`[AUDIO FLAVOUR DEBUG] Video player data:`, videoPlayerData);
+            
+            // Usar el valor estabilizado para el DVR manager
             dvrProgressManagerRef.current?.updatePlayerData({
                 currentTime: e.currentTime,
                 duration: e.playableDuration,
-                seekableRange: { start: 0, end: e.seekableDuration },
+                seekableRange: { start: 0, end: liveEndValue }, //stableSeekableDuration.current },
                 isBuffering: isBuffering,
                 isPaused: paused
             });
