@@ -265,6 +265,7 @@ export interface SliderValues {
     isProgramLive?: boolean; // Indica si el programa está en directo
     progressDatum?: number; // Timestamp del progress
     liveEdgeOffset?: number; // Segundos por detrás del liveEdge
+    isLiveEdgePosition?: boolean; // Si estamos en el edgeLive
 }
 
 export interface ProgressUpdateData extends SliderValues {

@@ -30,6 +30,9 @@ export class VODProgressManagerClass {
     private _duration: number;
     private _seekableRange: SeekableRange;
 
+    // Tolerancia en segundos para indicar si estamos en directo
+    private _toleranceSeconds = 30;
+
     private _isPaused: boolean = false;
     private _isBuffering: boolean = false;
 
