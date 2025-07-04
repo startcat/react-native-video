@@ -119,6 +119,9 @@ export class DVRProgressManagerClass {
             this._updateLiveStatus();
         }
 
+        // Inicializar programa
+        this.getCurrentProgramInfo();
+
         console.log(`[Player] (DVR Progress Manager) Constructor - Stats ${JSON.stringify(this.getStats())}`);
         
     }
@@ -131,7 +134,7 @@ export class DVRProgressManagerClass {
     async updatePlayerData(data:UpdatePlayerData) {
         const { currentTime, seekableRange, isBuffering, isPaused } = data;
 
-        console.log(`[Player] (DVR Progress Manager) updatePlayerData ${JSON.stringify(data)}`);
+        // console.log(`[Player] (DVR Progress Manager) updatePlayerData ${JSON.stringify(data)}`);
       
         this._currentTime = currentTime || 0;
         this._seekableRange = seekableRange || this._seekableRange;
@@ -148,14 +151,15 @@ export class DVRProgressManagerClass {
         // Verificar cambios de programa según el tipo de reproducción
         if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
             this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT || 
-            this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
+            this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM ||
+            this._playbackType === DVR_PLAYBACK_TYPE.WINDOW) {
             await this._checkProgramChange();
         }
       
         // Emitir actualización
         this._emitProgressUpdate();
 
-        console.log(`[Player] (DVR Progress Manager) updatePlayerData - Stats ${JSON.stringify(this.getStats())}`);
+        // console.log(`[Player] (DVR Progress Manager) updatePlayerData - Stats ${JSON.stringify(this.getStats())}`);
     }
   
     /*
@@ -229,9 +233,11 @@ export class DVRProgressManagerClass {
         this._playbackType = playbackType;
       
         // Manejar programa según el tipo
+        // Actualizar programa -> lo necesitan todos para hacer el goToProgramStart
         if (playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
             playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT || 
-            playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
+            playbackType === DVR_PLAYBACK_TYPE.PROGRAM ||
+            playbackType === DVR_PLAYBACK_TYPE.WINDOW) {
             if (this._getEPGProgramAt) {
                 // Obtener programa actual si no se proporciona
                 if (!program) {
@@ -246,9 +252,6 @@ export class DVRProgressManagerClass {
                     this._currentProgram = program;
                 }
             }
-        } else {
-            // En modo WINDOW no necesitamos programa
-            this._currentProgram = null;
         }
 
         // Para PROGRAM, iniciar desde el comienzo del programa
@@ -279,11 +282,13 @@ export class DVRProgressManagerClass {
      */
 
     goToProgramStart() {
+        console.log(`[Player] (DVR Progress Manager) goToProgramStart ${JSON.stringify(this._currentProgram)}`);
         if (!this._currentProgram) return;
         
         if (this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM || 
             this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST ||
-            this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT) {
+            this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT ||
+            this._playbackType === DVR_PLAYBACK_TYPE.WINDOW) {
             this._isLiveEdgePosition = false;
             this._seekToRealTime(this._currentProgram.startDate);
         }
@@ -381,7 +386,8 @@ export class DVRProgressManagerClass {
       
         const currentRealTime = this._getCurrentRealTime();
         try {
-            return await this._getEPGProgramAt(currentRealTime);
+            this._currentProgram = await this._getEPGProgramAt(currentRealTime);
+            return this._currentProgram;
         } catch (error) {
             console.error('Error obteniendo información del programa:', error);
             return null;
@@ -405,7 +411,11 @@ export class DVRProgressManagerClass {
             
             // Iniciar timer para actualizar progreso cada segundo durante pausa
             this._pauseUpdateInterval = setInterval(() => {
-                this._updateLiveStatus();
+
+                if (this._isLiveEdgePosition && this._pauseStartTime > 0 && (Date.now() - this._pauseStartTime) >= (this._toleranceSeconds * 1000)){
+                    this._isLiveEdgePosition = false;
+                }
+                
                 this._emitProgressUpdate();
             }, 1000);
 
@@ -726,7 +736,6 @@ export class DVRProgressManagerClass {
      */
 
     getStats() {
-        console.log(`[Player] (DVR Progress Manager) getStats...`);
         return {
             initialTimeWindowSeconds: this._initialTimeWindowSeconds,
             currentTimeWindowSeconds: this._currentTimeWindowSeconds,
