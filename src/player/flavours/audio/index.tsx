@@ -70,15 +70,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const drm = useRef<IDrm>();
     const [videoSource, setVideoSource] = useState<IVideoSource | undefined>(undefined);
 
-    // const dvrWindowSeconds = useRef<number>();
-    // const dvrLoadTimestamp = useRef<number>();
-    const seekableRange = useRef<number>();
-    // const liveStartProgramTimestamp = useRef<number>();
     const isChangingSource = useRef<boolean>(true);
 
     const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
-    // const [duration, setDuration] = useState<number>();
-    // const [dvrTimeValue, setDvrTimeValue] = useState<number>();
     const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
     const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
     const [buffering, setBuffering] = useState<boolean>(false);
@@ -372,10 +366,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             isProgramLive: data.isProgramLive,
             progressDatum: data.progressDatum,
             liveEdgeOffset: data.liveEdgeOffset,
+            isLiveEdgePosition: data.isLiveEdgePosition,
         };
         
-        // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues
-        setSliderValuesUpdate((prev: number) => prev + 1);
+        if (paused || isBuffering){
+            // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues en caso de no disponer de onProgress
+            setSliderValuesUpdate((prev: number) => prev + 1);
+        }
 
         try {
             playerProgressRef.current = {
@@ -391,10 +388,18 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         } catch (ex: any) {
             console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
         }
+
+        /*
+        if (props.onDVRChange){
+            props.onDVRChange(value, secondsToLive, date);
+        }
+        */
     };
 
     function onSeekRequest(playerTime:number) {
         console.log(`[Player] (Audio Flavour) onSeekRequest: ${playerTime}`);
+        // Seek en player real
+        refVideoPlayer.current?.seek(playerTime);
     };
 
     // Sleep Timer
@@ -487,60 +492,45 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
-        /*
-        if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
+        if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR){
             // Volver al directo en DVR
-            setDvrTimeValue(duration);
-            onChangeDvrTimeValue(duration);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, seekableRange.current, currentTime, duration, seekableRange.current, props.onSeek);
-
+            dvrProgressManagerRef.current?.goToLive();
         }
 
-        if (id === CONTROL_ACTION.SEEK_OVER_EPG && sourceRef.current?.isDVR && typeof(value) === 'number'){
-            const overEpgValue = value;
-            let realSeek = overEpgValue;
-
-            if (typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
-                realSeek = overEpgValue + (seekableRange.current - duration);
-            }
-
-            setDvrTimeValue(overEpgValue);
-            onChangeDvrTimeValue(overEpgValue);
-            invokePlayerAction(refVideoPlayer, CONTROL_ACTION.SEEK, realSeek, currentTime, duration, seekableRange.current, props.onSeek);
-
+        if (id === CONTROL_ACTION.SEEK_OVER_EPG && sourceRef.current?.isDVR){
+            // Volver al inicio del programa en DVR
+            dvrProgressManagerRef.current?.goToProgramStart();
         }
 
-        if ((id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD) && sourceRef.current?.isDVR && typeof(value) === 'number' && typeof(dvrTimeValue) === 'number' && typeof(duration) === 'number' && typeof(seekableRange.current) === 'number'){
-
-            // Si excedemos el rango, no hacemos nada
-            if (id === CONTROL_ACTION.FORWARD && (dvrTimeValue + value) > duration){
-                return;
-            }
-
-            // Guardamos el estado de la barra de tiempo en DVR
-            if (id === CONTROL_ACTION.FORWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-                const maxBarRange = Math.min(dvrTimeValue + value, duration);
-                onChangeDvrTimeValue(maxBarRange);
-                setDvrTimeValue(maxBarRange);
-        
-            } else if (id === CONTROL_ACTION.BACKWARD && typeof(value) === 'number' && typeof(currentTime) === 'number'){
-                const minBarRange = Math.max(0, dvrTimeValue - value);
-                onChangeDvrTimeValue(minBarRange);
-                setDvrTimeValue(minBarRange);
-        
-            } else if (id === CONTROL_ACTION.SEEK){
-                setDvrTimeValue(value);
-                onChangeDvrTimeValue(value);
-
-            }
-            
+        if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR){
+            // Hacer seek en DVR
+            dvrProgressManagerRef.current?.seekToTime(value);
         }
-        
-        if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD){
-            // Actions to invoke on player
-            invokePlayerAction(refVideoPlayer, id, value, currentTime, duration, seekableRange.current, props.onSeek);
+
+        if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR){
+            // Hacer seek en DVR
+            dvrProgressManagerRef.current?.skipForward(value);
         }
-        */
+
+        if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR){
+            // Hacer seek en DVR
+            dvrProgressManagerRef.current?.skipBackward(value);
+        }
+
+        if (id === CONTROL_ACTION.SEEK && !sourceRef.current?.isLive){
+            // Hacer seek en DVR
+            vodProgressManagerRef.current?.seekToTime(value);
+        }
+
+        if (id === CONTROL_ACTION.FORWARD && !sourceRef.current?.isLive){
+            // Hacer seek en DVR
+            vodProgressManagerRef.current?.skipForward(value);
+        }
+
+        if (id === CONTROL_ACTION.BACKWARD && !sourceRef.current?.isLive){
+            // Hacer seek en DVR
+            vodProgressManagerRef.current?.skipBackward(value);
+        }
 
         if (id === CONTROL_ACTION.SLEEP && (value === 0 || !value)){
             // Desactivamos el sleeper
@@ -624,10 +614,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         // console.log(`[DANI] onProgress - dvrProgressManagerRef ${dvrProgressManagerRef.current}`);
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
+            // Triger para el cambio de estado
             setCurrentTime(e.currentTime);
         }
-
-        const liveEndValue = e.playableDuration;
 
         if (!sourceRef.current?.isLive){
             vodProgressManagerRef.current?.updatePlayerData({
@@ -640,23 +629,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         if (sourceRef.current?.isDVR){
-            // Log valores del reproductor antes de pasarlos al DVR manager
-            const videoPlayerData = {
-                currentTime: e.currentTime,
-                duration: e.playableDuration,
-                seekableDuration: liveEndValue, //e.seekableDuration,
-                stableSeekableDuration: liveEndValue,
-                isBuffering: isBuffering,
-                isPaused: paused
-            };
-            
-            console.log(`[AUDIO FLAVOUR DEBUG] Video player data:`, videoPlayerData);
-            
-            // Usar el valor estabilizado para el DVR manager
             dvrProgressManagerRef.current?.updatePlayerData({
                 currentTime: e.currentTime,
                 duration: e.playableDuration,
-                seekableRange: { start: 0, end: liveEndValue }, //stableSeekableDuration.current },
+                seekableRange: { start: 0, end: e.seekableDuration },
                 isBuffering: isBuffering,
                 isPaused: paused
             });
@@ -665,7 +641,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData){
             props.events.onChangeCommonData({
                 time: e.currentTime,
-                duration: e.playableDuration,                
+                duration: e.playableDuration,
             });
         }
 
@@ -696,33 +672,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onSlidingComplete = (value: number) => {
-
-        //onChangeDvrTimeValue(value);
-
-    }
-
-    const onChangeDvrTimeValue = (value: number) => {
-        /*
-        let secondsToLive,
-            date;
-
-        if (typeof(duration) === 'number' && duration >= 0){
-            secondsToLive = (duration > value) ? duration - value : 0;
-            date = (secondsToLive > 0) ? subtractMinutesFromDate(new Date(), secondsToLive / 60) : new Date();
-
-        }
-        
-        if (dvrTimeValue){
-            secondsToLive = dvrTimeValue - value;
-            date = subtractMinutesFromDate(new Date(), secondsToLive / 60);
-
-        }
-
-        if (props.onDVRChange){
-            props.onDVRChange(value, secondsToLive, date);
-        }
-        */
-
+        console.log(`[Player] (Audio Flavour) onSlidingComplete: ${value}`);
+        onControlsPress(CONTROL_ACTION.SEEK, value);
     }
 
     const Controls = props.controls ? createElement(props.controls, { 

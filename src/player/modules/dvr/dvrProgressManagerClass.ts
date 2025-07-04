@@ -54,6 +54,7 @@ export class DVRProgressManagerClass {
     private _streamStartTime:number; // Hora de inicio del stream
     private _endStreamDate:number | null = null; // Fecha límite del stream (opcional)
     private _duration:number | null = null; // Duración externa (no calculada)
+    private _toleranceSeconds = 30; // Tolerancia en segundos para indicar si estamos en directo
 
     private _pauseStartTime:number;
     private _totalPauseTime:number;
@@ -314,7 +315,7 @@ export class DVRProgressManagerClass {
      * 
      */
     
-    goToTime(timestamp:number) {
+    seekToTime(timestamp:number) {
         this._isLiveEdgePosition = false;
       
         if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
@@ -404,6 +405,7 @@ export class DVRProgressManagerClass {
             
             // Iniciar timer para actualizar progreso cada segundo durante pausa
             this._pauseUpdateInterval = setInterval(() => {
+                this._updateLiveStatus();
                 this._emitProgressUpdate();
             }, 1000);
 
@@ -449,8 +451,7 @@ export class DVRProgressManagerClass {
         if (!this._isValidState()) return;
 
         // Considerar que estamos en vivo si estamos cerca del final del rango seekable
-        const tolerance = 10; // 10 segundos de tolerancia
-        this._isLiveEdgePosition = (this._seekableRange.end - this._currentTime) <= tolerance;
+        this._isLiveEdgePosition = (this._seekableRange.end - this._currentTime) <= this._toleranceSeconds;
     }
   
     async _checkProgramChange() {
@@ -511,7 +512,8 @@ export class DVRProgressManagerClass {
             canSeekToEnd: true,
             isProgramLive: false,
             progressDatum: progressDatum,
-            liveEdgeOffset: this._getLiveEdgeOffset()
+            liveEdgeOffset: this._getLiveEdgeOffset(),
+            isLiveEdgePosition: this._isLiveEdgePosition
         };
     }
 
@@ -543,7 +545,8 @@ export class DVRProgressManagerClass {
             liveEdge: isProgramLive ? currentLiveEdge : undefined,
             isProgramLive: isProgramLive,
             progressDatum: progressDatum,
-            liveEdgeOffset: this._getLiveEdgeOffset()
+            liveEdgeOffset: this._getLiveEdgeOffset(),
+            isLiveEdgePosition: this._isLiveEdgePosition
         };
     }
 
@@ -570,7 +573,8 @@ export class DVRProgressManagerClass {
             canSeekToEnd: true,
             isProgramLive: false,
             progressDatum: progressDatum,
-            liveEdgeOffset: this._getLiveEdgeOffset()
+            liveEdgeOffset: this._getLiveEdgeOffset(),
+            isLiveEdgePosition: this._isLiveEdgePosition
         };
     }
 
@@ -598,7 +602,8 @@ export class DVRProgressManagerClass {
             canSeekToEnd: true,
             isProgramLive: false,
             progressDatum: progressDatum,
-            liveEdgeOffset: this._getLiveEdgeOffset()
+            liveEdgeOffset: this._getLiveEdgeOffset(),
+            isLiveEdgePosition: this._isLiveEdgePosition
         };
     }
   
@@ -673,6 +678,7 @@ export class DVRProgressManagerClass {
   
     _emitSeekRequest(playerTime:number) {
         // Callback para que el componente padre ejecute el seek
+        this._updateLiveStatus();
         if (this._onSeekRequest) {
             this._onSeekRequest(playerTime);
         }
