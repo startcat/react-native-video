@@ -55,6 +55,7 @@ export interface IPlayerProgress {
     mediaType?: Enums.MEDIA_TYPE;
     sliderValues?: SliderValues;
     liveValues?: IPlayerLiveValues;
+    currentProgram?: IBasicProgram | null;
 }
 
 export interface IPlayerAnalytics {

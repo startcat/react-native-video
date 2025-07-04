@@ -252,6 +252,7 @@ export interface IBasicProgram {
     title?: string;
     startDate: number;
     endDate: number;
+    extraData?: any;
 }
 
 export interface SliderValues {

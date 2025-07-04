@@ -234,6 +234,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 isBinary: sourceRef.current?.isBinary,
                 isChangingSource: isChangingSource.current,
                 sliderValues: sliderValues.current,
+                currentProgram: playerProgressRef.current?.currentProgram,
             },
             playerAnalytics: props.playerAnalytics,
             playerTimeMarkers: props.playerTimeMarkers,
@@ -382,6 +383,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 isContentLoaded: isContentLoaded,
                 isChangingSource: isChangingSource.current,
                 sliderValues: sliderValues.current,
+                currentProgram: data.currentProgram,
             };
         } catch (ex: any) {
             console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
