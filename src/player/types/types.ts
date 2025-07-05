@@ -361,6 +361,7 @@ export interface SliderVODProps extends SliderValues {
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
+    avoidTexts?: boolean;
 }
 
 export interface SliderDVRProps extends SliderValues {
@@ -368,6 +369,7 @@ export interface SliderDVRProps extends SliderValues {
     onSlidingStart?: (value: number) => void;
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
+    avoidTexts?: boolean;
 }
 
 export interface TimelineTextProps {

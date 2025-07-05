@@ -308,11 +308,17 @@ export class DVRProgressManagerClass {
             this._pauseStartTime = 0;
             // NO reseteamos _streamStartTime ni _currentTimeWindowSeconds 
             // porque la ventana debe seguir creciendo naturalmente
+            
+            // En WINDOW y PROGRAM, ir al final del rango seekable
+            const targetTime = this._seekableRange.end;
+            this._seekTo(targetTime);
+            
+        } else if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
+                   this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT) {
+            // En PLAYLIST, ir al tiempo real actual (live edge)
+            const currentLiveEdge = this._getCurrentLiveEdge();
+            this._seekToRealTime(currentLiveEdge);
         }
-      
-        // En todos los tipos, ir al live edge (final del rango seekable)
-        const targetTime = this._seekableRange.end;
-        this._seekTo(targetTime);
     }
   
     /*

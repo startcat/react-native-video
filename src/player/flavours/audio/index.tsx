@@ -226,7 +226,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             playerProgress: {
                 ...props.playerProgress,
                 currentTime: currentTime,
-                duration: sliderValues.current?.duration || 0,
                 isPaused: paused,
                 isMuted: muted,
                 isLive: sourceRef.current?.isLive,
@@ -369,9 +368,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             liveEdgeOffset: data.liveEdgeOffset,
             isLiveEdgePosition: data.isLiveEdgePosition,
         };
-        
-        // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues en caso de no disponer de onProgress
-        setSliderValuesUpdate((prev: number) => prev + 1);
 
         try {
             playerProgressRef.current = {
@@ -388,6 +384,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         } catch (ex: any) {
             console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
         }
+
+        // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues en caso de no disponer de onProgress
+        setSliderValuesUpdate((prev: number) => prev + 1);
 
         /*
         if (props.onDVRChange){
