@@ -20,11 +20,6 @@ import {
     useIsBuffering
 } from '../../modules/buffer';
 
-import { 
-    getMinutesSinceStart,
-    subtractMinutesFromDate,
-} from '../../utils';
-
 import {
     type onSourceChangedProps,
     SourceClass
@@ -165,8 +160,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (!tudumRef.current){
             tudumRef.current = new TudumClass({
                 enabled:!!props.showExternalTudum,
-                getTudumSource:props.hooks?.getTudumSource
+                getTudumSource:props.hooks?.getTudumSource,
+                isAutoNext: props.isAutoNext
             });
+
+        } else {
+            // Actualizar contexto si el tudum ya existe
+            tudumRef.current.updateAutoNextContext(!!props.isAutoNext);
         }
 
         if (!sourceRef.current){
@@ -190,13 +190,15 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             });
         }
 
-        if (tudumRef.current?.isReady){
+        if (tudumRef.current?.isReady && !props.isAutoNext){
+            console.log(`[Player] (Audio Flavour) Playing tudum - not auto next`);
             // Montamos el Source para el player
             tudumRef.current.isPlaying = true;
             drm.current = tudumRef.current?.drm;
             setVideoSource(tudumRef.current?.source);
 
         } else {
+            console.log(`[Player] (Audio Flavour) Skipping tudum - auto next: ${props.isAutoNext}, isReady: ${tudumRef.current?.isReady}`);
             isChangingSource.current = true;
             
             sourceRef.current.changeSource({
@@ -213,7 +215,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         }
 
-    }, [props.manifests]);
+    }, [props.manifests, props.isAutoNext]);
 
     useEffect(() => {
         EventRegister.emit('audioPlayerProgress', {
@@ -591,7 +593,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onEnd = () => {
-        console.log(`[Player] (Audio Flavour) onEnd: tudum isPlaying ${tudumRef.current?.isPlaying}`);
+        console.log(`[Player] (Audio Flavour) onEnd: tudum isPlaying ${tudumRef.current?.isPlaying}, isAutoNext: ${props.isAutoNext}`);
+        
         if (tudumRef.current?.isPlaying){
             // Acaba la reproducción del Tudum externo
             isChangingSource.current = true;
@@ -599,8 +602,20 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             setPlayerSource();
 
         } else if (props.events?.onEnd){
-            // Termina el contenido
-            props.events.onEnd();
+            // Termina el contenido → preparar para posible salto automático
+            console.log(`[Player] (Audio Flavour) onEnd: content finished, preparing for possible auto next`);
+            
+            // NUEVO: Preparar tudum para salto automático antes de notificar
+            if (tudumRef.current) {
+                tudumRef.current.prepareForAutoNext();
+            }
+            
+            // Pequeño delay para evitar problemas de timing
+            setTimeout(() => {
+                if (props.events?.onEnd){
+                    props.events.onEnd();
+                }
+            }, 100);
             
         }
 

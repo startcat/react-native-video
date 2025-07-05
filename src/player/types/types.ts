@@ -224,6 +224,7 @@ export interface AudioPlayerEventProps {
     epgEntry?: any;
     // Campo extraData para incluir cosas que podamos necesitar según proyecto
     extraData?: any;
+    isAutoNext?: boolean;
 }
 
 export interface AudioPlayerActionEventProps {
@@ -491,6 +492,7 @@ export interface OverlayProps extends ICommonPlayerProps {
 }
 
 export interface AudioFlavourProps extends ICommonPlayerProps {
+    isAutoNext?: boolean;
     liveStartDate?:string;
     manifests?:Array<IManifest>,
     headers?: Headers;
@@ -519,6 +521,7 @@ export interface AudioFlavourProps extends ICommonPlayerProps {
 }
 
 export interface AudioCastFlavourProps extends ICommonPlayerProps {
+    isAutoNext?: boolean;
     liveStartDate?:string;
     manifests?:Array<IManifest>,
     headers?: Headers;
@@ -547,6 +550,7 @@ export interface AudioCastFlavourProps extends ICommonPlayerProps {
 }
 
 export interface NormalFlavourProps extends ICommonPlayerProps {
+    isAutoNext?: boolean;
     liveStartDate?:string;
     manifests?:Array<IManifest>,
     headers?: Headers;
@@ -575,6 +579,7 @@ export interface NormalFlavourProps extends ICommonPlayerProps {
 }
 
 export interface CastFlavourProps extends ICommonPlayerProps {
+    isAutoNext?: boolean;
     liveStartDate?:string;
 
     manifests?:Array<IManifest>,
@@ -637,6 +642,7 @@ export interface AudioPlayerContentsDpo extends ICommonPlayerProps {
     manifests?:Array<IManifest>,
     headers?: Headers;
     extraData?: any;
+    isAutoNext?: boolean; // NUEVO: indicar si es salto automático
 
     // Initial State
     initialState?: IPlayerInitialState;
