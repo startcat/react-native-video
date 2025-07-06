@@ -184,3 +184,7 @@ export interface MediaFlowEvents {
         playbackTime: number;
     };
 }
+
+export interface ExtendedVideoSource extends IVideoSource {
+    duration?: number;
+}
