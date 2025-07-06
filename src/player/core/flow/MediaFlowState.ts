@@ -1,5 +1,5 @@
-import type { IDrm, IVideoSource } from '../../types';
-import { MediaFlowStateType, MediaType, StateChangeReason, type MediaFlowState } from './types';
+import type { IDrm } from '../../types';
+import { MediaFlowStateType, MediaType, StateChangeReason, type ExtendedVideoSource, type MediaFlowState } from './types';
 
 export class MediaFlowStateManager {
 
@@ -102,7 +102,7 @@ export class MediaFlowStateManager {
         newStateType: MediaFlowStateType,
         options: {
             mediaType?: MediaType | null;
-            source?: IVideoSource | null;
+            source?: ExtendedVideoSource | null;
             drm?: IDrm;
             reason?: StateChangeReason;
             error?: Error;
@@ -142,7 +142,7 @@ export class MediaFlowStateManager {
      *
      */
     
-    startPreparingTudum(source: IVideoSource, drm?: IDrm): MediaFlowState {
+    startPreparingTudum(source: ExtendedVideoSource, drm?: IDrm): MediaFlowState {
         return this.transitionTo(MediaFlowStateType.PREPARING_TUDUM, {
             mediaType: MediaType.TUDUM,
             source,
@@ -163,7 +163,7 @@ export class MediaFlowStateManager {
         });
     }
 
-    startPreparingContent(source: IVideoSource, drm?: IDrm, startPosition?: number): MediaFlowState {
+    startPreparingContent(source: ExtendedVideoSource, drm?: IDrm, startPosition?: number): MediaFlowState {
         return this.transitionTo(MediaFlowStateType.PREPARING_CONTENT, {
             mediaType: MediaType.CONTENT,
             source,
