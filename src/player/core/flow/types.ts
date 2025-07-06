@@ -28,11 +28,15 @@ export enum MediaType {
     CONTENT = "content",
 }
 
+export interface ExtendedVideoSource extends IVideoSource {
+    duration?: number;
+}
+
 // Estado del flujo
 export interface MediaFlowState {
     type: MediaFlowStateType;
     mediaType: MediaType | null;
-    source: IVideoSource | null;
+    source: ExtendedVideoSource | null;
     drm?: IDrm;
     metadata: {
         isAutoNext: boolean;
@@ -72,7 +76,7 @@ export interface MediaFlowConfig {
     // Callbacks de hooks
     hooks?: {
         getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
-        getTudumSource?: () => IVideoSource | null | undefined;
+        getTudumSource?: () => ExtendedVideoSource | null | undefined;
         getYouboraOptions?: (data: any, format: string) => any;
         getEPGProgramAt?: (timestamp: number) => Promise<IBasicProgram | null>;
         getEPGNextProgram?: (program: IBasicProgram) => Promise<IBasicProgram | null>;
@@ -83,7 +87,7 @@ export interface MediaFlowConfig {
 export interface MediaFlowEvents {
     // Eventos de cambio de fuente
     "source:ready": {
-        source: IVideoSource;
+        source: ExtendedVideoSource;
         drm?: IDrm;
         type: MediaType;
         isReady: boolean;
@@ -158,7 +162,7 @@ export interface MediaFlowEvents {
 
     "decision:playTudum": {
         duration?: number;
-        source: IVideoSource;
+        source: ExtendedVideoSource;
     };
 
     // Eventos de buffer
@@ -183,8 +187,4 @@ export interface MediaFlowEvents {
         finalState: MediaFlowStateType;
         playbackTime: number;
     };
-}
-
-export interface ExtendedVideoSource extends IVideoSource {
-    duration?: number;
 }
