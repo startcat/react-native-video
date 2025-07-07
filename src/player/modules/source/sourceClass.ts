@@ -164,8 +164,6 @@ export class SourceClass {
         if (this._isDownloaded && this._isBinary){
             const offlineBinary = getContentById(props.id!);
             console.log(`${LOG_TAG} changeSource -> isDownloaded && isBinary`);
-            console.log(`${LOG_TAG} offlineBinary result:`, JSON.stringify(offlineBinary));
-            console.log(`${LOG_TAG} offlineBinary fileUri:`, offlineBinary?.offlineData?.fileUri);
 
             this._videoSource.uri = `file://${offlineBinary?.offlineData.fileUri}`;
             console.log(`${LOG_TAG} constructed URI:`, this._videoSource.uri);
