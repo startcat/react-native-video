@@ -66,13 +66,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
     const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
     const [buffering, setBuffering] = useState<boolean>(false);
-
-    const sliderValues = useRef<SliderValues>();
-
     const [speedRate, setSpeedRate] = useState<number>(1);
 
     const refVideoPlayer = useRef<VideoRef>(null);
     const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
+    const sliderValues = useRef<SliderValues>();
 
     // Player Progress
     const playerProgressRef = useRef<IPlayerProgress>();
@@ -164,7 +162,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             if (!tudumRef.current){
                 tudumRef.current = new TudumClass({
                     enabled: false, // Nunca tudum para live
-                    getTudumSource: props.hooks?.getTudumSource
+                    getTudumSource: props.hooks?.getTudumSource,
+                    getTudumManifest: props.hooks?.getTudumManifest,
                 });
             }
 
@@ -222,6 +221,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 tudumRef.current = new TudumClass({
                     enabled: !!props.showExternalTudum,
                     getTudumSource: props.hooks?.getTudumSource,
+                    getTudumManifest: props.hooks?.getTudumManifest,
                     isAutoNext: props.isAutoNext
                 });
             } else {
@@ -825,12 +825,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onReadyForDisplay = () => {
-        console.log(`[Player] (Audio Flavour) onReadyForDisplay - currentSourceType: ${currentSourceType.current}`);
         setBuffering(false);
     }
 
     const onBuffer = (e: OnBufferData) => {
-        console.log(`[Player] (Audio Flavour) onBuffer: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
         setBuffering(!!e?.isBuffering);
     }
 

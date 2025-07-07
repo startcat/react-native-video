@@ -13,7 +13,7 @@ export interface TudumClassProps {
     enabled?: boolean;
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
-    isAutoNext?: boolean; // NUEVO: indicar si es salto automático
+    isAutoNext?: boolean;
 }
 
 export class TudumClass {
@@ -25,12 +25,12 @@ export class TudumClass {
     private _shouldPlay: boolean = false;
     private _isPlaying: boolean = false;
     private _hasPlayed: boolean = false;
-    private _isAutoNext: boolean = false; // NUEVO
+    private _isAutoNext: boolean = false;
 
     constructor(props:TudumClassProps) {
         console.log(`[Player] (TudumClass) constructor: ${JSON.stringify(props)}`);
 
-        this._isAutoNext = !!props.isAutoNext; // NUEVO
+        this._isAutoNext = !!props.isAutoNext;
 
         if (props.getTudumSource && typeof props.getTudumSource === 'function'){
             const tudumSource = props.getTudumSource();
@@ -56,9 +56,10 @@ export class TudumClass {
             }
         }
 
+        this.getStats();
+
     }
 
-    // NUEVO: Método para actualizar contexto automático
     updateAutoNextContext = (isAutoNext: boolean) => {
         console.log(`[Player] (TudumClass) updateAutoNextContext: ${isAutoNext}`);
         this._isAutoNext = isAutoNext;
@@ -69,7 +70,6 @@ export class TudumClass {
         }
     };
 
-    // NUEVO: Método para preparar salto automático
     prepareForAutoNext = () => {
         console.log(`[Player] (TudumClass) prepareForAutoNext`);
         this._isAutoNext = true;
@@ -86,6 +86,17 @@ export class TudumClass {
         if (!keepAutoNextState) {
             this._isAutoNext = false;
         }
+    };
+
+    private getStats = () => {
+        console.log(`[Player] (TudumClass) getStats: ${JSON.stringify({
+            source: this._tudumSource,
+            drm: this._tudumDrm,
+            isReady: this.isReady,
+            isPlaying: this._isPlaying,
+            hasPlayed: this._hasPlayed,
+            isAutoNext: this._isAutoNext
+        })}`);
     };
 
     get source(): IVideoSource | undefined {
