@@ -8,12 +8,12 @@ import {
 
 import {
     getBestManifest,
+    getContentById,
+    getContentIdIsBinary,
+    getContentIdIsDownloaded,
     getDRM,
     getManifestSourceType,
     getVideoSourceUri,
-    getContentIdIsDownloaded,
-    getContentIdIsBinary,
-    getContentById,
 } from '../../utils';
 
 export interface onSourceChangedProps {
@@ -23,6 +23,7 @@ export interface onSourceChangedProps {
     isLive?:boolean;
     isDVR?:boolean;
     isReady?:boolean;
+    isFakeVOD?:boolean;
 }
 
 export interface SourceClassProps {
@@ -45,6 +46,8 @@ export interface SourceClassProps {
     onSourceChanged?: (data:onSourceChangedProps) => void;
 }
 
+const LOG_TAG = '[SourceClass]';
+
 export class SourceClass {
 
     private _currentManifest:IManifest | undefined = undefined;
@@ -56,7 +59,6 @@ export class SourceClass {
     private _needsLiveInitialSeek:boolean = false;
     private _liveStartProgramTimestamp?:number;
     private _dvrWindowSeconds?:number;
-    private _dvrTimeValue?:number;
 
     private _isLive:boolean = false;
     private _isDVR:boolean = false;
@@ -65,6 +67,7 @@ export class SourceClass {
     private _isReady:boolean = false;
     private _isDownloaded:boolean = false;
     private _isBinary:boolean = false;
+    private _isFakeVOD:boolean = false;
 
     private _getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
 
@@ -93,12 +96,13 @@ export class SourceClass {
         this._isReady = false;
         this._isDownloaded = false;
         this._isBinary = false;
+        this._isFakeVOD = false;
     }
 
     public changeSource(props:SourceClassProps) {
 
         this._isReady = false;
-        console.log(`[SourceClass] changeSource (isReady ${!!this._isReady})`);
+        console.log(`${LOG_TAG} changeSource (isReady ${!!this._isReady})`);
 
         if (!props.manifests || props.manifests.length === 0){
             this.clearCurrentSource();
@@ -134,6 +138,9 @@ export class SourceClass {
         // Marcamos si es DVR
         this._isDVR = this._isLive && typeof(this._currentManifest?.dvr_window_minutes) === 'number' && this._currentManifest?.dvr_window_minutes > 0;
 
+        // Marcamos si es un falso VOD (directo acotado)
+        this._isFakeVOD = this.checkFakeVOD(this._currentManifest?.manifestURL || '');
+
         this._dvrWindowSeconds = this._isDVR && this._currentManifest?.dvr_window_minutes ? this._currentManifest?.dvr_window_minutes * 60 : undefined;
 
         // Marcamos la posición inicial
@@ -156,14 +163,16 @@ export class SourceClass {
 
         if (this._isDownloaded && this._isBinary){
             const offlineBinary = getContentById(props.id!);
-            console.log(`[SourceClass] changeSource -> isDownloaded && isBinary`);
+            console.log(`${LOG_TAG} changeSource -> isDownloaded && isBinary`);
+            console.log(`${LOG_TAG} offlineBinary result:`, JSON.stringify(offlineBinary));
+            console.log(`${LOG_TAG} offlineBinary fileUri:`, offlineBinary?.offlineData?.fileUri);
 
             this._videoSource.uri = `file://${offlineBinary?.offlineData.fileUri}`;
-
+            console.log(`${LOG_TAG} constructed URI:`, this._videoSource.uri);
         }
 
         this._isReady = true;
-        console.log(`[SourceClass] changeSource finished (isReady ${!!this._isReady})`);
+        console.log(`${LOG_TAG} changeSource finished (isReady ${!!this._isReady})`);
 
         if (props.onSourceChanged && typeof props.onSourceChanged === 'function'){
             props.onSourceChanged({
@@ -172,9 +181,12 @@ export class SourceClass {
                 drm:this._drm,
                 isLive:this._isLive,
                 isDVR:this._isDVR,
+                isFakeVOD:this._isFakeVOD,
                 isReady:true
             });
         }
+
+        this.getStats();
 
     }
 
@@ -232,6 +244,31 @@ export class SourceClass {
 
     }
 
+    private checkFakeVOD(url: string): boolean {
+        
+        try {
+            const queryIndex = url.indexOf('?');
+            if (queryIndex === -1) return false;
+        
+            const queryString = url.slice(queryIndex + 1);
+            const params: Record<string, string> = {};
+
+            queryString.split('&').forEach(part => {
+                const [key, value] = part.split('=');
+                if (key) params[decodeURIComponent(key)] = decodeURIComponent(value || '');
+            });
+
+            const start = params['start'];
+            const end = params['end'];
+        
+            return !!start && !!end;
+        
+        } catch (e) {
+            return false;
+        }
+
+    }
+
     // private calculateDvrSliderValues(uri: string | null) {
 
     //     // Recalculamos la ventana de tiempo para el slider en DVR
@@ -257,6 +294,30 @@ export class SourceClass {
         }
 
         return startPosition;
+    }
+
+    private getStats() {
+
+        const stats = {
+            isLive: this._isLive,
+            isDVR: this._isDVR,
+            isHLS: this._isHLS,
+            isDASH: this._isDASH,
+            isDownloaded: this._isDownloaded,
+            isBinary: this._isBinary,
+            isFakeVOD: this._isFakeVOD,
+            isReady: this._isReady,
+            needsLiveInitialSeek: this._needsLiveInitialSeek,
+            liveStartProgramTimestamp: this._liveStartProgramTimestamp,
+            dvrWindowSeconds: this._dvrWindowSeconds,
+            startPosition: this._startPosition,
+            videoSource: this._videoSource,
+            drm: this._drm,
+            currentManifest: this._currentManifest
+        };
+
+        console.log(`${LOG_TAG} getStats: ${JSON.stringify(stats)}`);
+
     }
 
     get currentManifest(): IManifest | undefined {
@@ -299,8 +360,11 @@ export class SourceClass {
         return this._isBinary;
     }
 
+    get isFakeVOD(): boolean {
+        return this._isFakeVOD;
+    }
+
     get isReady(): boolean {
-        console.log(`[SourceClass] isReady ${this._isReady}`);
         return this._isReady;
     }
 
