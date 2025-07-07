@@ -8,10 +8,10 @@ import {
     type OnLoadData,
     type OnProgressData,
     type OnReceiveAdEventData,
+    type ProgressUpdateData,
     type SelectedTrack,
     type SelectedVideoTrack,
     type SliderValues,
-    type ProgressUpdateData,
     SelectedTrackType,
     //type OnVolumeChangeData,
     SelectedVideoTrackType
@@ -30,8 +30,7 @@ import {
 
 import {
     mergeMenuData,
-    onAdStarted,
-    subtractMinutesFromDate
+    onAdStarted
 } from '../../utils';
 
 import {
@@ -640,6 +639,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             duration: data.duration,
             canSeekToEnd: data.canSeekToEnd,
             liveEdge: data.liveEdge,
+            percentLiveEdge: data.percentLiveEdge,
             isProgramLive: data.isProgramLive
         };
     };
