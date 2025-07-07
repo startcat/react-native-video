@@ -189,15 +189,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             isChangingSource.current = true;
             
             sourceRef.current.changeSource({
-                manifests: props.manifests,
-                startPosition: props.playerProgress?.currentTime || 0,
-                isLive: !!props.playerProgress?.isLive,
-                headers: props.headers,
+                id: props.playerMetadata?.id,
                 title: props.playerMetadata?.title,
                 subtitle: props.playerMetadata?.subtitle,
                 description: props.playerMetadata?.description,
                 poster: props.playerMetadata?.poster,
                 squaredPoster: props.playerMetadata?.squaredPoster,
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime || 0,
+                isLive: !!props.playerProgress?.isLive,
+                headers: props.headers,
             });
 
         } else {
@@ -214,7 +215,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             dvrProgressManagerRef.current?.reset();
 
             // Determinar si debe reproducir tudum (solo para VOD)
-            const shouldPlayTudum = !!props.showExternalTudum && !props.isAutoNext;
+            const shouldPlayTudum = !!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
             console.log(`[Player] (Audio Flavour) shouldPlayTudum: ${shouldPlayTudum}`);
 
             if (!tudumRef.current){
@@ -245,7 +246,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             }
 
             // Establecer currentSourceType basado en si vamos a reproducir tudum
-            if (shouldPlayTudum && tudumRef.current?.isReady) {
+            if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
                 console.log(`[Player] (Audio Flavour) Will play tudum first, then content`);
                 currentSourceType.current = 'tudum';
                 loadTudumSource();
@@ -309,15 +310,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         
         if (sourceRef.current) {
             sourceRef.current?.changeSource({
-                manifests: props.manifests,
-                startPosition: props.playerProgress?.currentTime || 0,
-                isLive: !!props.playerProgress?.isLive,
-                headers: props.headers,
+                id: props.playerMetadata?.id,
                 title: props.playerMetadata?.title,
                 subtitle: props.playerMetadata?.subtitle,
                 description: props.playerMetadata?.description,
                 poster: props.playerMetadata?.poster,
                 squaredPoster: props.playerMetadata?.squaredPoster,
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime || 0,
+                isLive: !!props.playerProgress?.isLive,
+                headers: props.headers,
             });
 
             // Si el source ya está listo inmediatamente, forzar la carga
@@ -326,7 +328,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     console.log(`[Player] (Audio Flavour) Forcing content load - sourceRef is ready`);
                     setPlayerSource();
                 }
-            }, 50);
+            }, 100);
         }
     };
 
@@ -348,6 +350,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         
         // Pequeño delay para asegurar que se limpia el source
         setTimeout(() => {
+            console.log(`[Player] (Audio Flavour) switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`)
+
             // Si hay un source de contenido pendiente, usarlo directamente
             if (pendingContentSource.current && pendingContentSource.current.isReady) {
                 console.log(`[Player] (Audio Flavour) Loading pending content source directly`);
@@ -368,11 +372,14 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         console.log(`[Player] (Audio Flavour) onSourceChanged - currentSourceType: ${currentSourceType.current}`);
         console.log(`[Player] (Audio Flavour) onSourceChanged - tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
         console.log(`[Player] (Audio Flavour) onSourceChanged - data isReady: ${data.isReady}`);
+        console.log(`[Player] (Audio Flavour) onSourceChanged - data ${JSON.stringify(data)}`);
         
-        if (!sourceRef.current?.isLive && currentSourceType.current === 'tudum') {
+        if (!sourceRef.current?.isLive && !sourceRef.current?.isDownloaded && currentSourceType.current === 'tudum') {
             // Si estamos reproduciendo tudum, guardar el source del contenido para después
             console.log(`[Player] (Audio Flavour) onSourceChanged - Saving content source for later (tudum is playing)`);
             pendingContentSource.current = data;
+
+            console.log(`[Player] (Audio Flavour) onSourceChanged - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`);
             
             // También preparar el progress
             if (data.isReady) {
@@ -451,6 +458,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         console.log(`[Player] (Audio Flavour) setPlayerSource (data isReady ${!!data?.isReady})`);
         console.log(`[Player] (Audio Flavour) setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
         console.log(`[Player] (Audio Flavour) setPlayerSource (currentSourceType ${currentSourceType.current})`);
+        console.log(`[Player] (Audio Flavour) setPlayerSource (data ${JSON.stringify(data)})`);
 
         if (data && data?.isReady) {
             console.log(`[Player] (Audio Flavour) setPlayerSource - Using provided data`);
