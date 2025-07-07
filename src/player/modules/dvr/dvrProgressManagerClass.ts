@@ -1,9 +1,9 @@
-import { 
+import {
     DVR_PLAYBACK_TYPE,
-    type SeekableRange,
     type IBasicProgram,
-    type SliderValues,
-    type ProgressUpdateData
+    type ProgressUpdateData,
+    type SeekableRange,
+    type SliderValues
 } from "../../types";
 
 export interface ProgramChangeData {
@@ -726,6 +726,7 @@ export class DVRProgressManagerClass {
         this._isLiveEdgePosition = true;
         this._streamStartTime = Date.now(); // Nueva referencia temporal
         this._currentTimeWindowSeconds = this._initialTimeWindowSeconds; // Resetear ventana
+        this._duration = null;
         
         // Limpiar timer de pausa si existe
         if (this._pauseUpdateInterval) {
