@@ -1,17 +1,17 @@
-import React, { useState, useRef, Suspense, lazy } from 'react';
+import { activateKeepAwake, deactivateKeepAwake } from '@sayem314/react-native-keep-awake';
+import React, { Suspense, lazy, useRef, useState } from 'react';
+import { Platform } from 'react-native';
+import BackgroundTimer from 'react-native-background-timer';
+import DeviceInfo from 'react-native-device-info';
+import { CastState, useCastState } from 'react-native-google-cast';
+import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
+import SystemNavigationBar from 'react-native-system-navigation-bar';
+import { default as Downloads } from './Downloads';
+import { IPlayerProgress } from './player/types';
 
 // Declaraciones globales para TypeScript
 declare var __DEV__: boolean;
 declare var require: any;
-import DeviceInfo from 'react-native-device-info';
-import { activateKeepAwake, deactivateKeepAwake} from '@sayem314/react-native-keep-awake';
-import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
-import BackgroundTimer from 'react-native-background-timer';
-import SystemNavigationBar from 'react-native-system-navigation-bar';
-import { CastState, useCastState } from 'react-native-google-cast';
-import { Platform } from 'react-native';
-import { default as Downloads } from './Downloads';
-import { IPlayerProgress } from './player/types';
 
 // Imports condicionales: lazy loading solo en producción
 let NormalFlavour: React.ComponentType<any>;
@@ -33,9 +33,9 @@ if (__DEV__) {
     })));
 }
 
-import { 
-    type PlayerProps,
-    type ICommonData
+import {
+    type ICommonData,
+    type PlayerProps
 } from './player/types';
 
 
@@ -53,11 +53,6 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
     const playerProgress = useRef<IPlayerProgress | null>(null);
 
-    // const currentTime = useRef<number>(props.startPosition || 0);
-    // const duration = useRef<number>(0);
-    // const volume = useRef<number>();
-    // const isPaused = useRef<boolean>(false);
-    // const isMuted = useRef<boolean>(false);
     const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<number>();
     const hasBeenLoaded = useRef<boolean>(false);
@@ -118,7 +113,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 // Evitamos mandar el watching progress en directos y en Chromecast
                 if (hasBeenLoaded.current && !props.playerProgress?.isLive && !isCasting.current){
                     // @ts-ignore
-                    props.hooks?.addContentProgress(currentTime.current, duration.current, props.id);
+                    props.hooks?.addContentProgress(playerProgress.current.currentTime, playerProgress.current.duration, playerProgress.current.id);
                 }
 
             }, props.hooks?.watchingProgressInterval);
