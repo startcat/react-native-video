@@ -550,6 +550,15 @@ export class DVRProgressManagerClass {
         const range = programEnd - programStart;
         const progressInRange = progressDatum - programStart;
         const percentProgress = range > 0 ? Math.max(0, Math.min(1, progressInRange / range)) : 0;
+        let percentLiveEdge = 0;
+
+        // Calcular porcentaje del liveEdge dentro del programa
+        try {
+            const liveEdgeInRange = currentLiveEdge - programStart;
+            percentLiveEdge = range > 0 ? Math.max(0, Math.min(1, liveEdgeInRange / range)) : 0;
+        } catch (error) {
+            console.error('Error al calcular percentLiveEdge:', error);
+        }
       
         return {
             minimumValue: programStart,
@@ -558,7 +567,8 @@ export class DVRProgressManagerClass {
             percentProgress: percentProgress,
             duration: this._duration || 0, // Usar duración externa, no calculada
             canSeekToEnd: !isProgramLive,
-            liveEdge: isProgramLive ? currentLiveEdge : undefined,
+            liveEdge: currentLiveEdge,
+            percentLiveEdge: percentLiveEdge,
             isProgramLive: isProgramLive,
             progressDatum: progressDatum,
             liveEdgeOffset: this._getLiveEdgeOffset(),

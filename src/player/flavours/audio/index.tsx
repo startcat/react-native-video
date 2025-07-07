@@ -158,12 +158,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         // Verificar si es contenido live/DVR vs VOD
         const isLiveContent = !!props.playerProgress?.isLive;
-        console.log(`[Player] (Audio Flavour) isLiveContent: ${isLiveContent}`);
 
         if (isLiveContent) {
             // COMPORTAMIENTO ORIGINAL PARA LIVE/DVR - Sin tudum, sin resets complicados
-            console.log(`[Player] (Audio Flavour) Live content - using original behavior`);
-            
             if (!tudumRef.current){
                 tudumRef.current = new TudumClass({
                     enabled: false, // Nunca tudum para live
@@ -205,7 +202,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         } else {
             // LÓGICA DEL TUDUM SOLO PARA VOD
-            console.log(`[Player] (Audio Flavour) VOD content - applying tudum logic`);
             
             // Reset completo solo para VOD
             currentSourceType.current = null;
@@ -498,7 +494,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     };
 
     function onProgressUpdate(data: ProgressUpdateData) {
-        console.log(`[Player] (Audio Flavour) onProgressUpdate - currentSourceType: ${currentSourceType.current}, duration: ${data.duration}`);
+        // console.log(`[Player] (Audio Flavour) onProgressUpdate - currentSourceType: ${currentSourceType.current}, duration: ${data.duration}`);
         
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
@@ -510,6 +506,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 duration: data.duration || 0,
                 canSeekToEnd: data.canSeekToEnd,
                 liveEdge: data.liveEdge,
+                percentLiveEdge: data.percentLiveEdge,
                 isProgramLive: data.isProgramLive,
                 progressDatum: data.progressDatum,
                 liveEdgeOffset: data.liveEdgeOffset,
@@ -842,7 +839,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const onSlidingComplete = (value: number) => {
-        console.log(`[Player] (Audio Flavour) onSlidingComplete: ${value}`);
+        // console.log(`[Player] (Audio Flavour) onSlidingComplete: ${value}`);
         onControlsPress(CONTROL_ACTION.SEEK, value);
     }
 
