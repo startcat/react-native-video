@@ -1,7 +1,7 @@
-import { 
+import {
+    type ProgressUpdateData,
     type SeekableRange,
-    type SliderValues,
-    type ProgressUpdateData
+    type SliderValues
 } from "../../types";
 
 
@@ -40,7 +40,7 @@ export class VODProgressManagerClass {
         // Estado del reproductor VOD
         this._currentTime = options.currentTime || 0;
         this._duration = options.duration || 0;
-        this._seekableRange = { start: 0, end: this._duration };
+        this._seekableRange = { start: 0, end: options.duration || 0 };
         this._isPaused = options.isPaused || false;
         this._isBuffering = options.isBuffering || false;
       
@@ -62,7 +62,7 @@ export class VODProgressManagerClass {
       
         this._currentTime = currentTime || 0;
         this._duration = duration || this._duration;
-        this._seekableRange = seekableRange || { start: 0, end: this._duration };
+        this._seekableRange = seekableRange || this._seekableRange;
         this._isPaused = isPaused;
         this._isBuffering = isBuffering;
       
@@ -100,7 +100,7 @@ export class VODProgressManagerClass {
      */
 
     skipForward(seconds: number) {
-        const newTime = Math.min(this._duration, this._currentTime + seconds);
+        const newTime = Math.min(this._seekableRange.end, this._currentTime + seconds);
         this._seekTo(newTime);
     }
   
@@ -183,7 +183,9 @@ export class VODProgressManagerClass {
         // Resetear completamente - como si empezáramos de nuevo
         this._currentTime = 0;
         this._duration = 0;
-        this._seekableRange = { start: 0, end: this._duration };
+        this._seekableRange = { start: 0, end: 0 };
+        this._isPaused = false;
+        this._isBuffering = false;
 
         console.log(`[Player] (VOD Progress Manager) reset - Stats ${JSON.stringify(this.getStats())}`);
     }
