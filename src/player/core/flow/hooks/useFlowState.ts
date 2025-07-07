@@ -125,9 +125,10 @@ function mapStateToInfo(state: any): FlowStateInfo {
  */
 
 export function useIsFlowState(
-  mediaFlow: UseMediaFlowReturn,
-  ...states: MediaFlowStateType[]
+    mediaFlow: UseMediaFlowReturn,
+    ...states: MediaFlowStateType[]
 ): boolean {
+    
     const [isInState, setIsInState] = useState(false);
 
     useEffect(() => {

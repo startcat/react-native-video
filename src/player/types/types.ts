@@ -4,18 +4,18 @@ import { type SubtitleStyle } from '../../types';
 import * as Enums from './enums';
 
 import {
+    type ICommonPlayerProps,
     type IPlayerInitialState,
     type IPlayerProgress,
-    type ICommonPlayerProps,
     type IPlayerTimeMarkers
 } from './newTypes';
 
-import { 
-    type IPlayerEvents,
-    type IInnerPlayerEvents
+import {
+    type IInnerPlayerEvents,
+    type IPlayerEvents
 } from './events';
 
-import { 
+import {
     type IPlayerHooks,
 } from './hooks';
 
