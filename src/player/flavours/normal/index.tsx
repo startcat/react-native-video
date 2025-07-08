@@ -53,7 +53,6 @@ import {
     DVRProgressManagerClass
 } from '../../modules/dvr';
 
-
 import { styles } from '../styles';
 
 import {
@@ -401,10 +400,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
             data.audioIndex = audioDefaultIndex;
-            data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioDefaultIndex)?.label;
+            data.audioLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioDefaultIndex)?.label;
 
             data.subtitleIndex = textDefaultIndex;
-            data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex)?.label;
+            data.subtitleLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex)?.label;
         
             if (data){
                 props.events?.onChangeCommonData(data);
@@ -727,8 +726,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 data.volume = (id === CONTROL_ACTION.VOLUME) ? value : undefined;
                 data.audioIndex = (id === CONTROL_ACTION.AUDIO_INDEX) ? value : undefined;
                 data.subtitleIndex = (id === CONTROL_ACTION.SUBTITLE_INDEX) ? value : undefined;
-                data.audioLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === value)?.label;
-                data.subtitleLabel = menuData?.find(item => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === value)?.label;
+                data.audioLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === value)?.label;
+                data.subtitleLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === value)?.label;
                 
             }
             
@@ -782,6 +781,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             if (props.events?.onStart) {
                 props.events.onStart();
+            }
+
+            // Seek inicial al cargar un live con DVR
+            if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.checkInitialSeek();
             }
 
         } else if (currentSourceType.current === 'tudum') {
