@@ -161,6 +161,18 @@ export class DVRProgressManagerClass {
 
         // console.log(`[Player] (DVR Progress Manager) updatePlayerData - Stats ${JSON.stringify(this.getStats())}`);
     }
+
+    /*
+     *  Revisamos si es necesario hacer un seek inicial
+     * 
+     */
+
+    checkInitialSeek() {
+        console.log(`[Player] (DVR Progress Manager) checkInitialSeek`);
+        setTimeout(() => {
+            this.goToLive();
+        }, 300);
+    }
   
     /*
      *  Obtiene los valores calculados para el slider

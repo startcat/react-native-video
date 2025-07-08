@@ -747,6 +747,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 props.events.onStart();
             }
 
+            // Seek inicial al cargar un live con DVR
+            if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.checkInitialSeek();
+            }
+
         } else if (currentSourceType.current === 'tudum') {
             console.log(`[Player] (Audio Flavour) onLoad - Tudum loaded, duration: ${e.duration}`);
         } else {
