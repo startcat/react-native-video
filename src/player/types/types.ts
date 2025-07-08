@@ -122,6 +122,33 @@ export interface ILanguagesMapping {
     [code: string]: string;
 }
 
+export interface ICastMessageMetadata {
+    title: string;
+    subtitle: string;
+    images: Array<{ url: string }>;
+    isLive: boolean;
+    licenseAcquisitionURL: string | null;
+    progress: null;
+}
+
+export interface ICastMediaInfo {
+    contentId: string;
+    metadata: ICastMessageMetadata;
+}
+
+export interface ICastMessage {
+    mediaInfo: ICastMediaInfo;
+    customData: {
+        streamStart: number;
+        isLive: boolean;
+        youbora?: IMappedYoubora;
+        sourceDescription: {
+            metadata: ICastMessageMetadata;
+        };
+    };
+    autoplay: boolean;
+    startTime: number;
+}
 export interface ICastMetadata {
     id?:number;
     title?:string;
