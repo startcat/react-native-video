@@ -897,14 +897,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         console.log(`[Player] (Video Flavour) onError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
     }
 
-    const onSlidingStart = (value: number) => {
-
-    }
-
-    const onSlidingMove = (value: number) => {
-
-    }
-
     const onSlidingComplete = (value: number) => {
         // console.log(`[Player] (Video Flavour) onSlidingComplete: ${value}`);
         onControlsPress(CONTROL_ACTION.SEEK, value);
@@ -1043,8 +1035,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         events={{
                             ...props.events,
                             onPress: onControlsPress,
-                            onSlidingStart: onSlidingStart,
-                            onSlidingMove: onSlidingMove,
                             onSlidingComplete: onSlidingComplete,
                         }}
                     />

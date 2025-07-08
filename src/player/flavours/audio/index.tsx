@@ -841,14 +841,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         console.log(`[Player] (Audio Flavour) onError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
     }
 
-    const onSlidingStart = (value: number) => {
-
-    }
-
-    const onSlidingMove = (value: number) => {
-
-    }
-
     const onSlidingComplete = (value: number) => {
         // console.log(`[Player] (Audio Flavour) onSlidingComplete: ${value}`);
         onControlsPress(CONTROL_ACTION.SEEK, value);
@@ -870,8 +862,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         //Events
         events: {
             onPress: onControlsPress,
-            onSlidingStart: onSlidingStart,
-            onSlidingMove: onSlidingMove,
             onSlidingComplete: onSlidingComplete
         }
 
