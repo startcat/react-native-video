@@ -526,6 +526,7 @@ export interface AudioCastFlavourProps extends ICommonPlayerProps {
     liveStartDate?:string;
     manifests?:Array<IManifest>,
     headers?: Headers;
+    showExternalTudum?: boolean;
     playOffline?: boolean;
 
     languagesMapping?:ILanguagesMapping;
@@ -582,9 +583,10 @@ export interface NormalFlavourProps extends ICommonPlayerProps {
 export interface CastFlavourProps extends ICommonPlayerProps {
     isAutoNext?: boolean;
     liveStartDate?:string;
-
     manifests?:Array<IManifest>,
     headers?: Headers;
+    showExternalTudum?: boolean;
+    playOffline?: boolean;
 
     audioIndex?: number;
     subtitleIndex?: number;
