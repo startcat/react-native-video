@@ -10,7 +10,7 @@ import {
     useStreamPosition,
 } from 'react-native-google-cast';
 import { BackgroundPoster } from '../../components/poster';
-import { Overlay } from '../../overlay';
+import { Overlay } from '../../components/overlay';
 
 import {
     getSourceMessageForCast,
@@ -149,6 +149,18 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         console.log(`[Player] (Cast Flavour) useEffect manifests - isAutoNext: ${props.isAutoNext}`);
         console.log(`[Player] (Cast Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
         console.log(`[Player] (Cast Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
+        console.log(`[Player] (Cast Flavour) useEffect manifests - content ID: ${props.playerMetadata?.id}`);
+
+        // Detectar si cambió el ID del contenido
+        const hasContentChanged = sourceRef.current?.id !== props.playerMetadata?.id;
+        
+        if (hasContentChanged) {
+            console.log(`[Player] (Cast Flavour) Content ID changed, forcing reload`);
+            // Limpiar estado completamente
+            castMessage.current = undefined;
+            setIsContentLoaded(false);
+            isChangingSource.current = true;
+        }
 
         // Verificar si es contenido live/DVR vs VOD
         const isLiveContent = !!props.playerProgress?.isLive;
@@ -257,7 +269,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             unregisterRemoteSubscriptions();
         };
 
-    }, [props.manifests, props.isAutoNext]);
+    }, [props.manifests, props.isAutoNext, props.playerMetadata?.id]);
 
     // Función para cargar source del tudum
     const loadTudumSource = () => {
@@ -661,16 +673,16 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         if (props.hooks?.getYouboraOptions) {
             youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.CAST);
         }
-
+    
         let startingPoint = props.playerProgress?.currentTime || 0;
-
+    
         // Para DVR, ajustar el punto de inicio
         if (sourceRef.current?.isLive && sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
             startingPoint = sourceRef.current.dvrWindowSeconds;
         }
-
+    
         // Montar el mensaje para el Cast
-        castMessage.current = getSourceMessageForCast(source.uri, sourceRef.current?.currentManifest!, sourceDrm || drm.current, youboraForVideo.current, {
+        const newCastMessage = getSourceMessageForCast(source.uri, sourceRef.current?.currentManifest!, sourceDrm || drm.current, youboraForVideo.current, {
             id: props.playerMetadata?.id,
             title: props.playerMetadata?.title,
             subtitle: props.playerMetadata?.subtitle,
@@ -682,7 +694,22 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             hasNext: !!props.events?.onNext,
             startPosition: startingPoint
         });
-
+    
+        // El contentId debe ser la URL del stream, NO un ID generado
+        // getSourceMessageForCast ya debería establecer esto correctamente
+        if (newCastMessage?.mediaInfo && source.uri) {
+            newCastMessage.mediaInfo.contentId = source.uri;
+            console.log(`[Player] (Cast Flavour) prepareCastMessage - Using stream URL as contentId: ${source.uri}`);
+        }
+    
+        castMessage.current = newCastMessage;
+        
+        // Marcar que estamos cambiando source
+        isChangingSource.current = true;
+        
+        console.log(`[Player] (Cast Flavour) prepareCastMessage - Final message:`, JSON.stringify(newCastMessage));
+        
+        // Llamar directamente a tryLoadMedia sin waitForCastReady
         tryLoadMedia();
     };
 
@@ -690,49 +717,118 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         console.log(`[Player] (Cast Flavour) setCastSource (data isReady ${!!data?.isReady})`);
         console.log(`[Player] (Cast Flavour) setCastSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
         console.log(`[Player] (Cast Flavour) setCastSource (currentSourceType ${currentSourceType.current})`);
-
+    
         if (data && data?.isReady) {
             console.log(`[Player] (Cast Flavour) setCastSource - Using provided data`);
             setBuffering(true);
+            isChangingSource.current = true;
             drm.current = data.drm;
+            
+            // Limpiar el mensaje anterior para forzar regeneración
+            castMessage.current = undefined;
+            
             prepareCastMessage(data.source!, data.drm);
+            
         } else if (sourceRef.current?.isReady) {
             console.log(`[Player] (Cast Flavour) setCastSource - Using sourceRef`);
             setBuffering(true);
+            isChangingSource.current = true;
             drm.current = sourceRef.current.playerSourceDrm;
+            
+            // Limpiar el mensaje anterior para forzar regeneración
+            castMessage.current = undefined;
+            
             prepareCastMessage(sourceRef.current.playerSource!, sourceRef.current.playerSourceDrm);
+            
         } else {
             console.log(`[Player] (Cast Flavour) setCastSource - No valid source available`);
+            
+            // Si no tenemos source listo, esperar un poco y reintentar
+            waitForCastReady(() => {
+                if (sourceRef.current?.isReady) {
+                    console.log(`[Player] (Cast Flavour) setCastSource - Retrying with sourceRef after wait`);
+                    setBuffering(true);
+                    isChangingSource.current = true;
+                    drm.current = sourceRef.current.playerSourceDrm;
+                    castMessage.current = undefined;
+                    prepareCastMessage(sourceRef.current.playerSource!, sourceRef.current.playerSourceDrm);
+                }
+            });
         }
     }
 
+    const isCastReady = () => {
+        return castState === CastState.CONNECTED && 
+               castClient && 
+               castSession;
+    };
+
+    const waitForCastReady = (callback: () => void, maxAttempts = 10) => {
+        let attempts = 0;
+        
+        const checkReady = () => {
+            attempts++;
+            
+            if (isCastReady()) {
+                console.log(`[Player] (Cast Flavour) Cast ready after ${attempts} attempts`);
+                callback();
+            } else if (attempts < maxAttempts) {
+                console.log(`[Player] (Cast Flavour) Cast not ready, attempt ${attempts}/${maxAttempts}`);
+                setTimeout(checkReady, 200);
+            } else {
+                console.log(`[Player] (Cast Flavour) Cast not ready after ${maxAttempts} attempts, giving up`);
+                setBuffering(false);
+                isChangingSource.current = false;
+            }
+        };
+        
+        checkReady();
+    };
+
     // Cast Events
     const registerRemoteSubscriptions = () => {
+        console.log(`[Player] (Cast Flavour) registerRemoteSubscriptions - castClient: ${!!castClient}`);
+        
         if (castClient){
             eventsRegistered.current = true;
-
+            console.log(`[Player] (Cast Flavour) Registering cast event listeners`);
+    
             onMediaPlaybackEndedListener.current = castClient.onMediaPlaybackEnded((mediaStatus: typeof castMediaStatus) => {
+                console.log(`[Player] (Cast Flavour) onMediaPlaybackEnded event received`);
                 onEnd();
             });
-
+    
             onMediaPlaybackStartedListener.current = castClient.onMediaPlaybackStarted((mediaStatus: typeof castMediaStatus) => {
+                console.log(`[Player] (Cast Flavour) onMediaPlaybackStarted event received - isContentLoaded: ${isContentLoaded}`);
+                
                 if (!isContentLoaded){
+                    console.log(`[Player] (Cast Flavour) Media playback started, setting up menu data`);
+                    
                     if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function'){
                         setMenuData(props.hooks.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
                     } else {
                         setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
                     }
-
+    
                     isChangingSource.current = false;
                     setIsContentLoaded(true);
-
+                    setBuffering(false);
+                    
+                    console.log(`[Player] (Cast Flavour) Content loaded successfully, calling onStart`);
+    
                     if (props.events?.onStart){
                         props.events.onStart();
                     }
+                } else {
+                    console.log(`[Player] (Cast Flavour) Media playback started but content already loaded`);
                 }
             });
+            
+            console.log(`[Player] (Cast Flavour) Cast event listeners registered successfully`);
+        } else {
+            console.log(`[Player] (Cast Flavour) Cannot register cast event listeners - no castClient`);
         }
-    }
+    };
 
     const unregisterRemoteSubscriptions = () => {
         if (onMediaPlaybackEndedListener.current){
@@ -863,30 +959,132 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
     }
 
     async function getCurrentMediaStatus(){
-        const mediaStatus = await castClient?.getMediaStatus();
-
-        if (mediaStatus?.mediaInfo?.contentId !== castMessage.current?.mediaInfo?.contentId){
-            console.log(`[Player] (Cast Flavour) Different content so loading media: ${JSON.stringify(castMessage.current)}`);
-            castClient?.loadMedia(castMessage.current!);
-        } else {
-            if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function'){
-                setMenuData(props.hooks.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+        // Verificaciones previas antes de intentar obtener el status
+        if (!castClient) {
+            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - No castClient available`);
+            return;
+        }
+    
+        if (castState !== CastState.CONNECTED) {
+            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - Cast not connected, state: ${castState}`);
+            return;
+        }
+    
+        if (!castSession) {
+            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - No active cast session`);
+            return;
+        }
+    
+        // Verificar si tenemos un mensaje válido para cargar
+        if (!castMessage.current?.mediaInfo?.contentId) {
+            console.log(`[Player] (Cast Flavour) No valid cast message to load`);
+            return;
+        }
+    
+        try {
+            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - Attempting to get media status`);
+            const mediaStatus = await castClient.getMediaStatus();
+            
+            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - current contentId: ${mediaStatus?.mediaInfo?.contentId}`);
+            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - new contentId: ${castMessage.current?.mediaInfo?.contentId}`);
+            
+            // Forzar carga si no hay contenido actual o si el contenido es diferente
+            if (!mediaStatus?.mediaInfo?.contentId || 
+                mediaStatus?.mediaInfo?.contentId !== castMessage.current?.mediaInfo?.contentId) {
+                
+                console.log(`[Player] (Cast Flavour) Loading new media: ${JSON.stringify(castMessage.current)}`);
+                
+                // Resetear estado antes de cargar nuevo contenido
+                setIsContentLoaded(false);
+                setBuffering(true);
+                isChangingSource.current = true;
+                
+                try {
+                    // Cargar el nuevo contenido
+                    await castClient.loadMedia(castMessage.current!);
+                    console.log(`[Player] (Cast Flavour) Media loaded successfully`);
+                    
+                    // NO llamar a waitForCastReady aquí - ya tenemos el contenido cargado
+                    // El evento onMediaPlaybackStarted manejará el resto
+                    
+                } catch (loadError) {
+                    console.error(`[Player] (Cast Flavour) Error loading media:`, loadError);
+                    setBuffering(false);
+                    isChangingSource.current = false;
+                }
+                
             } else {
-                setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+                // Mismo contenido, solo actualizar menú de datos
+                console.log(`[Player] (Cast Flavour) Same content, updating menu data only`);
+                
+                if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function'){
+                    setMenuData(props.hooks.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+                } else {
+                    setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
+                }
+    
+                // Solo marcar como cargado si no estamos cambiando source
+                if (!isChangingSource.current) {
+                    setIsContentLoaded(true);
+                    setBuffering(false);
+                }
             }
-
-            setIsContentLoaded(true);
+        } catch (error) {
+            console.error(`[Player] (Cast Flavour) getCurrentMediaStatus error:`, error);
+            
+            // Si hay error obteniendo el status, intentar cargar el contenido directamente
+            if (castMessage.current && castState === CastState.CONNECTED) {
+                console.log(`[Player] (Cast Flavour) Attempting direct media load due to status error`);
+                try {
+                    setIsContentLoaded(false);
+                    setBuffering(true);
+                    isChangingSource.current = true;
+                    
+                    await castClient.loadMedia(castMessage.current!);
+                    console.log(`[Player] (Cast Flavour) Direct media load successful`);
+                    
+                    // NO llamar a waitForCastReady aquí tampoco
+                    
+                } catch (loadError) {
+                    console.error(`[Player] (Cast Flavour) Direct media load failed:`, loadError);
+                    setBuffering(false);
+                    isChangingSource.current = false;
+                }
+            } else {
+                setBuffering(false);
+                isChangingSource.current = false;
+            }
         }
     }
 
     const tryLoadMedia = () => {
-        if (castState === CastState.CONNECTED && castClient && castMessage.current){
-            try {
-                getCurrentMediaStatus();
-            } catch (reason){
-                console.log(`[Player] (Cast Flavour) Loading media error: ${JSON.stringify(reason)}`);
-            }
+        console.log(`[Player] (Cast Flavour) tryLoadMedia - castState: ${castState}, castClient: ${!!castClient}, castMessage: ${!!castMessage.current}, castSession: ${!!castSession}`);
+        
+        // Verificaciones más exhaustivas antes de intentar cargar
+        if (castState !== CastState.CONNECTED) {
+            console.log(`[Player] (Cast Flavour) tryLoadMedia - Cast not connected, aborting`);
+            return;
         }
+        
+        if (!castClient) {
+            console.log(`[Player] (Cast Flavour) tryLoadMedia - No castClient available`);
+            return;
+        }
+        
+        if (!castSession) {
+            console.log(`[Player] (Cast Flavour) tryLoadMedia - No active cast session`);
+            return;
+        }
+        
+        if (!castMessage.current) {
+            console.log(`[Player] (Cast Flavour) tryLoadMedia - No cast message prepared`);
+            return;
+        }
+    
+        // Usar setTimeout para evitar condiciones de carrera
+        setTimeout(() => {
+            getCurrentMediaStatus();
+        }, 500);
     }
 
     const onSlidingComplete = (value: number) => {
