@@ -1,14 +1,14 @@
 import { Platform } from 'react-native';
-import { getAbsoluteUri } from './siteUrl';
-import { 
-    IManifest, 
-    STREAM_FORMAT_TYPE, 
-    DRM_TYPE 
+import {
+    DRM_TYPE,
+    IManifest,
+    STREAM_FORMAT_TYPE
 } from '../types';
+import { getAbsoluteUri } from './siteUrl';
 
 import qs from 'qs';
 
-const LOG_ENABLED = true;
+const LOG_ENABLED = false;
 const LOG_KEY = '[Video Player Source]';
 
 

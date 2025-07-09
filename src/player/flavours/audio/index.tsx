@@ -69,7 +69,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const [speedRate, setSpeedRate] = useState<number>(1);
 
     const refVideoPlayer = useRef<VideoRef>(null);
-    const sleepTimerObj = useRef<NodeJS.Timeout | null>(null);
+    const sleepTimerObj = useRef<ReturnType<typeof setTimeout> | null>(null);
     const sliderValues = useRef<SliderValues>();
 
     // Player Progress

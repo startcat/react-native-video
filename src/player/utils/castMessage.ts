@@ -1,11 +1,12 @@
 import {
-    type ICastMessage,
     type ICastMetadata,
     type IDrm,
     type IManifest,
     type IMappedYoubora,
     DRM_TYPE
 } from '../types';
+
+import { type CastMessage } from '../features/cast/types';
 
 import { getAbsoluteUri } from './siteUrl';
 
@@ -23,7 +24,7 @@ function log (message: string) {
 
 }
 
-export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: IDrm, youbora?: IMappedYoubora, metadata?: ICastMetadata): ICastMessage => {
+export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: IDrm, youbora?: IMappedYoubora, metadata?: ICastMetadata): CastMessage => {
 
     let messageMetadata = {},
         message = {};
@@ -76,6 +77,6 @@ export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: I
 
     log(`Cast Message ${JSON.stringify(message)}`);
 
-    return message as ICastMessage;
+    return message as CastMessage;
 
 }

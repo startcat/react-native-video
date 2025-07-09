@@ -21,7 +21,7 @@ const INTERVAL = 1000;
 
 export function useDvrPausedSeconds(props: useDvrPausedSecondsProps) {
 
-    const intervalObj = useRef<NodeJS.Timeout>();
+    const intervalObj = useRef<ReturnType<typeof setInterval>>();
     const resultsRef = useRef<Results>({
         pausedSeconds: 0,
         pausedDatum: 0
