@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     CastManager
 } from '../CastManager';
@@ -14,6 +14,7 @@ import {
     CastMessageConfig,
     CastOperationResult,
     CastProgressInfo,
+    CastStateInfo,
     UseCastManagerConfig
 } from '../types';
 import { useCastState } from './useCastState';
@@ -51,62 +52,77 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     const castState = useCastState({
         enableStreamPosition: true,
         debugMode: managerConfig.debugMode,
-        onStateChange: (newState, previousState) => {
+        onStateChange: useCallback((newState: CastStateInfo, previousState: CastStateInfo) => {
             if (managerConfig.debugMode) {
                 console.log(`${LOG_PREFIX} [useCastManager] Cast state changed:`, {
                     from: previousState.managerState,
                     to: newState.managerState
                 });
             }
-        }
+        }, [managerConfig.debugMode])
     });
+
+    const memoizedCallbacks = useMemo(() => ({
+        onStateChange: (state: CastManagerState, previousState: CastManagerState) => {
+            if (managerConfig.debugMode) {
+                console.log(`${LOG_PREFIX} [useCastManager] Manager state changed:`, {
+                    from: previousState,
+                    to: state
+                });
+            }
+            
+            // Actualizar estado local
+            setStatus((prev: CastManagerStatus) => ({ ...prev, state }));
+            
+            // Llamar callback del usuario
+            managerConfig.callbacks?.onStateChange?.(state, previousState);
+        },
+        onContentLoaded: (content: CastContentInfo) => {
+            setCurrentContent(content);
+            managerConfig.callbacks?.onContentLoaded?.(content);
+        },
+        onContentLoadError: (error: string, content?: CastContentInfo) => {
+            if (managerConfig.debugMode) {
+                console.error(`${LOG_PREFIX} [useCastManager] Content load error:`, error);
+            }
+            managerConfig.callbacks?.onContentLoadError?.(error, content);
+        },
+        onPlaybackStarted: () => {
+            setStatus((prev: CastManagerStatus) => ({ ...prev, isContentLoaded: true }));
+            managerConfig.callbacks?.onPlaybackStarted?.();
+        },
+        onPlaybackEnded: () => {
+            managerConfig.callbacks?.onPlaybackEnded?.();
+        },
+        onBufferingChange: (isBuffering: boolean) => {
+            managerConfig.callbacks?.onBufferingChange?.(isBuffering);
+        },
+        onTimeUpdate: (currentTime: number, duration: number) => {
+            managerConfig.callbacks?.onTimeUpdate?.(currentTime, duration);
+        }
+    }), [managerConfig.debugMode]);
+
+    const memoizedManagerConfig = useMemo(() => ({
+        ...managerConfig,
+        callbacks: memoizedCallbacks
+    }), [
+        managerConfig.retryAttempts,
+        managerConfig.retryDelay,
+        managerConfig.loadTimeout,
+        managerConfig.debugMode,
+        memoizedCallbacks
+    ]);
     
-    // Inicializar manager
+    // Inicializar manager UNA SOLA VEZ
     useEffect(() => {
         if (!managerRef.current) {
-            managerRef.current = new CastManager({
-                ...managerConfig,
-                callbacks: {
-                    ...managerConfig.callbacks,
-                    onStateChange: (state, previousState) => {
-                        if (managerConfig.debugMode) {
-                            console.log(`${LOG_PREFIX} [useCastManager] Manager state changed:`, {
-                                from: previousState,
-                                to: state
-                            });
-                        }
-                        
-                        // Actualizar estado local
-                        setStatus((prev: CastManagerStatus) => ({ ...prev, state }));
-                        
-                        // Llamar callback del usuario
-                        managerConfig.callbacks?.onStateChange?.(state, previousState);
-                    },
-                    onContentLoaded: (content) => {
-                        setCurrentContent(content);
-                        managerConfig.callbacks?.onContentLoaded?.(content);
-                    },
-                    onContentLoadError: (error, content) => {
-                        if (managerConfig.debugMode) {
-                            console.error(`${LOG_PREFIX} [useCastManager] Content load error:`, error);
-                        }
-                        managerConfig.callbacks?.onContentLoadError?.(error, content);
-                    },
-                    onPlaybackStarted: () => {
-                        setStatus((prev: CastManagerStatus) => ({ ...prev, isContentLoaded: true }));
-                        managerConfig.callbacks?.onPlaybackStarted?.();
-                    },
-                    onPlaybackEnded: () => {
-                        managerConfig.callbacks?.onPlaybackEnded?.();
-                    }
-                }
-            });
+            managerRef.current = new CastManager(memoizedManagerConfig);
             
             // Listener para actualizaciones de progreso
             managerRef.current.on(CastManagerEvent.TIME_UPDATE, (eventData: any) => {
                 const progressInfo = eventData.data as CastProgressInfo;
                 setProgressInfo(progressInfo);
-                managerConfig.callbacks?.onTimeUpdate?.(progressInfo.currentTime, progressInfo.duration);
+                memoizedCallbacks.onTimeUpdate(progressInfo.currentTime, progressInfo.duration);
             });
             
             if (managerConfig.debugMode) {
@@ -122,11 +138,28 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
                 managerRef.current = null;
             }
         };
-    }, [managerConfig]);
-    
-    // Actualizar estado de Cast en el manager
+    }, []); // Sin dependencias - se ejecuta solo una vez
+
+    // Actualizar callbacks del manager cuando cambien
     useEffect(() => {
-        if (managerRef.current) {
+        if (managerRef.current && memoizedManagerConfig.callbacks) {
+            // Actualizar solo los callbacks sin recrear el manager
+            managerRef.current['callbacks'] = memoizedManagerConfig.callbacks;
+        }
+    }, [memoizedCallbacks]);
+    
+    // Actualizar estado de Cast en el manager cuando cambie castState
+    const prevCastStateRef = useRef(castState);
+    useEffect(() => {
+        // Solo actualizar si realmente cambió algo importante
+        const hasStateChanged = (
+            castState.castState !== prevCastStateRef.current.castState ||
+            castState.hasSession !== prevCastStateRef.current.hasSession ||
+            castState.hasClient !== prevCastStateRef.current.hasClient ||
+            castState.managerState !== prevCastStateRef.current.managerState
+        );
+
+        if (managerRef.current && hasStateChanged) {
             managerRef.current.updateCastState(
                 castState.castState,
                 castState.castSession,
@@ -136,37 +169,63 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
             
             // Actualizar estado local
             setStatus(managerRef.current.getStatus());
+            
+            prevCastStateRef.current = castState;
         }
-    }, [castState]);
+    }, [
+        castState.castState,
+        castState.hasSession,
+        castState.hasClient,
+        castState.managerState
+    ]); // Solo las propiedades que realmente importan
     
-    // Auto-actualización periódica
+    // Auto-actualización periódica optimizada
     useEffect(() => {
         if (enableAutoUpdate && managerRef.current) {
-            updateIntervalRef.current = setInterval(() => {
+            const updateData = () => {
                 if (managerRef.current) {
                     const newStatus = managerRef.current.getStatus();
-                    setStatus(newStatus);
-                    
                     const newCurrentContent = managerRef.current.getCurrentContent();
-                    setCurrentContent(newCurrentContent);
-                    
                     const newProgressInfo = managerRef.current.getProgressInfo();
-                    setProgressInfo(newProgressInfo);
+                    
+                    // Solo actualizar si hay cambios reales
+                    setStatus((prevStatus: CastManagerStatus) => {
+                        if (JSON.stringify(prevStatus) !== JSON.stringify(newStatus)) {
+                            return newStatus;
+                        }
+                        return prevStatus;
+                    });
+                    
+                    setCurrentContent((prevContent: CastContentInfo) => {
+                        if (JSON.stringify(prevContent) !== JSON.stringify(newCurrentContent)) {
+                            return newCurrentContent;
+                        }
+                        return prevContent;
+                    });
+                    
+                    setProgressInfo((prevProgress: CastProgressInfo) => {
+                        if (JSON.stringify(prevProgress) !== JSON.stringify(newProgressInfo)) {
+                            return newProgressInfo;
+                        }
+                        return prevProgress;
+                    });
                 }
-            }, autoUpdateInterval);
+            };
+
+            updateIntervalRef.current = setInterval(updateData, autoUpdateInterval);
             
             return () => {
                 if (updateIntervalRef.current) {
                     clearInterval(updateIntervalRef.current);
+                    updateIntervalRef.current = null;
                 }
             };
         }
-        
-        // Retorno explícito de undefined cuando auto-update está deshabilitado
+
         return undefined;
-    }, [enableAutoUpdate, autoUpdateInterval]);
+    }, [enableAutoUpdate, autoUpdateInterval]); // Solo estas dependencias específicas
     
-    // Funciones de acción
+    // Funciones de acción estables
     const loadContent = useCallback(async (config: CastMessageConfig): Promise<CastOperationResult> => {
         if (!managerRef.current) {
             console.warn(`${LOG_PREFIX} [useCastManager] Manager not initialized`);
@@ -264,7 +323,7 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
         return status.isConnected && status.hasClient && status.hasSession;
     }, [status.isConnected, status.hasClient, status.hasSession]);
     
-    // Debug effect
+    // Debug effect simplificado
     useEffect(() => {
         if (managerConfig.debugMode) {
             console.log(`${LOG_PREFIX} [useCastManager] Status updated:`, {
@@ -276,7 +335,7 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
                 hasProgressInfo: !!progressInfo
             });
         }
-    }, [status, currentContent, progressInfo, managerConfig.debugMode]);
+    }, [status.state, status.isConnected, status.isLoading, status.isContentLoaded, currentContent, progressInfo, managerConfig.debugMode]);
     
     return {
         // Estado
@@ -356,7 +415,10 @@ export function useSimpleCastManager(): {
  */
 
 export function useCastManagerStatus(): CastManagerStatus {
-    const { status } = useCastManager({ enableAutoUpdate: false });
+    const { status } = useCastManager({ 
+        enableAutoUpdate: false,
+        debugMode: false
+    });
     return status;
 }
 
@@ -366,6 +428,10 @@ export function useCastManagerStatus(): CastManagerStatus {
  */
 
 export function useCastManagerProgress(): CastProgressInfo | undefined {
-    const { progressInfo } = useCastManager({ enableAutoUpdate: true });
+    const { progressInfo } = useCastManager({ 
+        enableAutoUpdate: true,
+        autoUpdateInterval: 2000, // Menos frecuente
+        debugMode: false
+    });
     return progressInfo;
 }

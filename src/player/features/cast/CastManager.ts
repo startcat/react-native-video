@@ -144,6 +144,9 @@ export class CastManager extends SimpleEventEmitter {
 
             // Construir mensaje Cast
             const castMessage = this.messageBuilder.buildCastMessage(config);
+
+            console.log(`[CastManager] (loadContent) config: ${JSON.stringify(config)}`);
+            console.log(`[CastManager] (loadContent) castMessage: ${JSON.stringify(castMessage)}`);
             
             // Configurar timeout
             this.setupLoadTimeout();
@@ -394,20 +397,34 @@ export class CastManager extends SimpleEventEmitter {
      */
 
     private updateInternalState(): void {
-        const previousState = this.state;
+        const previousManagerState = this.state;
         
-        if (!previousState || previousState === CastState.NOT_CONNECTED) {
+        // Actualizar estado basado en el estado de Cast nativo
+        if (!this.castState || this.castState === CastState.NOT_CONNECTED) {
             this.state = CastManagerState.DISCONNECTED;
-        } else if (previousState === CastState.CONNECTING) {
+        } else if (this.castState === CastState.CONNECTING) {
             this.state = CastManagerState.CONNECTING;
-        } else if (previousState === CastState.CONNECTED) {
+        } else if (this.castState === CastState.CONNECTED) {
             if (this.isLoading) {
                 this.state = CastManagerState.LOADING;
             } else if (this.castMediaStatus) {
+                // Mapear estado del reproductor a estado del manager
                 this.state = this.mapMediaStateToManagerState(this.castMediaStatus.playerState);
             } else {
                 this.state = CastManagerState.CONNECTED;
             }
+        }
+        
+        // Log para depuración del estado
+        if (previousManagerState !== this.state) {
+            this.log('Manager state changed', {
+                from: previousManagerState,
+                to: this.state,
+                castState: this.castState,
+                isLoading: this.isLoading,
+                hasMediaStatus: !!this.castMediaStatus,
+                playerState: this.castMediaStatus?.playerState
+            });
         }
         
         // Limpiar contenido si se desconecta
@@ -472,7 +489,11 @@ export class CastManager extends SimpleEventEmitter {
         this.log('Registering Cast event listeners');
         
         const onPlaybackStarted = this.castClient.onMediaPlaybackStarted(() => {
-            this.log('Playback started');
+            this.log('Playback started - clearing loading state');
+            
+            // Limpiar estado de carga y actualizar estado interno
+            this.setLoadingState(false);
+            
             this.emitEvent(CastManagerEvent.PLAYBACK_STARTED);
         });
         
@@ -639,11 +660,25 @@ export class CastManager extends SimpleEventEmitter {
      */
 
     private setLoadingState(loading: boolean): void {
+        const previousLoading = this.isLoading;
+        const previousState = this.state;
+        
         this.isLoading = loading;
+        
         if (loading) {
             this.state = CastManagerState.LOADING;
         } else {
             this.updateInternalState();
+        }
+        
+        // Log para depuración de cambios de loading
+        if (previousLoading !== loading || previousState !== this.state) {
+            this.log('Loading state changed', {
+                from: { loading: previousLoading, state: previousState },
+                to: { loading: this.isLoading, state: this.state },
+                hasMediaStatus: !!this.castMediaStatus,
+                playerState: this.castMediaStatus?.playerState
+            });
         }
     }
 
