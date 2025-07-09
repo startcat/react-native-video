@@ -18,7 +18,7 @@ import {
     SelectedVideoTrackType
 } from '../../../types';
 import Video, { type VideoRef } from '../../../Video';
-import { Overlay } from '../../overlay';
+import { Overlay } from '../../components/overlay';
 const BackgroundPoster = React.lazy(() => import('../../components/poster'));
 
 import {
