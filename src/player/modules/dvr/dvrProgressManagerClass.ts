@@ -1,3 +1,8 @@
+
+import {
+    Platform,
+} from 'react-native';
+
 import {
     DVR_PLAYBACK_TYPE,
     type IBasicProgram,
@@ -58,7 +63,7 @@ export class DVRProgressManagerClass {
 
     private _pauseStartTime:number;
     private _totalPauseTime:number;
-    private _pauseUpdateInterval:NodeJS.Timeout | null = null;
+    private _pauseUpdateInterval:ReturnType<typeof setInterval> | null = null;
 
     private _isPaused:boolean = false;
     private _isBuffering:boolean = false;
@@ -167,11 +172,14 @@ export class DVRProgressManagerClass {
      * 
      */
 
-    checkInitialSeek() {
-        console.log(`[Player] (DVR Progress Manager) checkInitialSeek`);
-        setTimeout(() => {
-            this.goToLive();
-        }, 300);
+    checkInitialSeek(mode:'player' | 'cast') {
+        console.log(`[Player] (DVR Progress Manager) checkInitialSeek for ${mode}`);
+
+        if (mode === 'player' && Platform.OS === 'ios') {
+            setTimeout(() => {
+                this.goToLive();
+            }, 300);
+        }
     }
   
     /*
