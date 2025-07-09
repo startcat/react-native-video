@@ -137,7 +137,7 @@ export class CastMessageBuilder {
      *
      */
 
-    private generateContentId(config: CastMessageConfig): string {
+    private generateUniqueId(config: CastMessageConfig): string {
         const { source, metadata } = config;
         const prefix = this.config.contentIdPrefix || '';
         
@@ -151,6 +151,17 @@ export class CastMessageBuilder {
         const timestamp = Date.now();
         
         return `${prefix}${urlHash}_${timestamp}`;
+    }
+
+    /*
+     *  Genera el contentId
+     *
+     */
+
+    private generateContentId(config: CastMessageConfig): string {
+        const { source } = config;
+    
+        return source.uri;
     }
 
     /*
