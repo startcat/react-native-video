@@ -206,24 +206,49 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     
     // Controles específicos
     const play = useCallback(() => executeControl({ command: CastControlCommand.PLAY }), [executeControl]);
+
     const pause = useCallback(() => executeControl({ command: CastControlCommand.PAUSE }), [executeControl]);
+
     const seek = useCallback((time: number) => executeControl({ 
         command: CastControlCommand.SEEK, 
         seekTime: time 
     }), [executeControl]);
+
     const skipForward = useCallback((seconds: number) => executeControl({ 
         command: CastControlCommand.SKIP_FORWARD, 
         value: seconds 
     }), [executeControl]);
+    
     const skipBackward = useCallback((seconds: number) => executeControl({ 
         command: CastControlCommand.SKIP_BACKWARD, 
         value: seconds 
     }), [executeControl]);
+    
+    const stop = useCallback(() => executeControl({ command: CastControlCommand.STOP }), [executeControl]);
+    
     const mute = useCallback(() => executeControl({ command: CastControlCommand.MUTE }), [executeControl]);
+    
     const unmute = useCallback(() => executeControl({ command: CastControlCommand.UNMUTE }), [executeControl]);
+    
     const setVolume = useCallback((volume: number) => executeControl({ 
         command: CastControlCommand.VOLUME, 
         volumeLevel: volume 
+    }), [executeControl]);
+
+    // Controles de pistas
+    const setAudioTrack = useCallback((trackIndex: number) => executeControl({
+        command: CastControlCommand.SET_AUDIO_TRACK,
+        audioTrackIndex: trackIndex
+    }), [executeControl]);
+    
+    const setSubtitleTrack = useCallback((trackIndex: number) => executeControl({
+        command: CastControlCommand.SET_SUBTITLE_TRACK,
+        subtitleTrackIndex: trackIndex
+    }), [executeControl]);
+    
+    const disableSubtitles = useCallback(() => executeControl({
+        command: CastControlCommand.SET_SUBTITLE_TRACK,
+        subtitleTrackIndex: -1
     }), [executeControl]);
     
     // Utilidades
@@ -269,11 +294,17 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
         seek,
         skipForward,
         skipBackward,
+        stop,
         
         // Controles de audio
         mute,
         unmute,
         setVolume,
+
+        // Controles de pistas
+        setAudioTrack,
+        setSubtitleTrack,
+        disableSubtitles,
         
         // Utilidades
         isSameContent,

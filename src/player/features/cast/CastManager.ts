@@ -234,6 +234,42 @@ export class CastManager extends SimpleEventEmitter {
                 case CastControlCommand.STOP:
                     await this.castClient!.stop();
                     break;
+
+                    case CastControlCommand.SET_AUDIO_TRACK:
+                        if (params.audioTrackIndex !== undefined) {
+                            // Obtener pistas de audio disponibles
+                            const audioTracks = this.castMediaStatus?.mediaInfo?.tracks?.filter(
+                                (track: any) => track.type === 'AUDIO'
+                            ) || [];
+                            
+                            if (audioTracks[params.audioTrackIndex]) {
+                                await this.castClient!.setActiveTrackIds([audioTracks[params.audioTrackIndex].trackId]);
+                                this.log('Audio track changed', { trackIndex: params.audioTrackIndex });
+                            } else {
+                                throw new Error(`Audio track index ${params.audioTrackIndex} not available`);
+                            }
+                        }
+                        break;
+                        
+                    case CastControlCommand.SET_SUBTITLE_TRACK:
+                        if (params.subtitleTrackIndex !== undefined) {
+                            // Obtener pistas de subtítulos disponibles
+                            const subtitleTracks = this.castMediaStatus?.mediaInfo?.tracks?.filter(
+                                (track: any) => track.type === 'TEXT'
+                            ) || [];
+                            
+                            if (params.subtitleTrackIndex === -1) {
+                                // Desactivar subtítulos
+                                await this.castClient!.setActiveTrackIds([]);
+                                this.log('Subtitles disabled');
+                            } else if (subtitleTracks[params.subtitleTrackIndex]) {
+                                await this.castClient!.setActiveTrackIds([subtitleTracks[params.subtitleTrackIndex].trackId]);
+                                this.log('Subtitle track changed', { trackIndex: params.subtitleTrackIndex });
+                            } else {
+                                throw new Error(`Subtitle track index ${params.subtitleTrackIndex} not available`);
+                            }
+                        }
+                        break;
                     
                 default:
                     throw new Error(`Unsupported control command: ${params.command}`);

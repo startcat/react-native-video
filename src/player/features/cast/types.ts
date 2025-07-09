@@ -151,6 +151,8 @@ export interface CastControlParams {
     value?: number | boolean;
     seekTime?: number;
     volumeLevel?: number;
+    audioTrackIndex?: number;
+    subtitleTrackIndex?: number;
 }
 
 /*
@@ -229,11 +231,17 @@ export interface CastManagerHookResult {
     seek: (time: number) => Promise<enums.CastOperationResult>;
     skipForward: (seconds: number) => Promise<enums.CastOperationResult>;
     skipBackward: (seconds: number) => Promise<enums.CastOperationResult>;
+    stop: () => Promise<enums.CastOperationResult>;
     
     // Controles de audio
     mute: () => Promise<enums.CastOperationResult>;
     unmute: () => Promise<enums.CastOperationResult>;
     setVolume: (volume: number) => Promise<enums.CastOperationResult>;
+
+    // Controles de pistas
+    setAudioTrack: (trackIndex: number) => Promise<enums.CastOperationResult>;
+    setSubtitleTrack: (trackIndex: number) => Promise<enums.CastOperationResult>;
+    disableSubtitles: () => Promise<enums.CastOperationResult>;
     
     // Utilidades
     isSameContent: (config: CastMessageConfig) => boolean;

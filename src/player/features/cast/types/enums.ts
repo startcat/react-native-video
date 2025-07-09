@@ -52,7 +52,9 @@ export enum CastControlCommand {
     VOLUME = 'volume',
     SKIP_FORWARD = 'skip_forward',
     SKIP_BACKWARD = 'skip_backward',
-    STOP = 'stop'
+    STOP = 'stop',
+    SET_AUDIO_TRACK = 'set_audio_track',
+    SET_SUBTITLE_TRACK = 'set_subtitle_track'
 }
 
 /*
