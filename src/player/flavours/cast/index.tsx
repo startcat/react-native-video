@@ -687,7 +687,7 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             title: props.playerMetadata?.title,
             subtitle: props.playerMetadata?.subtitle,
             description: props.playerMetadata?.description,
-            liveStartDate: props.liveStartDate,
+            liveStartDate: props.liveStartDate ? parseInt(props.liveStartDate, 10) : undefined,
             adTagUrl: props.playerAds?.adTagUrl,
             poster: props.playerMetadata?.squaredPoster || props.playerMetadata?.poster,
             isLive: !!props.playerProgress?.isLive,

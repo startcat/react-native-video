@@ -28,7 +28,7 @@ export class MediaFlowManager {
     private config?: MediaFlowConfig;
     private isInitialized = false;
     private errorCount = 0;
-    private transitionTimeout?: NodeJS.Timeout;
+    private transitionTimeout?: ReturnType<typeof setTimeout>;
   
     // Cache de sources
     private tudumSource?: ExtendedVideoSource;

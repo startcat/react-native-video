@@ -15,11 +15,7 @@ import {
     type AudioPlayerProps,
     type IAudioPlayerContent,
     type ICommonData,
-    type IPlayerProgress,
-    CONTROL_ACTION,
-    STREAM_TYPE,
-    MEDIA_TYPE,
-    DVR_PLAYBACK_TYPE
+    CONTROL_ACTION
 } from '../../types';
 
 const PLAYER_MAX_HEIGHT = 80;
@@ -42,7 +38,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const [contentId, setContentId] = useState<IAudioPlayerContent | null>();
     const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo | null>(null);
 
-    const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
+    const watchingProgressIntervalObj = useRef<ReturnType<typeof setTimeout>>();
 
     const castState = useCastState();
 

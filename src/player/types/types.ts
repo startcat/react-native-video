@@ -122,39 +122,13 @@ export interface ILanguagesMapping {
     [code: string]: string;
 }
 
-export interface ICastMessageMetadata {
-    title: string;
-    subtitle: string;
-    images: Array<{ url: string }>;
-    isLive: boolean;
-    licenseAcquisitionURL: string | null;
-    progress: null;
-}
-
-export interface ICastMediaInfo {
-    contentId: string;
-    metadata: ICastMessageMetadata;
-}
-
-export interface ICastMessage {
-    mediaInfo: ICastMediaInfo;
-    customData: {
-        streamStart: number;
-        isLive: boolean;
-        youbora?: IMappedYoubora;
-        sourceDescription: {
-            metadata: ICastMessageMetadata;
-        };
-    };
-    autoplay: boolean;
-    startTime: number;
-}
+// Cast types moved to /src/player/features/cast/types.ts for better organization
 export interface ICastMetadata {
     id?:number;
     title?:string;
     subtitle?:string;
     description?:string;
-    liveStartDate?:string;
+    liveStartDate?:number;
     adTagUrl?: string;
     poster?: string;
     squaredPoster?: string;
