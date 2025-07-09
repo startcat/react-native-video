@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     CastState,
     useCastSession,
@@ -11,11 +11,6 @@ import {
 import { CAST_STATE_MAPPING, LOG_PREFIX } from '../constants';
 import { CastManagerState, CastStateInfo, CastVolumeInfo, UseCastStateConfig } from '../types';
 import { getCastConnectivityInfo } from '../utils/castUtils';
-
-/*
- *  Hook para gestionar estado de Cast de forma reactiva
- *  Todas las interfaces ahora están consolidadas en types.ts
- */
 
 /*
  *  Hook para gestionar estado de Cast de forma reactiva
@@ -43,9 +38,10 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         createInitialStateInfo()
     );
     
-    // Referencias para comparación
+    // Referencias para comparación y evitar bucles
     const previousStateRef = useRef<CastStateInfo>(stateInfo);
     const previousConnectionRef = useRef<boolean>(false);
+    const isUpdatingRef = useRef<boolean>(false);
     
     // Función para crear estado inicial
     function createInitialStateInfo(): CastStateInfo {
@@ -73,7 +69,7 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         };
     }
     
-    // Función para mapear estado nativo a estado del manager
+    // Función para mapear estado nativo a estado del manager (memoizada)
     const mapCastStateToManagerState = useCallback((nativeCastState?: CastState): CastManagerState => {
         if (!nativeCastState) {
             return CastManagerState.DISCONNECTED;
@@ -84,7 +80,7 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         return CAST_STATE_MAPPING[stateKey] || CastManagerState.DISCONNECTED;
     }, []);
     
-    // Función para crear nuevo estado
+    // Función para crear nuevo estado (memoizada)
     const createNewStateInfo = useCallback((
         nativeCastState?: CastState,
         session?: any,
@@ -120,58 +116,87 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         };
     }, [mapCastStateToManagerState]);
     
-    // Función para actualizar estado
+    // Función para actualizar estado de forma optimizada
     const updateStateInfo = useCallback((newState: CastStateInfo) => {
-        const previousState = previousStateRef.current;
-        const previousConnection = previousConnectionRef.current;
+        // Evitar actualizaciones concurrentes
+        if (isUpdatingRef.current) {
+            return;
+        }
         
-        // Verificar si hay cambios significativos
-        const hasStateChange = (
-            newState.castState !== previousState.castState ||
-            newState.hasSession !== previousState.hasSession ||
-            newState.hasClient !== previousState.hasClient ||
-            newState.managerState !== previousState.managerState
-        );
+        isUpdatingRef.current = true;
         
-        const hasConnectionChange = newState.isConnected !== previousConnection;
-        
-        if (hasStateChange || hasConnectionChange) {
-            if (debugMode) {
-                console.log(`${LOG_PREFIX} [useCastState] State updated:`, {
-                    previous: {
-                        castState: previousState.castState,
-                        managerState: previousState.managerState,
-                        isConnected: previousState.isConnected
-                    },
-                    current: {
-                        castState: newState.castState,
-                        managerState: newState.managerState,
-                        isConnected: newState.isConnected
+        try {
+            const previousState = previousStateRef.current;
+            const previousConnection = previousConnectionRef.current;
+            
+            // Verificar si hay cambios significativos
+            const hasStateChange = (
+                newState.castState !== previousState.castState ||
+                newState.hasSession !== previousState.hasSession ||
+                newState.hasClient !== previousState.hasClient ||
+                newState.managerState !== previousState.managerState
+            );
+            
+            const hasConnectionChange = newState.isConnected !== previousConnection;
+            
+            if (hasStateChange || hasConnectionChange) {
+                if (debugMode) {
+                    console.log(`${LOG_PREFIX} [useCastState] State updated:`, {
+                        previous: {
+                            castState: previousState.castState,
+                            managerState: previousState.managerState,
+                            isConnected: previousState.isConnected
+                        },
+                        current: {
+                            castState: newState.castState,
+                            managerState: newState.managerState,
+                            isConnected: newState.isConnected
+                        }
+                    });
+                }
+                
+                setStateInfo(newState);
+                previousStateRef.current = newState;
+                previousConnectionRef.current = newState.isConnected;
+                
+                // Emitir callbacks
+                if (hasStateChange && onStateChange) {
+                    // Usar setTimeout para evitar que el callback cause más renders síncronos
+                    setTimeout(() => onStateChange(newState, previousState), 0);
+                }
+                
+                if (hasConnectionChange && onConnectionChange) {
+                    setTimeout(() => onConnectionChange(newState.isConnected, previousConnection), 0);
+                }
+            } else {
+                // Actualizar solo timestamps y streamPosition sin cambio de estado
+                setStateInfo((prev: CastStateInfo) => {
+                    // Solo actualizar si streamPosition realmente cambió
+                    if (prev.castStreamPosition !== newState.castStreamPosition) {
+                        return {
+                            ...prev,
+                            castStreamPosition: newState.castStreamPosition,
+                            lastUpdate: Date.now()
+                        };
                     }
+                    return prev;
                 });
             }
-            
-            setStateInfo(newState);
-            previousStateRef.current = newState;
-            previousConnectionRef.current = newState.isConnected;
-            
-            // Emitir callbacks
-            if (hasStateChange && onStateChange) {
-                onStateChange(newState, previousState);
-            }
-            
-            if (hasConnectionChange && onConnectionChange) {
-                onConnectionChange(newState.isConnected, previousConnection);
-            }
-        } else {
-            // Actualizar solo timestamps sin cambio de estado
-            setStateInfo((prev: CastStateInfo) => ({
-                ...prev,
-                castStreamPosition: newState.castStreamPosition,
-                lastUpdate: Date.now()
-            }));
+        } finally {
+            isUpdatingRef.current = false;
         }
     }, [debugMode, onStateChange, onConnectionChange]);
+
+    // Crear hash para detectar cambios reales en las dependencias
+    const dependencyHash = useMemo(() => {
+        return JSON.stringify({
+            castState: castState,
+            hasSession: !!castSession,
+            hasClient: !!castClient,
+            hasMediaStatus: !!castMediaStatus,
+            streamPosition: castStreamPosition
+        });
+    }, [castState, castSession, castClient, castMediaStatus, castStreamPosition]);
     
     // Efecto para actualizar estado cuando cambian los hooks nativos
     useEffect(() => {
@@ -184,17 +209,9 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         );
         
         updateStateInfo(newState);
-    }, [
-        castState,
-        castSession,
-        castClient,
-        castMediaStatus,
-        castStreamPosition,
-        createNewStateInfo,
-        updateStateInfo
-    ]);
+    }, [dependencyHash, createNewStateInfo, updateStateInfo]);
     
-    // Debug effect
+    // Debug effect optimizado
     useEffect(() => {
         if (debugMode) {
             console.log(`${LOG_PREFIX} [useCastState] Cast hooks updated:`, {
@@ -205,7 +222,7 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
                 streamPosition: castStreamPosition
             });
         }
-    }, [castState, castSession, castClient, castMediaStatus, castStreamPosition, debugMode]);
+    }, [dependencyHash, debugMode]);
     
     return stateInfo;
 }
@@ -223,7 +240,9 @@ export function useCastConnectivity(): {
 } {
     const castState = useNativeCastState();
     
-    return getCastConnectivityInfo(castState || 'NOT_CONNECTED');
+    return useMemo(() => {
+        return getCastConnectivityInfo(castState || 'NOT_CONNECTED');
+    }, [castState]);
 }
 
 /*
@@ -236,7 +255,9 @@ export function useCastReady(): boolean {
     const castSession = useCastSession();
     const castClient = useRemoteMediaClient();
     
-    return castState === CastState.CONNECTED && !!castSession && !!castClient;
+    return useMemo(() => {
+        return castState === CastState.CONNECTED && !!castSession && !!castClient;
+    }, [castState, castSession, castClient]);
 }
 
 /*
@@ -255,21 +276,23 @@ export function useCastProgress(enabled: boolean = true): {
     const castMediaStatus = useMediaStatus();
     const castStreamPosition = useStreamPosition(enabled ? 1 : 0);
     
-    const currentTime = castStreamPosition || 0;
-    const duration = castMediaStatus?.mediaInfo?.streamDuration || 0;
-    const progress = duration > 0 ? currentTime / duration : 0;
-    const isBuffering = castMediaStatus?.playerState === 'BUFFERING' || 
-                       castMediaStatus?.playerState === 'LOADING';
-    const isPaused = castMediaStatus?.playerState === 'PAUSED';
-    
-    return {
-        currentTime,
-        duration,
-        progress,
-        isBuffering,
-        isPaused,
-        position: currentTime
-    };
+    return useMemo(() => {
+        const currentTime = castStreamPosition || 0;
+        const duration = castMediaStatus?.mediaInfo?.streamDuration || 0;
+        const progress = duration > 0 ? currentTime / duration : 0;
+        const isBuffering = castMediaStatus?.playerState === 'BUFFERING' || 
+                           castMediaStatus?.playerState === 'LOADING';
+        const isPaused = castMediaStatus?.playerState === 'PAUSED';
+        
+        return {
+            currentTime,
+            duration,
+            progress,
+            isBuffering,
+            isPaused,
+            position: currentTime
+        };
+    }, [castMediaStatus, castStreamPosition]);
 }
 
 /*
@@ -287,38 +310,70 @@ export function useCastVolume(): CastVolumeInfo {
         controlType: 'master'
     });
     
+    // Evitar actualizaciones innecesarias con un ref de comparación
+    const lastSessionRef = useRef(castSession);
+    const lastMediaStatusRef = useRef(castMediaStatus);
+    
     useEffect(() => {
+        // Solo ejecutar si realmente cambió la sesión o el estado del media
+        if (lastSessionRef.current === castSession && lastMediaStatusRef.current === castMediaStatus) {
+            return;
+        }
+        
+        lastSessionRef.current = castSession;
+        lastMediaStatusRef.current = castMediaStatus;
+        
         if (castSession) {
             // Obtener nivel de volumen
             castSession.getVolume().then((volume: number) => {
-                setVolumeInfo((prev: CastVolumeInfo) => ({ 
-                    ...prev, 
-                    level: volume,
-                    controlType: 'master'
-                }));
+                setVolumeInfo((prev: CastVolumeInfo) => {
+                    if (prev.level !== volume || prev.controlType !== 'master') {
+                        return { 
+                            ...prev, 
+                            level: volume,
+                            controlType: 'master'
+                        };
+                    }
+                    return prev;
+                });
             }).catch(() => {
-                setVolumeInfo((prev: CastVolumeInfo) => ({ 
-                    ...prev, 
-                    controlType: 'none'
-                }));
+                setVolumeInfo((prev: CastVolumeInfo) => {
+                    if (prev.controlType !== 'none') {
+                        return { 
+                            ...prev, 
+                            controlType: 'none'
+                        };
+                    }
+                    return prev;
+                });
             });
             
             // Obtener estado de mute
             castSession.isMute().then((isMuted: boolean) => {
-                setVolumeInfo((prev: CastVolumeInfo) => ({ 
-                    ...prev, 
-                    muted: isMuted 
-                }));
+                setVolumeInfo((prev: CastVolumeInfo) => {
+                    if (prev.muted !== isMuted) {
+                        return { 
+                            ...prev, 
+                            muted: isMuted 
+                        };
+                    }
+                    return prev;
+                });
             }).catch(() => {
                 // Ignore error
             });
         } else {
             // Reset cuando no hay sesión
-            setVolumeInfo({ 
-                level: 0.5, 
-                muted: false, 
-                stepInterval: 0.05,
-                controlType: 'none'
+            setVolumeInfo((prev: CastVolumeInfo) => {
+                if (prev.level !== 0.5 || prev.muted !== false || prev.controlType !== 'none') {
+                    return { 
+                        level: 0.5, 
+                        muted: false, 
+                        stepInterval: 0.05,
+                        controlType: 'none'
+                    };
+                }
+                return prev;
             });
         }
     }, [castSession, castMediaStatus]);
