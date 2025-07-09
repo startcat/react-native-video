@@ -1,27 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, type EmitterSubscription } from 'react-native';
-import {
-    CastState,
-    MediaPlayerState,
-    useCastSession,
-    useCastState,
-    useMediaStatus,
-    useRemoteMediaClient,
-    useStreamPosition,
-} from 'react-native-google-cast';
-import { BackgroundPoster } from '../../components/poster';
+import { View } from 'react-native';
+
 import { Overlay } from '../../components/overlay';
+import { BackgroundPoster } from '../../components/poster';
 
-import {
-    getSourceMessageForCast,
-    mergeCastMenuData,
-} from '../../utils';
-
-import {
-    changeActiveTracks,
-    invokePlayerAction
-} from '../actions/cast';
-
+import { mergeCastMenuData } from '../../utils';
+import { changeActiveTracks } from '../actions/cast';
 import { styles } from '../styles';
 
 import {
@@ -41,47 +25,24 @@ import {
     type SliderValues
 } from '../../../types';
 
+import { useIsBuffering } from '../../modules/buffer';
+import { DVRProgressManagerClass, type ModeChangeData, type ProgramChangeData } from '../../modules/dvr';
+import { SourceClass, type onSourceChangedProps } from '../../modules/source';
+import { TudumClass } from '../../modules/tudum';
+import { VODProgressManagerClass } from '../../modules/vod';
+
+// Importar el nuevo sistema de Cast
 import {
-    useIsBuffering
-} from '../../modules/buffer';
+    CastManagerState,
+    CastOperationResult,
+    useCastManager,
+    useCastState,
+    type CastContentInfo,
+    type CastMessageConfig
+} from '../../features/cast';
 
-import {
-    SourceClass,
-    type onSourceChangedProps
-} from '../../modules/source';
-
-import {
-    TudumClass
-} from '../../modules/tudum';
-
-import {
-    VODProgressManagerClass,
-} from '../../modules/vod';
-
-import {
-    DVRProgressManagerClass,
-    type ModeChangeData,
-    type ProgramChangeData
-} from '../../modules/dvr';
-
-export function CastFlavour (props: CastFlavourProps): React.ReactElement {
-
+export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
-    const castState = useCastState();
-    const castSession = useCastSession();
-    const castClient = useRemoteMediaClient();
-    const castMediaStatus = useMediaStatus();
-    const castStreamPosition = useStreamPosition(1);
-
-    const lastCastState = useRef<CastState | null>();
-    const eventsRegistered = useRef<boolean>(false);
-    const onMediaPlaybackEndedListener = useRef<EmitterSubscription>();
-    const onMediaPlaybackStartedListener = useRef<EmitterSubscription>();
-
-    const youboraForVideo = useRef<IMappedYoubora>();
-    const drm = useRef<IDrm>();
-    const castMessage = useRef();
-
     const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
     const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
     const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
@@ -92,45 +53,94 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
 
     const isChangingSource = useRef<boolean>(true);
     const sliderValues = useRef<SliderValues>();
-
-    // Player Progress
     const playerProgressRef = useRef<IPlayerProgress>();
-    
+    const youboraForVideo = useRef<IMappedYoubora>();
+    const drm = useRef<IDrm>();
+
     // Source
     const sourceRef = useRef<SourceClass | null>(null);
-
+    
     // Tudum
     const tudumRef = useRef<TudumClass | null>(null);
-
+    
     // VOD Progress Manager
     const vodProgressManagerRef = useRef<VODProgressManagerClass | null>(null);
-
+    
     // DVR Progress Manager
     const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
-
+    
     // Control para evitar mezcla de sources
     const currentSourceType = useRef<'tudum' | 'content' | null>(null);
     const pendingContentSource = useRef<onSourceChangedProps | null>(null);
     
-    // Initialize VOD Progress Manager only once
+    // Usar el nuevo sistema de Cast
+    const castState = useCastState({
+        enableStreamPosition: true,
+        debugMode: true,
+        onStateChange: (newState, previousState) => {
+            console.log(`[Player] (Cast Flavour) Cast state changed:`, {
+                from: previousState.managerState,
+                to: newState.managerState
+            });
+        },
+        onConnectionChange: (isConnected, previouslyConnected) => {
+            console.log(`[Player] (Cast Flavour) Cast connection changed:`, {
+                from: previouslyConnected,
+                to: isConnected
+            });
+        }
+    });
+
+    const castManager = useCastManager({
+        debugMode: true,
+        callbacks: {
+            onStateChange: (state, previousState) => {
+                console.log(`[Player] (Cast Flavour) Cast manager state changed:`, {
+                    from: previousState,
+                    to: state
+                });
+                
+                handleCastStateChange(state, previousState);
+            },
+            onContentLoaded: (content) => {
+                console.log(`[Player] (Cast Flavour) Content loaded:`, content);
+                handleContentLoaded(content);
+            },
+            onContentLoadError: (error, content) => {
+                console.error(`[Player] (Cast Flavour) Content load error:`, error);
+                handleContentLoadError(error, content);
+            },
+            onPlaybackStarted: () => {
+                console.log(`[Player] (Cast Flavour) Playback started`);
+                handlePlaybackStarted();
+            },
+            onPlaybackEnded: () => {
+                console.log(`[Player] (Cast Flavour) Playback ended`);
+                handlePlaybackEnded();
+            },
+            onTimeUpdate: (currentTime, duration) => {
+                setCurrentTime(currentTime);
+                updateProgressManagers(currentTime, duration);
+            },
+            onBufferingChange: (isBuffering) => {
+                setBuffering(isBuffering);
+            }
+        }
+    });
+
+    // Initialize Progress Managers
     if (!vodProgressManagerRef.current) {
         vodProgressManagerRef.current = new VODProgressManagerClass({
-            // Callbacks
             onProgressUpdate: onProgressUpdate,
             onSeekRequest: onSeekRequest
         });
     }
 
-    // Initialize DVR Progress Manager only once
     if (!dvrProgressManagerRef.current) {
         dvrProgressManagerRef.current = new DVRProgressManagerClass({
             playbackType: props.playerProgress?.liveValues?.playbackType,
-
-            // Metadata
             getEPGProgramAt: props.hooks?.getEPGProgramAt,
             getEPGNextProgram: props.hooks?.getEPGNextProgram,
-        
-            // Callbacks
             onModeChange: onDVRModeChange,
             onProgramChange: onDVRProgramChange,
             onProgressUpdate: onProgressUpdate,
@@ -145,10 +155,9 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         onBufferingChange: props.events?.onBuffering
     });
 
+    // Effect para gestionar cambios en manifests
     useEffect(() => {
         console.log(`[Player] (Cast Flavour) useEffect manifests - isAutoNext: ${props.isAutoNext}`);
-        console.log(`[Player] (Cast Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
-        console.log(`[Player] (Cast Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
         console.log(`[Player] (Cast Flavour) useEffect manifests - content ID: ${props.playerMetadata?.id}`);
 
         // Detectar si cambió el ID del contenido
@@ -156,46 +165,188 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         
         if (hasContentChanged) {
             console.log(`[Player] (Cast Flavour) Content ID changed, forcing reload`);
-            // Limpiar estado completamente
-            castMessage.current = undefined;
             setIsContentLoaded(false);
             isChangingSource.current = true;
+            castManager.clearContent();
         }
 
         // Verificar si es contenido live/DVR vs VOD
         const isLiveContent = !!props.playerProgress?.isLive;
 
         if (isLiveContent) {
-            // COMPORTAMIENTO ORIGINAL PARA LIVE/DVR - Sin tudum, sin resets complicados
-            if (!tudumRef.current){
-                tudumRef.current = new TudumClass({
-                    enabled: false, // Nunca tudum para live
-                    getTudumSource: props.hooks?.getTudumSource,
-                    getTudumManifest: props.hooks?.getTudumManifest,
-                });
-            }
+            handleLiveContent();
+        } else {
+            handleVODContent();
+        }
 
-            if (!sourceRef.current){
-                sourceRef.current = new SourceClass({
-                    id: props.playerMetadata?.id,
-                    title: props.playerMetadata?.title,
-                    subtitle: props.playerMetadata?.subtitle,
-                    description: props.playerMetadata?.description,
-                    poster: props.playerMetadata?.poster,
-                    squaredPoster: props.playerMetadata?.squaredPoster,
-                    manifests: props.manifests,
-                    startPosition: props.playerProgress?.currentTime || 0,
-                    headers: props.headers,
-                    getSourceUri: props.hooks?.getSourceUri,
-                    onSourceChanged: onSourceChanged
-                });
-            }
+    }, [props.manifests, props.isAutoNext, props.playerMetadata?.id]);
 
-            // Para live, cargar contenido directamente
-            currentSourceType.current = 'content';
-            isChangingSource.current = true;
+    // Effect para manejar cambios en índices de audio/subtítulos
+    useEffect(() => {
+        setAudioIndex(props.audioIndex!);
+    }, [props.audioIndex]);
+
+    useEffect(() => {
+        setSubtitleIndex(props.subtitleIndex!);
+    }, [props.subtitleIndex]);
+
+    useEffect(() => {
+        if (isContentLoaded) {
+            handleTrackChanges();
+        }
+    }, [audioIndex, subtitleIndex]);
+
+    useEffect(() => {
+        if (menuData) {
+            handleMenuDataReady();
+        }
+    }, [menuData]);
+
+    // Effect para monitorear cambios en el estado de Cast media
+    useEffect(() => {
+        if (castState.castMediaStatus) {
+            const mediaStatus = castState.castMediaStatus;
             
-            sourceRef.current.changeSource({
+            // Manejar cambios en las pistas de media si no tenemos menuData
+            if (!menuData && mediaStatus?.mediaInfo?.mediaTracks) {
+                console.log(`[Player] (Cast Flavour) Processing media tracks from media status change`);
+                
+                if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function') {
+                    setMenuData(props.hooks.mergeCastMenuData(mediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
+                } else {
+                    setMenuData(mergeCastMenuData(mediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
+                }
+            }
+            
+            // Manejar cambios en mute desde el Cast
+            if (castState.castSession) {
+                castState.castSession.isMute().then((isMuted: boolean) => {
+                    if (isMuted !== muted) {
+                        setMuted(isMuted);
+                    }
+                }).catch(() => {
+                    // Ignorar errores
+                });
+            }
+        }
+    }, [castState.castMediaStatus, castState.castSession, menuData, muted]);
+
+    // Handlers para estados de Cast
+    const handleCastStateChange = (state: CastManagerState, previousState: CastManagerState) => {
+        if (state === CastManagerState.CONNECTING && !buffering) {
+            setBuffering(true);
+        } else if (state !== CastManagerState.CONNECTING && state !== CastManagerState.LOADING && buffering) {
+            setBuffering(false);
+        }
+
+        if (state === CastManagerState.PAUSED && !paused) {
+            setPaused(true);
+        } else if (state !== CastManagerState.PAUSED && paused) {
+            setPaused(false);
+        }
+    };
+
+    const handleContentLoaded = (content: CastContentInfo) => {
+        console.log(`[Player] (Cast Flavour) handleContentLoaded`);
+        
+        // Procesar pistas de media para el menú
+        if (castState.castMediaStatus?.mediaInfo?.mediaTracks) {
+            console.log(`[Player] (Cast Flavour) Processing media tracks for menu`);
+            
+            if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function') {
+                setMenuData(props.hooks.mergeCastMenuData(castState.castMediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
+            } else {
+                setMenuData(mergeCastMenuData(castState.castMediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
+            }
+        }
+        
+        // Verificar si el contenido cargado es el mismo que esperamos
+        if (currentSourceType.current === 'content') {
+            const currentContent = sourceRef.current?.playerSource;
+            if (currentContent && castManager.isSameContent(createCastMessageConfig(currentContent, sourceRef.current?.playerSourceDrm))) {
+                console.log(`[Player] (Cast Flavour) Content matches expected content`);
+                setIsContentLoaded(true);
+                setBuffering(false);
+                isChangingSource.current = false;
+                
+                if (props.events?.onStart) {
+                    props.events.onStart();
+                }
+            }
+        } else if (currentSourceType.current === 'tudum') {
+            // Tudum cargado
+            setIsContentLoaded(true);
+            setBuffering(false);
+            isChangingSource.current = false;
+        }
+    };
+
+    const handleContentLoadError = (error: string, content?: CastContentInfo) => {
+        console.error(`[Player] (Cast Flavour) handleContentLoadError:`, error);
+        setBuffering(false);
+        isChangingSource.current = false;
+    };
+
+    const handlePlaybackStarted = () => {
+        console.log(`[Player] (Cast Flavour) handlePlaybackStarted`);
+        
+        if (!isContentLoaded) {
+            // Procesar pistas de media si no se hizo antes
+            if (castState.castMediaStatus?.mediaInfo?.mediaTracks && !menuData) {
+                console.log(`[Player] (Cast Flavour) Processing media tracks for menu in playback started`);
+                
+                if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function') {
+                    setMenuData(props.hooks.mergeCastMenuData(castState.castMediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
+                } else {
+                    setMenuData(mergeCastMenuData(castState.castMediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
+                }
+            }
+            
+            setIsContentLoaded(true);
+            setBuffering(false);
+            isChangingSource.current = false;
+            
+            if (props.events?.onStart) {
+                props.events.onStart();
+            }
+        }
+    };
+
+    const handlePlaybackEnded = () => {
+        console.log(`[Player] (Cast Flavour) handlePlaybackEnded - currentSourceType: ${currentSourceType.current}`);
+        
+        if (currentSourceType.current === 'tudum') {
+            // Acaba la reproducción del Tudum externo
+            console.log(`[Player] (Cast Flavour) Tudum finished, switching to main content`);
+            isChangingSource.current = true;
+            switchFromTudumToContent();
+        } else if (currentSourceType.current === 'content' && props.events?.onEnd) {
+            // Termina el contenido principal
+            console.log(`[Player] (Cast Flavour) Content finished, preparing for possible auto next`);
+            
+            // Preparar tudum para salto automático antes de notificar
+            if (tudumRef.current) {
+                tudumRef.current.prepareForAutoNext();
+            }
+            
+            props.events.onEnd();
+        }
+    };
+
+    const handleLiveContent = () => {
+        console.log(`[Player] (Cast Flavour) handleLiveContent`);
+        
+        // COMPORTAMIENTO ORIGINAL PARA LIVE/DVR - Sin tudum, sin resets complicados
+        if (!tudumRef.current) {
+            tudumRef.current = new TudumClass({
+                enabled: false, // Nunca tudum para live
+                getTudumSource: props.hooks?.getTudumSource,
+                getTudumManifest: props.hooks?.getTudumManifest,
+            });
+        }
+
+        if (!sourceRef.current) {
+            sourceRef.current = new SourceClass({
                 id: props.playerMetadata?.id,
                 title: props.playerMetadata?.title,
                 subtitle: props.playerMetadata?.subtitle,
@@ -204,74 +355,88 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 squaredPoster: props.playerMetadata?.squaredPoster,
                 manifests: props.manifests,
                 startPosition: props.playerProgress?.currentTime || 0,
-                isLive: !!props.playerProgress?.isLive,
                 headers: props.headers,
+                getSourceUri: props.hooks?.getSourceUri,
+                onSourceChanged: onSourceChanged
             });
-
-        } else {
-            // LÓGICA DEL TUDUM SOLO PARA VOD
-            
-            // Reset completo solo para VOD
-            currentSourceType.current = null;
-            pendingContentSource.current = null;
-            sliderValues.current = undefined;
-            setIsContentLoaded(false);
-            
-            // Reset progress managers solo para VOD
-            vodProgressManagerRef.current?.reset();
-            dvrProgressManagerRef.current?.reset();
-
-            // Determinar si debe reproducir tudum (solo para VOD)
-            const shouldPlayTudum = !!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
-            console.log(`[Player] (Cast Flavour) shouldPlayTudum: ${shouldPlayTudum}`);
-
-            if (!tudumRef.current){
-                tudumRef.current = new TudumClass({
-                    enabled: !!props.showExternalTudum,
-                    getTudumSource: props.hooks?.getTudumSource,
-                    getTudumManifest: props.hooks?.getTudumManifest,
-                    isAutoNext: props.isAutoNext
-                });
-            } else {
-                // Actualizar contexto si el tudum ya existe
-                tudumRef.current.updateAutoNextContext(!!props.isAutoNext);
-            }
-
-            if (!sourceRef.current){
-                sourceRef.current = new SourceClass({
-                    id: props.playerMetadata?.id,
-                    title: props.playerMetadata?.title,
-                    subtitle: props.playerMetadata?.subtitle,
-                    description: props.playerMetadata?.description,
-                    poster: props.playerMetadata?.poster,
-                    squaredPoster: props.playerMetadata?.squaredPoster,
-                    manifests: props.manifests,
-                    startPosition: props.playerProgress?.currentTime || 0,
-                    headers: props.headers,
-                    getSourceUri: props.hooks?.getSourceUri,
-                    onSourceChanged: onSourceChanged
-                });
-            }
-
-            // Establecer currentSourceType basado en si vamos a reproducir tudum
-            if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
-                console.log(`[Player] (Cast Flavour) Will play tudum first, then content`);
-                currentSourceType.current = 'tudum';
-                loadTudumSource();
-            } else {
-                console.log(`[Player] (Cast Flavour) Skipping tudum - loading content directly`);
-                currentSourceType.current = 'content';
-                loadContentSource();
-            }
         }
 
-        return () => {
-            unregisterRemoteSubscriptions();
-        };
+        // Para live, cargar contenido directamente
+        currentSourceType.current = 'content';
+        isChangingSource.current = true;
+        
+        sourceRef.current.changeSource({
+            id: props.playerMetadata?.id,
+            title: props.playerMetadata?.title,
+            subtitle: props.playerMetadata?.subtitle,
+            description: props.playerMetadata?.description,
+            poster: props.playerMetadata?.poster,
+            squaredPoster: props.playerMetadata?.squaredPoster,
+            manifests: props.manifests,
+            startPosition: props.playerProgress?.currentTime || 0,
+            isLive: !!props.playerProgress?.isLive,
+            headers: props.headers,
+        });
+    };
 
-    }, [props.manifests, props.isAutoNext, props.playerMetadata?.id]);
+    const handleVODContent = () => {
+        console.log(`[Player] (Cast Flavour) handleVODContent`);
+        
+        // LÓGICA DEL TUDUM SOLO PARA VOD
+        
+        // Reset completo solo para VOD
+        currentSourceType.current = null;
+        pendingContentSource.current = null;
+        sliderValues.current = undefined;
+        setIsContentLoaded(false);
+        
+        // Reset progress managers solo para VOD
+        vodProgressManagerRef.current?.reset();
+        dvrProgressManagerRef.current?.reset();
 
-    // Función para cargar source del tudum
+        // Determinar si debe reproducir tudum (solo para VOD)
+        const shouldPlayTudum = !!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
+        console.log(`[Player] (Cast Flavour) shouldPlayTudum: ${shouldPlayTudum}`);
+
+        if (!tudumRef.current) {
+            tudumRef.current = new TudumClass({
+                enabled: !!props.showExternalTudum,
+                getTudumSource: props.hooks?.getTudumSource,
+                getTudumManifest: props.hooks?.getTudumManifest,
+                isAutoNext: props.isAutoNext
+            });
+        } else {
+            tudumRef.current.updateAutoNextContext(!!props.isAutoNext);
+        }
+
+        if (!sourceRef.current) {
+            sourceRef.current = new SourceClass({
+                id: props.playerMetadata?.id,
+                title: props.playerMetadata?.title,
+                subtitle: props.playerMetadata?.subtitle,
+                description: props.playerMetadata?.description,
+                poster: props.playerMetadata?.poster,
+                squaredPoster: props.playerMetadata?.squaredPoster,
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime || 0,
+                headers: props.headers,
+                getSourceUri: props.hooks?.getSourceUri,
+                onSourceChanged: onSourceChanged
+            });
+        }
+
+        // Establecer currentSourceType basado en si vamos a reproducir tudum
+        if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
+            console.log(`[Player] (Cast Flavour) Will play tudum first, then content`);
+            currentSourceType.current = 'tudum';
+            loadTudumSource();
+        } else {
+            console.log(`[Player] (Cast Flavour) Skipping tudum - loading content directly`);
+            currentSourceType.current = 'content';
+            loadContentSource();
+        }
+    };
+
     const loadTudumSource = () => {
         console.log(`[Player] (Cast Flavour) loadTudumSource`);
         
@@ -280,13 +445,11 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             tudumRef.current.isPlaying = true;
             drm.current = tudumRef.current?.drm;
             
-            console.log(`[Player] (Cast Flavour) Setting tudum source:`, tudumRef.current.source);
-            // Para Cast, preparar el mensaje del tudum
-            prepareCastMessage(tudumRef.current.source, tudumRef.current.drm);
+            const castConfig = createCastMessageConfig(tudumRef.current.source, tudumRef.current.drm);
+            loadCastContent(castConfig);
         }
     };
 
-    // Función para cargar source del contenido
     const loadContentSource = () => {
         console.log(`[Player] (Cast Flavour) loadContentSource`);
         
@@ -306,18 +469,9 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 isLive: !!props.playerProgress?.isLive,
                 headers: props.headers,
             });
-
-            // Si el source ya está listo inmediatamente, forzar la carga
-            setTimeout(() => {
-                if (sourceRef.current?.isReady && currentSourceType.current === 'content') {
-                    console.log(`[Player] (Cast Flavour) Forcing content load - sourceRef is ready`);
-                    setCastSource();
-                }
-            }, 100);
         }
     };
 
-    // Función para cambiar de tudum a contenido
     const switchFromTudumToContent = () => {
         console.log(`[Player] (Cast Flavour) switchFromTudumToContent`);
         
@@ -330,18 +484,19 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         vodProgressManagerRef.current?.reset();
         dvrProgressManagerRef.current?.reset();
         
-        // Limpiar el cast message actual
-        castMessage.current = undefined;
+        // Limpiar el contenido actual de Cast
+        castManager.clearContent();
         
         // Pequeño delay para asegurar que se limpia el source
         setTimeout(() => {
-            console.log(`[Player] (Cast Flavour) switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`)
+            console.log(`[Player] (Cast Flavour) switchFromTudumToContent - pendingContentSource.current`, pendingContentSource.current);
 
             // Si hay un source de contenido pendiente, usarlo directamente
             if (pendingContentSource.current && pendingContentSource.current.isReady) {
                 console.log(`[Player] (Cast Flavour) Loading pending content source directly`);
                 currentSourceType.current = 'content';
-                setCastSource(pendingContentSource.current);
+                const castConfig = createCastMessageConfig(pendingContentSource.current.source!, pendingContentSource.current.drm);
+                loadCastContent(castConfig);
                 pendingContentSource.current = null;
             } else {
                 // Cargar el contenido principal
@@ -352,99 +507,119 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
         }, 100);
     };
 
-    useEffect(() => {
-        setAudioIndex(props.audioIndex!);
-    }, [props.audioIndex]);
-
-    useEffect(() => {
-        setSubtitleIndex(props.subtitleIndex!);
-    }, [props.subtitleIndex]);
-
-    useEffect(() => {
-        // Ajustamos los cambios en las pistas activas
-        if (isContentLoaded){
-            changeActiveTracks(castClient, menuData, audioIndex, subtitleIndex);
-        }
-    }, [audioIndex, subtitleIndex]);
-
-    useEffect(() => {
-        // Montamos las pistas activas de inicio
-        if (menuData){
-            changeActiveTracks(castClient, menuData, audioIndex, subtitleIndex);
-        }
-
-        if (menuData && props.events?.onChangeCommonData){
-            // Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
-            let data:ICommonData = {},
-                audioDefaultIndex = 0,
-                textDefaultIndex = -1;
-
-            if (typeof(audioIndex) === 'number'){
-                audioDefaultIndex = audioIndex;
-            }
-
-            if (typeof(subtitleIndex) === 'number'){
-                textDefaultIndex = subtitleIndex;
-            }
-
-            data.audioIndex = audioDefaultIndex;
-            data.audioLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioDefaultIndex)?.label;
-
-            data.subtitleIndex = textDefaultIndex;
-            data.subtitleLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex)?.label;
+    const onSourceChanged = (data: onSourceChangedProps) => {
+        console.log(`[Player] (Cast Flavour) onSourceChanged - currentSourceType: ${currentSourceType.current}`);
+        console.log(`[Player] (Cast Flavour) onSourceChanged - data:`, data);
         
-            if (data){
-                props.events?.onChangeCommonData(data);
+        if (!sourceRef.current?.isLive && !sourceRef.current?.isDownloaded && currentSourceType.current === 'tudum') {
+            // Si estamos reproduciendo tudum, guardar el source del contenido para después
+            console.log(`[Player] (Cast Flavour) Saving content source for later (tudum is playing)`);
+            pendingContentSource.current = data;
+        } else if (currentSourceType.current === 'content') {
+            // Si ya estamos en modo contenido, procesar normalmente
+            console.log(`[Player] (Cast Flavour) Processing content source normally`);
+            
+            if (data.isReady && data.source) {
+                const castConfig = createCastMessageConfig(data.source, data.drm);
+                loadCastContent(castConfig);
+            }
+        } else {
+            // Estado inicial o indefinido
+            console.log(`[Player] (Cast Flavour) Initial state, processing source`);
+            
+            if (!currentSourceType.current) {
+                currentSourceType.current = 'content';
+            }
+            
+            if (data.isReady && data.source) {
+                const castConfig = createCastMessageConfig(data.source, data.drm);
+                loadCastContent(castConfig);
             }
         }
-    }, [menuData]);
 
-    useEffect(() => {
-        if (castState === CastState.CONNECTING && !buffering){
+        // Actualizar progress reference
+        updatePlayerProgressRef();
+
+        // Reset DVR si es necesario
+        if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
+            dvrProgressManagerRef.current?.reset();
+        }
+    };
+
+    const createCastMessageConfig = (source: any, sourceDrm?: IDrm): CastMessageConfig => {
+        // Preparar Youbora si es necesario
+        if (props.hooks?.getYouboraOptions) {
+            youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.CAST);
+        }
+
+        let startingPoint = props.playerProgress?.currentTime || 0;
+
+        // Para DVR, ajustar el punto de inicio
+        if (sourceRef.current?.isLive && sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
+            startingPoint = sourceRef.current.dvrWindowSeconds;
+        }
+
+        return {
+            source: source,
+            manifest: sourceRef.current?.currentManifest || {},
+            drm: sourceDrm,
+            youbora: youboraForVideo.current,
+            metadata: {
+                id: props.playerMetadata?.id,
+                title: props.playerMetadata?.title,
+                subtitle: props.playerMetadata?.subtitle,
+                description: props.playerMetadata?.description,
+                poster: props.playerMetadata?.squaredPoster || props.playerMetadata?.poster,
+                liveStartDate: props.liveStartDate ? parseInt(props.liveStartDate, 10) : undefined,
+                adTagUrl: props.playerAds?.adTagUrl,
+                hasNext: !!props.events?.onNext,
+                isLive: !!props.playerProgress?.isLive,
+                isDVR: sourceRef.current?.isDVR,
+                startPosition: startingPoint
+            }
+        };
+    };
+
+    const loadCastContent = async (castConfig: CastMessageConfig) => {
+        console.log(`[Player] (Cast Flavour) loadCastContent: ${JSON.stringify(castConfig)}`);
+        
+        try {
             setBuffering(true);
-        } else if (castState !== CastState.CONNECTING && buffering){
-            setBuffering(false);
-        }
-
-        lastCastState.current = castState;
-        tryLoadMedia();
-    }, [castState]);
-
-    useEffect(() => {
-        if (castClient && !eventsRegistered.current){
-            registerRemoteSubscriptions();
-        } else if (!castClient && eventsRegistered.current){
-            unregisterRemoteSubscriptions();
-        }
-
-        tryLoadMedia();
-    }, [castClient]);
-
-    useEffect(() => {
-        if (!castMediaStatus){
-            return;
-        }
-
-        // Loading/Buffering
-        if ((castMediaStatus?.playerState === MediaPlayerState.BUFFERING || castMediaStatus?.playerState === MediaPlayerState.LOADING) && !buffering){
-            setBuffering(true);
-        } else if ((castMediaStatus?.playerState !== MediaPlayerState.BUFFERING && castMediaStatus?.playerState !== MediaPlayerState.LOADING) && buffering){
-            setBuffering(false);
-        }
-
-        // Paused state
-        if (castMediaStatus?.playerState === MediaPlayerState.PAUSED && !paused){
-            onControlsPress(CONTROL_ACTION.PAUSE, true);
-        } else if (castMediaStatus?.playerState !== MediaPlayerState.PAUSED && paused){
-            onControlsPress(CONTROL_ACTION.PAUSE, false);
-        }
-
-        // Duration handling - only for content, not tudum
-        if (currentSourceType.current === 'content' && typeof(castMediaStatus?.mediaInfo?.streamDuration) === 'number' && castMediaStatus?.mediaInfo?.streamDuration) {
-            const duration = castMediaStatus.mediaInfo.streamDuration;
+            isChangingSource.current = true;
             
+            // Verificar si ya tenemos el mismo contenido cargado
+            if (castManager.isSameContent(castConfig)) {
+                console.log(`[Player] (Cast Flavour) Same content already loaded, skipping`);
+                setBuffering(false);
+                isChangingSource.current = false;
+                return;
+            }
+
+            const result = await castManager.loadContent(castConfig);
+            
+            if (result === CastOperationResult.SUCCESS) {
+                console.log(`[Player] (Cast Flavour) Content loaded successfully`);
+                // El callback onContentLoaded manejará el resto
+            } else if (result === CastOperationResult.PENDING) {
+                console.log(`[Player] (Cast Flavour) Content load pending`);
+                // Se cargará cuando Cast esté listo
+            } else {
+                console.error(`[Player] (Cast Flavour) Content load failed`);
+                setBuffering(false);
+                isChangingSource.current = false;
+            }
+        } catch (error) {
+            console.error(`[Player] (Cast Flavour) Error loading cast content:`, error);
+            setBuffering(false);
+            isChangingSource.current = false;
+        }
+    };
+
+    const updateProgressManagers = (currentTime: number, duration: number) => {
+        // Solo procesar progreso para contenido principal, no para tudum
+        if (currentSourceType.current === 'content') {
             if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
-                // Para VOD, establecer la duración
+                // Para VOD
                 vodProgressManagerRef.current?.updatePlayerData({
                     currentTime: currentTime,
                     seekableRange: { start: 0, end: duration },
@@ -464,74 +639,76 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                     isPaused: paused
                 });
             }
-        }
 
-    }, [castMediaStatus]);
-
-    useEffect(() => {
-        // Muted
-        castSession?.isMute().then((value: boolean) => {
-            if (value !== muted){
-                onControlsPress(CONTROL_ACTION.MUTE, !!value);
-            }
-        });
-
-        tryLoadMedia();
-    }, [castSession]);
-
-    useEffect(() => {
-        if (typeof(castStreamPosition) === 'number'){
-            setCurrentTime(castStreamPosition);
-
-            // Solo procesar progreso para contenido principal, no para tudum
-            if (currentSourceType.current === 'content') {
-                if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR){
-                    // Para VOD: mantener la duración que se estableció previamente
-                    const currentDuration = vodProgressManagerRef.current?.duration || 0;
-                    vodProgressManagerRef.current?.updatePlayerData({
-                        currentTime: castStreamPosition,
-                        seekableRange: { start: 0, end: currentDuration },
-                        duration: currentDuration,
-                        isBuffering: isBuffering,
-                        isPaused: paused
-                    });
-                }
-
-                if (sourceRef.current?.isDVR){
-                    // Para DVR, obtener duración del castMediaStatus si está disponible
-                    const duration = castMediaStatus?.mediaInfo?.streamDuration || 0;
-                    dvrProgressManagerRef.current?.updatePlayerData({
-                        currentTime: castStreamPosition,
-                        duration: duration,
-                        seekableRange: { start: 0, end: duration },
-                        isBuffering: isBuffering,
-                        isPaused: paused
-                    });
-                }
-
-                if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData){
-                    const vodDuration = vodProgressManagerRef.current?.duration || 0;
-                    props.events.onChangeCommonData({
-                        time: castStreamPosition,
-                        duration: vodDuration,
-                    });
-                }
+            if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData) {
+                props.events.onChangeCommonData({
+                    time: currentTime,
+                    duration: duration,
+                });
             }
         }
-    }, [castStreamPosition]);
-
-    /*
-     *  Progress Manager Callbacks
-     *
-     */
-
-    function onDVRModeChange(data:ModeChangeData) {
-        console.log(`[Player] (Cast Flavour) onDVRModeChange: ${JSON.stringify(data)}`);
     };
 
-    function onDVRProgramChange(data:ProgramChangeData) {
-        console.log(`[Player] (Cast Flavour) onDVRProgramChange: ${JSON.stringify(data)}`);
+    const handleTrackChanges = () => {
+        // Cambiar pistas de audio/subtítulos en Cast
+        if (isContentLoaded && castState.castClient && menuData) {
+            console.log(`[Player] (Cast Flavour) handleTrackChanges - audio: ${audioIndex}, subtitle: ${subtitleIndex}`);
+            changeActiveTracks(castState.castClient, menuData, audioIndex, subtitleIndex);
+        }
     };
+
+    const handleMenuDataReady = () => {
+        if (menuData && props.events?.onChangeCommonData) {
+            // Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
+            let data: ICommonData = {};
+            let audioDefaultIndex = 0;
+            let textDefaultIndex = -1;
+
+            if (typeof(audioIndex) === 'number') {
+                audioDefaultIndex = audioIndex;
+            }
+
+            if (typeof(subtitleIndex) === 'number') {
+                textDefaultIndex = subtitleIndex;
+            }
+
+            data.audioIndex = audioDefaultIndex;
+            data.audioLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioDefaultIndex)?.label;
+
+            data.subtitleIndex = textDefaultIndex;
+            data.subtitleLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex)?.label;
+
+            if (data) {
+                props.events.onChangeCommonData(data);
+            }
+        }
+    };
+
+    const updatePlayerProgressRef = () => {
+        try {
+            playerProgressRef.current = {
+                ...props.playerProgress,
+                currentTime: currentTime,
+                duration: sliderValues.current?.duration || 0,
+                isPaused: paused,
+                isMuted: muted,
+                isContentLoaded: isContentLoaded,
+                isChangingSource: isChangingSource.current,
+                sliderValues: sliderValues.current,
+            };
+        } catch (ex: any) {
+            console.log(`[Player] (Cast Flavour) updatePlayerProgressRef - error ${ex?.message}`);
+        }
+    };
+
+    // Progress Manager Callbacks
+    function onDVRModeChange(data: ModeChangeData) {
+        console.log(`[Player] (Cast Flavour) onDVRModeChange:`, data);
+    }
+
+    function onDVRProgramChange(data: ProgramChangeData) {
+        console.log(`[Player] (Cast Flavour) onDVRProgramChange:`, data);
+    }
 
     function onProgressUpdate(data: ProgressUpdateData) {
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
@@ -551,378 +728,96 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
                 isLiveEdgePosition: data.isLiveEdgePosition,
             };
 
-            try {
-                playerProgressRef.current = {
-                    ...props.playerProgress,
-                    currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
-                    isPaused: paused,
-                    isMuted: muted,
-                    isContentLoaded: isContentLoaded,
-                    isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
-                    currentProgram: data.currentProgram,
-                };
-            } catch (ex: any) {
-                console.log(`[Player] (Cast Flavour) onProgressUpdate - error ${ex?.message}`);
-            }
-        } else {
-            console.log(`[Player] (Cast Flavour) onProgressUpdate - Ignoring progress update for ${currentSourceType.current}`);
+            updatePlayerProgressRef();
         }
     };
 
-    function onSeekRequest(playerTime:number) {
-        console.log(`[Player] (Cast Flavour) onSeekRequest: ${playerTime}`);
-        // Seek en cast player
-        invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, playerTime, currentTime, sliderValues.current?.duration || 0, castMediaStatus?.liveSeekableRange, props.events?.onSeek);
+    function onSeekRequest(playerTime: number) {
+        console.log(`[Player] (Cast Flavour) onSeekRequest:`, playerTime);
+        castManager.seek(playerTime);
     };
 
-    /*
-     *  Source Cooking
-     *
-     */
-
-    const onSourceChanged = (data:onSourceChangedProps) => {
-        console.log(`[Player] (Cast Flavour) onSourceChanged - currentSourceType: ${currentSourceType.current}`);
-        console.log(`[Player] (Cast Flavour) onSourceChanged - tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-        console.log(`[Player] (Cast Flavour) onSourceChanged - data isReady: ${data.isReady}`);
-        console.log(`[Player] (Cast Flavour) onSourceChanged - data ${JSON.stringify(data)}`);
-        
-        if (!sourceRef.current?.isLive && !sourceRef.current?.isDownloaded && currentSourceType.current === 'tudum') {
-            // Si estamos reproduciendo tudum, guardar el source del contenido para después
-            console.log(`[Player] (Cast Flavour) onSourceChanged - Saving content source for later (tudum is playing)`);
-            pendingContentSource.current = data;
-            
-            // También preparar el progress
-            if (data.isReady) {
-                try {
-                    playerProgressRef.current = {
-                        ...props.playerProgress,
-                        currentTime: currentTime,
-                        duration: sliderValues.current?.duration || 0,
-                        isPaused: paused,
-                        isMuted: muted,
-                        isContentLoaded: isContentLoaded,
-                        isChangingSource: isChangingSource.current,
-                        sliderValues: sliderValues.current,
-                    };
-                } catch (ex: any) {
-                    console.log(`[Player] (Cast Flavour) onSourceChanged - error ${ex?.message}`);
-                }
-            }
-            
-        } else if (currentSourceType.current === 'content') {
-            // Si ya estamos en modo contenido, procesar normalmente
-            console.log(`[Player] (Cast Flavour) onSourceChanged - Processing content source normally`);
-            
-            try {
-                playerProgressRef.current = {
-                    ...props.playerProgress,
-                    currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
-                    isPaused: paused,
-                    isMuted: muted,
-                    isContentLoaded: isContentLoaded,
-                    isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
-                };
-            } catch (ex: any) {
-                console.log(`[Player] (Cast Flavour) onSourceChanged - error ${ex?.message}`);
-            }
-            
-            setCastSource(data);
-            
-        } else {
-            // Estado inicial o indefinido
-            console.log(`[Player] (Cast Flavour) onSourceChanged - Initial state, processing source`);
-            
-            // Si no tenemos tipo definido, debe ser contenido
-            if (!currentSourceType.current) {
-                currentSourceType.current = 'content';
-                console.log(`[Player] (Cast Flavour) onSourceChanged - Setting currentSourceType to content`);
-            }
-            
-            try {
-                playerProgressRef.current = {
-                    ...props.playerProgress,
-                    currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
-                    isPaused: paused,
-                    isMuted: muted,
-                    isContentLoaded: isContentLoaded,
-                    isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
-                };
-            } catch (ex: any) {
-                console.log(`[Player] (Cast Flavour) onSourceChanged - error ${ex?.message}`);
-            }
-            
-            setCastSource(data);
-        }
-
-        // Reset DVR si es necesario
-        if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
-            dvrProgressManagerRef.current?.reset();
-        }
-    };
-
-    const prepareCastMessage = (source: any, sourceDrm?: IDrm) => {
-        console.log(`[Player] (Cast Flavour) prepareCastMessage`);
-        
-        // Preparamos los datos de Youbora
-        if (props.hooks?.getYouboraOptions) {
-            youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.CAST);
-        }
-    
-        let startingPoint = props.playerProgress?.currentTime || 0;
-    
-        // Para DVR, ajustar el punto de inicio
-        if (sourceRef.current?.isLive && sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
-            startingPoint = sourceRef.current.dvrWindowSeconds;
-        }
-    
-        // Montar el mensaje para el Cast
-        const newCastMessage = getSourceMessageForCast(source.uri, sourceRef.current?.currentManifest!, sourceDrm || drm.current, youboraForVideo.current, {
-            id: props.playerMetadata?.id,
-            title: props.playerMetadata?.title,
-            subtitle: props.playerMetadata?.subtitle,
-            description: props.playerMetadata?.description,
-            liveStartDate: props.liveStartDate ? parseInt(props.liveStartDate, 10) : undefined,
-            adTagUrl: props.playerAds?.adTagUrl,
-            poster: props.playerMetadata?.squaredPoster || props.playerMetadata?.poster,
-            isLive: !!props.playerProgress?.isLive,
-            hasNext: !!props.events?.onNext,
-            startPosition: startingPoint
-        });
-    
-        // El contentId debe ser la URL del stream, NO un ID generado
-        // getSourceMessageForCast ya debería establecer esto correctamente
-        if (newCastMessage?.mediaInfo && source.uri) {
-            newCastMessage.mediaInfo.contentId = source.uri;
-            console.log(`[Player] (Cast Flavour) prepareCastMessage - Using stream URL as contentId: ${source.uri}`);
-        }
-    
-        castMessage.current = newCastMessage;
-        
-        // Marcar que estamos cambiando source
-        isChangingSource.current = true;
-        
-        console.log(`[Player] (Cast Flavour) prepareCastMessage - Final message:`, JSON.stringify(newCastMessage));
-        
-        // Llamar directamente a tryLoadMedia sin waitForCastReady
-        tryLoadMedia();
-    };
-
-    const setCastSource = (data?:onSourceChangedProps) => {
-        console.log(`[Player] (Cast Flavour) setCastSource (data isReady ${!!data?.isReady})`);
-        console.log(`[Player] (Cast Flavour) setCastSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
-        console.log(`[Player] (Cast Flavour) setCastSource (currentSourceType ${currentSourceType.current})`);
-    
-        if (data && data?.isReady) {
-            console.log(`[Player] (Cast Flavour) setCastSource - Using provided data`);
-            setBuffering(true);
-            isChangingSource.current = true;
-            drm.current = data.drm;
-            
-            // Limpiar el mensaje anterior para forzar regeneración
-            castMessage.current = undefined;
-            
-            prepareCastMessage(data.source!, data.drm);
-            
-        } else if (sourceRef.current?.isReady) {
-            console.log(`[Player] (Cast Flavour) setCastSource - Using sourceRef`);
-            setBuffering(true);
-            isChangingSource.current = true;
-            drm.current = sourceRef.current.playerSourceDrm;
-            
-            // Limpiar el mensaje anterior para forzar regeneración
-            castMessage.current = undefined;
-            
-            prepareCastMessage(sourceRef.current.playerSource!, sourceRef.current.playerSourceDrm);
-            
-        } else {
-            console.log(`[Player] (Cast Flavour) setCastSource - No valid source available`);
-            
-            // Si no tenemos source listo, esperar un poco y reintentar
-            waitForCastReady(() => {
-                if (sourceRef.current?.isReady) {
-                    console.log(`[Player] (Cast Flavour) setCastSource - Retrying with sourceRef after wait`);
-                    setBuffering(true);
-                    isChangingSource.current = true;
-                    drm.current = sourceRef.current.playerSourceDrm;
-                    castMessage.current = undefined;
-                    prepareCastMessage(sourceRef.current.playerSource!, sourceRef.current.playerSourceDrm);
-                }
-            });
-        }
-    }
-
-    const isCastReady = () => {
-        return castState === CastState.CONNECTED && 
-               castClient && 
-               castSession;
-    };
-
-    const waitForCastReady = (callback: () => void, maxAttempts = 10) => {
-        let attempts = 0;
-        
-        const checkReady = () => {
-            attempts++;
-            
-            if (isCastReady()) {
-                console.log(`[Player] (Cast Flavour) Cast ready after ${attempts} attempts`);
-                callback();
-            } else if (attempts < maxAttempts) {
-                console.log(`[Player] (Cast Flavour) Cast not ready, attempt ${attempts}/${maxAttempts}`);
-                setTimeout(checkReady, 200);
-            } else {
-                console.log(`[Player] (Cast Flavour) Cast not ready after ${maxAttempts} attempts, giving up`);
-                setBuffering(false);
-                isChangingSource.current = false;
-            }
-        };
-        
-        checkReady();
-    };
-
-    // Cast Events
-    const registerRemoteSubscriptions = () => {
-        console.log(`[Player] (Cast Flavour) registerRemoteSubscriptions - castClient: ${!!castClient}`);
-        
-        if (castClient){
-            eventsRegistered.current = true;
-            console.log(`[Player] (Cast Flavour) Registering cast event listeners`);
-    
-            onMediaPlaybackEndedListener.current = castClient.onMediaPlaybackEnded((mediaStatus: typeof castMediaStatus) => {
-                console.log(`[Player] (Cast Flavour) onMediaPlaybackEnded event received`);
-                onEnd();
-            });
-    
-            onMediaPlaybackStartedListener.current = castClient.onMediaPlaybackStarted((mediaStatus: typeof castMediaStatus) => {
-                console.log(`[Player] (Cast Flavour) onMediaPlaybackStarted event received - isContentLoaded: ${isContentLoaded}`);
-                
-                if (!isContentLoaded){
-                    console.log(`[Player] (Cast Flavour) Media playback started, setting up menu data`);
-                    
-                    if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function'){
-                        setMenuData(props.hooks.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
-                    } else {
-                        setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
-                    }
-    
-                    isChangingSource.current = false;
-                    setIsContentLoaded(true);
-                    setBuffering(false);
-                    
-                    console.log(`[Player] (Cast Flavour) Content loaded successfully, calling onStart`);
-    
-                    if (props.events?.onStart){
-                        props.events.onStart();
-                    }
-                } else {
-                    console.log(`[Player] (Cast Flavour) Media playback started but content already loaded`);
-                }
-            });
-            
-            console.log(`[Player] (Cast Flavour) Cast event listeners registered successfully`);
-        } else {
-            console.log(`[Player] (Cast Flavour) Cannot register cast event listeners - no castClient`);
-        }
-    };
-
-    const unregisterRemoteSubscriptions = () => {
-        if (onMediaPlaybackEndedListener.current){
-            onMediaPlaybackEndedListener.current.remove();
-            onMediaPlaybackEndedListener.current = undefined;
-        }
-
-        if (onMediaPlaybackStartedListener.current){
-            onMediaPlaybackStartedListener.current.remove();
-            onMediaPlaybackStartedListener.current = undefined;
-        }
-
-        eventsRegistered.current = false;
-    }
-
-    // Functions
-    const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
+    // Control handlers
+    const onControlsPress = (id: CONTROL_ACTION, value?: number | boolean) => {
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'audioIndex', 'subtitleIndex'];
 
         console.log(`[Player] (Cast Flavour) onControlsPress: ${id} (${value})`);
 
-        if (id === CONTROL_ACTION.PAUSE){
+        if (id === CONTROL_ACTION.PAUSE) {
             setPaused(!!value);
+            if (value) {
+                castManager.pause();
+            } else {
+                castManager.play();
+            }
         }
 
-        if (id === CONTROL_ACTION.MUTE){
+        if (id === CONTROL_ACTION.MUTE) {
             setMuted(!!value);
+            if (value) {
+                castManager.mute();
+            } else {
+                castManager.unmute();
+            }
         }
 
-        if (id === CONTROL_ACTION.NEXT && props.events?.onNext){
+        if (id === CONTROL_ACTION.VOLUME && typeof value === 'number') {
+            castManager.setVolume(value);
+        }
+
+        if (id === CONTROL_ACTION.NEXT && props.events?.onNext) {
             setIsContentLoaded(false);
             props.events?.onNext();
         }
 
-        if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious){
+        if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious) {
             setIsContentLoaded(false);
             props.events.onPrevious();
         }
 
-        if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR){
+        if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR) {
             // Volver al directo en DVR
             dvrProgressManagerRef.current?.goToLive();
         }
 
-        if (id === CONTROL_ACTION.SEEK_OVER_EPG && sourceRef.current?.isDVR){
+        if (id === CONTROL_ACTION.SEEK_OVER_EPG && sourceRef.current?.isDVR) {
             // Volver al inicio del programa en DVR
             dvrProgressManagerRef.current?.goToProgramStart();
         }
 
-        if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR){
+        if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR) {
             // Hacer seek en DVR
-            dvrProgressManagerRef.current?.seekToTime(value);
-        }
-
-        if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR){
-            // Hacer seek en DVR
-            dvrProgressManagerRef.current?.skipForward(value);
-        }
-
-        if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR){
-            // Hacer seek en DVR
-            dvrProgressManagerRef.current?.skipBackward(value);
-        }
-
-        if (id === CONTROL_ACTION.SEEK && !sourceRef.current?.isLive){
+            dvrProgressManagerRef.current?.seekToTime(value as number);
+        } else if (id === CONTROL_ACTION.SEEK && !sourceRef.current?.isLive) {
             // Hacer seek en VOD
-            vodProgressManagerRef.current?.seekToTime(value);
+            vodProgressManagerRef.current?.seekToTime(value as number);
         }
 
-        if (id === CONTROL_ACTION.FORWARD && !sourceRef.current?.isLive){
-            // Hacer seek en VOD
-            vodProgressManagerRef.current?.skipForward(value);
+        if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR) {
+            // Hacer forward en DVR
+            dvrProgressManagerRef.current?.skipForward(value as number);
+        } else if (id === CONTROL_ACTION.FORWARD && !sourceRef.current?.isLive) {
+            // Hacer forward en VOD
+            vodProgressManagerRef.current?.skipForward(value as number);
         }
 
-        if (id === CONTROL_ACTION.BACKWARD && !sourceRef.current?.isLive){
-            // Hacer seek en VOD
-            vodProgressManagerRef.current?.skipBackward(value);
-        }
-
-        // Cast specific actions
-        if (id === CONTROL_ACTION.SEEK || id === CONTROL_ACTION.FORWARD || id === CONTROL_ACTION.BACKWARD || id === CONTROL_ACTION.PAUSE || id === CONTROL_ACTION.MUTE){
-            // Actions to invoke on cast player
-            invokePlayerAction(castClient, castSession, id, value, currentTime, sliderValues.current?.duration || 0, castMediaStatus?.liveSeekableRange, props.events?.onSeek);
+        if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR) {
+            // Hacer backward en DVR
+            dvrProgressManagerRef.current?.skipBackward(value as number);
+        } else if (id === CONTROL_ACTION.BACKWARD && !sourceRef.current?.isLive) {
+            // Hacer backward en VOD
+            vodProgressManagerRef.current?.skipBackward(value as number);
         }
 
         // Actions to be saved between flavours
-        if (COMMON_DATA_FIELDS.includes(id) && props?.events?.onChangeCommonData){
-            let data:ICommonData = {};
+        if (COMMON_DATA_FIELDS.includes(id) && props?.events?.onChangeCommonData) {
+            let data: ICommonData = {};
 
-            if (id === CONTROL_ACTION.MUTE){
+            if (id === CONTROL_ACTION.MUTE) {
                 data.muted = !!value;
-            } else if (id === CONTROL_ACTION.PAUSE){
+            } else if (id === CONTROL_ACTION.PAUSE) {
                 data.paused = !!value;
-            } else if (typeof(value) === 'number'){
+            } else if (typeof(value) === 'number') {
                 data.volume = (id === CONTROL_ACTION.VOLUME) ? value : undefined;
                 data.audioIndex = (id === CONTROL_ACTION.AUDIO_INDEX) ? value : undefined;
                 data.subtitleIndex = (id === CONTROL_ACTION.SUBTITLE_INDEX) ? value : undefined;
@@ -932,221 +827,66 @@ export function CastFlavour (props: CastFlavourProps): React.ReactElement {
             
             props.events?.onChangeCommonData(data);
         }
-    }
-
-    const onEnd = () => {
-        console.log(`[Player] (Cast Flavour) onEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`);
-        
-        if (currentSourceType.current === 'tudum') {
-            // Acaba la reproducción del Tudum externo
-            console.log(`[Player] (Cast Flavour) onEnd: Tudum finished, switching to main content`);
-            isChangingSource.current = true;
-            switchFromTudumToContent();
-
-        } else if (currentSourceType.current === 'content' && props.events?.onEnd) {
-            // Termina el contenido principal
-            console.log(`[Player] (Cast Flavour) onEnd: Content finished, preparing for possible auto next`);
-            
-            // Preparar tudum para salto automático antes de notificar
-            if (tudumRef.current) {
-                tudumRef.current.prepareForAutoNext();
-            }
-            
-            props.events.onEnd();
-        } else {
-            console.log(`[Player] (Cast Flavour) onEnd: Unknown state - currentSourceType: ${currentSourceType.current}, hasOnEnd: ${!!props.events?.onEnd}`);
-        }
-    }
-
-    async function getCurrentMediaStatus(){
-        // Verificaciones previas antes de intentar obtener el status
-        if (!castClient) {
-            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - No castClient available`);
-            return;
-        }
-    
-        if (castState !== CastState.CONNECTED) {
-            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - Cast not connected, state: ${castState}`);
-            return;
-        }
-    
-        if (!castSession) {
-            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - No active cast session`);
-            return;
-        }
-    
-        // Verificar si tenemos un mensaje válido para cargar
-        if (!castMessage.current?.mediaInfo?.contentId) {
-            console.log(`[Player] (Cast Flavour) No valid cast message to load`);
-            return;
-        }
-    
-        try {
-            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - Attempting to get media status`);
-            const mediaStatus = await castClient.getMediaStatus();
-            
-            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - current contentId: ${mediaStatus?.mediaInfo?.contentId}`);
-            console.log(`[Player] (Cast Flavour) getCurrentMediaStatus - new contentId: ${castMessage.current?.mediaInfo?.contentId}`);
-            
-            // Forzar carga si no hay contenido actual o si el contenido es diferente
-            if (!mediaStatus?.mediaInfo?.contentId || 
-                mediaStatus?.mediaInfo?.contentId !== castMessage.current?.mediaInfo?.contentId) {
-                
-                console.log(`[Player] (Cast Flavour) Loading new media: ${JSON.stringify(castMessage.current)}`);
-                
-                // Resetear estado antes de cargar nuevo contenido
-                setIsContentLoaded(false);
-                setBuffering(true);
-                isChangingSource.current = true;
-                
-                try {
-                    // Cargar el nuevo contenido
-                    await castClient.loadMedia(castMessage.current!);
-                    console.log(`[Player] (Cast Flavour) Media loaded successfully`);
-                    
-                    // NO llamar a waitForCastReady aquí - ya tenemos el contenido cargado
-                    // El evento onMediaPlaybackStarted manejará el resto
-                    
-                } catch (loadError) {
-                    console.error(`[Player] (Cast Flavour) Error loading media:`, loadError);
-                    setBuffering(false);
-                    isChangingSource.current = false;
-                }
-                
-            } else {
-                // Mismo contenido, solo actualizar menú de datos
-                console.log(`[Player] (Cast Flavour) Same content, updating menu data only`);
-                
-                if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function'){
-                    setMenuData(props.hooks.mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
-                } else {
-                    setMenuData(mergeCastMenuData(mediaStatus?.mediaInfo?.mediaTracks, props.languagesMapping));
-                }
-    
-                // Solo marcar como cargado si no estamos cambiando source
-                if (!isChangingSource.current) {
-                    setIsContentLoaded(true);
-                    setBuffering(false);
-                }
-            }
-        } catch (error) {
-            console.error(`[Player] (Cast Flavour) getCurrentMediaStatus error:`, error);
-            
-            // Si hay error obteniendo el status, intentar cargar el contenido directamente
-            if (castMessage.current && castState === CastState.CONNECTED) {
-                console.log(`[Player] (Cast Flavour) Attempting direct media load due to status error`);
-                try {
-                    setIsContentLoaded(false);
-                    setBuffering(true);
-                    isChangingSource.current = true;
-                    
-                    await castClient.loadMedia(castMessage.current!);
-                    console.log(`[Player] (Cast Flavour) Direct media load successful`);
-                    
-                    // NO llamar a waitForCastReady aquí tampoco
-                    
-                } catch (loadError) {
-                    console.error(`[Player] (Cast Flavour) Direct media load failed:`, loadError);
-                    setBuffering(false);
-                    isChangingSource.current = false;
-                }
-            } else {
-                setBuffering(false);
-                isChangingSource.current = false;
-            }
-        }
-    }
-
-    const tryLoadMedia = () => {
-        console.log(`[Player] (Cast Flavour) tryLoadMedia - castState: ${castState}, castClient: ${!!castClient}, castMessage: ${!!castMessage.current}, castSession: ${!!castSession}`);
-        
-        // Verificaciones más exhaustivas antes de intentar cargar
-        if (castState !== CastState.CONNECTED) {
-            console.log(`[Player] (Cast Flavour) tryLoadMedia - Cast not connected, aborting`);
-            return;
-        }
-        
-        if (!castClient) {
-            console.log(`[Player] (Cast Flavour) tryLoadMedia - No castClient available`);
-            return;
-        }
-        
-        if (!castSession) {
-            console.log(`[Player] (Cast Flavour) tryLoadMedia - No active cast session`);
-            return;
-        }
-        
-        if (!castMessage.current) {
-            console.log(`[Player] (Cast Flavour) tryLoadMedia - No cast message prepared`);
-            return;
-        }
-    
-        // Usar setTimeout para evitar condiciones de carrera
-        setTimeout(() => {
-            getCurrentMediaStatus();
-        }, 500);
-    }
+    };
 
     const onSlidingComplete = (value: number) => {
-        console.log(`[Player] (Cast Flavour) onSlidingComplete: ${value}`);
+        console.log(`[Player] (Cast Flavour) onSlidingComplete:`, value);
+        // Usar el control de seek que manejará DVR/VOD/Cast apropiadamente
         onControlsPress(CONTROL_ACTION.SEEK, value);
-    }
+    };
 
     return (
         <View style={styles.container}>
             <BackgroundPoster poster={props.playerMetadata?.poster} />
 
-            {
-                !tudumRef.current?.isPlaying ?
-                    <Overlay
-                        preloading={isBuffering}
-                        thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
-                        timeMarkers={props.timeMarkers}
-                        avoidTimelineThumbnails={props.avoidTimelineThumbnails}
-                        
-                        alwaysVisible={true}
-                        isChangingSource={isChangingSource.current}
-                        
-                        isContentLoaded={isContentLoaded}
-                        
-                        menuData={menuData}
-                        audioIndex={audioIndex}
-                        subtitleIndex={subtitleIndex}
+            {!tudumRef.current?.isPlaying ? (
+                <Overlay
+                    preloading={isBuffering}
+                    thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
+                    timeMarkers={props.timeMarkers}
+                    avoidTimelineThumbnails={props.avoidTimelineThumbnails}
+                    
+                    alwaysVisible={true}
+                    isChangingSource={isChangingSource.current}
+                    
+                    isContentLoaded={isContentLoaded}
+                    
+                    menuData={menuData}
+                    audioIndex={audioIndex}
+                    subtitleIndex={subtitleIndex}
 
-                        // Nuevas Props Agrupadas
-                        playerMetadata={props.playerMetadata}
-                        playerProgress={{
-                            ...props.playerProgress,
-                            currentTime: currentTime,
-                            duration: sliderValues.current?.duration || 0,
-                            isBuffering: isBuffering,
-                            isContentLoaded: isContentLoaded,
-                            isChangingSource: isChangingSource.current,
-                            isDVR: sourceRef.current?.isDVR,
-                            isLive: sourceRef.current?.isLive,
-                            isPaused: paused,
-                            isMuted: muted,
-                            sliderValues: sliderValues.current,
-                        }}
-                        playerAnalytics={props.playerAnalytics}
-                        playerTimeMarkers={props.playerTimeMarkers}
-                        playerAds={props.playerAds}
+                    // Nuevas Props Agrupadas
+                    playerMetadata={props.playerMetadata}
+                    playerProgress={{
+                        ...props.playerProgress,
+                        currentTime: currentTime,
+                        duration: sliderValues.current?.duration || 0,
+                        isBuffering: isBuffering,
+                        isContentLoaded: isContentLoaded,
+                        isChangingSource: isChangingSource.current,
+                        isDVR: sourceRef.current?.isDVR,
+                        isLive: sourceRef.current?.isLive,
+                        isPaused: paused,
+                        isMuted: muted,
+                        sliderValues: sliderValues.current,
+                    }}
+                    playerAnalytics={props.playerAnalytics}
+                    playerTimeMarkers={props.playerTimeMarkers}
+                    playerAds={props.playerAds}
 
-                        // Custom Components
-                        components={props.components}
+                    // Custom Components
+                    components={props.components}
 
-                        // Events
-                        events={{
-                            ...props.events,
-                            onPress: onControlsPress,
-                            onSlidingComplete: onSlidingComplete,
-                        }}
-                    />
-                : null
-            }
+                    // Events
+                    events={{
+                        ...props.events,
+                        onPress: onControlsPress,
+                        onSlidingComplete: onSlidingComplete,
+                    }}
+                />
+            ) : null}
         </View>
     );
-
-};
+}
 
 export default CastFlavour;
