@@ -91,7 +91,12 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         }
     });
 
-    const castManager = useCastManager({
+    const { 
+        status: castStatus, 
+        currentContent: castCurrentContent, 
+        progressInfo,
+        ...castManager 
+    } = useCastManager({
         debugMode: true,
         callbacks: {
             onStateChange: (state, previousState) => {
@@ -119,10 +124,12 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 handlePlaybackEnded();
             },
             onTimeUpdate: (currentTime, duration) => {
+                console.log(`[Player] (Cast Flavour) Time update:`, currentTime, duration);
                 setCurrentTime(currentTime);
                 updateProgressManagers(currentTime, duration);
             },
             onBufferingChange: (isBuffering) => {
+                console.log(`[Player] (Cast Flavour) Buffering change:`, isBuffering);
                 setBuffering(isBuffering);
             }
         }
@@ -202,6 +209,22 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         }
     }, [menuData]);
 
+    useEffect(() => {
+        console.log(`[Player] (Cast Flavour) Cast state changed: ${JSON.stringify(castState)}`);
+    }, [castState]);
+
+    useEffect(() => {
+        console.log(`[Player] (Cast Flavour) Progress info changed: ${JSON.stringify(progressInfo)}`);
+    }, [progressInfo]);
+
+    useEffect(() => {
+        console.log(`[Player] (Cast Flavour) Status changed: ${JSON.stringify(castStatus)}`);
+    }, [castStatus]);
+
+    useEffect(() => {
+        console.log(`[Player] (Cast Flavour) Current content changed: ${JSON.stringify(castCurrentContent)}`);
+    }, [castCurrentContent]);
+
     // Effect para monitorear cambios en el estado de Cast media
     useEffect(() => {
         if (castState.castMediaStatus) {
@@ -230,6 +253,49 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             }
         }
     }, [castState.castMediaStatus, castState.castSession, menuData, muted]);
+
+    // Effect para actualizar gestores de progreso usando progressInfo del useCastManager
+    useEffect(() => {
+        if (progressInfo && currentSourceType.current === 'content') {
+            console.log(`[Player] (Cast Flavour) Updating progress managers from progressInfo:`, {
+                currentTime: progressInfo.currentTime,
+                duration: progressInfo.duration,
+                isPaused: progressInfo.isPaused,
+                isBuffering: progressInfo.isBuffering
+            });
+            
+            // Actualizar gestores VOD y DVR basándose en progressInfo
+            if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
+                // Para VOD
+                vodProgressManagerRef.current?.updatePlayerData({
+                    currentTime: progressInfo.currentTime || 0,
+                    seekableRange: { start: 0, end: progressInfo.duration || 0 },
+                    duration: progressInfo.duration || 0,
+                    isBuffering: progressInfo.isBuffering || false,
+                    isPaused: progressInfo.isPaused
+                });
+            }
+
+            if (sourceRef.current?.isDVR) {
+                // Para DVR
+                dvrProgressManagerRef.current?.updatePlayerData({
+                    currentTime: progressInfo.currentTime || 0,
+                    duration: progressInfo.duration || 0,
+                    seekableRange: { start: 0, end: progressInfo.duration || 0 },
+                    isBuffering: progressInfo.isBuffering || false,
+                    isPaused: progressInfo.isPaused
+                });
+            }
+
+            // Emitir evento de cambio de datos comunes para VOD
+            if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData) {
+                props.events.onChangeCommonData({
+                    time: progressInfo.currentTime || 0,
+                    duration: progressInfo.duration || 0,
+                });
+            }
+        }
+    }, [progressInfo, sourceRef.current]);
 
     // Handlers para estados de Cast
     const handleCastStateChange = (state: CastManagerState, previousState: CastManagerState) => {

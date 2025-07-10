@@ -26,8 +26,7 @@ import { useCastState } from './useCastState';
 
 export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHookResult {
     const {
-        enableAutoUpdate = true,
-        autoUpdateInterval = 1000,
+        // enableAutoUpdate and autoUpdateInterval removed - polling disabled
         ...managerConfig
     } = config;
     
@@ -46,7 +45,6 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     
     // Referencias
     const managerRef = useRef<CastManager | null>(null);
-    const updateIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     
     // Hook de estado de Cast
     const castState = useCastState({
@@ -78,6 +76,7 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
             managerConfig.callbacks?.onStateChange?.(state, previousState);
         },
         onContentLoaded: (content: CastContentInfo) => {
+            console.log(`[Cast Manager] [DEBUG] useCastManager onContentLoaded: ${JSON.stringify(content)}`);
             setCurrentContent(content);
             managerConfig.callbacks?.onContentLoaded?.(content);
         },
@@ -88,16 +87,20 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
             managerConfig.callbacks?.onContentLoadError?.(error, content);
         },
         onPlaybackStarted: () => {
+            console.log(`[Cast Manager] [DEBUG] useCastManager onPlaybackStarted`);
             setStatus((prev: CastManagerStatus) => ({ ...prev, isContentLoaded: true }));
             managerConfig.callbacks?.onPlaybackStarted?.();
         },
         onPlaybackEnded: () => {
+            console.log(`[Cast Manager] [DEBUG] useCastManager onPlaybackEnded`);
             managerConfig.callbacks?.onPlaybackEnded?.();
         },
         onBufferingChange: (isBuffering: boolean) => {
+            console.log(`[Cast Manager] [DEBUG] useCastManager onBufferingChange: ${isBuffering}`);
             managerConfig.callbacks?.onBufferingChange?.(isBuffering);
         },
         onTimeUpdate: (currentTime: number, duration: number) => {
+            console.log(`[Cast Manager] [DEBUG] useCastManager onTimeUpdate: ${currentTime}, ${duration}`);
             managerConfig.callbacks?.onTimeUpdate?.(currentTime, duration);
         }
     }), [managerConfig.debugMode]);
@@ -117,13 +120,8 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     useEffect(() => {
         if (!managerRef.current) {
             managerRef.current = new CastManager(memoizedManagerConfig);
-            
-            // Listener para actualizaciones de progreso
-            managerRef.current.on(CastManagerEvent.TIME_UPDATE, (eventData: any) => {
-                const progressInfo = eventData.data as CastProgressInfo;
-                setProgressInfo(progressInfo);
-                memoizedCallbacks.onTimeUpdate(progressInfo.currentTime, progressInfo.duration);
-            });
+
+            console.log(`[Cast Manager] [DEBUG] useCastManager managerRef.current: ${JSON.stringify(managerRef.current)}`);
             
             if (managerConfig.debugMode) {
                 console.log(`${LOG_PREFIX} [useCastManager] Manager initialized`);
@@ -144,87 +142,38 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     useEffect(() => {
         if (managerRef.current && memoizedManagerConfig.callbacks) {
             // Actualizar solo los callbacks sin recrear el manager
+            console.log(`[Cast Manager] [DEBUG] useCastManager update callbacks`);
             managerRef.current['callbacks'] = memoizedManagerConfig.callbacks;
+            
+            if (managerConfig.debugMode) {
+                console.log('[Cast Manager] [DEBUG] Callbacks updated:', {
+                    hasCallbacks: !!memoizedManagerConfig.callbacks,
+                    callbackKeys: Object.keys(memoizedManagerConfig.callbacks)
+                });
+            }
         }
-    }, [memoizedCallbacks]);
-    
-    // Actualizar estado de Cast en el manager cuando cambie castState
-    const prevCastStateRef = useRef(castState);
+    }, [memoizedManagerConfig.callbacks, managerConfig.debugMode]);
+
     useEffect(() => {
-        // Solo actualizar si realmente cambió algo importante
-        const hasStateChanged = (
-            castState.castState !== prevCastStateRef.current.castState ||
-            castState.hasSession !== prevCastStateRef.current.hasSession ||
-            castState.hasClient !== prevCastStateRef.current.hasClient ||
-            castState.managerState !== prevCastStateRef.current.managerState
+        if (!managerRef.current) return;
+
+        console.log(`[Cast Manager] [DEBUG] useCastManager received castState: ${JSON.stringify(castState)}`);
+        
+        managerRef.current.updateCastState(
+            castState.castState,
+            castState.castSession,
+            castState.castClient,
+            castState.castMediaStatus,
+            castState.castStreamPosition
         );
 
-        if (managerRef.current && hasStateChanged) {
-            managerRef.current.updateCastState(
-                castState.castState,
-                castState.castSession,
-                castState.castClient,
-                castState.castMediaStatus
-            );
-            
-            // Actualizar estado local
-            setStatus(managerRef.current.getStatus());
-            
-            prevCastStateRef.current = castState;
-        }
-    }, [
-        castState.castState,
-        castState.hasSession,
-        castState.hasClient,
-        castState.managerState
-    ]); // Solo las propiedades que realmente importan
-    
-    // Auto-actualización periódica optimizada
-    useEffect(() => {
-        if (enableAutoUpdate && managerRef.current) {
-            const updateData = () => {
-                if (managerRef.current) {
-                    const newStatus = managerRef.current.getStatus();
-                    const newCurrentContent = managerRef.current.getCurrentContent();
-                    const newProgressInfo = managerRef.current.getProgressInfo();
-                    
-                    // Solo actualizar si hay cambios reales
-                    setStatus((prevStatus: CastManagerStatus) => {
-                        if (JSON.stringify(prevStatus) !== JSON.stringify(newStatus)) {
-                            return newStatus;
-                        }
-                        return prevStatus;
-                    });
-                    
-                    setCurrentContent((prevContent: CastContentInfo) => {
-                        if (JSON.stringify(prevContent) !== JSON.stringify(newCurrentContent)) {
-                            return newCurrentContent;
-                        }
-                        return prevContent;
-                    });
-                    
-                    setProgressInfo((prevProgress: CastProgressInfo) => {
-                        if (JSON.stringify(prevProgress) !== JSON.stringify(newProgressInfo)) {
-                            return newProgressInfo;
-                        }
-                        return prevProgress;
-                    });
-                }
-            };
+        const newStatus = managerRef.current.getStatus();
+        console.log(`[Cast Manager] [DEBUG] useCastManager newStatus: ${JSON.stringify(newStatus)}`);
+        
+        // Actualizar estado local
+        setStatus(newStatus);
+    }, [castState, managerConfig.debugMode]);
 
-            updateIntervalRef.current = setInterval(updateData, autoUpdateInterval);
-            
-            return () => {
-                if (updateIntervalRef.current) {
-                    clearInterval(updateIntervalRef.current);
-                    updateIntervalRef.current = null;
-                }
-            };
-        }
-
-        return undefined;
-    }, [enableAutoUpdate, autoUpdateInterval]); // Solo estas dependencias específicas
-    
     // Funciones de acción estables
     const loadContent = useCallback(async (config: CastMessageConfig): Promise<CastOperationResult> => {
         if (!managerRef.current) {
@@ -395,8 +344,7 @@ export function useSimpleCastManager(): {
         play,
         pause
     } = useCastManager({
-        debugMode: false,
-        enableAutoUpdate: false
+        debugMode: false
     });
     
     return {
@@ -416,7 +364,6 @@ export function useSimpleCastManager(): {
 
 export function useCastManagerStatus(): CastManagerStatus {
     const { status } = useCastManager({ 
-        enableAutoUpdate: false,
         debugMode: false
     });
     return status;
@@ -429,8 +376,6 @@ export function useCastManagerStatus(): CastManagerStatus {
 
 export function useCastManagerProgress(): CastProgressInfo | undefined {
     const { progressInfo } = useCastManager({ 
-        enableAutoUpdate: true,
-        autoUpdateInterval: 2000, // Menos frecuente
         debugMode: false
     });
     return progressInfo;
