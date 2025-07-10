@@ -178,20 +178,22 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     // Funciones de acción estables
     const loadContent = useCallback(async (config: CastMessageConfig): Promise<CastOperationResult> => {
         if (!managerRef.current) {
-            console.warn(`${LOG_PREFIX} ${LOG_KEY} loadContent: Manager not initialized`);
+            log('Manager not initialized for loadContent');
             return CastOperationResult.FAILED;
         }
         
         try {
             const result = await managerRef.current.loadContent(config);
             
-            // Actualizar estado después de cargar
-            setStatus(managerRef.current.getStatus());
-            setCurrentContent(managerRef.current.getCurrentContent());
+            // Actualizar estado local basado en el resultado
+            if (result === CastOperationResult.SUCCESS) {
+                setCurrentContent(managerRef.current.getCurrentContent());
+                setProgressInfo(managerRef.current.getProgressInfo());
+            }
             
             return result;
         } catch (error) {
-            console.error(`${LOG_PREFIX} ${LOG_KEY} loadContent: Error loading content: ${JSON.stringify(error)}`);
+            log('Error in loadContent:', error);
             return CastOperationResult.FAILED;
         }
     }, []);

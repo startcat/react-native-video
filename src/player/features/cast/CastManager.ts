@@ -57,7 +57,6 @@ export class CastManager extends SimpleEventEmitter {
     private pendingOperations: PendingCastOperation[] = [];
     private retryAttempts: number = 0;
     private loadTimeout?: ReturnType<typeof setTimeout>;
-    private progressInterval?: ReturnType<typeof setInterval>;
     
     // Listeners de eventos Cast
     private eventListeners: Map<string, any> = new Map();
@@ -149,17 +148,36 @@ export class CastManager extends SimpleEventEmitter {
                 return CastOperationResult.PENDING;
             }
 
-            // Verificar si es el mismo contenido
-            if (this.currentContent && this.isSameContent(config)) {
+            // Construir mensaje Cast
+            const castMessage = this.messageBuilder.buildCastMessage(config);
+
+            // Actualizar contenido actual ANTES de la comparación
+            const potentialContent: CastContentInfo = {
+                contentId: castMessage.mediaInfo?.contentId || '',
+                contentUrl: config.source.uri,
+                title: config.metadata.title,
+                subtitle: config.metadata.subtitle,
+                description: config.metadata.description,
+                poster: config.metadata.poster,
+                isLive: config.metadata.isLive || false,
+                isDVR: config.metadata.isDVR || false,
+                contentType: config.metadata.isLive ? 
+                    (config.metadata.isDVR ? 'dvr' : 'live') : 'vod',
+                startPosition: config.metadata.startPosition || 0
+            } as CastContentInfo;
+
+            // Verificar si es el mismo contenido usando el contenido potencial
+            if (this.currentContent && this.isSameContentData(this.currentContent, potentialContent)) {
                 this.log('Same content already loaded, skipping');
                 return CastOperationResult.SUCCESS;
             }
 
+            // Solo actualizar si es contenido diferente
+            this.currentContent = potentialContent;
+            this.log('Current content updated', this.currentContent);
+
             // Marcar como cargando
             this.setLoadingState(true);
-
-            // Construir mensaje Cast
-            const castMessage = this.messageBuilder.buildCastMessage(config);
 
             this.log(`loadContent config:`, { config });
             this.log(`loadContent castMessage:`, { castMessage });
@@ -409,7 +427,6 @@ export class CastManager extends SimpleEventEmitter {
         
         // Limpiar timeouts
         this.clearLoadTimeout();
-        this.clearProgressInterval();
         
         // Limpiar listeners
         this.clearEventListeners();
@@ -579,8 +596,6 @@ export class CastManager extends SimpleEventEmitter {
         this.eventListeners.set('playbackStarted', onPlaybackStarted);
         this.eventListeners.set('playbackEnded', onPlaybackEnded);
         
-        // Iniciar seguimiento de progreso
-        this.startProgressTracking();
     }
 
     /*
@@ -598,25 +613,6 @@ export class CastManager extends SimpleEventEmitter {
         });
         
         this.eventListeners.clear();
-        this.clearProgressInterval();
-    }
-
-    /*
-     *  Inicia seguimiento de progreso
-     *  DISABLED: useCastState ya proporciona actualizaciones de progreso cada segundo
-     *  Este interval es redundante y causa conflictos
-     */
-
-    private startProgressTracking(): void {
-        // DISABLED: No necesario porque useCastState ya emite progreso cada segundo
-        // Mantener el método para compatibilidad pero sin interval
-        this.log('Progress tracking disabled - useCastState handles progress updates');
-        
-        // Limpiar cualquier interval existente
-        if (this.progressInterval) {
-            clearInterval(this.progressInterval);
-            this.progressInterval = undefined;
-        }
     }
 
     /*
@@ -768,18 +764,6 @@ export class CastManager extends SimpleEventEmitter {
         if (this.loadTimeout) {
             clearTimeout(this.loadTimeout);
             this.loadTimeout = undefined;
-        }
-    }
-
-    /*
-     *  Limpia interval de progreso
-     *
-     */
-
-    private clearProgressInterval(): void {
-        if (this.progressInterval) {
-            clearInterval(this.progressInterval);
-            this.progressInterval = undefined;
         }
     }
 

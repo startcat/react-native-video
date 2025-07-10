@@ -333,9 +333,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 setBuffering(false);
                 isChangingSource.current = false;
                 
-                if (props.events?.onStart) {
-                    props.events.onStart();
-                }
             }
         } else if (currentSourceType.current === 'tudum') {
             // Tudum cargado
@@ -362,6 +359,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             
             if (props.events?.onStart) {
                 props.events.onStart();
+            }
+
+            // Seek inicial al cargar un live con DVR
+            if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.checkInitialSeek('cast');
             }
         }
     };
@@ -635,21 +637,38 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     };
 
     const loadCastContent = async (castConfig: CastMessageConfig) => {
-        console.log(`[Player] (Cast Flavour) loadCastContent: ${JSON.stringify(castConfig)}`);
+        console.log(`[DANI] (Cast Flavour) loadCastContent: ${JSON.stringify(castConfig)}`);
+        console.log(`[DANI] (Cast Flavour) loadCastContent - castManager: ${JSON.stringify(castManager)}`);
+        console.log(`[DANI] (Cast Flavour) loadCastContent - castCurrentContent: ${JSON.stringify(castCurrentContent)}`);
         
         try {
             setBuffering(true);
             isChangingSource.current = true;
-            
+
             // Verificar si ya tenemos el mismo contenido cargado
-            if (castManager.isSameContent(castConfig)) {
-                console.log(`[Player] (Cast Flavour) Same content already loaded, skipping`);
+            let isSameContent = false;
+            
+            // Preferir comparación local si tenemos datos
+            if (castCurrentContent) {
+                isSameContent = castCurrentContent.contentUrl === castConfig.source.uri;
+                console.log(`[DANI] (Cast Flavour) Local comparison result: ${isSameContent}`);
+            }
+            // Solo usar comparación del manager si no tenemos datos locales y el manager está listo
+            else if (castManager.manager && castManager.isSameContent) {
+                isSameContent = castManager.isSameContent(castConfig);
+                console.log(`[DANI] (Cast Flavour) Manager comparison result: ${isSameContent}`);
+            }
+            
+            if (isSameContent) {
+                console.log(`[DANI] (Cast Flavour) Same content already loaded, skipping`);
                 setBuffering(false);
                 isChangingSource.current = false;
                 return;
             }
 
             const result = await castManager.loadContent(castConfig);
+
+            console.log(`[DANI] (Cast Flavour) loadCastContent - result: ${result}`);
             
             if (result === CastOperationResult.SUCCESS) {
                 console.log(`[Player] (Cast Flavour) Content loaded successfully`);

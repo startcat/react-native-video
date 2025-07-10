@@ -32,13 +32,13 @@ const manager = useCastManager(config?: UseCastManagerConfig): CastManagerHookRe
 
 | Propiedad | Tipo | Requerido | Descripción |
 |-----------|------|-----------|-------------|
-| `enableAutoUpdate` | `boolean` | ❌ | Habilita actualización automática de progreso (default: `true`) |
-| `autoUpdateInterval` | `number` | ❌ | Intervalo de actualización en ms (default: `1000`) |
 | `callbacks` | `CastManagerCallbacks` | ❌ | Callbacks para eventos del manager |
 | `retryAttempts` | `number` | ❌ | Intentos de reintento en operaciones |
 | `retryDelay` | `number` | ❌ | Delay entre reintentos en ms |
 | `loadTimeout` | `number` | ❌ | Timeout para carga de contenido |
 | `debugMode` | `boolean` | ❌ | Habilita logs detallados |
+
+**Nota:** Los parámetros `enableAutoUpdate` y `autoUpdateInterval` han sido eliminados para optimizar el rendimiento y evitar loops infinitos. El hook ahora se actualiza automáticamente basándose en eventos nativos del Cast.
 
 #### CastManagerCallbacks
 
@@ -90,6 +90,14 @@ El hook retorna un objeto `CastManagerHookResult` con las siguientes propiedades
 | `unmute` | `() => Promise<CastOperationResult>` | Activar audio |
 | `setVolume` | `(volume: number) => Promise<CastOperationResult>` | Establecer volumen (0-1) |
 
+#### Controles de Pistas
+
+| Método | Tipo | Descripción |
+|--------|------|-------------|
+| `setAudioTrack` | `(trackIndex: number) => Promise<CastOperationResult>` | Cambiar pista de audio |
+| `setSubtitleTrack` | `(trackIndex: number) => Promise<CastOperationResult>` | Cambiar pista de subtítulos |
+| `disableSubtitles` | `() => Promise<CastOperationResult>` | Desactivar todos los subtítulos |
+
 #### Utilidades
 
 | Método | Tipo | Descripción |
@@ -105,9 +113,25 @@ El hook retorna un objeto `CastManagerHookResult` con las siguientes propiedades
 import { useCastManager } from '@/features/cast';
 
 const CastPlayer = () => {
-    const castManager = useCastManager({
+    const {
+        status,
+        currentContent,
+        progressInfo,
+        loadContent,
+        clearContent,
+        play,
+        pause,
+        seek,
+        stop,
+        mute,
+        unmute,
+        setVolume,
+        setAudioTrack,
+        setSubtitleTrack,
+        disableSubtitles,
+        isReady
+    } = useCastManager({
         debugMode: true,
-        enableAutoUpdate: true,
         callbacks: {
             onStateChange: (state, previousState) => {
                 console.log(`Estado: ${previousState} -> ${state}`);
@@ -116,7 +140,7 @@ const CastPlayer = () => {
                 console.log('Contenido cargado:', content.title);
             },
             onTimeUpdate: (currentTime, duration) => {
-                updateProgressBar(currentTime, duration);
+                console.log(`Progreso: ${currentTime}/${duration}s`);
             }
         }
     });
@@ -131,10 +155,22 @@ const CastPlayer = () => {
             }
         };
 
-        const result = await castManager.loadContent(config);
+        const result = await loadContent(config);
         if (result === CastOperationResult.SUCCESS) {
-            await castManager.play();
+            await play();
         }
+    };
+
+    const handleSetAudioTrack = async () => {
+        await setAudioTrack(1);
+    };
+
+    const handleSetSubtitleTrack = async () => {
+        await setSubtitleTrack(0);
+    };
+
+    const handleDisableSubtitles = async () => {
+        await disableSubtitles();
     };
 
     return (
@@ -303,8 +339,6 @@ const CastStatusMonitor = () => {
 ```typescript
 const CastEnabledPlayer = () => {
     const cast = useCastManager({
-        enableAutoUpdate: true,
-        autoUpdateInterval: 500,
         callbacks: {
             onContentLoaded: (content) => {
                 analytics.track('cast_content_loaded', {
@@ -338,5 +372,41 @@ const CastEnabledPlayer = () => {
     );
 };
 ```
+
+## Optimizaciones y Arquitectura
+
+### Cambios Recientes
+
+**Eliminación de Polling Redundante:**
+- Se removieron `enableAutoUpdate` y `autoUpdateInterval` para evitar loops infinitos
+- El sistema ahora depende exclusivamente de eventos nativos del Cast Manager
+- Mejor rendimiento y eliminación de condiciones de carrera
+
+**Callbacks Optimizados:**
+- Uso de `useRef` para callbacks para evitar dependencias circulares
+- Memoización mejorada de configuraciones para prevenir re-renders innecesarios
+- Detección de cambios simplificada con hash de estado
+
+**Gestión de Estado Mejorada:**
+- Callbacks ahora incluyen tanto el estado actual como el anterior para mejor trazabilidad
+- Manejo robusto de transiciones de estado (LOADING → PLAYING)
+- Corrección de bugs relacionados con `streamPosition` vs `currentTime`
+
+### Debug y Troubleshooting
+
+Cuando `debugMode` está habilitado, el hook emite logs detallados que incluyen:
+- Cambios de estado del manager
+- Eventos de carga de contenido
+- Actualizaciones de progreso
+- Resultados de operaciones
+- Transiciones de estado internas
+
+### Performance
+
+El hook está altamente optimizado para evitar re-renders innecesarios:
+- Usa `useMemo` para callbacks memoizados
+- Los estados se actualizan solo cuando hay cambios reales detectados
+- Las referencias al manager son estables
+- Sin polling innecesario que compita con eventos nativos
 
 Los hooks `useCastManager` proporcionan una interfaz completa y fácil de usar para todas las operaciones Cast, desde control básico hasta funcionalidad avanzada con monitoreo detallado.

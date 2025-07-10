@@ -783,7 +783,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             // Seek inicial al cargar un live con DVR
             if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-                dvrProgressManagerRef.current.checkInitialSeek();
+                dvrProgressManagerRef.current.checkInitialSeek('player');
             }
 
         } else if (currentSourceType.current === 'tudum') {
