@@ -76,7 +76,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     // Usar el nuevo sistema de Cast
     const castState = useCastState({
         streamPositionInterval: 1,
-        debugMode: true,
+        debugMode: false,
         onStateChange: (newState, previousState) => {
             console.log(`[Player] (Cast Flavour) Cast state changed:`, {
                 from: previousState.managerState,
@@ -97,7 +97,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         progressInfo,
         ...castManager 
     } = useCastManager({
-        debugMode: true,
+        debugMode: false,
         callbacks: {
             onStateChange: (state, previousState) => {
                 console.log(`[Player] (Cast Flavour) Cast manager state changed:`, {
@@ -209,26 +209,28 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         }
     }, [menuData]);
 
-    useEffect(() => {
-        console.log(`[Player] (Cast Flavour) Cast state changed: ${JSON.stringify(castState)}`);
-    }, [castState]);
+    // useEffect(() => {
+    //     console.log(`[Player] (Cast Flavour) Cast state changed: ${JSON.stringify(castState)}`);
+    // }, [castState]);
 
-    useEffect(() => {
-        console.log(`[Player] (Cast Flavour) Progress info changed: ${JSON.stringify(progressInfo)}`);
-    }, [progressInfo]);
+    // useEffect(() => {
+    //     console.log(`[Player] (Cast Flavour) Progress info changed: ${JSON.stringify(progressInfo)}`);
+    // }, [progressInfo]);
 
-    useEffect(() => {
-        console.log(`[Player] (Cast Flavour) Status changed: ${JSON.stringify(castStatus)}`);
-    }, [castStatus]);
+    // useEffect(() => {
+    //     console.log(`[Player] (Cast Flavour) Status changed: ${JSON.stringify(castStatus)}`);
+    // }, [castStatus]);
 
-    useEffect(() => {
-        console.log(`[Player] (Cast Flavour) Current content changed: ${JSON.stringify(castCurrentContent)}`);
-    }, [castCurrentContent]);
+    // useEffect(() => {
+    //     console.log(`[Player] (Cast Flavour) Current content changed: ${JSON.stringify(castCurrentContent)}`);
+    // }, [castCurrentContent]);
 
     // Effect para monitorear cambios en el estado de Cast media
     useEffect(() => {
         if (castState.castMediaStatus) {
             const mediaStatus = castState.castMediaStatus;
+
+            console.log(`[Player] (Cast Flavour) castMediaStatus changed: ${JSON.stringify(mediaStatus)}`);
             
             // Manejar cambios en las pistas de media si no tenemos menuData
             if (!menuData && mediaStatus?.mediaInfo?.mediaTracks) {
@@ -313,7 +315,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     };
 
     const handleContentLoaded = (content: CastContentInfo) => {
-        console.log(`[Player] (Cast Flavour) handleContentLoaded`);
+        console.log(`[Player] (Cast Flavour) handleContentLoaded :: ${JSON.stringify(content)}`);
+
+        console.log(`[Player] (Cast Flavour) handleContentLoaded - castState: ${JSON.stringify(castState)}`);
+        console.log(`[Player] (Cast Flavour) handleContentLoaded - languagesMapping: ${JSON.stringify(props.languagesMapping)}`);
+        console.log(`[Player] (Cast Flavour) handleContentLoaded - mediaTracks: ${JSON.stringify(castState.castMediaStatus?.mediaInfo?.mediaTracks)}`);
         
         // Procesar pistas de media para el menú
         if (castState.castMediaStatus?.mediaInfo?.mediaTracks) {
@@ -355,6 +361,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
     const handlePlaybackStarted = () => {
         console.log(`[Player] (Cast Flavour) handlePlaybackStarted`);
+
+        console.log(`[Player] (Cast Flavour) handlePlaybackStarted - languagesMapping: ${JSON.stringify(props.languagesMapping)}`);
+        console.log(`[Player] (Cast Flavour) handlePlaybackStarted - mediaTracks: ${JSON.stringify(castState.castMediaStatus?.mediaInfo?.mediaTracks)}`);
         
         if (!isContentLoaded) {
             // Procesar pistas de media si no se hizo antes
