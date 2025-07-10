@@ -46,6 +46,7 @@ export class CastManager extends SimpleEventEmitter {
     private castSession?: CastSession;
     private castClient?: RemoteMediaClient;
     private castMediaStatus?: any;
+    private streamPosition?: number;
     
     // Estado interno
     private currentContent?: CastContentInfo;
@@ -80,23 +81,28 @@ export class CastManager extends SimpleEventEmitter {
         castState?: CastState,
         castSession?: CastSession,
         castClient?: RemoteMediaClient,
-        castMediaStatus?: any
+        castMediaStatus?: any,
+        streamPosition?: number
     ): void {
-        const previousState = this.state;
         
         this.castState = castState;
         this.castSession = castSession;
         this.castClient = castClient;
         this.castMediaStatus = castMediaStatus;
+        this.streamPosition = streamPosition;
         
-        this.log('Cast state updated', {
+        this.log(`[DEBUG] updateCastState received: ${JSON.stringify({
             castState,
             hasSession: !!castSession,
             hasClient: !!castClient,
-            hasMediaStatus: !!castMediaStatus
-        });
+            hasMediaStatus: !!castMediaStatus,
+            castMediaStatus: castMediaStatus,
+            currentTime: streamPosition
+        })}`);
         
-        // Actualizar estado interno
+        // SOLUCIÓN: Sincronizar currentContent si hay contenido reproduciéndose
+        this.syncCurrentContentFromMediaStatus();
+        
         this.updateInternalState();
         
         // Procesar operaciones pendientes si Cast está listo
@@ -107,10 +113,14 @@ export class CastManager extends SimpleEventEmitter {
         // Registrar/desregistrar listeners
         this.manageEventListeners();
         
-        // Emitir cambio de estado si cambió
-        if (previousState !== this.state) {
-            this.emitStateChange(previousState);
-        }
+        // Debug: Verificar estado después de la actualización
+        this.log('[DEBUG] updateCastState finished. Current state:', {
+            hasCurrentContent: !!this.currentContent,
+            hasCastMediaStatus: !!this.castMediaStatus,
+            progressInfoAvailable: this.getProgressInfo() !== undefined,
+            currentContentId: this.currentContent?.contentId,
+            castMediaCurrentTime: streamPosition
+        });
     }
 
     /*
@@ -166,6 +176,12 @@ export class CastManager extends SimpleEventEmitter {
             
             this.log('Content loaded successfully', { result });
             
+            // Invocar callback directo
+            if (this.callbacks.onContentLoaded && this.currentContent) {
+                this.log('[DEBUG] Invoking onContentLoaded callback');
+                this.callbacks.onContentLoaded(this.currentContent);
+            }
+            
             // Emitir evento
             this.emitEvent(CastManagerEvent.CONTENT_LOADED, this.currentContent);
             
@@ -181,6 +197,12 @@ export class CastManager extends SimpleEventEmitter {
             if (this.shouldRetry()) {
                 this.log('Retrying content load');
                 return this.retryLoadContent(config);
+            }
+            
+            // Invocar callback directo
+            if (this.callbacks.onContentLoadError) {
+                this.log('[DEBUG] Invoking onContentLoadError callback');
+                this.callbacks.onContentLoadError(String(error), this.currentContent);
             }
             
             // Emitir error
@@ -320,19 +342,38 @@ export class CastManager extends SimpleEventEmitter {
      */
 
     getProgressInfo(): CastProgressInfo | undefined {
+
+        this.log('[DEBUG] getProgressInfo called', {
+            hasCurrentContent: !!this.currentContent,
+            hasCastMediaStatus: !!this.castMediaStatus,
+            currentTime: this.streamPosition,
+            streamPosition: this.streamPosition
+        });
+        
         if (!this.currentContent || !this.castMediaStatus) {
+            this.log('[DEBUG] getProgressInfo returning undefined', {
+                hasCurrentContent: !!this.currentContent,
+                hasCastMediaStatus: !!this.castMediaStatus,
+                currentTime: this.streamPosition
+            });
             return undefined;
         }
 
-        return {
-            currentTime: this.castMediaStatus.currentTime || 0,
+        // Use streamPosition for Cast playback position (currentTime may be undefined)
+        const currentPosition = this.streamPosition || this.castMediaStatus.streamPosition || 0;
+        
+        const progressInfo = {
+            currentTime: currentPosition,
             duration: this.castMediaStatus.mediaInfo?.streamDuration || 0,
             isBuffering: this.castMediaStatus.playerState === MediaPlayerState.BUFFERING,
             isPaused: this.castMediaStatus.playerState === MediaPlayerState.PAUSED,
             isMuted: this.castMediaStatus.isMuted || false,
             playbackRate: this.castMediaStatus.playbackRate || 1,
-            position: this.castMediaStatus.currentTime || 0
+            position: currentPosition
         };
+        
+        this.log('[DEBUG] getProgressInfo returning', progressInfo);
+        return progressInfo;
     }
 
     /*
@@ -425,6 +466,28 @@ export class CastManager extends SimpleEventEmitter {
                 hasMediaStatus: !!this.castMediaStatus,
                 playerState: this.castMediaStatus?.playerState
             });
+            
+            // Emitir cambio de estado
+            this.emitStateChange(previousManagerState);
+            
+            // Invocar callback de buffering change si hay cambio relevante
+            const isNowBuffering = this.state === CastManagerState.LOADING;
+            const wasBuffering = previousManagerState === CastManagerState.LOADING;
+            if (isNowBuffering !== wasBuffering && this.callbacks.onBufferingChange) {
+                this.log('[DEBUG] Invoking onBufferingChange callback', { isBuffering: isNowBuffering });
+                this.callbacks.onBufferingChange(isNowBuffering);
+            }
+        }
+        
+        // Invocar callback de time update si hay media status
+        if (this.castMediaStatus && this.callbacks.onTimeUpdate) {
+            // Use streamPosition for Cast (currentTime may be undefined)
+            const currentTime = this.streamPosition || 0;
+            const duration = this.castMediaStatus.mediaInfo?.streamDuration || 0;
+            if (currentTime > 0 || duration > 0) {
+                this.log('[DEBUG] Invoking onTimeUpdate callback', { currentTime, duration, streamPosition: this.streamPosition });
+                this.callbacks.onTimeUpdate(currentTime, duration);
+            }
         }
         
         // Limpiar contenido si se desconecta
@@ -494,11 +557,24 @@ export class CastManager extends SimpleEventEmitter {
             // Limpiar estado de carga y actualizar estado interno
             this.setLoadingState(false);
             
+            // Invocar callback directo
+            if (this.callbacks.onPlaybackStarted) {
+                this.log('[DEBUG] Invoking onPlaybackStarted callback');
+                this.callbacks.onPlaybackStarted();
+            }
+            
             this.emitEvent(CastManagerEvent.PLAYBACK_STARTED);
         });
         
         const onPlaybackEnded = this.castClient.onMediaPlaybackEnded(() => {
             this.log('Playback ended');
+            
+            // Invocar callback directo
+            if (this.callbacks.onPlaybackEnded) {
+                this.log('[DEBUG] Invoking onPlaybackEnded callback');
+                this.callbacks.onPlaybackEnded();
+            }
+            
             this.emitEvent(CastManagerEvent.PLAYBACK_ENDED);
         });
         
@@ -529,20 +605,20 @@ export class CastManager extends SimpleEventEmitter {
 
     /*
      *  Inicia seguimiento de progreso
-     *
+     *  DISABLED: useCastState ya proporciona actualizaciones de progreso cada segundo
+     *  Este interval es redundante y causa conflictos
      */
 
     private startProgressTracking(): void {
+        // DISABLED: No necesario porque useCastState ya emite progreso cada segundo
+        // Mantener el método para compatibilidad pero sin interval
+        this.log('[DEBUG] Progress tracking disabled - useCastState handles progress updates');
+        
+        // Limpiar cualquier interval existente
         if (this.progressInterval) {
             clearInterval(this.progressInterval);
+            this.progressInterval = undefined;
         }
-        
-        this.progressInterval = setInterval(() => {
-            const progressInfo = this.getProgressInfo();
-            if (progressInfo) {
-                this.emitEvent(CastManagerEvent.TIME_UPDATE, progressInfo);
-            }
-        }, 1000);
     }
 
     /*
@@ -611,6 +687,61 @@ export class CastManager extends SimpleEventEmitter {
         } as CastContentInfo;
         
         this.log('Current content updated', this.currentContent);
+    }
+
+    /*
+     *  Sincroniza currentContent cuando hay contenido reproduciéndose
+     *  pero no fue cargado vía loadContent()
+     */
+
+    private syncCurrentContentFromMediaStatus(): void {
+        this.log('[SYNC] syncCurrentContentFromMediaStatus called', {
+            hasCurrentContent: !!this.currentContent,
+            hasCastMediaStatus: !!this.castMediaStatus,
+            hasMediaInfo: !!this.castMediaStatus?.mediaInfo,
+            mediaInfo: this.castMediaStatus?.mediaInfo
+        });
+        
+        // Solo sincronizar si:
+        // 1. No tenemos currentContent ya establecido
+        // 2. Tenemos castMediaStatus válido con mediaInfo
+        if (this.currentContent) {
+            this.log('[SYNC] Skipping sync - currentContent already exists');
+            return;
+        }
+        
+        if (!this.castMediaStatus) {
+            this.log('[SYNC] Skipping sync - no castMediaStatus');
+            return;
+        }
+        
+        if (!this.castMediaStatus.mediaInfo) {
+            this.log('[SYNC] Skipping sync - no mediaInfo in castMediaStatus');
+            return;
+        }
+
+        const mediaInfo = this.castMediaStatus.mediaInfo;
+        
+        // Crear currentContent basado en la información disponible del mediaStatus
+        this.currentContent = {
+            contentId: mediaInfo.contentId || '',
+            contentUrl: mediaInfo.contentUrl || '',
+            title: mediaInfo.metadata?.title || 'Unknown Title',
+            subtitle: mediaInfo.metadata?.subtitle || '',
+            description: mediaInfo.metadata?.description || '',
+            poster: mediaInfo.metadata?.images?.[0]?.url || '',
+            isLive: mediaInfo.streamType === 'LIVE',
+            isDVR: false, // No podemos detectar DVR desde mediaInfo
+            contentType: mediaInfo.streamType === 'LIVE' ? 'live' : 'vod',
+            startPosition: 0
+        } as CastContentInfo;
+        
+        this.log('[SYNC] Auto-synced currentContent from castMediaStatus:', {
+            contentId: this.currentContent.contentId,
+            title: this.currentContent.title,
+            isLive: this.currentContent.isLive,
+            streamType: mediaInfo.streamType
+        });
     }
 
     /*
@@ -714,7 +845,20 @@ export class CastManager extends SimpleEventEmitter {
     private emitStateChange(previousState: CastManagerState): void {
         this.log('State changed', { from: previousState, to: this.state });
         
-        this.callbacks.onStateChange?.(this.state, previousState);
+        // Debug: Verificar callbacks disponibles
+        this.log('[DEBUG] emitStateChange called:', {
+            hasCallbacks: !!this.callbacks,
+            hasStateChangeCallback: typeof this.callbacks.onStateChange === 'function',
+            callbackKeys: this.callbacks ? Object.keys(this.callbacks) : []
+        });
+        
+        if (this.callbacks.onStateChange) {
+            this.log('[DEBUG] Invoking onStateChange callback');
+            this.callbacks.onStateChange(this.state, previousState);
+        } else {
+            this.log('[DEBUG] No onStateChange callback available');
+        }
+        
         this.emitEvent(CastManagerEvent.STATE_CHANGED, { 
             state: this.state, 
             previousState 

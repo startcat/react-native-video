@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    CastSession,
     CastState,
+    MediaStatus,
+    RemoteMediaClient,
     useCastSession,
     useMediaStatus,
     useCastState as useNativeCastState,
@@ -19,8 +22,6 @@ import { getCastConnectivityInfo } from '../utils/castUtils';
 
 export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
     const {
-        enableStreamPosition = true,
-        streamPositionInterval = 1,
         debugMode = false,
         onStateChange,
         onConnectionChange
@@ -28,20 +29,19 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
     
     // Hooks nativos de Cast
     const castState = useNativeCastState();
-    const castSession = useCastSession();
-    const castClient = useRemoteMediaClient();
-    const castMediaStatus = useMediaStatus();
-    const castStreamPosition = useStreamPosition(enableStreamPosition ? streamPositionInterval : 0);
+    const castSession: CastSession = useCastSession();
+    const castClient: RemoteMediaClient = useRemoteMediaClient();
+    const castMediaStatus: MediaStatus = useMediaStatus();
+    const castStreamPosition: number | null = useStreamPosition(1);
     
     // Estado interno
     const [stateInfo, setStateInfo] = useState<CastStateInfo>(() => 
         createInitialStateInfo()
     );
-    
+
     // Referencias para comparación y evitar bucles
     const previousStateRef = useRef<CastStateInfo>(stateInfo);
     const previousConnectionRef = useRef<boolean>(false);
-    const isUpdatingRef = useRef<boolean>(false);
     
     // Refs para capturar callbacks y debugMode sin crear dependencias
     const debugModeRef = useRef(debugMode);
@@ -106,42 +106,30 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         }
         
         return baseState;
-    }, []); // No dependencies needed for static mapping
+    }, []);
     
-    // Función para crear nuevo estado (memoizada)
+    // Función para crear nuevo estado
     const createNewStateInfo = (
         nativeCastState?: CastState,
-        session?: any,
-        client?: any,
-        mediaStatus?: any,
-        streamPosition?: number
+        session?: CastSession,
+        client?: RemoteMediaClient,
+        mediaStatus?: MediaStatus,
+        streamPosition?: number | null
     ): CastStateInfo => {
-        console.log(`${LOG_PREFIX} [useCastState] createNewStateInfo called with:`, {
-            nativeCastState,
-            hasSession: !!session,
-            hasClient: !!client,
-            hasMediaStatus: !!mediaStatus,
-            mediaStatus: mediaStatus ? 'EXISTS' : 'NULL',
-            streamPosition
-        });
+        // console.log(`${LOG_PREFIX} [useCastState] createNewStateInfo called with:`, {
+        //     nativeCastState,
+        //     hasSession: !!session,
+        //     hasClient: !!client,
+        //     hasMediaStatus: !!mediaStatus,
+        //     mediaStatus: mediaStatus ? 'EXISTS' : 'NULL',
+        //     streamPosition
+        // });
         
         // Convertir a uppercase para consistencia con las constantes
         const normalizedCastState = String(nativeCastState || 'NOT_CONNECTED').toUpperCase();
         
-        console.log(`${LOG_PREFIX} [useCastState] State normalization:`, {
-            original: nativeCastState,
-            normalized: normalizedCastState,
-            hasMediaStatus: !!mediaStatus,
-            mediaPlayerState: mediaStatus?.playerState
-        });
-        
         const managerState = mapCastStateToManagerState(normalizedCastState, mediaStatus);
-        
-        console.log(`${LOG_PREFIX} [useCastState] Manager state mapping:`, {
-            normalizedCastState,
-            managerState,
-            mediaPlayerState: mediaStatus?.playerState
-        });
+
         const isConnected = normalizedCastState === 'CONNECTED';
         const isConnecting = normalizedCastState === 'CONNECTING';
         const isDisconnected = !isConnected && !isConnecting;
@@ -149,13 +137,14 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         const hasClient = !!client;
         const hasMediaStatus = !!mediaStatus;
         const connectivityInfo = getCastConnectivityInfo(normalizedCastState);
+        const finalStreamPosition = streamPosition || 0;
         
         const result = {
             castState: nativeCastState,
             castSession: session,
             castClient: client,
             castMediaStatus: mediaStatus,
-            castStreamPosition: streamPosition,
+            castStreamPosition: finalStreamPosition,
             managerState,
             isConnected,
             isConnecting,
@@ -168,28 +157,11 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
             lastUpdate: Date.now()
         };
         
-        console.log(`${LOG_PREFIX} [useCastState] createNewStateInfo result:`, {
-            hasMediaStatus: result.hasMediaStatus,
-            castMediaStatus: result.castMediaStatus ? 'EXISTS' : 'NULL',
-            mediaStatusPlayerState: result.castMediaStatus?.playerState || 'N/A'
-        });
-        
         return result;
     };
-    
+
     // Función para actualizar estado de forma optimizada
     const updateStateInfo = useCallback((newState: CastStateInfo) => {
-        // Evitar bucles de actualización
-        if (isUpdatingRef.current) {
-            if (debugModeRef.current) {
-                console.log(`${LOG_PREFIX} [useCastState] Skipping update: already updating`);
-            }
-            return;
-        }
-        
-        isUpdatingRef.current = true;
-
-        console.log(`${LOG_PREFIX} [useCastState] Updating state`, newState);
         
         try {
             const previousState = previousStateRef.current;
@@ -221,75 +193,37 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
                     });
                 }
                 
-                setStateInfo(newState);
                 previousStateRef.current = newState;
                 previousConnectionRef.current = newState.isConnected;
                 
                 // Emitir callbacks usando refs
                 if (hasStateChange && onStateChangeRef.current) {
-                    // Usar setTimeout para evitar que el callback cause más renders síncronos
-                    setTimeout(() => onStateChangeRef.current?.(newState, previousState), 0);
+                    onStateChangeRef.current?.(newState, previousState);
                 }
                 
                 if (hasConnectionChange && onConnectionChangeRef.current) {
-                    setTimeout(() => onConnectionChangeRef.current?.(newState.isConnected, previousConnection), 0);
+                    onConnectionChangeRef.current?.(newState.isConnected, previousConnection);
                 }
-            } else {
-                // Actualizar solo timestamps y streamPosition sin cambio de estado
-                setStateInfo((prev: CastStateInfo) => {
-                    // Solo actualizar si streamPosition realmente cambió
-                    if (prev.castStreamPosition !== newState.castStreamPosition) {
-                        return {
-                            ...prev,
-                            castStreamPosition: newState.castStreamPosition,
-                            lastUpdate: Date.now()
-                        };
-                    }
-                    return prev;
-                });
+
             }
+            
         } finally {
-            isUpdatingRef.current = false;
+            setStateInfo(newState);
         }
     }, []);
 
     useEffect(() => {
-        console.log(`${LOG_PREFIX} [useCastState] useEffect parameters:`, {
-            castState,
-            hasSession: !!castSession,
-            hasClient: !!castClient,
-            hasMediaStatus: !!castMediaStatus,
-            castMediaStatus: castMediaStatus ? {
-                playerState: castMediaStatus.playerState,
-                streamPosition: castMediaStatus.streamPosition,
-                hasMediaInfo: !!castMediaStatus.mediaInfo
-            } : null,
-            castStreamPosition
-        });
-        
         const newState = createNewStateInfo(
             castState,
             castSession,
             castClient,
             castMediaStatus,
-            castStreamPosition
+            castStreamPosition || 0
         );
-        
+
         updateStateInfo(newState);
+
     }, [castState, castSession, castClient, castMediaStatus, castStreamPosition, updateStateInfo]);
-    
-    // Debug effect optimizado
-    useEffect(() => {
-        if (debugMode) {
-            console.log(`${LOG_PREFIX} [useCastState] Cast hooks updated:`, {
-                castState,
-                hasSession: !!castSession,
-                hasClient: !!castClient,
-                hasMediaStatus: !!castMediaStatus,
-                streamPosition: castStreamPosition
-            });
-        }
-    }, [castState, castSession, castClient, castMediaStatus, castStreamPosition, debugMode]);
     
     return stateInfo;
 }
