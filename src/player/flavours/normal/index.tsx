@@ -737,8 +737,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }
 
-
-
     const onLoad = async (e: OnLoadData) => {
 
         console.log(`[Player] (Video Flavour) onLoad (${sourceRef.current?.playerSource?.uri})`);
