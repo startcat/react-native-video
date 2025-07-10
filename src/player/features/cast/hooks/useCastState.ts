@@ -24,15 +24,18 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
     const {
         debugMode = false,
         onStateChange,
-        onConnectionChange
+        onConnectionChange,
+        streamPositionInterval = 1
     } = config;
+
+    const LOG_KEY = '(useCastState)';
     
     // Hooks nativos de Cast
     const castState = useNativeCastState();
     const castSession: CastSession = useCastSession();
     const castClient: RemoteMediaClient = useRemoteMediaClient();
     const castMediaStatus: MediaStatus = useMediaStatus();
-    const castStreamPosition: number | null = useStreamPosition(1);
+    const castStreamPosition: number | null = useStreamPosition(streamPositionInterval);
     
     // Estado interno
     const [stateInfo, setStateInfo] = useState<CastStateInfo>(() => 
@@ -78,6 +81,12 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
             lastUpdate: Date.now()
         };
     }
+
+    function log(message: string, data?: any): void {
+        if (debugModeRef.current) {
+            console.log(`${LOG_PREFIX} ${LOG_KEY} ${message} ${data ? `:: ${JSON.stringify(data)}` : ''}`);
+        }
+    }
     
     // Función para mapear estado nativo a estado del manager
     const mapCastStateToManagerState = useCallback((nativeCastState?: string, mediaStatus?: any): CastManagerState => {
@@ -115,16 +124,7 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         client?: RemoteMediaClient,
         mediaStatus?: MediaStatus,
         streamPosition?: number | null
-    ): CastStateInfo => {
-        // console.log(`${LOG_PREFIX} [useCastState] createNewStateInfo called with:`, {
-        //     nativeCastState,
-        //     hasSession: !!session,
-        //     hasClient: !!client,
-        //     hasMediaStatus: !!mediaStatus,
-        //     mediaStatus: mediaStatus ? 'EXISTS' : 'NULL',
-        //     streamPosition
-        // });
-        
+    ): CastStateInfo => {        
         // Convertir a uppercase para consistencia con las constantes
         const normalizedCastState = String(nativeCastState || 'NOT_CONNECTED').toUpperCase();
         
@@ -178,20 +178,18 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
             const hasConnectionChange = newState.isConnected !== previousConnection;
             
             if (hasStateChange || hasConnectionChange) {
-                if (debugModeRef.current) {
-                    console.log(`${LOG_PREFIX} [useCastState] State updated:`, {
-                        previous: {
-                            castState: previousState.castState,
-                            managerState: previousState.managerState,
-                            isConnected: previousState.isConnected
-                        },
-                        current: {
-                            castState: newState.castState,
-                            managerState: newState.managerState,
-                            isConnected: newState.isConnected
-                        }
-                    });
-                }
+                log(`State updated:`, {
+                    previous: {
+                        castState: previousState.castState,
+                        managerState: previousState.managerState,
+                        isConnected: previousState.isConnected
+                    },
+                    current: {
+                        castState: newState.castState,
+                        managerState: newState.managerState,
+                        isConnected: newState.isConnected
+                    }
+                });
                 
                 previousStateRef.current = newState;
                 previousConnectionRef.current = newState.isConnected;
@@ -272,7 +270,6 @@ export function useCastProgress(enabled: boolean = true): {
     progress: number;
     isBuffering: boolean;
     isPaused: boolean;
-    position: number;
 } {
     const castMediaStatus = useMediaStatus();
     const castStreamPosition = useStreamPosition(enabled ? 1 : 0);
@@ -291,7 +288,6 @@ export function useCastProgress(enabled: boolean = true): {
             progress,
             isBuffering,
             isPaused,
-            position: currentTime
         };
     }, [castMediaStatus, castStreamPosition]);
 }

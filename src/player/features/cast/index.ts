@@ -34,9 +34,6 @@ export const defaultCastConfig = {
     retryDelay: 2000,
     loadTimeout: 10000,
     debugMode: false,
-    enableAutoUpdate: true,
-    autoUpdateInterval: 1000,
-    enableStreamPosition: true,
     streamPositionInterval: 1
 };
 
