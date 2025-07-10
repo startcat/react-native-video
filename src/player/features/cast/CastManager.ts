@@ -148,33 +148,14 @@ export class CastManager extends SimpleEventEmitter {
                 return CastOperationResult.PENDING;
             }
 
-            // Construir mensaje Cast
-            const castMessage = this.messageBuilder.buildCastMessage(config);
-
-            // Actualizar contenido actual ANTES de la comparación
-            const potentialContent: CastContentInfo = {
-                contentId: castMessage.mediaInfo?.contentId || '',
-                contentUrl: config.source.uri,
-                title: config.metadata.title,
-                subtitle: config.metadata.subtitle,
-                description: config.metadata.description,
-                poster: config.metadata.poster,
-                isLive: config.metadata.isLive || false,
-                isDVR: config.metadata.isDVR || false,
-                contentType: config.metadata.isLive ? 
-                    (config.metadata.isDVR ? 'dvr' : 'live') : 'vod',
-                startPosition: config.metadata.startPosition || 0
-            } as CastContentInfo;
-
-            // Verificar si es el mismo contenido usando el contenido potencial
-            if (this.currentContent && this.isSameContentData(this.currentContent, potentialContent)) {
+            // Verificar si es el mismo contenido antes de procesar
+            if (this.currentContent && this.isSameContent(config)) {
                 this.log('Same content already loaded, skipping');
                 return CastOperationResult.SUCCESS;
             }
 
-            // Solo actualizar si es contenido diferente
-            this.currentContent = potentialContent;
-            this.log('Current content updated', this.currentContent);
+            // Construir mensaje Cast
+            const castMessage = this.messageBuilder.buildCastMessage(config);
 
             // Marcar como cargando
             this.setLoadingState(true);
@@ -212,14 +193,23 @@ export class CastManager extends SimpleEventEmitter {
             return CastOperationResult.SUCCESS;
 
         } catch (error) {
-            this.logError('Error loading content', error);
+            // Detectar errores comunes de Cast que requieren retry
+            const errorString = String(error);
+            const isMediaControlError = errorString.includes('2103') || errorString.includes('Media control channel');
+            
+            if (isMediaControlError) {
+                this.log('Media control channel not ready (expected on first load), will retry', { error: errorString, attempt: this.retryAttempts + 1 });
+            } else {
+                this.logError('Error loading content', error);
+            }
             
             this.setLoadingState(false);
             this.clearLoadTimeout();
             
             // Intentar retry si es posible
             if (this.shouldRetry()) {
-                this.log('Retrying content load');
+                const retryReason = isMediaControlError ? 'Media control channel timing' : 'General error';
+                this.log(`Retrying content load due to: ${retryReason}`);
                 return this.retryLoadContent(config);
             }
             

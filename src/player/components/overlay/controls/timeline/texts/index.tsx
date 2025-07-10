@@ -16,6 +16,7 @@ const TimelineTextBase = ({
 
     // Determinar el contenido del texto basado en el tipo de valor
     const textContent = useMemo(() => {
+        console.log(`[DANI] TimelineTextBase value: ${value}`);
         if (value === undefined || value === null) {
             return null;
         }
