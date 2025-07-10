@@ -124,12 +124,12 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 handlePlaybackEnded();
             },
             onTimeUpdate: (currentTime, duration) => {
-                console.log(`[Player] (Cast Flavour) Time update:`, currentTime, duration);
+                // console.log(`[Player] (Cast Flavour) Time update:`, currentTime, duration);
                 setCurrentTime(currentTime);
                 updateProgressManagers(currentTime, duration);
             },
             onBufferingChange: (isBuffering) => {
-                console.log(`[Player] (Cast Flavour) Buffering change:`, isBuffering);
+                // console.log(`[Player] (Cast Flavour) Buffering change:`, isBuffering);
                 setBuffering(isBuffering);
             }
         }
@@ -190,23 +190,25 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
     // Effect para manejar cambios en índices de audio/subtítulos
     useEffect(() => {
+        console.log(`[DANI] useEffect audioIndex - audioIndex: ${props.audioIndex}`);
         setAudioIndex(props.audioIndex!);
     }, [props.audioIndex]);
 
     useEffect(() => {
+        console.log(`[DANI] useEffect subtitleIndex - subtitleIndex: ${props.subtitleIndex}`);
         setSubtitleIndex(props.subtitleIndex!);
     }, [props.subtitleIndex]);
 
     useEffect(() => {
-        if (isContentLoaded) {
+        //if (!isContentLoaded) {
             handleTrackChanges();
-        }
+        //}
     }, [audioIndex, subtitleIndex]);
 
     useEffect(() => {
-        if (menuData) {
+        //if (menuData && !isContentLoaded) {
             handleMenuDataReady();
-        }
+        //}
     }, [menuData]);
 
     // useEffect(() => {
@@ -703,13 +705,22 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
     const handleTrackChanges = () => {
         // Cambiar pistas de audio/subtítulos en Cast
-        if (isContentLoaded && castState.castClient && menuData) {
-            console.log(`[Player] (Cast Flavour) handleTrackChanges - audio: ${audioIndex}, subtitle: ${subtitleIndex}`);
+        console.log(`[DANI] handleTrackChanges...`);
+        //isContentLoaded && 
+        if (castState.castClient && menuData) {
+            console.log(`[DANI] handleTrackChanges - audio: ${audioIndex}, subtitle: ${subtitleIndex}`);
             changeActiveTracks(castState.castClient, menuData, audioIndex, subtitleIndex);
         }
     };
 
     const handleMenuDataReady = () => {
+
+        console.log(`[DANI] handleMenuDataReady...`);
+
+        if (menuData){
+            changeActiveTracks(castState.castClient, menuData, audioIndex, subtitleIndex);
+        }
+
         if (menuData && props.events?.onChangeCommonData) {
             // Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
             let data: ICommonData = {};
@@ -729,6 +740,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
             data.subtitleIndex = textDefaultIndex;
             data.subtitleLabel = menuData?.find((item: IPlayerMenuData) => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex)?.label;
+
+            console.log(`[DANI] handleMenuDataReady ${JSON.stringify(data)}`);
 
             if (data) {
                 props.events.onChangeCommonData(data);

@@ -1,11 +1,11 @@
-import { 
-    RemoteMediaClient,
-    CastSession
+import {
+    CastSession,
+    RemoteMediaClient
 } from 'react-native-google-cast';
-import { 
+import {
     type IPlayerMenuData,
     type LiveSeekableCastRange,
-    CONTROL_ACTION 
+    CONTROL_ACTION
 } from '../../types';
 
 
@@ -78,9 +78,13 @@ export const changeActiveTracks = async (castClient: RemoteMediaClient | null, m
 
     let activeTracks:Array<number> = [];
 
+    console.log(`[DANI] changeActiveTracks - audioIndex: ${audioIndex}, subtitleIndex: ${subtitleIndex}`);
+    console.log(`[DANI] changeActiveTracks - castClient: ${!!castClient}, menuData: ${!!menuData}`);
+    console.log(`[DANI] changeActiveTracks - menuData: ${JSON.stringify(menuData)}`);
+
     if (castClient && menuData){
 
-        if (typeof(audioIndex) === 'number' && audioIndex !== -1){
+        if (typeof(audioIndex) === 'number'){
             activeTracks.push( getTrackId('audio', audioIndex, menuData)! );
         }
         
