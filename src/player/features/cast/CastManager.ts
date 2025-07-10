@@ -895,6 +895,6 @@ export class CastManager extends SimpleEventEmitter {
      */
 
     private logError(message: string, error: any): void {
-        console.error(`${LOG_PREFIX} ${message} ${error ? `:: ${JSON.stringify(error)}` : ''}`);
+        console.error(`${LOG_PREFIX} ${LOG_KEY} ${message} ${error ? `:: ${JSON.stringify(error)}` : ''}`);
     }
 }

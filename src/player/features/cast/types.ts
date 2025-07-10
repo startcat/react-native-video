@@ -172,7 +172,6 @@ export interface MessageBuilderConfig {
     enableYoubora?: boolean;
     enableAds?: boolean;
     defaultStartPosition?: number;
-    contentIdPrefix?: string;
     debugMode?: boolean;
 }
 

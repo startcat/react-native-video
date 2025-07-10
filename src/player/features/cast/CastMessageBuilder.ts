@@ -12,6 +12,8 @@ import {
     MessageBuilderConfig
 } from './types';
 
+const LOG_KEY = '(CastMessageBuilder)';
+
 /*
  *  Clase para construir mensajes Cast de forma consistente
  *
@@ -130,27 +132,6 @@ export class CastMessageBuilder {
         if (!this.isValidUrl(config.source.uri)) {
             throw new Error(`Invalid source URI: ${config.source.uri}`);
         }
-    }
-
-    /*
-     *  Genera un ID único para el contenido
-     *
-     */
-
-    private generateUniqueId(config: CastMessageConfig): string {
-        const { source, metadata } = config;
-        const prefix = this.config.contentIdPrefix || '';
-        
-        // Usar ID del metadata si existe
-        if (metadata.id) {
-            return `${prefix}${metadata.id}`;
-        }
-
-        // Generar ID basado en URL y timestamp
-        const urlHash = this.hashString(source.uri);
-        const timestamp = Date.now();
-        
-        return `${prefix}${urlHash}_${timestamp}`;
     }
 
     /*
@@ -301,7 +282,7 @@ export class CastMessageBuilder {
 
     private log(message: string, data?: any): void {
         if (this.debugMode) {
-            console.log(`${LOG_PREFIX} [MessageBuilder] ${message}`, data || '');
+            console.log(`${LOG_PREFIX} ${LOG_KEY} ${message} ${data ? `:: ${JSON.stringify(data)}` : ''}`);
         }
     }
 
@@ -311,7 +292,7 @@ export class CastMessageBuilder {
      */
     
     private logError(message: string, error: any): void {
-        console.error(`${LOG_PREFIX} [MessageBuilder] ${message}`, error);
+        console.error(`${LOG_PREFIX} ${LOG_KEY} ${message} ${error ? `:: ${JSON.stringify(error)}` : ''}`);
     }
 
     /*
