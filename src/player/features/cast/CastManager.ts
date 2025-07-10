@@ -30,6 +30,8 @@ import {
 } from './types';
 import { compareContent } from './utils/castUtils';
 
+const LOG_KEY = '(CastManager)';
+
 /*
  *  Clase principal para gestionar Cast
  *
@@ -69,7 +71,7 @@ export class CastManager extends SimpleEventEmitter {
             debugMode: this.config.debugMode
         });
         
-        this.log('CastManager initialized', { config: this.config });
+        this.log(`Initialized`, { config: this.config });
     }
 
     /*
@@ -91,14 +93,16 @@ export class CastManager extends SimpleEventEmitter {
         this.castMediaStatus = castMediaStatus;
         this.streamPosition = streamPosition;
         
-        this.log(`[DEBUG] updateCastState received: ${JSON.stringify({
-            castState,
-            hasSession: !!castSession,
-            hasClient: !!castClient,
-            hasMediaStatus: !!castMediaStatus,
-            castMediaStatus: castMediaStatus,
-            currentTime: streamPosition
-        })}`);
+        if (this.config.debugMode) {
+            this.log(`updateCastState received:`, {
+                castState,
+                hasSession: !!castSession,
+                hasClient: !!castClient,
+                hasMediaStatus: !!castMediaStatus,
+                castMediaStatus: castMediaStatus,
+                currentTime: streamPosition
+            });
+        }
         
         // SOLUCIÓN: Sincronizar currentContent si hay contenido reproduciéndose
         this.syncCurrentContentFromMediaStatus();
@@ -114,13 +118,15 @@ export class CastManager extends SimpleEventEmitter {
         this.manageEventListeners();
         
         // Debug: Verificar estado después de la actualización
-        this.log('[DEBUG] updateCastState finished. Current state:', {
-            hasCurrentContent: !!this.currentContent,
-            hasCastMediaStatus: !!this.castMediaStatus,
-            progressInfoAvailable: this.getProgressInfo() !== undefined,
-            currentContentId: this.currentContent?.contentId,
-            castMediaCurrentTime: streamPosition
-        });
+        if (this.config.debugMode) {
+            this.log(`updateCastState finished. Current state:`, {
+                hasCurrentContent: !!this.currentContent,
+                hasCastMediaStatus: !!this.castMediaStatus,
+                progressInfoAvailable: this.getProgressInfo() !== undefined,
+                currentContentId: this.currentContent?.contentId,
+                castMediaCurrentTime: streamPosition
+            });
+        }
     }
 
     /*
@@ -155,8 +161,8 @@ export class CastManager extends SimpleEventEmitter {
             // Construir mensaje Cast
             const castMessage = this.messageBuilder.buildCastMessage(config);
 
-            console.log(`[CastManager] (loadContent) config: ${JSON.stringify(config)}`);
-            console.log(`[CastManager] (loadContent) castMessage: ${JSON.stringify(castMessage)}`);
+            this.log(`loadContent config:`, { config });
+            this.log(`loadContent castMessage:`, { castMessage });
             
             // Configurar timeout
             this.setupLoadTimeout();
@@ -178,7 +184,7 @@ export class CastManager extends SimpleEventEmitter {
             
             // Invocar callback directo
             if (this.callbacks.onContentLoaded && this.currentContent) {
-                this.log('[DEBUG] Invoking onContentLoaded callback');
+                this.log('Invoking onContentLoaded callback');
                 this.callbacks.onContentLoaded(this.currentContent);
             }
             
@@ -201,7 +207,7 @@ export class CastManager extends SimpleEventEmitter {
             
             // Invocar callback directo
             if (this.callbacks.onContentLoadError) {
-                this.log('[DEBUG] Invoking onContentLoadError callback');
+                this.log('Invoking onContentLoadError callback', error);
                 this.callbacks.onContentLoadError(String(error), this.currentContent);
             }
             
@@ -342,16 +348,9 @@ export class CastManager extends SimpleEventEmitter {
      */
 
     getProgressInfo(): CastProgressInfo | undefined {
-
-        this.log('[DEBUG] getProgressInfo called', {
-            hasCurrentContent: !!this.currentContent,
-            hasCastMediaStatus: !!this.castMediaStatus,
-            currentTime: this.streamPosition,
-            streamPosition: this.streamPosition
-        });
         
         if (!this.currentContent || !this.castMediaStatus) {
-            this.log('[DEBUG] getProgressInfo returning undefined', {
+            this.log('getProgressInfo returning undefined', {
                 hasCurrentContent: !!this.currentContent,
                 hasCastMediaStatus: !!this.castMediaStatus,
                 currentTime: this.streamPosition
@@ -369,10 +368,9 @@ export class CastManager extends SimpleEventEmitter {
             isPaused: this.castMediaStatus.playerState === MediaPlayerState.PAUSED,
             isMuted: this.castMediaStatus.isMuted || false,
             playbackRate: this.castMediaStatus.playbackRate || 1,
-            position: currentPosition
         };
         
-        this.log('[DEBUG] getProgressInfo returning', progressInfo);
+        this.log('getProgressInfo returning', progressInfo);
         return progressInfo;
     }
 
@@ -474,7 +472,7 @@ export class CastManager extends SimpleEventEmitter {
             const isNowBuffering = this.state === CastManagerState.LOADING;
             const wasBuffering = previousManagerState === CastManagerState.LOADING;
             if (isNowBuffering !== wasBuffering && this.callbacks.onBufferingChange) {
-                this.log('[DEBUG] Invoking onBufferingChange callback', { isBuffering: isNowBuffering });
+                this.log('Invoking onBufferingChange callback', { isBuffering: isNowBuffering });
                 this.callbacks.onBufferingChange(isNowBuffering);
             }
         }
@@ -485,7 +483,7 @@ export class CastManager extends SimpleEventEmitter {
             const currentTime = this.streamPosition || 0;
             const duration = this.castMediaStatus.mediaInfo?.streamDuration || 0;
             if (currentTime > 0 || duration > 0) {
-                this.log('[DEBUG] Invoking onTimeUpdate callback', { currentTime, duration, streamPosition: this.streamPosition });
+                this.log('Invoking onTimeUpdate callback', { currentTime, duration, streamPosition: this.streamPosition });
                 this.callbacks.onTimeUpdate(currentTime, duration);
             }
         }
@@ -559,7 +557,7 @@ export class CastManager extends SimpleEventEmitter {
             
             // Invocar callback directo
             if (this.callbacks.onPlaybackStarted) {
-                this.log('[DEBUG] Invoking onPlaybackStarted callback');
+                this.log('Invoking onPlaybackStarted callback');
                 this.callbacks.onPlaybackStarted();
             }
             
@@ -571,7 +569,7 @@ export class CastManager extends SimpleEventEmitter {
             
             // Invocar callback directo
             if (this.callbacks.onPlaybackEnded) {
-                this.log('[DEBUG] Invoking onPlaybackEnded callback');
+                this.log('Invoking onPlaybackEnded callback');
                 this.callbacks.onPlaybackEnded();
             }
             
@@ -612,7 +610,7 @@ export class CastManager extends SimpleEventEmitter {
     private startProgressTracking(): void {
         // DISABLED: No necesario porque useCastState ya emite progreso cada segundo
         // Mantener el método para compatibilidad pero sin interval
-        this.log('[DEBUG] Progress tracking disabled - useCastState handles progress updates');
+        this.log('Progress tracking disabled - useCastState handles progress updates');
         
         // Limpiar cualquier interval existente
         if (this.progressInterval) {
@@ -846,17 +844,17 @@ export class CastManager extends SimpleEventEmitter {
         this.log('State changed', { from: previousState, to: this.state });
         
         // Debug: Verificar callbacks disponibles
-        this.log('[DEBUG] emitStateChange called:', {
+        this.log('emitStateChange called:', {
             hasCallbacks: !!this.callbacks,
             hasStateChangeCallback: typeof this.callbacks.onStateChange === 'function',
             callbackKeys: this.callbacks ? Object.keys(this.callbacks) : []
         });
         
         if (this.callbacks.onStateChange) {
-            this.log('[DEBUG] Invoking onStateChange callback');
+            this.log('Invoking onStateChange callback');
             this.callbacks.onStateChange(this.state, previousState);
         } else {
-            this.log('[DEBUG] No onStateChange callback available');
+            this.log('No onStateChange callback available');
         }
         
         this.emitEvent(CastManagerEvent.STATE_CHANGED, { 
@@ -887,7 +885,7 @@ export class CastManager extends SimpleEventEmitter {
 
     private log(message: string, data?: any): void {
         if (this.config.debugMode) {
-            console.log(`${LOG_PREFIX} ${message}`, data || '');
+            console.log(`${LOG_PREFIX} ${LOG_KEY} ${message} ${data ? `:: ${JSON.stringify(data)}` : ''}`);
         }
     }
 
@@ -897,6 +895,6 @@ export class CastManager extends SimpleEventEmitter {
      */
 
     private logError(message: string, error: any): void {
-        console.error(`${LOG_PREFIX} ${message}`, error);
+        console.error(`${LOG_PREFIX} ${message} ${error ? `:: ${JSON.stringify(error)}` : ''}`);
     }
 }

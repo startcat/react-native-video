@@ -26,9 +26,16 @@ import { useCastState } from './useCastState';
 
 export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHookResult {
     const {
-        // enableAutoUpdate and autoUpdateInterval removed - polling disabled
         ...managerConfig
     } = config;
+
+    const LOG_KEY = '(useCastManager)';
+
+    function log(message: string, data?: any): void {
+        if (managerConfig.debugMode) {
+            console.log(`${LOG_PREFIX} ${LOG_KEY} ${message} ${data ? `:: ${JSON.stringify(data)}` : ''}`);
+        }
+    }
     
     // Estados
     const [status, setStatus] = useState<CastManagerStatus>(() => ({
@@ -48,26 +55,21 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     
     // Hook de estado de Cast
     const castState = useCastState({
-        enableStreamPosition: true,
         debugMode: managerConfig.debugMode,
         onStateChange: useCallback((newState: CastStateInfo, previousState: CastStateInfo) => {
-            if (managerConfig.debugMode) {
-                console.log(`${LOG_PREFIX} [useCastManager] Cast state changed:`, {
-                    from: previousState.managerState,
-                    to: newState.managerState
-                });
-            }
+            log(`Cast state changed:`, {
+                from: previousState.managerState,
+                to: newState.managerState
+            });
         }, [managerConfig.debugMode])
     });
 
     const memoizedCallbacks = useMemo(() => ({
         onStateChange: (state: CastManagerState, previousState: CastManagerState) => {
-            if (managerConfig.debugMode) {
-                console.log(`${LOG_PREFIX} [useCastManager] Manager state changed:`, {
-                    from: previousState,
-                    to: state
-                });
-            }
+            log(`Manager state changed:`, {
+                from: previousState,
+                to: state
+            });
             
             // Actualizar estado local
             setStatus((prev: CastManagerStatus) => ({ ...prev, state }));
@@ -76,31 +78,39 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
             managerConfig.callbacks?.onStateChange?.(state, previousState);
         },
         onContentLoaded: (content: CastContentInfo) => {
-            console.log(`[Cast Manager] [DEBUG] useCastManager onContentLoaded: ${JSON.stringify(content)}`);
+            log(`onContentLoaded:`, {
+                content
+            });
             setCurrentContent(content);
             managerConfig.callbacks?.onContentLoaded?.(content);
         },
         onContentLoadError: (error: string, content?: CastContentInfo) => {
-            if (managerConfig.debugMode) {
-                console.error(`${LOG_PREFIX} [useCastManager] Content load error:`, error);
-            }
+            log(`onContentLoadError:`, {
+                error,
+                content
+            });
             managerConfig.callbacks?.onContentLoadError?.(error, content);
         },
         onPlaybackStarted: () => {
-            console.log(`[Cast Manager] [DEBUG] useCastManager onPlaybackStarted`);
+            log(`onPlaybackStarted`);
             setStatus((prev: CastManagerStatus) => ({ ...prev, isContentLoaded: true }));
             managerConfig.callbacks?.onPlaybackStarted?.();
         },
         onPlaybackEnded: () => {
-            console.log(`[Cast Manager] [DEBUG] useCastManager onPlaybackEnded`);
+            log(`onPlaybackEnded`);
             managerConfig.callbacks?.onPlaybackEnded?.();
         },
         onBufferingChange: (isBuffering: boolean) => {
-            console.log(`[Cast Manager] [DEBUG] useCastManager onBufferingChange: ${isBuffering}`);
+            log(`onBufferingChange:`, {
+                isBuffering
+            });
             managerConfig.callbacks?.onBufferingChange?.(isBuffering);
         },
         onTimeUpdate: (currentTime: number, duration: number) => {
-            console.log(`[Cast Manager] [DEBUG] useCastManager onTimeUpdate: ${currentTime}, ${duration}`);
+            log(`onTimeUpdate:`, {
+                currentTime,
+                duration
+            });
             managerConfig.callbacks?.onTimeUpdate?.(currentTime, duration);
         }
     }), [managerConfig.debugMode]);
@@ -120,12 +130,7 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     useEffect(() => {
         if (!managerRef.current) {
             managerRef.current = new CastManager(memoizedManagerConfig);
-
-            console.log(`[Cast Manager] [DEBUG] useCastManager managerRef.current: ${JSON.stringify(managerRef.current)}`);
-            
-            if (managerConfig.debugMode) {
-                console.log(`${LOG_PREFIX} [useCastManager] Manager initialized`);
-            }
+            log(`Manager initialized`);
         }
         
         return () => {
@@ -142,23 +147,18 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     useEffect(() => {
         if (managerRef.current && memoizedManagerConfig.callbacks) {
             // Actualizar solo los callbacks sin recrear el manager
-            console.log(`[Cast Manager] [DEBUG] useCastManager update callbacks`);
             managerRef.current['callbacks'] = memoizedManagerConfig.callbacks;
             
-            if (managerConfig.debugMode) {
-                console.log('[Cast Manager] [DEBUG] Callbacks updated:', {
-                    hasCallbacks: !!memoizedManagerConfig.callbacks,
-                    callbackKeys: Object.keys(memoizedManagerConfig.callbacks)
-                });
-            }
+            log(`Callbacks updated:`, {
+                hasCallbacks: !!memoizedManagerConfig.callbacks,
+                callbackKeys: Object.keys(memoizedManagerConfig.callbacks)
+            });
         }
-    }, [memoizedManagerConfig.callbacks, managerConfig.debugMode]);
+    }, [memoizedManagerConfig.callbacks]);
 
     useEffect(() => {
         if (!managerRef.current) return;
 
-        console.log(`[Cast Manager] [DEBUG] useCastManager received castState: ${JSON.stringify(castState)}`);
-        
         managerRef.current.updateCastState(
             castState.castState,
             castState.castSession,
@@ -168,16 +168,17 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
         );
 
         const newStatus = managerRef.current.getStatus();
-        console.log(`[Cast Manager] [DEBUG] useCastManager newStatus: ${JSON.stringify(newStatus)}`);
+        
+        log(`newStatus: ${JSON.stringify(newStatus)}`);
         
         // Actualizar estado local
         setStatus(newStatus);
-    }, [castState, managerConfig.debugMode]);
+    }, [castState]);
 
     // Funciones de acción estables
     const loadContent = useCallback(async (config: CastMessageConfig): Promise<CastOperationResult> => {
         if (!managerRef.current) {
-            console.warn(`${LOG_PREFIX} [useCastManager] Manager not initialized`);
+            console.warn(`${LOG_PREFIX} ${LOG_KEY} loadContent: Manager not initialized`);
             return CastOperationResult.FAILED;
         }
         
@@ -190,7 +191,7 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
             
             return result;
         } catch (error) {
-            console.error(`${LOG_PREFIX} [useCastManager] Error loading content:`, error);
+            console.error(`${LOG_PREFIX} ${LOG_KEY} loadContent: Error loading content: ${JSON.stringify(error)}`);
             return CastOperationResult.FAILED;
         }
     }, []);
@@ -205,7 +206,7 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     
     const executeControl = useCallback(async (params: CastControlParams): Promise<CastOperationResult> => {
         if (!managerRef.current) {
-            console.warn(`${LOG_PREFIX} [useCastManager] Manager not initialized`);
+            console.warn(`${LOG_PREFIX} ${LOG_KEY} executeControl: Manager not initialized`);
             return CastOperationResult.FAILED;
         }
         
@@ -274,17 +275,15 @@ export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHo
     
     // Debug effect simplificado
     useEffect(() => {
-        if (managerConfig.debugMode) {
-            console.log(`${LOG_PREFIX} [useCastManager] Status updated:`, {
-                state: status.state,
-                isConnected: status.isConnected,
-                isLoading: status.isLoading,
-                isContentLoaded: status.isContentLoaded,
-                hasCurrentContent: !!currentContent,
-                hasProgressInfo: !!progressInfo
-            });
-        }
-    }, [status.state, status.isConnected, status.isLoading, status.isContentLoaded, currentContent, progressInfo, managerConfig.debugMode]);
+        log(`Status updated:`, {
+            state: status.state,
+            isConnected: status.isConnected,
+            isLoading: status.isLoading,
+            isContentLoaded: status.isContentLoaded,
+            hasCurrentContent: !!currentContent,
+            hasProgressInfo: !!progressInfo
+        });
+    }, [status.state, status.isConnected, status.isLoading, status.isContentLoaded, currentContent, progressInfo]);
     
     return {
         // Estado

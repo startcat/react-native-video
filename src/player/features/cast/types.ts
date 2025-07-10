@@ -139,7 +139,6 @@ export interface CastProgressInfo {
     isPaused: boolean;
     isMuted: boolean;
     playbackRate: number;
-    position: number;
 }
 
 /*
@@ -211,8 +210,6 @@ export interface CastVolumeInfo {
  *
  */
 export interface UseCastManagerConfig extends CastManagerConfig {
-    enableAutoUpdate?: boolean;
-    autoUpdateInterval?: number;
 }
 
 export interface CastManagerHookResult {
@@ -288,7 +285,6 @@ export interface CastStateInfo {
 }
 
 export interface UseCastStateConfig {
-    enableStreamPosition?: boolean;
     streamPositionInterval?: number;
     debugMode?: boolean;
     onStateChange?: (state: CastStateInfo, previousState: CastStateInfo) => void;

@@ -75,7 +75,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     
     // Usar el nuevo sistema de Cast
     const castState = useCastState({
-        enableStreamPosition: true,
+        streamPositionInterval: 1,
         debugMode: true,
         onStateChange: (newState, previousState) => {
             console.log(`[Player] (Cast Flavour) Cast state changed:`, {

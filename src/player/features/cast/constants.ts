@@ -9,7 +9,8 @@ export const DEFAULT_CAST_CONFIG = {
     retryAttempts: 3,
     retryDelay: 2000,
     loadTimeout: 10000,
-    debugMode: true,
+    debugMode: false,
+    streamPositionInterval: 1
 } as const;
 
 /*
