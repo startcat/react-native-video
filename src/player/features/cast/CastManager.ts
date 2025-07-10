@@ -29,6 +29,7 @@ import {
     PendingCastOperation
 } from './types';
 import { compareContent } from './utils/castUtils';
+import { DVRProgressManagerClass } from '../../modules/dvr';
 
 const LOG_KEY = '(CastManager)';
 
@@ -42,6 +43,7 @@ export class CastManager extends SimpleEventEmitter {
     private config: CastManagerConfig;
     private messageBuilder: CastMessageBuilder;
     private callbacks: CastManagerCallbacks;
+    private dvrProgressManager?: DVRProgressManagerClass | null;
     
     // Estado de Cast nativo
     private castState?: CastState;
@@ -66,6 +68,7 @@ export class CastManager extends SimpleEventEmitter {
         
         this.config = { ...DEFAULT_CAST_CONFIG, ...config };
         this.callbacks = config.callbacks || {};
+        this.dvrProgressManager = config.dvrProgressManager || null;
         this.messageBuilder = new CastMessageBuilder({
             debugMode: this.config.debugMode
         });
@@ -369,9 +372,25 @@ export class CastManager extends SimpleEventEmitter {
         // Use streamPosition for Cast playback position (currentTime may be undefined)
         const currentPosition = this.streamPosition || this.castMediaStatus.streamPosition || 0;
         
+        // Get base duration from Cast media info
+        let duration = this.castMediaStatus.mediaInfo?.streamDuration || 0;
+        
+        // For live streams with no duration (DVR case), calculate artificial DVR duration
+        if (duration === 0 && this.currentContent.isLive) {
+            duration = this.calculateDVRDuration();
+            
+            this.log('Calculated DVR duration', {
+                isLive: this.currentContent.isLive,
+                isDVR: this.currentContent.isDVR,
+                currentPosition: currentPosition,
+                calculatedDuration: duration,
+                streamDuration: this.castMediaStatus.mediaInfo?.streamDuration
+            });
+        }
+        
         const progressInfo = {
             currentTime: currentPosition,
-            duration: this.castMediaStatus.mediaInfo?.streamDuration || 0,
+            duration: duration,
             isBuffering: this.castMediaStatus.playerState === MediaPlayerState.BUFFERING,
             isPaused: this.castMediaStatus.playerState === MediaPlayerState.PAUSED,
             isMuted: this.castMediaStatus.isMuted || false,
@@ -380,6 +399,67 @@ export class CastManager extends SimpleEventEmitter {
         
         this.log('getProgressInfo returning', progressInfo);
         return progressInfo;
+    }
+
+    /*
+     *  Calcula la duración DVR artificial para streams en vivo
+     *
+     */
+
+    private calculateDVRDuration(): number {
+        // 1. PRIORIDAD MÁXIMA: Usar valores exactos del DVRProgressManagerClass
+        if (this.dvrProgressManager) {
+            const stats = this.dvrProgressManager.getStats();
+            
+            // Si tiene duración externa configurada, usarla
+            if (stats.duration && stats.duration > 0) {
+                this.log('Using exact DVR duration from DVRProgressManager', {
+                    dvrDuration: stats.duration,
+                    source: 'external_duration'
+                });
+                return stats.duration;
+            }
+            
+            // Si no, usar la ventana DVR actual (que crece dinámicamente)
+            if (stats.currentTimeWindowSeconds && stats.currentTimeWindowSeconds > 0) {
+                this.log('Using exact DVR window from DVRProgressManager', {
+                    windowSeconds: stats.currentTimeWindowSeconds,
+                    source: 'current_window'
+                });
+                return stats.currentTimeWindowSeconds;
+            }
+        }
+        
+        // 2. FALLBACK: Intentar obtener desde customData del Cast
+        const customData = this.castMediaStatus?.mediaInfo?.customData || {};
+        if (customData.dvrWindowSeconds && customData.dvrWindowSeconds > 0) {
+            this.log('Using DVR window from Cast customData', {
+                windowSeconds: customData.dvrWindowSeconds,
+                source: 'cast_custom_data'
+            });
+            return customData.dvrWindowSeconds;
+        }
+        
+        // 3. FALLBACK: Calcular desde seekable ranges si están disponibles
+        if (customData.seekableStart !== undefined && customData.seekableEnd !== undefined) {
+            const seekableWindow = customData.seekableEnd - customData.seekableStart;
+            if (seekableWindow > 0) {
+                this.log('Using DVR window from seekable range', {
+                    windowSeconds: seekableWindow,
+                    source: 'seekable_range'
+                });
+                return Math.max(seekableWindow, 300); // Mínimo 5 minutos
+            }
+        }
+        
+        // 4. Último FALLBACK: Ventana por defecto
+        const DEFAULT_DVR_WINDOW_SECONDS = 3600; // 1 hora por defecto
+        this.log('Using default DVR window (no exact data available)', {
+            windowSeconds: DEFAULT_DVR_WINDOW_SECONDS,
+            source: 'default_fallback'
+        });
+        
+        return DEFAULT_DVR_WINDOW_SECONDS;
     }
 
     /*
@@ -674,6 +754,44 @@ export class CastManager extends SimpleEventEmitter {
     }
 
     /*
+     *  Detecta si un stream tiene capacidades DVR
+     *
+     */
+
+    private detectDVRCapability(mediaInfo: any): boolean {
+        // 1. Si el stream tiene duración indefinida/0, probablemente es DVR
+        const streamDuration = mediaInfo.streamDuration || 0;
+        const hasIndefiniteDuration = streamDuration === 0;
+        
+        // 2. Verificar si hay información de seekable ranges en customData
+        const customData = mediaInfo.customData || {};
+        const hasSeekableInfo = !!(customData.seekableStart !== undefined || 
+                                   customData.seekableEnd !== undefined ||
+                                   customData.dvrWindowSeconds !== undefined);
+        
+        // 3. Verificar si la posición actual es significativa (indica buffering desde el pasado)
+        const currentTime = this.streamPosition || this.castMediaStatus?.streamPosition || 0;
+        const hasSignificantPosition = currentTime > 60; // Más de 1 minuto indica posible DVR
+        
+        // 4. Verificar patrones típicos de URLs DVR (HLS con parámetros de tiempo)
+        const contentUrl = mediaInfo.contentUrl || '';
+        const hasTimeParams = /[&?](t|start|begin|time)=/.test(contentUrl);
+        
+        this.log('DVR capability detection', {
+            streamDuration: streamDuration,
+            hasIndefiniteDuration: hasIndefiniteDuration,
+            hasSeekableInfo: hasSeekableInfo,
+            currentTime: currentTime,
+            hasSignificantPosition: hasSignificantPosition,
+            hasTimeParams: hasTimeParams,
+            customData: customData
+        });
+        
+        // Es DVR si tiene duración indefinida Y (posición significativa O información seekable O parámetros de tiempo)
+        return hasIndefiniteDuration && (hasSignificantPosition || hasSeekableInfo || hasTimeParams);
+    }
+
+    /*
      *  Sincroniza currentContent cuando hay contenido reproduciéndose
      *  pero no fue cargado vía loadContent()
      */
@@ -706,6 +824,10 @@ export class CastManager extends SimpleEventEmitter {
 
         const mediaInfo = this.castMediaStatus.mediaInfo;
         
+        // Detectar si es DVR basándose en características del stream
+        const isLiveStream = mediaInfo.streamType === 'LIVE';
+        const hasDVRCapability = this.detectDVRCapability(mediaInfo);
+        
         // Crear currentContent basado en la información disponible del mediaStatus
         this.currentContent = {
             contentId: mediaInfo.contentId || '',
@@ -714,9 +836,9 @@ export class CastManager extends SimpleEventEmitter {
             subtitle: mediaInfo.metadata?.subtitle || '',
             description: mediaInfo.metadata?.description || '',
             poster: mediaInfo.metadata?.images?.[0]?.url || '',
-            isLive: mediaInfo.streamType === 'LIVE',
-            isDVR: false, // No podemos detectar DVR desde mediaInfo
-            contentType: mediaInfo.streamType === 'LIVE' ? 'live' : 'vod',
+            isLive: isLiveStream,
+            isDVR: isLiveStream && hasDVRCapability,
+            contentType: isLiveStream ? (hasDVRCapability ? 'dvr' : 'live') : 'vod',
             startPosition: 0
         } as CastContentInfo;
         

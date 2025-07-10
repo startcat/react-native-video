@@ -1,5 +1,6 @@
 import { CastState, MediaPlayerState } from 'react-native-google-cast';
 import { IDrm, IMappedYoubora, IVideoSource } from '../../types';
+import { DVRProgressManagerClass } from '../../modules/dvr';
 import * as enums from './types/enums';
 
 
@@ -103,6 +104,7 @@ export interface CastManagerConfig {
     retryDelay?: number;
     loadTimeout?: number;
     debugMode?: boolean;
+    dvrProgressManager?: DVRProgressManagerClass | null;
 }
 
 /*

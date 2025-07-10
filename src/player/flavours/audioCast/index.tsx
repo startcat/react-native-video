@@ -84,6 +84,56 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         }
     });
 
+    // Variables de compatibilidad temporal basadas en nuevo castState
+    const castSession = castState.castSession;
+    const castClient = castState.castClient;
+    const castMediaStatus = castState.castMediaStatus;
+    const castStreamPosition = castState.castStreamPosition; 
+
+    // Referencias para compatibilidad temporal (serán eliminadas en pasos posteriores)
+    const lastCastState = useRef<CastState | null>();
+
+    const sliderValues = useRef<SliderValues>();
+    const pendingCastMessageData = useRef<{source: any, sourceDrm?: IDrm} | null>(null);
+
+    const youboraForVideo = useRef<IMappedYoubora>();
+    const drm = useRef<IDrm>();
+    const castMessage = useRef();
+
+    const isChangingSource = useRef<boolean>(true);
+
+    const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
+    const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
+    const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
+    const [buffering, setBuffering] = useState<boolean>(false);
+
+    // Player Progress
+    const playerProgressRef = useRef<IPlayerProgress>();
+    
+    // Trigger para forzar re-render cuando sliderValues cambie
+    const [sliderValuesUpdate, setSliderValuesUpdate] = useState<number>(0);
+
+    // Source
+    const sourceRef = useRef<SourceClass | null>(null);
+
+    // Tudum
+    const tudumRef = useRef<TudumClass | null>(null);
+
+    // VOD Progress Manager
+    const vodProgressManagerRef = useRef<VODProgressManagerClass | null>(null);
+
+    // DVR Progress Manager
+    const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
+
+    // Control para evitar mezcla de sources
+    const currentSourceType = useRef<'tudum' | 'content' | null>(null);
+    const pendingContentSource = useRef<onSourceChangedProps | null>(null);
+    
+    // Referencias para manejo de Cast content - solución elegante para race conditions
+    const lastLoadedCastConfig = useRef<any>(null);
+    const pendingCastConfig = useRef<any>(null);
+    const isLoadingContentRef = useRef<boolean>(false);
+
     // Implementar useCastManager con callbacks específicos
     const {
         currentContent: castCurrentContent,
@@ -92,6 +142,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         isSameContent
     } = useCastManager({
         debugMode: false,
+        dvrProgressManager: dvrProgressManagerRef.current,
         callbacks: {
             onStateChange: (state, previousState) => {
                 console.log(`[Player] (Audio Cast Flavour) Cast manager state changed:`, {
@@ -172,55 +223,66 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         }
     });
 
-    // Variables de compatibilidad temporal basadas en nuevo castState
-    const castSession = castState.castSession;
-    const castClient = castState.castClient;
-    const castMediaStatus = castState.castMediaStatus;
-    const castStreamPosition = castState.castStreamPosition; 
+    // Local callback functions for DVR Progress Manager (defined after refs)
+    const onDVRModeChange = (data: ModeChangeData) => {
+        console.log(`[Player] (Audio Cast Flavour) onDVRModeChange: ${JSON.stringify(data)}`);
+    };
 
-    // Referencias para compatibilidad temporal (serán eliminadas en pasos posteriores)
-    const lastCastState = useRef<CastState | null>();
+    const onDVRProgramChange = (data: ProgramChangeData) => {
+        console.log(`[Player] (Audio Cast Flavour) onDVRProgramChange: ${JSON.stringify(data)}`);
+    };
 
-    const sliderValues = useRef<SliderValues>();
-    const pendingCastMessageData = useRef<{source: any, sourceDrm?: IDrm} | null>(null);
-
-    const youboraForVideo = useRef<IMappedYoubora>();
-    const drm = useRef<IDrm>();
-    const castMessage = useRef();
-
-    const isChangingSource = useRef<boolean>(true);
-
-    const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
-    const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
-    const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
-    const [buffering, setBuffering] = useState<boolean>(false);
-
-    // Player Progress
-    const playerProgressRef = useRef<IPlayerProgress>();
+    const onProgressUpdate = (data: ProgressUpdateData) => {
+        // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
+        if (currentSourceType.current === 'content') {
+            sliderValues.current = {
+                minimumValue: data.minimumValue,
+                maximumValue: data.maximumValue,
+                progress: data.progress,
+                percentProgress: data.percentProgress,
+                duration: data.duration || 0,
+                canSeekToEnd: data.canSeekToEnd,
+                liveEdge: data.liveEdge,
+                percentLiveEdge: data.percentLiveEdge,
+                isProgramLive: data.isProgramLive,
+                progressDatum: data.progressDatum,
+                liveEdgeOffset: data.liveEdgeOffset,
+                isLiveEdgePosition: data.isLiveEdgePosition,
+            };
     
-    // Trigger para forzar re-render cuando sliderValues cambie
-    const [sliderValuesUpdate, setSliderValuesUpdate] = useState<number>(0);
-
-    // Source
-    const sourceRef = useRef<SourceClass | null>(null);
-
-    // Tudum
-    const tudumRef = useRef<TudumClass | null>(null);
-
-    // VOD Progress Manager
-    const vodProgressManagerRef = useRef<VODProgressManagerClass | null>(null);
-
-    // DVR Progress Manager
-    const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
-
-    // Control para evitar mezcla de sources
-    const currentSourceType = useRef<'tudum' | 'content' | null>(null);
-    const pendingContentSource = useRef<onSourceChangedProps | null>(null);
+            // Update player progress as well for controls
+            try {
+                playerProgressRef.current = {
+                    ...props.playerProgress,
+                    currentTime: currentTime,
+                    duration: sliderValues.current?.duration || 0,
+                    isPaused: paused,
+                    isMuted: muted,
+                    isContentLoaded: isContentLoaded,
+                    isChangingSource: isChangingSource.current,
+                    sliderValues: sliderValues.current,
+                    currentProgram: data.currentProgram,
+                };
+            } catch (ex: any) {
+                console.log(`[Player] (Audio Cast Flavour) onProgressUpdate - error ${ex?.message}`);
+            }
     
-    // Referencias para manejo de Cast content - solución elegante para race conditions
-    const lastLoadedCastConfig = useRef<any>(null);
-    const pendingCastConfig = useRef<any>(null);
-    const isLoadingContentRef = useRef<boolean>(false);
+            // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues
+            setSliderValuesUpdate((prev: number) => prev + 1);
+        } else {
+            console.log(`[Player] (Audio Cast Flavour) onProgressUpdate - Ignoring progress update for ${currentSourceType.current}`);
+        }
+    };
+
+    const onSeekRequest = (playerTime: number) => {
+        console.log(`[Player] (Audio Cast Flavour) onSeekRequest: ${playerTime}`);
+        if (castManager) {
+            castManager.seek(playerTime);
+        } else {
+            // Fallback to legacy approach
+            invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, playerTime, currentTime, sliderValues.current?.duration || 0, castMediaStatus?.liveSeekableRange, props.events?.onSeek);
+        }
+    };
     
     // Initialize VOD Progress Manager only once
     if (!vodProgressManagerRef.current) {
@@ -974,63 +1036,8 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     };
 
     /*
-     *  Progress Manager Callbacks
+     *  Progress Manager Callbacks (Now handled by earlier definitions)
      */
-
-    function onDVRModeChange(data: ModeChangeData) {
-        console.log(`[Player] (Audio Cast Flavour) onDVRModeChange: ${JSON.stringify(data)}`);
-    };
-
-    function onDVRProgramChange(data: ProgramChangeData) {
-        console.log(`[Player] (Audio Cast Flavour) onDVRProgramChange: ${JSON.stringify(data)}`);
-    };
-
-    function onProgressUpdate(data: ProgressUpdateData) {
-        // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
-        if (currentSourceType.current === 'content') {
-            sliderValues.current = {
-                minimumValue: data.minimumValue,
-                maximumValue: data.maximumValue,
-                progress: data.progress,
-                percentProgress: data.percentProgress,
-                duration: data.duration || 0,
-                canSeekToEnd: data.canSeekToEnd,
-                liveEdge: data.liveEdge,
-                percentLiveEdge: data.percentLiveEdge,
-                isProgramLive: data.isProgramLive,
-                progressDatum: data.progressDatum,
-                liveEdgeOffset: data.liveEdgeOffset,
-                isLiveEdgePosition: data.isLiveEdgePosition,
-            };
-
-            try {
-                playerProgressRef.current = {
-                    ...props.playerProgress,
-                    currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
-                    isPaused: paused,
-                    isMuted: muted,
-                    isContentLoaded: isContentLoaded,
-                    isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
-                    currentProgram: data.currentProgram,
-                };
-            } catch (ex: any) {
-                console.log(`[Player] (Audio Cast Flavour) onProgressUpdate - error ${ex?.message}`);
-            }
-
-            // Trigger re-render del useEffect para emitir eventos con nuevos sliderValues
-            setSliderValuesUpdate((prev: number) => prev + 1);
-        } else {
-            console.log(`[Player] (Audio Cast Flavour) onProgressUpdate - Ignoring progress update for ${currentSourceType.current}`);
-        }
-    };
-
-    function onSeekRequest(playerTime: number) {
-        console.log(`[Player] (Audio Cast Flavour) onSeekRequest: ${playerTime}`);
-        // Seek en cast player
-        invokePlayerAction(castClient, castSession, CONTROL_ACTION.SEEK, playerTime, currentTime, sliderValues.current?.duration || 0, castMediaStatus?.liveSeekableRange, props.events?.onSeek);
-    };
 
     /*
      *  Source Cooking

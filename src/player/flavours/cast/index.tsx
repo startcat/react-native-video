@@ -72,7 +72,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     // Control para evitar mezcla de sources
     const currentSourceType = useRef<'tudum' | 'content' | null>(null);
     const pendingContentSource = useRef<onSourceChangedProps | null>(null);
-    
+
+
+
     // Usar el nuevo sistema de Cast
     const castState = useCastState({
         streamPositionInterval: 1,
@@ -98,6 +100,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         ...castManager 
     } = useCastManager({
         debugMode: false,
+        dvrProgressManager: dvrProgressManagerRef.current,
         callbacks: {
             onStateChange: (state, previousState) => {
                 console.log(`[Player] (Cast Flavour) Cast manager state changed:`, {
@@ -134,26 +137,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             }
         }
     });
-
-    // Initialize Progress Managers
-    if (!vodProgressManagerRef.current) {
-        vodProgressManagerRef.current = new VODProgressManagerClass({
-            onProgressUpdate: onProgressUpdate,
-            onSeekRequest: onSeekRequest
-        });
-    }
-
-    if (!dvrProgressManagerRef.current) {
-        dvrProgressManagerRef.current = new DVRProgressManagerClass({
-            playbackType: props.playerProgress?.liveValues?.playbackType,
-            getEPGProgramAt: props.hooks?.getEPGProgramAt,
-            getEPGNextProgram: props.hooks?.getEPGNextProgram,
-            onModeChange: onDVRModeChange,
-            onProgramChange: onDVRProgramChange,
-            onProgressUpdate: onProgressUpdate,
-            onSeekRequest: onSeekRequest
-        });
-    }
 
     // Hook para el estado de buffering
     const isBuffering = useIsBuffering({
@@ -818,8 +801,31 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
     function onSeekRequest(playerTime: number) {
         console.log(`[Player] (Cast Flavour) onSeekRequest:`, playerTime);
-        castManager.seek(playerTime);
+        // Use castManager if available, otherwise store for later
+        if (castManager) {
+            castManager.seek(playerTime);
+        }
     };
+
+    // Initialize Progress Managers after callback definitions
+    if (!vodProgressManagerRef.current) {
+        vodProgressManagerRef.current = new VODProgressManagerClass({
+            onProgressUpdate: onProgressUpdate,
+            onSeekRequest: onSeekRequest
+        });
+    }
+
+    if (!dvrProgressManagerRef.current) {
+        dvrProgressManagerRef.current = new DVRProgressManagerClass({
+            playbackType: props.playerProgress?.liveValues?.playbackType,
+            getEPGProgramAt: props.hooks?.getEPGProgramAt,
+            getEPGNextProgram: props.hooks?.getEPGNextProgram,
+            onModeChange: onDVRModeChange,
+            onProgramChange: onDVRProgramChange,
+            onProgressUpdate: onProgressUpdate,
+            onSeekRequest: onSeekRequest
+        });
+    }
 
     // Control handlers
     const onControlsPress = (id: CONTROL_ACTION, value?: number | boolean) => {
