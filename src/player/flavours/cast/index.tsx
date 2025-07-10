@@ -231,6 +231,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             const mediaStatus = castState.castMediaStatus;
 
             console.log(`[Player] (Cast Flavour) castMediaStatus changed: ${JSON.stringify(mediaStatus)}`);
+
+            console.log(`[Player] (Cast Flavour) castMediaStatus changed - menuData: ${JSON.stringify(menuData)}`);
+            console.log(`[Player] (Cast Flavour) castMediaStatus changed - mediaTracks: ${JSON.stringify(mediaStatus?.mediaInfo?.mediaTracks)}`);
             
             // Manejar cambios en las pistas de media si no tenemos menuData
             if (!menuData && mediaStatus?.mediaInfo?.mediaTracks) {
@@ -318,19 +321,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         console.log(`[Player] (Cast Flavour) handleContentLoaded :: ${JSON.stringify(content)}`);
 
         console.log(`[Player] (Cast Flavour) handleContentLoaded - castState: ${JSON.stringify(castState)}`);
-        console.log(`[Player] (Cast Flavour) handleContentLoaded - languagesMapping: ${JSON.stringify(props.languagesMapping)}`);
-        console.log(`[Player] (Cast Flavour) handleContentLoaded - mediaTracks: ${JSON.stringify(castState.castMediaStatus?.mediaInfo?.mediaTracks)}`);
-        
-        // Procesar pistas de media para el menú
-        if (castState.castMediaStatus?.mediaInfo?.mediaTracks) {
-            console.log(`[Player] (Cast Flavour) Processing media tracks for menu`);
-            
-            if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function') {
-                setMenuData(props.hooks.mergeCastMenuData(castState.castMediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
-            } else {
-                setMenuData(mergeCastMenuData(castState.castMediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
-            }
-        }
         
         // Verificar si el contenido cargado es el mismo que esperamos
         if (currentSourceType.current === 'content') {
@@ -361,21 +351,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
     const handlePlaybackStarted = () => {
         console.log(`[Player] (Cast Flavour) handlePlaybackStarted`);
-
-        console.log(`[Player] (Cast Flavour) handlePlaybackStarted - languagesMapping: ${JSON.stringify(props.languagesMapping)}`);
-        console.log(`[Player] (Cast Flavour) handlePlaybackStarted - mediaTracks: ${JSON.stringify(castState.castMediaStatus?.mediaInfo?.mediaTracks)}`);
         
         if (!isContentLoaded) {
-            // Procesar pistas de media si no se hizo antes
-            if (castState.castMediaStatus?.mediaInfo?.mediaTracks && !menuData) {
-                console.log(`[Player] (Cast Flavour) Processing media tracks for menu in playback started`);
-                
-                if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function') {
-                    setMenuData(props.hooks.mergeCastMenuData(castState.castMediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
-                } else {
-                    setMenuData(mergeCastMenuData(castState.castMediaStatus.mediaInfo.mediaTracks, props.languagesMapping));
-                }
-            }
             
             setIsContentLoaded(true);
             setBuffering(false);
@@ -584,7 +561,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
     const onSourceChanged = (data: onSourceChangedProps) => {
         console.log(`[Player] (Cast Flavour) onSourceChanged - currentSourceType: ${currentSourceType.current}`);
-        console.log(`[Player] (Cast Flavour) onSourceChanged - data:`, data);
+        console.log(`[Player] (Cast Flavour) onSourceChanged - data: ${JSON.stringify(data)}`);
         
         if (!sourceRef.current?.isLive && !sourceRef.current?.isDownloaded && currentSourceType.current === 'tudum') {
             // Si estamos reproduciendo tudum, guardar el source del contenido para después
