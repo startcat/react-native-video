@@ -181,7 +181,6 @@ export interface MessageBuilderConfig {
  */
 export interface CastUtils {
     isValidUrl: (url: string) => boolean;
-    generateContentId: (source: IVideoSource, metadata: CastContentMetadata) => string;
     formatDuration: (seconds: number) => string;
     formatTime: (seconds: number) => string;
     compareContent: (current: CastContentInfo, newContent: CastMessageConfig) => ContentComparisonResult;

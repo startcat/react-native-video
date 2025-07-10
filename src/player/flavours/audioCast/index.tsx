@@ -799,7 +799,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     
         // Para DVR, ajustar el punto de inicio
         if (sourceRef.current?.isLive && sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
-            startingPoint = sourceRef.current.dvrWindowSeconds;
+            startingPoint = undefined; //sourceRef.current.dvrWindowSeconds;
             console.log(`[Player] (Audio Cast Flavour) DVR content, startingPoint set to: ${startingPoint}`);
         }
     

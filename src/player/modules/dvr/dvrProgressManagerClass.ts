@@ -175,7 +175,7 @@ export class DVRProgressManagerClass {
     checkInitialSeek(mode:'player' | 'cast') {
         console.log(`[Player] (DVR Progress Manager) checkInitialSeek for ${mode}`);
 
-        if (mode === 'player' && Platform.OS === 'ios') {
+        if (mode === 'cast' || Platform.OS === 'ios') {
             setTimeout(() => {
                 this.goToLive();
             }, 300);

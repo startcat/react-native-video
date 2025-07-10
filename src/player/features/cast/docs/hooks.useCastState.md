@@ -28,11 +28,10 @@ El hook acepta un objeto de configuración `UseCastStateConfig`:
 
 | Propiedad | Tipo | Obligatorio | Por Defecto | Descripción |
 |-----------|------|-------------|-------------|-------------|
-| `enableStreamPosition` | `boolean` | ❌ | `true` | Habilita el seguimiento de posición del stream |
-| `streamPositionInterval` | `number` | ❌ | `1` | Intervalo en segundos para actualizar posición |
+| `streamPositionInterval` | `number` | ❌ | `1` | Intervalo en segundos para actualizar posición del stream |
 | `debugMode` | `boolean` | ❌ | `false` | Activa logs de debug en consola |
 | `onStateChange` | `(state: CastStateInfo, prev: CastStateInfo) => void` | ❌ | `undefined` | Callback cuando cambia el estado |
-| `onConnectionChange` | `(isConnected: boolean) => void` | ❌ | `undefined` | Callback cuando cambia la conexión |
+| `onConnectionChange` | `(isConnected: boolean, prev: boolean) => void` | ❌ | `undefined` | Callback cuando cambia la conexión |
 
 ### Valor de Retorno
 
@@ -63,14 +62,13 @@ import { useCastState } from '@/features/cast';
 
 function MyCastComponent() {
     const castInfo = useCastState({
-        enableStreamPosition: true,
         streamPositionInterval: 2,
         debugMode: true,
         onStateChange: (newState, prevState) => {
             console.log('Cast state changed:', newState.managerState);
         },
-        onConnectionChange: (isConnected) => {
-            console.log('Cast connection:', isConnected ? 'Connected' : 'Disconnected');
+        onConnectionChange: (isConnected, prevConnected) => {
+            console.log('Cast connection changed:', isConnected ? 'Connected' : 'Disconnected');
         }
     });
 
@@ -303,7 +301,10 @@ Los hooks utilizan el enum `CastManagerState` con los siguientes valores:
 
 - Los hooks implementan optimizaciones para evitar re-renders innecesarios
 - Usan `useCallback` y `useRef` para mantener estabilidad de referencias
-- El seguimiento de posición se puede deshabilitar cuando no sea necesario
+- **Refs de Callbacks**: Los callbacks (`onStateChange`, `onConnectionChange`) se capturan en refs para evitar dependencias circulares
+- **Comparación Optimizada**: Solo actualiza el estado cuando hay cambios significativos detectados
+- **Logging Condicional**: Los logs de debug se optimizan usando refs para evitar recreaciones innecesarias
+- **Estado Memoizado**: El estado interno se actualiza de forma eficiente comparando propiedades específicas
 
 ### Debugging
 
@@ -312,6 +313,39 @@ Activa el modo debug en `useCastState` para obtener información detallada en co
 ```typescript
 const castInfo = useCastState({ debugMode: true });
 ```
+
+### Cambios Recientes y Arquitectura
+
+**Optimizaciones Principales:**
+
+1. **Eliminación del parámetro `enableStreamPosition`**: El seguimiento de posición del stream ahora está siempre habilitado, controlado internamente por `streamPositionInterval`.
+
+2. **Sistema de Referencias para Callbacks**: Los callbacks se capturan en `useRef` para evitar dependencias circulares y re-renders innecesarios:
+   ```typescript
+   const onStateChangeRef = useRef(onStateChange);
+   const onConnectionChangeRef = useRef(onConnectionChange);
+   ```
+
+3. **Detección Inteligente de Cambios**: Solo actualiza el estado cuando hay cambios significativos:
+   ```typescript
+   const hasStateChange = (
+       newState.castState !== previousState.castState ||
+       newState.hasSession !== previousState.hasSession ||
+       newState.managerState !== previousState.managerState
+   );
+   ```
+
+4. **Callback de Conexión Mejorado**: Ahora incluye el estado anterior:
+   ```typescript
+   onConnectionChange: (isConnected: boolean, previousConnected: boolean) => void
+   ```
+
+**Beneficios de la Arquitectura Optimizada:**
+- Elimina bucles infinitos de actualización
+- Reduce renders innecesarios en componentes padre
+- Mejora la estabilidad del estado Cast
+- Proporciona mejor debugging y trazabilidad
+- Mantiene la compatibilidad con el API existente
 
 ### Dependencias
 

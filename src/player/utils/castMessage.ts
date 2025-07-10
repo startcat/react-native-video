@@ -72,7 +72,7 @@ export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: I
             }
         },
         autoplay: true,
-        startTime: metadata?.startPosition || 0
+        startTime: metadata?.startPosition || undefined
     };
 
     log(`Cast Message ${JSON.stringify(message)}`);

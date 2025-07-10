@@ -1,4 +1,3 @@
-import { CONTENT_COMPARISON_TOLERANCE } from '../constants';
 import {
     CastContentInfo,
     CastMessageConfig,
@@ -21,24 +20,6 @@ export function isValidUrl(url: string): boolean {
 }
 
 /*
- *  Genera un ID único para contenido Cast
- *
- */
-
-export function generateContentId(source: any, metadata: any): string {
-    // Usar ID del metadata si existe
-    if (metadata.id) {
-        return `cast_${metadata.id}`;
-    }
-    
-    // Generar ID basado en URL
-    const urlHash = hashString(source.uri);
-    const timestamp = Date.now();
-    
-    return `cast_${urlHash}_${timestamp}`;
-}
-
-/*
  *  Compara contenido actual con nuevo contenido
  *
  */
@@ -53,36 +34,21 @@ export function compareContent(
         isSameStartPosition: false,
         needsReload: true
     };
+
+    console.log(`[DANI] compareContent ${current.contentUrl} <> ${newConfig.source.uri}`);
     
     // Comparar URLs
     result.isSameUrl = normalizeUrl(current.contentUrl) === normalizeUrl(newConfig.source.uri);
     
-    // Comparar posición de inicio
-    const currentStartPos = current.startPosition || 0;
-    const newStartPos = newConfig.metadata.startPosition || 0;
-    result.isSameStartPosition = Math.abs(currentStartPos - newStartPos) <= CONTENT_COMPARISON_TOLERANCE.TIME_DIFFERENCE;
-    
-    // Comparar tipo de contenido
-    const currentType = getContentTypeFromInfo(current);
-    const newType = getContentTypeFromMetadata(newConfig.metadata);
-    const isSameType = currentType === newType;
-    
-    // Determinar si es el mismo contenido
-    result.isSameContent = result.isSameUrl && isSameType;
-    
     // Determinar si necesita recarga
-    result.needsReload = !result.isSameContent || !result.isSameStartPosition;
+    result.needsReload = !result.isSameUrl;
     
     // Agregar razón si no es el mismo contenido
-    if (!result.isSameContent) {
-        if (!result.isSameUrl) {
-            result.reason = 'Different URL';
-        } else if (!isSameType) {
-            result.reason = 'Different content type';
-        }
-    } else if (!result.isSameStartPosition) {
-        result.reason = 'Different start position';
+    if (!result.isSameUrl) {
+        result.reason = 'Different URL';
     }
+
+    console.log(`[DANI] compareContent result: ${JSON.stringify(result)}`);
     
     return result;
 }

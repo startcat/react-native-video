@@ -5,7 +5,6 @@ Este documento describe las utilidades disponibles en el archivo `castUtils.ts` 
 ## Índice
 
 - [Validación](#validación)
-- [Generación y Hash](#generación-y-hash)
 - [Comparación de Contenido](#comparación-de-contenido)
 - [Formateo de Tiempo](#formateo-de-tiempo)
 - [Tipo de Contenido](#tipo-de-contenido)
@@ -58,42 +57,6 @@ Valida si metadata es válida.
 | `metadata` | `any` | ✅          | Objeto metadata a validar       |
 
 **Retorna:** `boolean` - `true` si la metadata es válida
-
----
-
-## Generación y Hash
-
-### `generateContentId(source: any, metadata: any): string`
-
-Genera un ID único para contenido Cast.
-
-**Parámetros:**
-| Parámetro  | Tipo  | Obligatorio | Descripción                           |
-|------------|-------|-------------|---------------------------------------|
-| `source`   | `any` | ✅          | Objeto source del contenido           |
-| `metadata` | `any` | ✅          | Metadata del contenido                |
-
-**Retorna:** `string` - ID único generado para el contenido
-
-**Ejemplo:**
-```typescript
-const contentId = generateContentId(
-  { uri: 'https://example.com/video.mp4' },
-  { title: 'Mi Video' }
-);
-// "cast_abc123_1625140800000"
-```
-
-### `hashString(str: string): string`
-
-Genera hash simple de un string.
-
-**Parámetros:**
-| Parámetro | Tipo     | Obligatorio | Descripción                     |
-|-----------|----------|-------------|---------------------------------|
-| `str`     | `string` | ✅          | String a hashear                |
-
-**Retorna:** `string` - Hash del string
 
 ---
 
