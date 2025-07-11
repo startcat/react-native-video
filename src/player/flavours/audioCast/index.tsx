@@ -43,6 +43,8 @@ import {
     DVRProgressManagerClass
 } from '../../modules/dvr';
 
+
+
 import {
     type AudioCastFlavourProps,
     type AudioControlsProps,
@@ -159,6 +161,23 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             },
             onContentLoaded: (content) => {
                 console.log(`[Player] (Audio Cast Flavour) Content loaded:`, content);
+                
+                // Reinicializar progress managers para el nuevo contenido
+                if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+                    console.log(`[Player] (Audio Cast Flavour) Reinitializing DVR Progress Manager for new content`);
+                    dvrProgressManagerRef.current.reset();
+                    
+                    // Para live DVR, forzar primera actualización con datos actuales
+                    if (sourceRef.current?.isLive && currentTime > 0) {
+                        console.log(`[Player] (Audio Cast Flavour) Force updating DVR manager for live content:`, { currentTime });
+                        updateDVRProgressManagerForLive(currentTime);
+                    }
+                }
+                if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && vodProgressManagerRef.current) {
+                    console.log(`[Player] (Audio Cast Flavour) Reinitializing VOD Progress Manager for new content`);
+                    vodProgressManagerRef.current.reset();
+                }
+                
                 setIsContentLoaded(true);
                 setIsLoadingContent(false);
             },
@@ -209,9 +228,14 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     setIsLoadingContent(false);
                 }
                 
-                // Solo actualizar progress managers si tenemos duración válida
+                // Para streams DVR live, necesitamos actualizar el progress manager aunque duration sea 0
+                // para que pueda calcular la ventana DVR
                 if (duration && duration > 0) {
                     updateProgressManagers(currentTime, duration);
+                } else if (sourceRef.current?.isDVR && currentTime > 0) {
+                    // Para DVR live streams sin duration, actualizar solo DVR manager
+                    console.log(`[Player] (Audio Cast Flavour) Updating DVR manager for live stream (duration=0)`);
+                    updateDVRProgressManagerForLive(currentTime);
                 } else {
                     console.warn(`[Player] (Audio Cast Flavour) Invalid duration in time update:`, duration);
                 }
@@ -233,6 +257,23 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     };
 
     const onProgressUpdate = (data: ProgressUpdateData) => {
+        // Debug logging para live DVR streams
+        if (sourceRef.current?.isDVR && sourceRef.current?.isLive) {
+            console.log(`[Player] (Audio Cast Flavour) DVR Progress Update:`, {
+                progress: data.progress,
+                duration: data.duration,
+                minimumValue: data.minimumValue,
+                maximumValue: data.maximumValue,
+                percentProgress: data.percentProgress,
+                liveEdge: data.liveEdge,
+                liveEdgeOffset: data.liveEdgeOffset,
+                isLiveEdgePosition: data.isLiveEdgePosition,
+                progressDatum: data.progressDatum,
+                currentProgram: data.currentProgram?.title || 'No program',
+                castCurrentTime: currentTime
+            });
+        }
+        
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
             sliderValues.current = {
@@ -848,10 +889,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             // Preparar configuración del cast usando el helper actual
             let startingPoint = props.playerProgress?.currentTime || 0;
             
-            // Para DVR, ajustar el punto de inicio
-            if (sourceRef.current?.isLive && sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
-                startingPoint = sourceRef.current.dvrWindowSeconds;
-                console.log(`[Player] (Audio Cast Flavour) DVR content, startingPoint set to: ${startingPoint}`);
+            // Para DVR live, empezar en live edge (posición 0) no en inicio de ventana
+            if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
+                // Para streams live DVR, empezar en live edge para comportamiento tipo PLAYLIST correcto
+                startingPoint = 0; // Live edge
+                console.log(`[Player] (Audio Cast Flavour) Live DVR content, starting at live edge (position: ${startingPoint})`);
             }
             
             // Preparar Youbora data
@@ -897,8 +939,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             // Usar el helper existing para crear el mensaje del cast
             let startingPoint = props.playerProgress?.currentTime || 0;
             
-            if (sourceRef.current?.isLive && sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
-                startingPoint = sourceRef.current.dvrWindowSeconds;
+            // Para DVR live, empezar en live edge (posición 0) no en inicio de ventana
+            if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
+                // Para streams live DVR, empezar en live edge para comportamiento tipo PLAYLIST correcto
+                startingPoint = 0; // Live edge
+                console.log(`[Player] (Audio Cast Flavour) Live DVR content, starting at live edge (position: ${startingPoint})`);
             }
             
             if (props.hooks?.getYouboraOptions) {
@@ -972,8 +1017,16 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                 }
             }
             
-            if (!contentMatches) {
-                console.log(`[Player] (Audio Cast Flavour) Loading new content via unified system`);
+            // Para streams live DVR, siempre forzar la recarga
+            const isLiveDVRStream = castConfig.metadata.isLive && sourceRef.current?.isDVR;
+            const shouldForceLoad = isLiveDVRStream;
+            
+            if (!contentMatches || shouldForceLoad) {
+                if (shouldForceLoad) {
+                    console.log(`[Player] (Audio Cast Flavour) Forcing load for live DVR stream`);
+                } else {
+                    console.log(`[Player] (Audio Cast Flavour) Loading new content via unified system`);
+                }
                 
                 isLoadingContentRef.current = true;
                 try {
@@ -1032,6 +1085,32 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     duration: duration,
                 });
             }
+        }
+    };
+
+    /*
+     * Update DVR Progress Manager for Live Streams (duration=0)
+     */
+    const updateDVRProgressManagerForLive = (currentTime: number) => {
+        if (currentSourceType.current === 'content' && sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+            // Para DVR live, usar ventana DVR fija, no la duración total del stream
+            
+            // 1. FORZAR ventana DVR fija de 1 hora (3600 segundos)
+            // No usar sourceRef.current?.dvrWindowSeconds porque puede ser la duración total del stream
+            const customData = castMediaStatus?.mediaInfo?.customData || {};
+            let dvrWindowSeconds = customData.dvrWindowSeconds || 3600; // FORZAR 1 hora máximo
+            
+            // 2. Para live DVR, la ventana es los últimos N segundos desde currentTime
+            const seekableStart = Math.max(0, currentTime - dvrWindowSeconds);
+            const seekableEnd = currentTime; // Live edge
+            
+            dvrProgressManagerRef.current.updatePlayerData({
+                currentTime,
+                duration: dvrWindowSeconds,
+                seekableRange: { start: seekableStart, end: seekableEnd },
+                isBuffering: buffering,
+                isPaused: paused
+            });
         }
     };
 

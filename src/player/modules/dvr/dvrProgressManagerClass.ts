@@ -137,11 +137,18 @@ export class DVRProgressManagerClass {
      */
 
     async updatePlayerData(data:UpdatePlayerData) {
-        const { currentTime, seekableRange, isBuffering, isPaused } = data;
+        const { currentTime, duration, seekableRange, isBuffering, isPaused } = data;
 
-        // console.log(`[Player] (DVR Progress Manager) updatePlayerData ${JSON.stringify(data)}`);
+        console.log(`[Player] (DVR Progress Manager) updatePlayerData`, {
+            currentTime,
+            duration,
+            seekableRange,
+            isBuffering,
+            isPaused
+        });
       
         this._currentTime = currentTime || 0;
+        this._duration = duration || this._duration; // Actualizar duration interna
         this._seekableRange = seekableRange || this._seekableRange;
       
         // Manejar cambios de estado de pausa/buffering
@@ -164,7 +171,13 @@ export class DVRProgressManagerClass {
         // Emitir actualización
         this._emitProgressUpdate();
 
-        // console.log(`[Player] (DVR Progress Manager) updatePlayerData - Stats ${JSON.stringify(this.getStats())}`);
+        console.log(`[Player] (DVR Progress Manager) updatePlayerData - Final Stats:`, {
+            duration: this._duration,
+            currentLiveEdge: this._getCurrentLiveEdge(),
+            progressDatum: this._getProgressDatum(),
+            liveEdgeOffset: this._getLiveEdgeOffset(),
+            isLiveEdgePosition: this._isLiveEdgePosition
+        });
     }
 
     /*
