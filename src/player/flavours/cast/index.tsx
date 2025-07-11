@@ -26,7 +26,14 @@ import {
 } from '../../../types';
 
 import { useIsBuffering } from '../../modules/buffer';
-import { DVRProgressManagerClass, type ModeChangeData, type ProgramChangeData } from '../../modules/dvr';
+import { 
+    DVRProgressManagerClass,
+    type ModeChangeData,
+    type ProgramChangeData
+} from '../../modules/dvr';
+
+
+
 import { SourceClass, type onSourceChangedProps } from '../../modules/source';
 import { TudumClass } from '../../modules/tudum';
 import { VODProgressManagerClass } from '../../modules/vod';
@@ -267,7 +274,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             }
 
             if (sourceRef.current?.isDVR) {
-                // Para DVR
                 dvrProgressManagerRef.current?.updatePlayerData({
                     currentTime: progressInfo.currentTime || 0,
                     duration: progressInfo.duration || 0,
@@ -593,9 +599,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
         let startingPoint = props.playerProgress?.currentTime || 0;
 
-        // Para DVR, ajustar el punto de inicio
-        if (sourceRef.current?.isLive && sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
-            startingPoint = sourceRef.current.dvrWindowSeconds;
+        // Para DVR live, empezar en live edge (posición 0) no en inicio de ventana
+        if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
+            // Para streams live DVR, empezar en live edge para comportamiento tipo PLAYLIST correcto
+            startingPoint = 0; // Live edge
+            console.log(`[Player] (Cast Flavour) Live DVR content, starting at live edge (position: ${startingPoint})`);
         }
 
         return {
@@ -686,7 +694,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             }
 
             if (sourceRef.current?.isDVR) {
-                // Para DVR
                 dvrProgressManagerRef.current?.updatePlayerData({
                     currentTime: currentTime,
                     duration: duration,

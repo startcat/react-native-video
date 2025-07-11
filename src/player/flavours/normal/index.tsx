@@ -53,6 +53,8 @@ import {
     DVRProgressManagerClass
 } from '../../modules/dvr';
 
+
+
 import { styles } from '../styles';
 
 import {
@@ -840,7 +842,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
             if (sourceRef.current?.isDVR){
-                // Para DVR, usar la duración del evento onProgress
                 dvrProgressManagerRef.current?.updatePlayerData({
                     currentTime: e.currentTime,
                     duration: e.playableDuration,
