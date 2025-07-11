@@ -173,15 +173,22 @@ export class CastMessageBuilder {
     
     private calculateStartPosition(config: CastMessageConfig): number {
         const { metadata } = config;
+
+        /*
+         *  Esto es estándar en el protocolo de Cast:
+         * 
+         *  startTime: -1 → empieza a reproducir desde el final del buffer, es decir, el live edge del stream.
+         *
+         */
         
         // Para contenido live/DVR, usar lógica específica
         if (metadata.isLive) {
             if (metadata.isDVR) {
-                // Para DVR, usar startPosition del metadata o 0
-                return metadata.startPosition || 0;
+                // Para DVR, usar startPosition del metadata o -1
+                return -1; //metadata.startPosition || -1;
             } else {
-                // Para live, siempre empezar desde 0
-                return 0;
+                // Para live, siempre empezar en el liveEdge (-1)
+                return -1;
             }
         }
 

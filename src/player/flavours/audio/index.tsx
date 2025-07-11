@@ -105,6 +105,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // Initialize DVR Progress Manager only once
     if (!dvrProgressManagerRef.current) {
+        console.log(`[Player] (Audio Flavour) Initializing DVR Progress Manager`);
+        console.log(`[Player] (Audio Flavour) EPG hooks available - getEPGProgramAt: ${!!props.hooks?.getEPGProgramAt}, getEPGNextProgram: ${!!props.hooks?.getEPGNextProgram}`);
+        
         dvrProgressManagerRef.current = new DVRProgressManagerClass({
             playbackType: props.playerProgress?.liveValues?.playbackType,
 
@@ -150,24 +153,26 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }, [currentTime]);
 
     useEffect(() => {
+        console.log(`[Player] (Audio Flavour) 🔄 useEffect manifests TRIGGERED`);
         console.log(`[Player] (Audio Flavour) useEffect manifests - isAutoNext: ${props.isAutoNext}`);
         console.log(`[Player] (Audio Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
         console.log(`[Player] (Audio Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
+        console.log(`[Player] (Audio Flavour) useEffect manifests - isContentLoaded: ${isContentLoaded}, isChangingSource: ${isChangingSource.current}`);
 
         // Verificar si es contenido live/DVR vs VOD
         const isLiveContent = !!props.playerProgress?.isLive;
 
         if (isLiveContent) {
-            // COMPORTAMIENTO ORIGINAL PARA LIVE/DVR - Sin tudum, sin resets complicados
-            if (!tudumRef.current){
-                tudumRef.current = new TudumClass({
-                    enabled: false, // Nunca tudum para live
-                    getTudumSource: props.hooks?.getTudumSource,
-                    getTudumManifest: props.hooks?.getTudumManifest,
-                });
+            // Para contenido live, si ya está cargado y no estamos cambiando source, no hacer nada
+            if (isContentLoaded && !isChangingSource.current) {
+                console.log(`[Player] (Audio Flavour) useEffect manifests - ✅ Live content already loaded, skipping`);
+                return;
             }
-
-            if (!sourceRef.current){
+            // LÓGICA PARA LIVE/DVR - cargar contenido directamente sin tudum
+            console.log(`[Player] (Audio Flavour) useEffect manifests - Live content detected, skipping tudum`);
+            
+            // Crear sourceRef si no existe
+            if (!sourceRef.current) {
                 sourceRef.current = new SourceClass({
                     id: props.playerMetadata?.id,
                     title: props.playerMetadata?.title,
@@ -184,9 +189,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             }
 
             // Para live, cargar contenido directamente
+            console.log(`[Player] (Audio Flavour) useEffect manifests - Setting currentSourceType to 'content' and isChangingSource to true`);
             currentSourceType.current = 'content';
             isChangingSource.current = true;
             
+            console.log(`[Player] (Audio Flavour) useEffect manifests - Calling changeSource with manifests`);
             sourceRef.current.changeSource({
                 id: props.playerMetadata?.id,
                 title: props.playerMetadata?.title,
@@ -199,6 +206,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 isLive: !!props.playerProgress?.isLive,
                 headers: props.headers,
             });
+            
+            console.log(`[Player] (Audio Flavour) useEffect manifests - changeSource called, waiting for onLoad...`);
 
         } else {
             // LÓGICA DEL TUDUM SOLO PARA VOD
@@ -258,6 +267,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
     }, [props.manifests, props.isAutoNext]);
+
+    // Debug useEffect para monitorear cambios en isContentLoaded
+    useEffect(() => {
+        console.log(`[Player] (Audio Flavour) 🔍 isContentLoaded changed to: ${isContentLoaded}`);
+        console.log(`[Player] (Audio Flavour) 🔍 isChangingSource current value: ${isChangingSource.current}`);
+    }, [isContentLoaded]);
 
     useEffect(() => {
         EventRegister.emit('audioPlayerProgress', {
@@ -402,6 +417,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         } else if (currentSourceType.current === 'content') {
             // Si ya estamos en modo contenido, procesar normalmente
             console.log(`[Player] (Audio Flavour) onSourceChanged - Processing content source normally`);
+
+            // Si el stream es DVR, debemos actualizar el tamaño de la ventana
+            if (data.isDVR && dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.setDVRWindowSeconds(data.dvrWindowSeconds || 3600);
+            }
             
             try {
                 playerProgressRef.current = {
@@ -627,11 +647,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
         
         if (id === CONTROL_ACTION.NEXT && props.events?.onNext){            
+            console.log(`[Player] (Audio Flavour) CONTROL_ACTION.NEXT - Resetting isContentLoaded to false`);
             setIsContentLoaded(false);
             props.events.onNext();
         }
 
         if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious){
+            console.log(`[Player] (Audio Flavour) CONTROL_ACTION.PREVIOUS - Resetting isContentLoaded to false`);
             setIsContentLoaded(false);
             props.events.onPrevious();
         }
@@ -713,15 +735,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const onLoad = async (e: OnLoadData) => {
 
-        console.log(`[Player] (Audio Flavour) onLoad (${sourceRef.current?.playerSource?.uri})`);
-        console.log(`[Player] (Audio Flavour) onLoad currentSourceType: ${currentSourceType.current}`);
-        console.log(`[Player] (Audio Flavour) onLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-        console.log(`[Player] (Audio Flavour) onLoad isContentLoaded ${isContentLoaded}`);
-        console.log(`[Player] (Audio Flavour) onLoad duration: ${e.duration}, currentTime: ${e.currentTime}`);
+        console.log(`[Player] (Audio Flavour) onLoad ENTRY - URI: ${sourceRef.current?.playerSource?.uri}`);
+        console.log(`[Player] (Audio Flavour) onLoad ENTRY - currentSourceType: ${currentSourceType.current}`);
+        console.log(`[Player] (Audio Flavour) onLoad ENTRY - isContentLoaded: ${isContentLoaded}`);
+        console.log(`[Player] (Audio Flavour) onLoad ENTRY - isChangingSource: ${isChangingSource.current}`);
+        console.log(`[Player] (Audio Flavour) onLoad ENTRY - duration: ${e.duration}, currentTime: ${e.currentTime}`);
+        console.log(`[Player] (Audio Flavour) onLoad ENTRY - isDVR: ${sourceRef.current?.isDVR}, dvrWindowSeconds: ${sourceRef.current?.dvrWindowSeconds}`);
 
         // Solo procesar onLoad para contenido principal, no para tudum
         if (currentSourceType.current === 'content' && !isContentLoaded) {
-            console.log(`[Player] (Audio Flavour) onLoad - Processing content load`);
+            console.log(`[Player] (Audio Flavour) onLoad - ✅ CONDITIONS MET - Processing content load`);
 
             // Para VOD, establecer la duración desde el evento onLoad
             if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
@@ -735,32 +758,49 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 });
             }
 
-            // Inicializar progress managers
-            if (sourceRef.current?.isDVR) {
-                dvrProgressManagerRef.current?.setInitialTimeWindowSeconds(sourceRef.current.dvrWindowSeconds);
+            // CRÍTICO: Configurar DVR window ANTES de marcar contenido como cargado
+            if (sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
+                console.log(`[Player] (Audio Flavour) onLoad - 🔧 Configuring DVR window: ${sourceRef.current.dvrWindowSeconds}s`);
+                try {
+                    dvrProgressManagerRef.current?.setDVRWindowSeconds(sourceRef.current.dvrWindowSeconds);
+                    console.log(`[Player] (Audio Flavour) onLoad - ✅ DVR window configured successfully`);
+                } catch (error) {
+                    console.log(`[Player] (Audio Flavour) onLoad - ❌ ERROR configuring DVR window:`, error);
+                }
+            } else {
+                console.log(`[Player] (Audio Flavour) onLoad - ⚠️ Skipping DVR config - isDVR: ${sourceRef.current?.isDVR}, dvrWindowSeconds: ${sourceRef.current?.dvrWindowSeconds}`);
             }
 
+            console.log(`[Player] (Audio Flavour) onLoad - 🔄 Setting isChangingSource to false and isContentLoaded to true`);
             isChangingSource.current = false;
             setIsContentLoaded(true);
+            console.log(`[Player] (Audio Flavour) onLoad - ✅ setIsContentLoaded(true) called`);
 
             if (props.events?.onStart) {
+                console.log(`[Player] (Audio Flavour) onLoad - 🎬 Calling onStart event`);
                 props.events.onStart();
             }
 
             // Seek inicial al cargar un live con DVR
             if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+                console.log(`[Player] (Audio Flavour) onLoad - 🎯 Checking initial seek for DVR`);
                 dvrProgressManagerRef.current.checkInitialSeek('player');
             }
 
         } else if (currentSourceType.current === 'tudum') {
-            console.log(`[Player] (Audio Flavour) onLoad - Tudum loaded, duration: ${e.duration}`);
+            console.log(`[Player] (Audio Flavour) onLoad - 🎵 Tudum loaded, duration: ${e.duration}`);
         } else {
-            console.log(`[Player] (Audio Flavour) onLoad - Ignoring load event (sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded})`);
+            console.log(`[Player] (Audio Flavour) onLoad - ❌ CONDITIONS NOT MET - Ignoring load event`);
+            console.log(`[Player] (Audio Flavour) onLoad - ❌ Reason: sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded}`);
         }
+        
+        console.log(`[Player] (Audio Flavour) onLoad EXIT - Final isContentLoaded will be: ${!isContentLoaded ? 'true (if conditions met)' : 'unchanged (already true)'}`);
     }
 
     const onEnd = () => {
-        console.log(`[Player] (Audio Flavour) onEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`);
+        console.log(`[Player] (Audio Flavour) onEnd ENTRY: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`);
+        console.log(`[Player] (Audio Flavour) onEnd ENTRY: isLive: ${sourceRef.current?.isLive}, isDVR: ${sourceRef.current?.isDVR}`);
+        console.log(`[Player] (Audio Flavour) onEnd ENTRY: ⚠️ WARNING - onEnd called for live content, this might be unexpected`);
         
         if (currentSourceType.current === 'tudum') {
             // Acaba la reproducción del Tudum externo

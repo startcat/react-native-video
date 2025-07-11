@@ -20,6 +20,7 @@ export interface onSourceChangedProps {
     id?:number,
     source:IVideoSource | null;
     drm?:IDrm;
+    dvrWindowSeconds?:number;
     isLive?:boolean;
     isDVR?:boolean;
     isReady?:boolean;
@@ -177,6 +178,7 @@ export class SourceClass {
                 id: props.id,
                 source:this._videoSource,
                 drm:this._drm,
+                dvrWindowSeconds:this._dvrWindowSeconds,
                 isLive:this._isLive,
                 isDVR:this._isDVR,
                 isFakeVOD:this._isFakeVOD,
