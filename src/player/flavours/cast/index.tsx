@@ -26,7 +26,7 @@ import {
 } from '../../../types';
 
 import { useIsBuffering } from '../../modules/buffer';
-import { 
+import {
     DVRProgressManagerClass,
     type ModeChangeData,
     type ProgramChangeData
@@ -79,8 +79,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     // Control para evitar mezcla de sources
     const currentSourceType = useRef<'tudum' | 'content' | null>(null);
     const pendingContentSource = useRef<onSourceChangedProps | null>(null);
-
-
 
     // Usar el nuevo sistema de Cast
     const castState = useCastState({
@@ -563,6 +561,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         } else if (currentSourceType.current === 'content') {
             // Si ya estamos en modo contenido, procesar normalmente
             console.log(`[Player] (Cast Flavour) Processing content source normally`);
+
+            // Si el stream es DVR, debemos actualizar el tamaño de la ventana
+            if (data.isDVR && dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.setDVRWindowSeconds(data.dvrWindowSeconds || 3600);
+            }
             
             if (data.isReady && data.source) {
                 const castConfig = createCastMessageConfig(data.source, data.drm);
@@ -602,7 +605,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         // Para DVR live, empezar en live edge (posición 0) no en inicio de ventana
         if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
             // Para streams live DVR, empezar en live edge para comportamiento tipo PLAYLIST correcto
-            startingPoint = 0; // Live edge
+            startingPoint = -1; // Live edge
             console.log(`[Player] (Cast Flavour) Live DVR content, starting at live edge (position: ${startingPoint})`);
         }
 

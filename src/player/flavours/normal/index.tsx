@@ -450,6 +450,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         } else if (currentSourceType.current === 'content') {
             // Si ya estamos en modo contenido, procesar normalmente
             console.log(`[Player] (Video Flavour) onSourceChanged - Processing content source normally`);
+
+            // Si el stream es DVR, debemos actualizar el tamaño de la ventana
+            if (data.isDVR && dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.setDVRWindowSeconds(data.dvrWindowSeconds || 3600);
+            }
             
             try {
                 playerProgressRef.current = {

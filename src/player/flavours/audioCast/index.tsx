@@ -43,8 +43,6 @@ import {
     DVRProgressManagerClass
 } from '../../modules/dvr';
 
-
-
 import {
     type AudioCastFlavourProps,
     type AudioControlsProps,
@@ -73,16 +71,16 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         streamPositionInterval: 1,
         debugMode: false,
         onStateChange: (newState, previousState) => {
-            console.log(`[Player] (Audio Cast Flavour) Cast state changed:`, {
-                from: previousState.managerState,
-                to: newState.managerState
-            });
+            // console.log(`[Player] (Audio Cast Flavour) Cast state changed:`, {
+            //     from: previousState.managerState,
+            //     to: newState.managerState
+            // });
         },
         onConnectionChange: (isConnected, previouslyConnected) => {
-            console.log(`[Player] (Audio Cast Flavour) Cast connection changed:`, {
-                from: previouslyConnected,
-                to: isConnected
-            });
+            // console.log(`[Player] (Audio Cast Flavour) Cast connection changed:`, {
+            //     from: previouslyConnected,
+            //     to: isConnected
+            // });
         }
     });
 
@@ -136,6 +134,9 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     const pendingCastConfig = useRef<any>(null);
     const isLoadingContentRef = useRef<boolean>(false);
 
+    // Cast stream position tracking with validation
+    const lastValidCurrentTimeRef = useRef<number>(0);
+    
     // Implementar useCastManager con callbacks específicos
     const {
         currentContent: castCurrentContent,
@@ -147,10 +148,10 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         dvrProgressManager: dvrProgressManagerRef.current,
         callbacks: {
             onStateChange: (state, previousState) => {
-                console.log(`[Player] (Audio Cast Flavour) Cast manager state changed:`, {
-                    from: previousState,
-                    to: state
-                });
+                // console.log(`[Player] (Audio Cast Flavour) Cast manager state changed:`, {
+                //     from: previousState,
+                //     to: state
+                // });
                 
                 // Actualizar estados de paused y buffering basados en estado Cast
                 if (state === 'paused') {
@@ -241,7 +242,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                 }
             },
             onBufferingChange: (isBuffering) => {
-                console.log(`[Player] (Audio Cast Flavour) Buffering change:`, isBuffering);
+                // console.log(`[Player] (Audio Cast Flavour) Buffering change:`, isBuffering);
                 setBuffering(isBuffering);
             }
         }
@@ -316,7 +317,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     };
 
     const onSeekRequest = (playerTime: number) => {
-        console.log(`[Player] (Audio Cast Flavour) onSeekRequest: ${playerTime}`);
+        // console.log(`[Player] (Audio Cast Flavour) onSeekRequest: ${playerTime}`);
         if (castManager) {
             castManager.seek(playerTime);
         } else {
@@ -359,7 +360,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     });
 
     useEffect(() => {
-        console.log(`[Player] (Audio Cast Flavour) Component initialization - timestamp: ${new Date().toISOString()}`);
+        // console.log(`[Player] (Audio Cast Flavour) Component initialization - timestamp: ${new Date().toISOString()}`);
         
         // Reset internal state on mount
         isChangingSource.current = false;
@@ -372,15 +373,15 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         };
     }, []);
 
-    useEffect(() => {
-        console.log(`[Player] (Audio Cast Flavour) Cast State Change:`, {
-            castState,
-            castSession: !!castSession,
-            castClient: !!castClient,
-            castMediaStatus: !!castMediaStatus,
-            timestamp: new Date().toISOString()
-        });
-    }, [castState, castSession, castClient, castMediaStatus]);
+    // useEffect(() => {
+    //     console.log(`[Player] (Audio Cast Flavour) Cast State Change:`, {
+    //         castState,
+    //         castSession: !!castSession,
+    //         castClient: !!castClient,
+    //         castMediaStatus: !!castMediaStatus,
+    //         timestamp: new Date().toISOString()
+    //     });
+    // }, [castState, castSession, castClient, castMediaStatus]);
 
     // useEffect para procesar contenido pendiente cuando CastManager esté listo
     useEffect(() => {
@@ -399,17 +400,17 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     castCurrentContent.title === configToProcess.metadata.title &&
                     castCurrentContent.contentId === configToProcess.metadata.id?.toString();
                     
-                console.log(`[Player] (Audio Cast Flavour) Local content comparison:`, {
-                    current: castCurrentContent,
-                    pending: configToProcess,
-                    contentMatches
-                });
+                // console.log(`[Player] (Audio Cast Flavour) Local content comparison:`, {
+                //     current: castCurrentContent,
+                //     pending: configToProcess,
+                //     contentMatches
+                // });
             }
             // Solo usar comparación del manager si no tenemos datos locales
             else if (configToProcess && isSameContent) {
                 try {
                     contentMatches = isSameContent(configToProcess);
-                    console.log(`[Player] (Audio Cast Flavour) Manager content comparison: ${contentMatches}`);
+                    // console.log(`[Player] (Audio Cast Flavour) Manager content comparison: ${contentMatches}`);
                 } catch (error) {
                     console.error(`[Player] (Audio Cast Flavour) Error in isSameContent (useEffect):`, error);
                     // En caso de error, asumir que no es el mismo contenido para forzar carga
@@ -418,9 +419,9 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             }
             
             if (!contentMatches) {
-                console.log(`[Player] (Audio Cast Flavour) Loading pending content via unified system`);
+                // console.log(`[Player] (Audio Cast Flavour) Loading pending content via unified system`);
                 loadCastContent(configToProcess).then((result) => {
-                    console.log(`[Player] (Audio Cast Flavour) Pending content load result:`, result);
+                    // console.log(`[Player] (Audio Cast Flavour) Pending content load result:`, result);
                     lastLoadedCastConfig.current = configToProcess;
                     pendingCastConfig.current = null;
                 }).catch((error) => {
@@ -428,7 +429,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     pendingCastConfig.current = null;
                 });
             } else {
-                console.log(`[Player] (Audio Cast Flavour) Pending content is same as current, skipping`);
+                // console.log(`[Player] (Audio Cast Flavour) Pending content is same as current, skipping`);
                 pendingCastConfig.current = null;
             }
         }
@@ -447,20 +448,20 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     }, [currentTime]);
 
     useEffect(() => {
-        console.log(`[Player] (Audio Cast Flavour) useEffect manifests - isAutoNext: ${props.isAutoNext}`);
-        console.log(`[Player] (Audio Cast Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
-        console.log(`[Player] (Audio Cast Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
+        // console.log(`[Player] (Audio Cast Flavour) useEffect manifests - isAutoNext: ${props.isAutoNext}`);
+        // console.log(`[Player] (Audio Cast Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
+        // console.log(`[Player] (Audio Cast Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
 
         // Verificar si es un contenido diferente al actual
         const newContentId = props.playerMetadata?.id;
         const currentContentId = sourceRef.current?.playerSource?.id || sourceRef.current?.id;
         const isNewContent = newContentId !== currentContentId;
 
-        console.log(`[Player] (Audio Cast Flavour) Content comparison - current: ${currentContentId}, new: ${newContentId}, isNew: ${isNewContent}`);
+        // console.log(`[Player] (Audio Cast Flavour) Content comparison - current: ${currentContentId}, new: ${newContentId}, isNew: ${isNewContent}`);
 
         // Si es el mismo contenido, no hacer nada
         if (!isNewContent && sourceRef.current && !props.isAutoNext) {
-            console.log(`[Player] (Audio Cast Flavour) Same content, skipping reload`);
+            // console.log(`[Player] (Audio Cast Flavour) Same content, skipping reload`);
             return;
         }
 
@@ -486,7 +487,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     poster: props.playerMetadata?.poster,
                     squaredPoster: props.playerMetadata?.squaredPoster,
                     manifests: props.manifests,
-                    startPosition: props.playerProgress?.currentTime || 0,
+                    startPosition: props.playerProgress?.currentTime || -1,
                     headers: props.headers,
                     getSourceUri: props.hooks?.getSourceUri,
                     onSourceChanged: onSourceChanged
@@ -516,7 +517,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     poster: props.playerMetadata?.poster,
                     squaredPoster: props.playerMetadata?.squaredPoster,
                     manifests: props.manifests,
-                    startPosition: props.playerProgress?.currentTime || 0,
+                    startPosition: props.playerProgress?.currentTime || -1,
                     isLive: !!props.playerProgress?.isLive,
                     headers: props.headers,
                 });
@@ -545,7 +546,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
             // Determinar si debe reproducir tudum (solo para VOD)
             const shouldPlayTudum = !!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
-            console.log(`[Player] (Audio Cast Flavour) shouldPlayTudum: ${shouldPlayTudum}`);
+            // console.log(`[Player] (Audio Cast Flavour) shouldPlayTudum: ${shouldPlayTudum}`);
 
             if (!tudumRef.current || isNewContent){
                 tudumRef.current = new TudumClass({
@@ -578,11 +579,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             // Establecer currentSourceType basado en si vamos a reproducir tudum (solo si es nuevo contenido o cambio)
             if (isNewContent || !isContentLoaded) {
                 if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
-                    console.log(`[Player] (Audio Cast Flavour) Will play tudum first, then content`);
+                    // console.log(`[Player] (Audio Cast Flavour) Will play tudum first, then content`);
                     currentSourceType.current = 'tudum';
                     loadTudumSource();
                 } else {
-                    console.log(`[Player] (Audio Cast Flavour) Skipping tudum - loading content directly`);
+                    // console.log(`[Player] (Audio Cast Flavour) Skipping tudum - loading content directly`);
                     currentSourceType.current = 'content';
                     loadContentSource();
                 }
@@ -620,14 +621,14 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     // Función para cargar source del tudum
     const loadTudumSource = () => {
-        console.log(`[Player] (Audio Cast Flavour) loadTudumSource`);
+        // console.log(`[Player] (Audio Cast Flavour) loadTudumSource`);
         
         if (tudumRef.current?.source) {
             currentSourceType.current = 'tudum';
             tudumRef.current.isPlaying = true;
             drm.current = tudumRef.current?.drm;
             
-            console.log(`[Player] (Audio Cast Flavour) Setting tudum source:`, tudumRef.current.source);
+            // console.log(`[Player] (Audio Cast Flavour) Setting tudum source:`, tudumRef.current.source);
             // Para Cast, preparar el mensaje del tudum
             loadCastContentWithUnified(tudumRef.current.source, tudumRef.current.drm);
         }
@@ -635,7 +636,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     // Función para cargar source del contenido
     const loadContentSource = () => {
-        console.log(`[Player] (Audio Cast Flavour) loadContentSource`);
+        // console.log(`[Player] (Audio Cast Flavour) loadContentSource`);
         
         isChangingSource.current = true;
         currentSourceType.current = 'content';
@@ -657,7 +658,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             // Si el source ya está listo inmediatamente, forzar la carga
             setTimeout(() => {
                 if (sourceRef.current?.isReady && currentSourceType.current === 'content') {
-                    console.log(`[Player] (Audio Cast Flavour) Forcing content load - sourceRef is ready`);
+                    // console.log(`[Player] (Audio Cast Flavour) Forcing content load - sourceRef is ready`);
                     setCastSource();
                 }
             }, 100);
@@ -666,7 +667,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     // Función para cambiar de tudum a contenido
     const switchFromTudumToContent = () => {
-        console.log(`[Player] (Audio Cast Flavour) switchFromTudumToContent`);
+        // console.log(`[Player] (Audio Cast Flavour) switchFromTudumToContent`);
         
         // Limpiar completamente el source del tudum
         currentSourceType.current = null;
@@ -682,17 +683,17 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         
         // Pequeño delay para asegurar que se limpia el source
         setTimeout(() => {
-            console.log(`[Player] (Audio Cast Flavour) switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`)
+            // console.log(`[Player] (Audio Cast Flavour) switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`)
 
             // Si hay un source de contenido pendiente, usarlo directamente
             if (pendingContentSource.current && pendingContentSource.current.isReady) {
-                console.log(`[Player] (Audio Cast Flavour) Loading pending content source directly`);
+                // console.log(`[Player] (Audio Cast Flavour) Loading pending content source directly`);
                 currentSourceType.current = 'content';
                 setCastSource(pendingContentSource.current);
                 pendingContentSource.current = null;
             } else {
                 // Cargar el contenido principal
-                console.log(`[Player] (Audio Cast Flavour) Loading main content source`);
+                // console.log(`[Player] (Audio Cast Flavour) Loading main content source`);
                 currentSourceType.current = 'content';
                 loadContentSource();
             }
@@ -700,19 +701,19 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     };
 
     useEffect(() => {
-        console.log(`[Player] (Audio Cast Flavour) castState useEffect - Previous: ${lastCastState.current}, Current: ${castState}`);
+        // console.log(`[Player] (Audio Cast Flavour) castState useEffect - Previous: ${lastCastState.current}, Current: ${castState}`);
         
         if (castState === CastState.CONNECTING && !buffering) {
-            console.log(`[Player] (Audio Cast Flavour) Cast connecting, setting buffering true`);
+            // console.log(`[Player] (Audio Cast Flavour) Cast connecting, setting buffering true`);
             setBuffering(true);
         } else if (castState !== CastState.CONNECTING && buffering) {
-            console.log(`[Player] (Audio Cast Flavour) Cast not connecting, setting buffering false`);
+            // console.log(`[Player] (Audio Cast Flavour) Cast not connecting, setting buffering false`);
             setBuffering(false);
         }
     
         // Si se desconecta, limpiar estado
         if (castState === CastState.NOT_CONNECTED || castState === CastState.NO_DEVICES_AVAILABLE) {
-            console.log(`[Player] (Audio Cast Flavour) Cast disconnected, cleaning up`);
+            // console.log(`[Player] (Audio Cast Flavour) Cast disconnected, cleaning up`);
             setIsContentLoaded(false);
             setIsLoadingContent(false);
             castMessage.current = undefined;
@@ -723,14 +724,14 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     }, [castState, buffering]);
 
     useEffect(() => {
-        console.log(`[Player] (Audio Cast Flavour) Cast Ready Check:`, {
-            castState,
-            castClient: !!castClient,
-            castSession: !!castSession,
-            hasPendingData: !!pendingCastMessageData.current,
-            hasCastMessage: !!castMessage.current,
-            timestamp: new Date().toISOString()
-        });
+        // console.log(`[Player] (Audio Cast Flavour) Cast Ready Check:`, {
+        //     castState,
+        //     castClient: !!castClient,
+        //     castSession: !!castSession,
+        //     hasPendingData: !!pendingCastMessageData.current,
+        //     hasCastMessage: !!castMessage.current,
+        //     timestamp: new Date().toISOString()
+        // });
     
         // Solo proceder si Cast está completamente listo
         const isCastReady = castState === CastState.CONNECTED && castClient && castSession;
@@ -740,7 +741,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             
             // Si hay datos pendientes, preparar el mensaje
             if (pendingCastMessageData.current) {
-                console.log(`[Player] (Audio Cast Flavour) Processing pending message data`);
+                // console.log(`[Player] (Audio Cast Flavour) Processing pending message data`);
                 const { source, sourceDrm } = pendingCastMessageData.current;
                 pendingCastMessageData.current = null;
                 
@@ -749,7 +750,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             }
             // Si ya tenemos mensaje preparado, intentar cargar
             else if (castMessage.current) {
-                console.log(`[Player] (Audio Cast Flavour) Cast message exists, trying to load media`);
+                // console.log(`[Player] (Audio Cast Flavour) Cast message exists, trying to load media`);
                 tryLoadMedia();
             }
         }
@@ -805,12 +806,12 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     }, [castMediaStatus]);
 
     useEffect(() => {
-        console.log(`[Player] (Audio Cast Flavour) castSession useEffect - Session: ${!!castSession}`);
+        // console.log(`[Player] (Audio Cast Flavour) castSession useEffect - Session: ${!!castSession}`);
         
         if (castSession) {
             // Muted
             castSession.isMute().then((value: boolean) => {
-                console.log(`[Player] (Audio Cast Flavour) Cast session mute status: ${value}`);
+                // console.log(`[Player] (Audio Cast Flavour) Cast session mute status: ${value}`);
                 if (value !== muted) {
                     onControlsPress(CONTROL_ACTION.MUTE, !!value);
                 }
@@ -824,6 +825,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     useEffect(() => {
         if (typeof(castStreamPosition) === 'number'){
+            console.log(`[Player] (Audio Cast Flavour) castStreamPosition useEffect - Position: ${castStreamPosition}`);
             setCurrentTime(castStreamPosition);
 
             // Solo procesar progreso para contenido principal, no para tudum
@@ -843,6 +845,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                 if (sourceRef.current?.isDVR){
                     // Para DVR, obtener duración del castMediaStatus si está disponible
                     const duration = castMediaStatus?.mediaInfo?.streamDuration || 0;
+                    console.log(`[Player] (Audio Cast Flavour) castStreamPosition useEffect - Duration: ${duration}`);
                     dvrProgressManagerRef.current?.updatePlayerData({
                         currentTime: castStreamPosition,
                         duration: duration,
@@ -870,21 +873,21 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     const loadCastContentWithUnified = async (source: any, sourceDrm?: IDrm) => {
         // Prevenir cargas concurrentes que causan bucles
         if (isLoadingContentRef.current) {
-            console.log(`[Player] (Audio Cast Flavour) loadCastContent - Already loading, skipping`);
+            // console.log(`[Player] (Audio Cast Flavour) loadCastContent - Already loading, skipping`);
             return { success: false, message: 'Content load already in progress' };
         }
         
-        console.log(`[Player] (Audio Cast Flavour) loadCastContent - Starting:`, {
-            hasManager: !!castManager,
-            source: source?.uri,
-            currentManifest: sourceRef.current?.currentManifest,
-            sourceRefReady: !!sourceRef.current?.isReady,
-            timestamp: new Date().toISOString()
-        });
+        // console.log(`[Player] (Audio Cast Flavour) loadCastContent - Starting:`, {
+        //     hasManager: !!castManager,
+        //     source: source?.uri,
+        //     currentManifest: sourceRef.current?.currentManifest,
+        //     sourceRefReady: !!sourceRef.current?.isReady,
+        //     timestamp: new Date().toISOString()
+        // });
         
         // Si manager no está listo, guardar para procesar después
         if (!castManager) {
-            console.log(`[Player] (Audio Cast Flavour) Manager not ready, saving pending config`);
+            // console.log(`[Player] (Audio Cast Flavour) Manager not ready, saving pending config`);
             
             // Preparar configuración del cast usando el helper actual
             let startingPoint = props.playerProgress?.currentTime || 0;
@@ -903,11 +906,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             
             // Crear configuración para el cast  
             const manifestValue = sourceRef.current?.currentManifest || source?.uri || '';
-            console.log(`[Player] (Audio Cast Flavour) Manifest debug (pending):`, {
-                currentManifest: sourceRef.current?.currentManifest,
-                sourceUri: source?.uri,
-                finalManifest: manifestValue
-            });
+            // console.log(`[Player] (Audio Cast Flavour) Manifest debug (pending):`, {
+            //     currentManifest: sourceRef.current?.currentManifest,
+            //     sourceUri: source?.uri,
+            //     finalManifest: manifestValue
+            // });
             
             const castConfig = {
                 source,
@@ -933,7 +936,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         }
         
         // Si está listo, procesar inmediatamente
-        console.log(`[Player] (Audio Cast Flavour) Manager ready, processing immediately`);
+        // console.log(`[Player] (Audio Cast Flavour) Manager ready, processing immediately`);
         
         try {
             // Usar el helper existing para crear el mensaje del cast
@@ -986,11 +989,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     lastLoadedCastConfig.current.metadata.title === castConfig.metadata.title &&
                     lastLoadedCastConfig.current.metadata.id === castConfig.metadata.id;
                     
-                console.log(`[Player] (Audio Cast Flavour) Last loaded config comparison:`, {
-                    lastLoaded: lastLoadedCastConfig.current,
-                    pending: castConfig,
-                    contentMatches
-                });
+                // console.log(`[Player] (Audio Cast Flavour) Last loaded config comparison:`, {
+                //     lastLoaded: lastLoadedCastConfig.current,
+                //     pending: castConfig,
+                //     contentMatches
+                // });
             }
             // 2. Si no hay configuración previa, usar contenido actual del Cast
             else if (castCurrentContent) {
@@ -999,17 +1002,17 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     castCurrentContent.title === castConfig.metadata.title &&
                     castCurrentContent.contentId === castConfig.metadata.id?.toString();
                     
-                console.log(`[Player] (Audio Cast Flavour) Current content comparison:`, {
-                    current: castCurrentContent,
-                    pending: castConfig,
-                    contentMatches
-                });
+                // console.log(`[Player] (Audio Cast Flavour) Current content comparison:`, {
+                //     current: castCurrentContent,
+                //     pending: castConfig,
+                //     contentMatches
+                // });
             }
             // 3. Como último recurso, intentar usar isSameContent (con protección)
             else if (isSameContent) {
                 try {
                     contentMatches = isSameContent(castConfig);
-                    console.log(`[Player] (Audio Cast Flavour) Manager content comparison: ${contentMatches}`);
+                    // console.log(`[Player] (Audio Cast Flavour) Manager content comparison: ${contentMatches}`);
                 } catch (error) {
                     console.error(`[Player] (Audio Cast Flavour) Error in isSameContent:`, error);
                     // En caso de error, asumir que no es el mismo contenido para forzar carga
@@ -1022,11 +1025,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
             const shouldForceLoad = isLiveDVRStream;
             
             if (!contentMatches || shouldForceLoad) {
-                if (shouldForceLoad) {
-                    console.log(`[Player] (Audio Cast Flavour) Forcing load for live DVR stream`);
-                } else {
-                    console.log(`[Player] (Audio Cast Flavour) Loading new content via unified system`);
-                }
+                // if (shouldForceLoad) {
+                //     console.log(`[Player] (Audio Cast Flavour) Forcing load for live DVR stream`);
+                // } else {
+                //     console.log(`[Player] (Audio Cast Flavour) Loading new content via unified system`);
+                // }
                 
                 isLoadingContentRef.current = true;
                 try {
@@ -1040,7 +1043,7 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
                     isLoadingContentRef.current = false;
                 }
             } else {
-                console.log(`[Player] (Audio Cast Flavour) Content is same as current, skipping load`);
+                // console.log(`[Player] (Audio Cast Flavour) Content is same as current, skipping load`);
                 return { success: true, message: 'Content already loaded' };
             }
             
@@ -1093,21 +1096,120 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
      */
     const updateDVRProgressManagerForLive = (currentTime: number) => {
         if (currentSourceType.current === 'content' && sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+            console.log(`[Player] (Audio Cast Flavour) updateDVRProgressManagerForLive - DEBUG INPUT:`, {
+                currentTime,
+                currentTimeType: typeof currentTime,
+                currentTimeDate: new Date(currentTime * 1000).toISOString(),
+                currentTimeDateMs: new Date(currentTime).toISOString(),
+                currentTimeMs: currentTime * 1000,
+                castStreamPosition: castState.castStreamPosition,
+                castMediaStatus: castState.castMediaStatus,
+                rawCastTime: castMediaStatus?.mediaInfo?.customData,
+            });
+            
+            // CRÍTICO: Validar que currentTime es válido antes de procesar
+            // Cast a veces envía 0 que causa timestamps incorrectos
+            if (currentTime <= 0) {
+                console.log(`[Player] (Audio Cast Flavour) updateDVRProgressManagerForLive - SKIPPING: currentTime=${currentTime} is invalid`);
+                
+                // CRÍTICO: Si Cast resetea, usar el último valor válido conocido
+                // para evitar regresión temporal en el DVR Progress Manager
+                if (lastValidCurrentTimeRef.current > 0) {
+                    console.log(`[Player] (Audio Cast Flavour) updateDVRProgressManagerForLive - USING LAST VALID TIME: ${lastValidCurrentTimeRef.current}`);
+                    currentTime = lastValidCurrentTimeRef.current;
+                } else {
+                    return; // No tenemos referencia válida, salir
+                }
+            } else {
+                // Guardar el último currentTime válido para casos de reset
+                lastValidCurrentTimeRef.current = currentTime;
+            }
+            
+            // CRÍTICO: Convertir tiempo relativo de Cast a timestamp absoluto
+            // currentTime desde Cast es segundos relativos desde inicio del stream
+            // Necesitamos convertirlo a timestamp absoluto usando _streamStartTime
+            const streamStartTime = dvrProgressManagerRef.current._streamStartTime;
+            
+            // CRÍTICO: Detectar si Cast se ha reconectado o reiniciado
+            // Patrón específico: válido → 0 → válido (independientemente de la diferencia temporal)
+            const timeDifference = Math.abs(currentTime - (lastValidCurrentTimeRef.current || 0));
+            const isLargeJump = timeDifference > 1800; // 30 minutos en segundos
+            
+            // NUEVO: Detectar si acabamos de recuperarnos de un reset a 0
+            // Si el último valor válido era 0 pero ahora tenemos un valor válido > 0,
+            // es probable que Cast se haya resetteado y reconectado
+            const wasResetToZero = lastValidCurrentTimeRef.current === 0 && currentTime > 0;
+            
+            // NUEVO: Si la diferencia temporal es pequeña pero había un reset previo,
+            // también considerarlo reconexión (Cast común envía posiciones similares después de reconectar)
+            const isPossibleReconnection = isLargeJump || wasResetToZero;
+            
+            let finalStreamStartTime = streamStartTime;
+            
+            if (isPossibleReconnection && currentTime > 0) {
+                // Recalcular streamStartTime basado en el timestamp actual real
+                const currentRealTime = Date.now();
+                const newStreamStartTime = currentRealTime - (currentTime * 1000);
+                
+                console.log(`[Player] (Audio Cast Flavour) updateDVRProgressManagerForLive - DETECTED RECONNECTION:`, {
+                    timeDifference,
+                    isLargeJump,
+                    wasResetToZero,
+                    lastValidTime: lastValidCurrentTimeRef.current,
+                    currentTime,
+                    oldStreamStartTime: streamStartTime,
+                    newStreamStartTime,
+                    currentRealTime,
+                    currentRealTimeDate: new Date(currentRealTime).toISOString(),
+                    newStreamStartTimeDate: new Date(newStreamStartTime).toISOString(),
+                    detectionReason: isLargeJump ? 'large_jump' : 'reset_recovery',
+                });
+                
+                // Actualizar el streamStartTime en el DVR Progress Manager
+                dvrProgressManagerRef.current._streamStartTime = newStreamStartTime;
+                finalStreamStartTime = newStreamStartTime;
+            }
+            
+            const absoluteCurrentTime = finalStreamStartTime + (currentTime * 1000); // Convertir a milisegundos
+            
+            console.log(`[Player] (Audio Cast Flavour) updateDVRProgressManagerForLive - TIMESTAMP CONVERSION:`, {
+                currentTimeRelative: currentTime,
+                streamStartTime: finalStreamStartTime,
+                absoluteCurrentTime,
+                absoluteCurrentTimeDate: new Date(absoluteCurrentTime).toISOString(),
+                reconnectionDetected: isPossibleReconnection && currentTime > 0,
+            });
+            
             // Para DVR live, usar ventana DVR fija, no la duración total del stream
             
             // 1. FORZAR ventana DVR fija de 1 hora (3600 segundos)
             // No usar sourceRef.current?.dvrWindowSeconds porque puede ser la duración total del stream
             const customData = castMediaStatus?.mediaInfo?.customData || {};
             let dvrWindowSeconds = customData.dvrWindowSeconds || 3600; // FORZAR 1 hora máximo
+            const dvrWindowMs = dvrWindowSeconds * 1000; // Convertir a milisegundos
             
-            // 2. Para live DVR, la ventana es los últimos N segundos desde currentTime
-            const seekableStart = Math.max(0, currentTime - dvrWindowSeconds);
-            const seekableEnd = currentTime; // Live edge
+            // 2. Para live DVR, la ventana son los últimos N segundos desde absoluteCurrentTime
+            const seekableStart = Math.max(finalStreamStartTime, absoluteCurrentTime - dvrWindowMs);
+            const seekableEnd = absoluteCurrentTime; // Live edge absoluto
+    
+            // DEBUGGING: Log valores calculados
+            console.log(`[Player] (Audio Cast Flavour) updateDVRProgressManagerForLive - DEBUG CALCULATED:`, {
+                dvrWindowSeconds,
+                dvrWindowMs,
+                seekableStart,
+                seekableEnd,
+                seekableStartDate: new Date(seekableStart).toISOString(),
+                seekableEndDate: new Date(seekableEnd).toISOString(),
+            });
             
+            // Actualizar con datos corregidos - convertir de vuelta a segundos para la interfaz
             dvrProgressManagerRef.current.updatePlayerData({
-                currentTime,
+                currentTime: currentTime, // Mantener tiempo relativo para la UI
                 duration: dvrWindowSeconds,
-                seekableRange: { start: seekableStart, end: seekableEnd },
+                seekableRange: { 
+                    start: (seekableStart - finalStreamStartTime) / 1000, // Convertir a segundos relativos
+                    end: (seekableEnd - finalStreamStartTime) / 1000      // Convertir a segundos relativos
+                },
                 isBuffering: buffering,
                 isPaused: paused
             });
@@ -1164,6 +1266,11 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         } else if (currentSourceType.current === 'content') {
             // Si ya estamos en modo contenido, procesar normalmente
             console.log(`[Player] (Audio Cast Flavour) onSourceChanged - Processing content source normally`);
+
+            // Si el stream es DVR, debemos actualizar el tamaño de la ventana
+            if (data.isDVR && dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.setDVRWindowSeconds(data.dvrWindowSeconds || 3600);
+            }
             
             try {
                 playerProgressRef.current = {
@@ -1342,13 +1449,13 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
         
         if (currentSourceType.current === 'tudum') {
             // Acaba la reproducción del Tudum externo
-            console.log(`[Player] (Audio Cast Flavour) onEnd: Tudum finished, switching to main content`);
+            // console.log(`[Player] (Audio Cast Flavour) onEnd: Tudum finished, switching to main content`);
             isChangingSource.current = true;
             switchFromTudumToContent();
 
         } else if (currentSourceType.current === 'content' && props.events?.onEnd) {
             // Termina el contenido principal
-            console.log(`[Player] (Audio Cast Flavour) onEnd: Content finished, preparing for possible auto next`);
+            // console.log(`[Player] (Audio Cast Flavour) onEnd: Content finished, preparing for possible auto next`);
             
             // Preparar tudum para salto automático antes de notificar
             if (tudumRef.current) {
@@ -1363,48 +1470,48 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
     async function getCurrentMediaStatus() {
         if (isLoadingContent) {
-            console.log(`[Player] (Audio Cast Flavour) Already loading content, skipping...`);
+            // console.log(`[Player] (Audio Cast Flavour) Already loading content, skipping...`);
             return;
         }
     
         try {
-            console.log(`[Player] (Audio Cast Flavour) Getting current media status...`);
+            // console.log(`[Player] (Audio Cast Flavour) Getting current media status...`);
             const mediaStatus = await castClient?.getMediaStatus();
             const currentCastContentId = mediaStatus?.mediaInfo?.contentId;
             const newCastContentId = castMessage.current?.mediaInfo?.contentId;
     
-            console.log(`[Player] (Audio Cast Flavour) getCurrentMediaStatus - Current Cast: ${currentCastContentId}, New: ${newCastContentId}`);
+            // console.log(`[Player] (Audio Cast Flavour) getCurrentMediaStatus - Current Cast: ${currentCastContentId}, New: ${newCastContentId}`);
     
             if (currentCastContentId !== newCastContentId) {
-                console.log(`[Player] (Audio Cast Flavour) Different content, loading media:`, {
-                    contentId: newCastContentId,
-                    isLive: !!props.playerProgress?.isLive,
-                    isDVR: sourceRef.current?.isDVR,
-                    playbackType: dvrProgressManagerRef.current?.playbackType,
-                    startPosition: castMessage.current?.startPosition,
-                    uri: castMessage.current?.mediaInfo?.contentUrl
-                });
+                // console.log(`[Player] (Audio Cast Flavour) Different content, loading media:`, {
+                //     contentId: newCastContentId,
+                //     isLive: !!props.playerProgress?.isLive,
+                //     isDVR: sourceRef.current?.isDVR,
+                //     playbackType: dvrProgressManagerRef.current?.playbackType,
+                //     startPosition: castMessage.current?.startPosition,
+                //     uri: castMessage.current?.mediaInfo?.contentUrl
+                // });
                 
                 setIsLoadingContent(true);
                 setIsContentLoaded(false);
                 
                 try {
                     const result = await castClient?.loadMedia(castMessage.current!);
-                    console.log(`[Player] (Audio Cast Flavour) Media loaded successfully:`, result);
+                    // console.log(`[Player] (Audio Cast Flavour) Media loaded successfully:`, result);
                 } catch (error) {
                     console.error(`[Player] (Audio Cast Flavour) Error loading media:`, error);
                     setIsLoadingContent(false);
                     
                     // Reintentar después de un delay si falla
                     setTimeout(() => {
-                        console.log(`[Player] (Audio Cast Flavour) Retrying media load...`);
+                        // console.log(`[Player] (Audio Cast Flavour) Retrying media load...`);
                         if (castState === CastState.CONNECTED && castClient && castSession) {
                             tryLoadMedia();
                         }
                     }, 2000);
                 }
             } else {
-                console.log(`[Player] (Audio Cast Flavour) Same content already loaded in Cast`);
+                // console.log(`[Player] (Audio Cast Flavour) Same content already loaded in Cast`);
                 if (!isContentLoaded) {
                     setIsContentLoaded(true);
                 }
@@ -1416,40 +1523,40 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
     }
 
     const tryLoadMedia = () => {
-        console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - DETAILED STATE:`, {
-            castState,
-            castClient: !!castClient,
-            castSession: !!castSession,
-            castMessage: !!castMessage.current,
-            isLoadingContent,
-            isContentLoaded,
-            currentSourceType: currentSourceType.current,
-            contentId: castMessage.current?.mediaInfo?.contentId,
-            timestamp: new Date().toISOString()
-        });
+        // console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - DETAILED STATE:`, {
+        //     castState,
+        //     castClient: !!castClient,
+        //     castSession: !!castSession,
+        //     castMessage: !!castMessage.current,
+        //     isLoadingContent,
+        //     isContentLoaded,
+        //     currentSourceType: currentSourceType.current,
+        //     contentId: castMessage.current?.mediaInfo?.contentId,
+        //     timestamp: new Date().toISOString()
+        // });
         
         // Validación más estricta
         if (castState !== CastState.CONNECTED) {
-            console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - Cast not connected (state: ${castState}), skipping`);
+            // console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - Cast not connected (state: ${castState}), skipping`);
             return;
         }
         
         if (!castClient) {
-            console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - No castClient available, skipping`);
+            // console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - No castClient available, skipping`);
             return;
         }
         
         if (!castSession) {
-            console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - No castSession available, skipping`);
+            // console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - No castSession available, skipping`);
             return;
         }
         
         if (!castMessage.current) {
-            console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - No castMessage prepared, skipping`);
+            // console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - No castMessage prepared, skipping`);
             return;
         }
         
-        console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - All conditions met, attempting to load media`);
+        // console.log(`[Player] (Audio Cast Flavour) tryLoadMedia - All conditions met, attempting to load media`);
         
         try {
             getCurrentMediaStatus();

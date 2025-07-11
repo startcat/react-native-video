@@ -45,16 +45,19 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
     // Referencias para comparación y evitar bucles
     const previousStateRef = useRef<CastStateInfo>(stateInfo);
     const previousConnectionRef = useRef<boolean>(false);
+    const lastValidStreamPositionRef = useRef<number>(0);
+    const debugModeRef = useRef<boolean>(debugMode);
     
-    // Refs para capturar callbacks y debugMode sin crear dependencias
-    const debugModeRef = useRef(debugMode);
+    // Refs para callbacks
     const onStateChangeRef = useRef(onStateChange);
     const onConnectionChangeRef = useRef(onConnectionChange);
     
-    // Actualizar refs cuando cambien los valores
-    debugModeRef.current = debugMode;
-    onStateChangeRef.current = onStateChange;
-    onConnectionChangeRef.current = onConnectionChange;
+    // Actualizar refs de callbacks
+    useEffect(() => {
+        onStateChangeRef.current = onStateChange;
+        onConnectionChangeRef.current = onConnectionChange;
+        debugModeRef.current = debugMode;
+    }, [onStateChange, onConnectionChange, debugMode]);
     
     // Función para crear estado inicial
     function createInitialStateInfo(): CastStateInfo {
@@ -89,21 +92,12 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
     }
     
     // Función para mapear estado nativo a estado del manager
-    const mapCastStateToManagerState = useCallback((nativeCastState?: string, mediaStatus?: any): CastManagerState => {
-        if (!nativeCastState) {
-            return CastManagerState.DISCONNECTED;
-        }
+    const mapCastStateToManagerState = useCallback((castState: string, mediaStatus?: MediaStatus): CastManagerState => {
+        const baseState = CAST_STATE_MAPPING[castState] || CastManagerState.DISCONNECTED;
         
-        // Usar directamente el string normalizado
-        const baseState = CAST_STATE_MAPPING[nativeCastState] || CastManagerState.DISCONNECTED;
-        
-        // Si está conectado y hay mediaStatus, determinar estado específico basado en playerState
+        // Si está conectado, verificar el estado del reproductor
         if (baseState === CastManagerState.CONNECTED && mediaStatus) {
             switch (mediaStatus.playerState) {
-                case 'PLAYING':
-                    return CastManagerState.PLAYING;
-                case 'PAUSED':
-                    return CastManagerState.PAUSED;
                 case 'BUFFERING':
                 case 'LOADING':
                     return CastManagerState.LOADING;
@@ -137,7 +131,33 @@ export function useCastState(config: UseCastStateConfig = {}): CastStateInfo {
         const hasClient = !!client;
         const hasMediaStatus = !!mediaStatus;
         const connectivityInfo = getCastConnectivityInfo(normalizedCastState);
-        const finalStreamPosition = streamPosition || 0;
+        
+        // CRÍTICO: Preservar streamPosition válida durante transiciones
+        let finalStreamPosition = streamPosition || 0;
+        
+        // Si la nueva posición es 0 pero tenemos una posición válida previa
+        // y estamos en una transición de estado, mantener la posición previa
+        const isStateTransition = (
+            isConnecting || 
+            (isConnected && !hasClient) || 
+            (isConnected && !hasMediaStatus)
+        );
+
+        if (finalStreamPosition === 0 && lastValidStreamPositionRef.current > 0 && isStateTransition) {
+            finalStreamPosition = lastValidStreamPositionRef.current;
+            log(`Preserving stream position during transition:`, {
+                newPosition: streamPosition,
+                preservedPosition: finalStreamPosition,
+                isConnected,
+                isConnecting,
+                hasClient,
+                hasMediaStatus,
+                isStateTransition
+            });
+        } else if (finalStreamPosition > 0) {
+            // Actualizar la referencia solo cuando tenemos una posición válida nueva
+            lastValidStreamPositionRef.current = finalStreamPosition;
+        }
         
         const result = {
             castState: nativeCastState,
