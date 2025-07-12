@@ -770,7 +770,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             // Inicializar progress managers
             if (sourceRef.current?.isDVR) {
-                dvrProgressManagerRef.current?.setInitialTimeWindowSeconds(sourceRef.current.dvrWindowSeconds);
+                dvrProgressManagerRef.current?.setDVRWindowSeconds(sourceRef.current.dvrWindowSeconds);
             }
 
             isChangingSource.current = false;

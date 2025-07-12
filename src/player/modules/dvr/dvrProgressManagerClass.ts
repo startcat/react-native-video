@@ -217,7 +217,15 @@ export class DVRProgressManagerClass {
     
     getSliderValues(): SliderValues {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) getSliderValues: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[Player] (DVR Progress Manager) getSliderValues: Invalid state - DVR window not configured or seekable range invalid');
+            // Return default values when state is invalid
+            return {
+                minimumValue: 0,
+                maximumValue: 1,
+                progress: 0,
+                percentProgress: 0,
+                canSeekToEnd: false
+            };
         }
 
         switch (this._playbackType) {
@@ -250,28 +258,6 @@ export class DVRProgressManagerClass {
     }
 
     /*
-     *  Establecer ventana de tiempo inicial
-     * 
-     */
-    
-    setInitialTimeWindowSeconds(seconds: number) {
-        // Calcular cuánto ha crecido la ventana desde el valor inicial anterior
-        // Si alguno de los valores es null, considerar el crecimiento como 0
-        const currentGrowth = (this._currentTimeWindowSeconds !== null && this._initialTimeWindowSeconds !== null) 
-            ? this._currentTimeWindowSeconds - this._initialTimeWindowSeconds 
-            : 0;
-        
-        // Actualizar valor inicial
-        this._initialTimeWindowSeconds = seconds;
-        
-        // Recalcular la ventana actual manteniendo el crecimiento
-        this._currentTimeWindowSeconds = this._initialTimeWindowSeconds + currentGrowth;
-        
-        // Emitir actualización para reflejar los cambios
-        this._emitProgressUpdate();
-    }
-
-    /*
      *  Configurar la ventana DVR (debe llamarse después de la creación)
      * 
      */
@@ -283,12 +269,21 @@ export class DVRProgressManagerClass {
         }
 
         const wasNull = this._initialTimeWindowSeconds === null;
+        const now = Date.now();
         
         // Configurar la ventana inicial
         this._initialTimeWindowSeconds = seconds;
+        
+        // Si es la primera configuración, establecer el inicio del stream como el inicio de la ventana DVR
+        if (wasNull) {
+            // El inicio del stream es ahora - ventana_en_segundos
+            this._streamStartTime = now - (seconds * 1000);
+        }
+        
+        // La ventana actual es el tiempo transcurrido desde el inicio del stream hasta ahora
         this._currentTimeWindowSeconds = seconds;
         
-        console.log(`[Player] (DVR Progress Manager) setDVRWindowSeconds: ${seconds}s${wasNull ? ' (initial setup)' : ' (updated)'}`);
+        console.log(`[Player] (DVR Progress Manager) setDVRWindowSeconds: ${seconds}s${wasNull ? ' (initial setup)' : ' (updated)'}, stream starts at: ${new Date(this._streamStartTime).toISOString()}`);
         
         // Si era la primera configuración, inicializar el estado
         if (wasNull) {
@@ -384,7 +379,8 @@ export class DVRProgressManagerClass {
 
     goToProgramStart() {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) goToProgramStart: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[Player] (DVR Progress Manager) goToProgramStart: Invalid state - DVR window not configured or seekable range invalid');
+            return;
         }
         
         // console.log(`[Player] (DVR Progress Manager) goToProgramStart ${JSON.stringify(this._currentProgram)}`);
@@ -406,7 +402,8 @@ export class DVRProgressManagerClass {
 
     goToLive() {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) goToLive: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[Player] (DVR Progress Manager) goToLive: Invalid state - DVR window not configured or seekable range invalid');
+            return;
         }
         
         this._isLiveEdgePosition = true;
@@ -437,7 +434,8 @@ export class DVRProgressManagerClass {
     
     seekToTime(timestamp:number) {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) seekToTime: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[Player] (DVR Progress Manager) seekToTime: Invalid state - DVR window not configured or seekable range invalid');
+            return;
         }
         
         this._isLiveEdgePosition = false;
@@ -459,7 +457,13 @@ export class DVRProgressManagerClass {
 
     skipForward(seconds:number) {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) skipForward: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[Player] (DVR Progress Manager) skipForward: Invalid state - DVR window not configured or seekable range invalid');
+            return;
+        }
+        
+        if (this._currentTime === null) {
+            console.warn('[Player] (DVR Progress Manager) skipForward: Current time is null');
+            return;
         }
         
         const newTime = this._currentTime + seconds;
@@ -473,7 +477,13 @@ export class DVRProgressManagerClass {
 
     skipBackward(seconds:number) {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) skipBackward: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[Player] (DVR Progress Manager) skipBackward: Invalid state - DVR window not configured or seekable range invalid');
+            return;
+        }
+        
+        if (this._currentTime === null) {
+            console.warn('[Player] (DVR Progress Manager) skipBackward: Current time is null');
+            return;
         }
         
         const newTime = Math.max(0, this._currentTime - seconds);
@@ -487,7 +497,8 @@ export class DVRProgressManagerClass {
 
     seekToProgress(progress: number) {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) seekToProgress: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[Player] (DVR Progress Manager) seekToProgress: Invalid state - DVR window not configured or seekable range invalid');
+            return;
         }
         
         const sliderValues = this.getSliderValues();
@@ -599,7 +610,7 @@ export class DVRProgressManagerClass {
 
         // Para WINDOW y PROGRAM: la ventana crece continuamente desde el inicio del stream
         const timeElapsedSinceStart = (Date.now() - this._streamStartTime) / 1000;
-        const naturalWindowSize = this._initialTimeWindowSeconds + timeElapsedSinceStart;
+        const naturalWindowSize = (this._initialTimeWindowSeconds || 0) + timeElapsedSinceStart;
         
         // Calcular tiempo adicional por pausas/buffering
         let totalPauseTime = this._totalPauseTime;
@@ -618,7 +629,10 @@ export class DVRProgressManagerClass {
     }
   
     _updateLiveStatus() {
-        if (!this._isValidState()) return;
+        if (!this._isValidState() || this._currentTime === null) {
+            this._isLiveEdgePosition = false;
+            return;
+        }
 
         // Considerar que estamos en vivo si estamos cerca del final del rango seekable
         this._isLiveEdgePosition = (this._seekableRange.end - this._currentTime) <= this._toleranceSeconds;
@@ -629,10 +643,10 @@ export class DVRProgressManagerClass {
       
         const currentRealTime = this._getCurrentRealTime();
 
-        console.log(`[Player] (Audio Cast Flavour) _checkProgramChange - Current Real Time: ${currentRealTime}, Current Program End Date: ${this._currentProgram.endDate}`);
+        console.log(`[Player] (Audio Cast Flavour) _checkProgramChange - Current Real Time: ${currentRealTime}, Current Program End Date: ${this._currentProgram?.endDate}`);
       
         // Verificar si hemos salido del programa actual
-        if (currentRealTime >= this._currentProgram.endDate) {
+        if (this._currentProgram && currentRealTime >= this._currentProgram.endDate) {
             const previousProgram = this._currentProgram;
             
             try {
@@ -667,7 +681,7 @@ export class DVRProgressManagerClass {
   
     _getWindowSliderValues(): SliderValues {
         const currentLiveEdge = this._getCurrentLiveEdge();
-        const windowStart = currentLiveEdge - (this._currentTimeWindowSeconds * 1000);
+        const windowStart = currentLiveEdge - ((this._currentTimeWindowSeconds || 0) * 1000);
         const progressDatum = this._getProgressDatum();
         
         // Calcular porcentaje de progreso
@@ -790,9 +804,8 @@ export class DVRProgressManagerClass {
     }
   
     _getCurrentRealTime(): number {
-
         // Verificar si el estado es válido antes de obtener sliderValues
-        if (!this._isValidState()) {
+        if (!this._isValidState() || this._currentTime === null) {
             console.log('[Player] (DVR Progress Manager) _emitProgressUpdate: Invalid state, skipping progress update');
             return Date.now();
         }
@@ -807,11 +820,12 @@ export class DVRProgressManagerClass {
         
         // Usar solo el crecimiento natural de la ventana (sin pausas)
         const timeElapsedSinceStart = (Date.now() - this._streamStartTime) / 1000;
-        const naturalWindowSize = this._initialTimeWindowSeconds + timeElapsedSinceStart;
+        const naturalWindowSize = (this._initialTimeWindowSeconds || 0) + timeElapsedSinceStart;
         const windowStart = currentLiveEdge - (naturalWindowSize * 1000);
         
-        // El tiempo real es: inicio de ventana + posición actual del player
-        const realTime = windowStart + (this._currentTime * 1000);
+        // El tiempo real es: live edge - (duración total - posición actual)
+        // Esto nos da el timestamp real correspondiente a la posición actual del player
+        const realTime = currentLiveEdge - ((this._duration || 0) - this._currentTime) * 1000;
 
         console.log(`[Player] (DVR Progress Manager) _getCurrentRealTime`, {
             currentLiveEdge,
@@ -922,7 +936,16 @@ export class DVRProgressManagerClass {
         this._isLiveEdgePosition = true;
         // CRÍTICO: NO cambiar _streamStartTime para mantener consistencia EPG
         // this._streamStartTime = Date.now(); // ❌ Esto causaba timestamps EPG inconsistentes
-        this._currentTimeWindowSeconds = this._initialTimeWindowSeconds; // Resetear ventana
+        
+        // Calcular el tiempo transcurrido desde el inicio del stream
+        if (this._streamStartTime) {
+            const timeElapsedSinceStreamStart = (Date.now() - this._streamStartTime) / 1000;
+            this._currentTimeWindowSeconds = timeElapsedSinceStreamStart;
+            console.log(`[Player] (DVR Progress Manager) reset: Time elapsed since stream start: ${timeElapsedSinceStreamStart}s`);
+        } else {
+            this._currentTimeWindowSeconds = this._initialTimeWindowSeconds || null;
+        }
+        
         this._duration = null;
         
         // Limpiar timer de pausa si existe
@@ -994,23 +1017,23 @@ export class DVRProgressManagerClass {
         return this._duration;
     }
 
-    get currentLiveEdge() {
+    get currentLiveEdge(): number | null {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) currentLiveEdge: Invalid state - DVR window not configured or seekable range invalid');
+            return null;
         }
         return this._getCurrentLiveEdge();
     }
 
-    get progressDatum() {
+    get progressDatum(): number | null {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) progressDatum: Invalid state - DVR window not configured or seekable range invalid');
+            return null;
         }
         return this._getProgressDatum();
     }
 
-    get liveEdgeOffset() {
+    get liveEdgeOffset(): number | null {
         if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) liveEdgeOffset: Invalid state - DVR window not configured or seekable range invalid');
+            return null;
         }
         return this._getLiveEdgeOffset();
     }
