@@ -829,7 +829,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         dvrProgressManagerRef.current = new DVRProgressManagerClass({
             playbackType: props.playerProgress?.liveValues?.playbackType,
             getEPGProgramAt: props.hooks?.getEPGProgramAt,
-            getEPGNextProgram: props.hooks?.getEPGNextProgram,
             onModeChange: onDVRModeChange,
             onProgramChange: onDVRProgramChange,
             onProgressUpdate: onProgressUpdate,

@@ -106,14 +106,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     // Initialize DVR Progress Manager only once
     if (!dvrProgressManagerRef.current) {
         console.log(`[Player] (Audio Flavour) Initializing DVR Progress Manager`);
-        console.log(`[Player] (Audio Flavour) EPG hooks available - getEPGProgramAt: ${!!props.hooks?.getEPGProgramAt}, getEPGNextProgram: ${!!props.hooks?.getEPGNextProgram}`);
+        console.log(`[Player] (Audio Flavour) EPG hooks available - getEPGProgramAt: ${!!props.hooks?.getEPGProgramAt}`);
         
         dvrProgressManagerRef.current = new DVRProgressManagerClass({
             playbackType: props.playerProgress?.liveValues?.playbackType,
 
             // Metadata
             getEPGProgramAt: props.hooks?.getEPGProgramAt,
-            getEPGNextProgram: props.hooks?.getEPGNextProgram,
         
             // Callbacks
             onModeChange: onDVRModeChange,

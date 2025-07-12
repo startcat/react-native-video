@@ -89,8 +89,7 @@ export class VODProgressManagerClass {
             progress: this._currentTime,
             percentProgress: percentProgress,
             duration: this._duration,
-            canSeekToEnd: true,
-            isProgramLive: false // VOD nunca está en vivo
+            canSeekToEnd: true
         };
     }
   
@@ -161,6 +160,8 @@ export class VODProgressManagerClass {
                 isPaused: this._isPaused,
                 isBuffering: this._isBuffering,
                 isLiveEdgePosition: false,
+                isProgramLive: false, // VOD nunca está en vivo
+                canSeekToEnd: true // VOD siempre permite seek al final
             });
         }
     }

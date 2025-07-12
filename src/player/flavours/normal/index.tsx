@@ -134,7 +134,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             // Metadata
             getEPGProgramAt: props.hooks?.getEPGProgramAt,
-            getEPGNextProgram: props.hooks?.getEPGNextProgram,
         
             // Callbacks
             onModeChange: onDVRModeChange,

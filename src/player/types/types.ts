@@ -263,22 +263,22 @@ export interface SliderValues {
     progress: number;
     percentProgress: number; // Porcentaje del slider (0.0 - 1.0)
     duration?: number; // Duración del media para VODs
-    canSeekToEnd: boolean;
-    liveEdge?: number; // Usado en modo PLAYLIST para mostrar el límite real
+    liveEdge?: number; // Posición del liveEdge
     percentLiveEdge?: number; // Porcentaje del liveEdge (0.0 - 1.0)
-    isProgramLive?: boolean; // Indica si el programa está en directo
     progressDatum?: number; // Timestamp del progress
     liveEdgeOffset?: number; // Segundos por detrás del liveEdge
-    isLiveEdgePosition?: boolean; // Si estamos en el edgeLive
+    canSeekToEnd?: boolean; // Indica si se puede hacer seek hasta el final (true para DVR/VOD)
 }
 
 export interface ProgressUpdateData extends SliderValues {
-    isLiveEdgePosition: boolean;
+    isProgramLive?: boolean; // Indica si el programa está en directo
+    isLiveEdgePosition?: boolean; // Si estamos en el edgeLive
     isPaused: boolean;
     isBuffering: boolean;
     playbackType?: Enums.DVR_PLAYBACK_TYPE;
     currentProgram?: IBasicProgram | null;
-    currentRealTime?: number;
+    windowCurrentSizeInSeconds?: number;
+    canSeekToEnd: boolean; // Para VOD
 }
 
 export interface ButtonProps {

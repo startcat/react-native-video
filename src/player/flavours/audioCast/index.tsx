@@ -342,7 +342,6 @@ export function AudioCastFlavour (props: AudioCastFlavourProps): React.ReactElem
 
             // Metadata
             getEPGProgramAt: props.hooks?.getEPGProgramAt,
-            getEPGNextProgram: props.hooks?.getEPGNextProgram,
         
             // Callbacks
             onModeChange: onDVRModeChange,

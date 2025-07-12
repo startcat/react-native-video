@@ -79,7 +79,6 @@ export interface MediaFlowConfig {
         getTudumSource?: () => ExtendedVideoSource | null | undefined;
         getYouboraOptions?: (data: any, format: string) => any;
         getEPGProgramAt?: (timestamp: number) => Promise<IBasicProgram | null>;
-        getEPGNextProgram?: (program: IBasicProgram) => Promise<IBasicProgram | null>;
     };
 }
 

@@ -83,8 +83,7 @@ const TimelineBase = ({
             maximumValue: duration || 0,
             progress: dvrTimeValue || 0,
             canSeekToEnd: true,
-            liveEdge: duration,
-            isProgramLive: isLive
+            liveEdge: duration
         };
         
         return React.createElement(sliderDVR, { 
@@ -122,8 +121,7 @@ const TimelineBase = ({
             maximumValue: duration || 0,
             progress: dvrTimeValue || 0,
             canSeekToEnd: true,
-            liveEdge: duration,
-            isProgramLive: isLive
+            liveEdge: duration
         };
 
         return (
