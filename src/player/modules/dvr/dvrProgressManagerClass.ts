@@ -1,588 +1,606 @@
+import { Platform } from 'react-native';
 
-import {
-    Platform,
-} from 'react-native';
+// Constantes
+const PROGRESS_SIGNIFICANT_CHANGE = 5; // segundos
+const EPG_RETRY_DELAYS = [2000, 5000]; // ms para reintentos
+const LIVE_EDGE_TOLERANCE = 30; // segundos para considerar "en vivo"
 
-import {
-    DVR_PLAYBACK_TYPE,
-    type IBasicProgram,
-    type ProgressUpdateData,
-    type SeekableRange,
-    type SliderValues
-} from "../../types";
+// Enums y tipos (asumiendo importación desde types)
+export const DVR_PLAYBACK_TYPE = {
+    WINDOW: 'window',
+    PROGRAM: 'program',
+    PLAYLIST: 'playlist'
+};
 
 export interface ProgramChangeData {
-    previousProgram: IBasicProgram | null;
-    currentProgram: IBasicProgram | null;
+    previousProgram: any | null; // IBasicProgram
+    currentProgram: any | null;
 }
 
 export interface ModeChangeData {
-    previousType: DVR_PLAYBACK_TYPE;
-    playbackType: DVR_PLAYBACK_TYPE;
-    program: IBasicProgram | null;
+    previousType: string; // DVR_PLAYBACK_TYPE
+    playbackType: string;
+    program: any | null;
 }
 
 export interface UpdatePlayerData {
     currentTime: number;
-    duration: number;
-    seekableRange: SeekableRange;
+    duration?: number;
+    seekableRange: { start: number; end: number };
     isBuffering: boolean;
     isPaused: boolean;
 }
 
-export interface DVRProgressManagerData {
-    dvrWindowSeconds?: number;
-    currentTime?: number;
-    duration?: number;
-    isPaused?: boolean;
-    isBuffering?: boolean;
-    playbackType?: DVR_PLAYBACK_TYPE;
-    endStreamDate?: number; // Fecha límite del stream (opcional)
+export class DVRProgressManagerClass {
+    // Estado principal
+    private _initialTimeWindowSeconds: number | null = null;
+    private _currentTimeWindowSeconds: number | null = null;
+    private _streamStartTime: number = 0;
+    private _endStreamDate: number | null = null;
+    private _duration: number | null = null;
 
-    // EPG Provider
-    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
-    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
+    // Estado del reproductor
+    private _currentTime: number = 0;
+    private _seekableRange: { start: number; end: number } = { start: 0, end: 0 };
+    private _isPaused: boolean = false;
+    private _isBuffering: boolean = false;
+    private _isLiveEdgePosition: boolean = true;
+
+    // Gestión de pausas simplificada
+    private _pauseStartTime: number = 0;
+    private _totalPauseTime: number = 0;
+    private _frozenProgressDatum?: number; // Buena idea de tu implementación
+    private _pauseUpdateInterval: NodeJS.Timeout | null = null;
+
+    // Estado de reproducción
+    private _playbackType: string = DVR_PLAYBACK_TYPE.WINDOW;
+    private _currentProgram: any | null = null;
+    private _lastProgressForEPG: number | null = null;
+
+    // Gestión de errores EPG
+    private _epgRetryCount: Map<number, number> = new Map();
 
     // Callbacks
-    onModeChange?: (data:ModeChangeData) => void;
-    onProgramChange?: (data:ProgramChangeData) => void;
-    onProgressUpdate?: (data:ProgressUpdateData) => void;
-    onSeekRequest?: (playerTime:number) => void;
-}
+    private _options: any = {};
 
-export class DVRProgressManagerClass {
-
-    private _initialTimeWindowSeconds:number | null = null;
-    private _currentTimeWindowSeconds:number | null = null;
-    private _currentTime:number | null = null;
-    private _seekableRange:SeekableRange;
-    private _streamStartTime:number; // Hora de inicio del stream
-    private _endStreamDate:number | null = null; // Fecha límite del stream (opcional)
-    private _duration:number | null = null; // Duración externa (no calculada)
-    private _toleranceSeconds = 30; // Tolerancia en segundos para indicar si estamos en directo
-
-    private _pauseStartTime:number;
-    private _totalPauseTime:number;
-    private _pauseUpdateInterval:ReturnType<typeof setInterval> | null = null;
-
-    private _isPaused:boolean = false;
-    private _isBuffering:boolean = false;
-    private _isLiveEdgePosition:boolean = false;
-    private _playbackType:DVR_PLAYBACK_TYPE = DVR_PLAYBACK_TYPE.WINDOW;
-
-    private _currentProgram:IBasicProgram | null = null;
-
-    private _getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
-    private _getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
-
-    private _onProgramChange?: (data:ProgramChangeData) => void;
-    private _onModeChange?: (data:ModeChangeData) => void;
-    private _onProgressUpdate?: (data:ProgressUpdateData) => void;
-    private _onSeekRequest?: (playerTime:number) => void;
-    
-    constructor(options:DVRProgressManagerData = {}) {
+    constructor(options: any = {}) {
+        console.log('[DVR] Constructor - DVR window configured:', !!options.dvrWindowSeconds);
+        
+        this._options = {
+            dvrWindowSeconds: null,
+            playbackType: DVR_PLAYBACK_TYPE.WINDOW,
+            getEPGProgramAt: null,
+            onModeChange: null,
+            onProgramChange: null,
+            onProgressUpdate: null,
+            onSeekRequest: null,
+            onEPGRequest: null,
+            onEPGError: null,
+            onValidationError: null,
+            ...options
+        };
 
         // Configuración inicial
-        // IMPORTANTE: No usar valor por defecto para dvrWindowSeconds
-        // Debe configurarse explícitamente mediante setDVRWindowSeconds()
         this._initialTimeWindowSeconds = options.dvrWindowSeconds || null;
         this._currentTimeWindowSeconds = this._initialTimeWindowSeconds;
-      
-        // Estado del reproductor
-        this._currentTime = options.currentTime || 0;
-        this._seekableRange = { start: 0, end: 0 };
-        this._isLiveEdgePosition = true;
+        this._playbackType = this._options.playbackType;
         this._isPaused = options.isPaused || false;
         this._isBuffering = options.isBuffering || false;
-      
-        // Control de tiempo para pausas/buffering
-        this._pauseStartTime = 0;
-        this._totalPauseTime = 0;
-        this._pauseUpdateInterval = null;
-      
-        // Tipo de reproducción
-        this._playbackType = options.playbackType || DVR_PLAYBACK_TYPE.WINDOW;
-        this._currentProgram = null;
-        
-        // Duración externa (no calculada por la clase)
         this._duration = options.duration || null;
-      
-        // Callbacks
-        this._onProgramChange = options.onProgramChange || undefined;
-        this._onModeChange = options.onModeChange || undefined;
-        this._onProgressUpdate = options.onProgressUpdate || undefined;
-        this._onSeekRequest = options.onSeekRequest || undefined;
-      
-        // EPG provider
-        this._getEPGProgramAt = options.getEPGProgramAt || undefined;
-        this._getEPGNextProgram = options.getEPGNextProgram || undefined;
-      
-        // Referencias de tiempo - ahora basadas en timestamps reales
-        this._streamStartTime = Date.now();
-        this._endStreamDate = options.endStreamDate || null;
 
-        // NOTA: No inicializar estado hasta que se configure la ventana DVR
-        // mediante setDVRWindowSeconds(). Los métodos getCurrentProgramInfo() y _updateLiveStatus()
-        // dependen de _initialTimeWindowSeconds y fallarán si es null
-        
-        console.log(`[Player] (DVR Progress Manager) Constructor - DVR window configured: ${this._initialTimeWindowSeconds !== null}`);
-        
-        // Solo inicializar si ya tenemos ventana configurada
-        if (this._initialTimeWindowSeconds !== null) {
-            if (options.currentTime) {
-                this._updateLiveStatus();
-            }
-            this.getCurrentProgramInfo();
+        // Inicializar tiempo de stream si tenemos ventana
+        if (this._initialTimeWindowSeconds) {
+            this._initializeStreamTimes();
         }
-        
     }
-  
-    /*
-     *  Actualiza los datos del reproductor
-     * 
-     */
 
-    async updatePlayerData(data:UpdatePlayerData) {
-        const { currentTime, duration, seekableRange, isBuffering, isPaused } = data;
-        
-        // Check if state was invalid before updating
+    // =================== MÉTODOS PÚBLICOS ===================
+
+    async updatePlayerData(data: UpdatePlayerData): Promise<void> {
+        if (!data) return;
+
         const wasValidBefore = this._isValidState();
-
-        console.log(`[Player] (DVR Progress Manager) updatePlayerData`, {
-            currentTime,
-            duration,
-            seekableRange,
-            isBuffering,
-            isPaused,
-            wasValidBefore
+        console.log('[DVR] updatePlayerData:', { 
+            currentTime: data.currentTime, 
+            wasValidBefore,
+            seekableRange: data.seekableRange 
         });
-      
-        this._currentTime = currentTime || 0;
-        this._duration = duration || this._duration; // Actualizar duration interna
-        this._seekableRange = seekableRange || this._seekableRange;
-      
-        // Manejar cambios de estado de pausa/buffering
-        this._handlePlaybackStateChange(isPaused, isBuffering);
-        
-        // Check if state became valid and try to get EPG info
+
+        // Validar y actualizar datos
+        const validatedData = this._validatePlayerData({ ...data });
+        this._currentTime = validatedData.currentTime;
+        this._seekableRange = validatedData.seekableRange;
+        this._duration = validatedData.duration || this._duration;
+
+        // Gestión de pausas simplificada
+        this._updatePauseTracking(validatedData.isPaused, validatedData.isBuffering);
+
+        // Solo ejecutar lógica compleja si el estado es válido
         const isValidNow = this._isValidState();
-        if (!wasValidBefore && isValidNow && !this._currentProgram && this._getEPGProgramAt) {
-            console.log('[Player] (DVR Progress Manager) State became valid, retrying getCurrentProgramInfo');
-            this.getCurrentProgramInfo().catch(error => {
-                console.error('[Player] (DVR Progress Manager) Failed to get current program info on state validation:', error);
-            });
-        }
-      
-        // Solo ejecutar operaciones que requieren estado válido si lo tenemos
         if (isValidNow) {
-            // Actualizar ventana de tiempo si hay pausas/buffering
             this._updateTimeWindow();
-          
-            // Determinar si estamos en vivo
-            this._updateLiveStatus();
-          
-            // Verificar cambios de programa según el tipo de reproducción
-            if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
-                this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
-                this._checkProgramChange().catch(error => {
-                    console.error('[Player] (DVR Progress Manager) Error checking program change:', error);
-                });
+            this._updateLiveEdgePosition();
+            this._checkSignificantProgressChange();
+
+            // EPG en modo PLAYLIST/PROGRAM
+            if ((this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
+                 this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM) && 
+                this._options.getEPGProgramAt) {
+                this._checkProgramChange().catch(console.error);
             }
         }
 
-        // Emit progress update
+        // Si el estado se volvió válido, obtener programa inicial
+        if (!wasValidBefore && isValidNow && !this._currentProgram) {
+            this.getCurrentProgramInfo().catch(console.error);
+        }
+
         this._emitProgressUpdate();
     }
 
-    /*
-     *  Revisamos si es necesario hacer un seek inicial
-     * 
-     */
-
-    checkInitialSeek(mode:'player' | 'cast') {
-        console.log(`[Player] (DVR Progress Manager) checkInitialSeek for ${mode}`);
-
-        // if (mode === 'cast' || Platform.OS === 'ios') {
+    checkInitialSeek(mode: 'player' | 'cast'): void {
+        console.log(`[DVR] checkInitialSeek for ${mode}`);
+        
         if (mode === 'player' && Platform.OS === 'ios') {
             setTimeout(() => {
                 this.goToLive();
             }, 300);
         }
     }
-  
-    /*
-     *  Obtiene los valores calculados para el slider
-     * 
-     */
-    
-    getSliderValues(): SliderValues {
+
+    getSliderValues(): any {
         if (!this._isValidState()) {
-            console.warn('[Player] (DVR Progress Manager) getSliderValues: Invalid state - DVR window not configured or seekable range invalid');
-            // Return default values when state is invalid
+            console.warn('[DVR] getSliderValues: Invalid state');
             return {
                 minimumValue: 0,
                 maximumValue: 1,
                 progress: 0,
                 percentProgress: 0,
+                liveEdge: null,
+                percentLiveEdge: 0,
+                progressDatum: null,
+                liveEdgeOffset: null,
                 canSeekToEnd: false
             };
         }
 
-        switch (this._playbackType) {
-            case DVR_PLAYBACK_TYPE.WINDOW:
-                return this._getWindowSliderValues();
-            
-            case DVR_PLAYBACK_TYPE.PROGRAM:
-                return this._getProgramSliderValues();
-            
-            case DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT:
-                return this._getPlaylistExpandRightSliderValues();
-            
-            case DVR_PLAYBACK_TYPE.PLAYLIST:
-                return this._getPlaylistSliderValues();
-            
-            default:
-                return this._getWindowSliderValues();
-        }
+        const { minimumValue, maximumValue } = this._getSliderBounds();
+        const progress = this._getProgressValue();
+        const liveEdge = this._getCurrentLiveEdge();
+        const range = maximumValue - minimumValue;
 
+        return {
+            minimumValue,
+            maximumValue,
+            progress,
+            percentProgress: range > 0 ? Math.max(0, Math.min(1, (progress - minimumValue) / range)) : 0,
+            liveEdge,
+            percentLiveEdge: range > 0 && liveEdge !== null ? 
+                Math.max(0, Math.min(1, (liveEdge - minimumValue) / range)) : 0,
+            progressDatum: this._getProgressDatum(),
+            liveEdgeOffset: this._getLiveEdgeOffset(),
+            canSeekToEnd: true
+        };
     }
 
-    /*
-     *  Establecer duración externa
-     * 
-     */
-    
-    setDuration(duration: number | null) {
+    setDuration(duration: number | null): void {
         this._duration = duration;
         this._emitProgressUpdate();
     }
 
-    /*
-     *  Configurar la ventana DVR (debe llamarse después de la creación)
-     * 
-     */
-    
-    setDVRWindowSeconds(seconds: number) {
+    setDVRWindowSeconds(seconds: number): void {
         if (seconds <= 0) {
-            console.warn('[Player] (DVR Progress Manager) setDVRWindowSeconds: Invalid window size, must be > 0');
+            console.warn('[DVR] setDVRWindowSeconds: Invalid window size');
             return;
         }
 
         const wasNull = this._initialTimeWindowSeconds === null;
-        const now = Date.now();
-        
-        // Configurar la ventana inicial
+        console.log(`[DVR] setDVRWindowSeconds: ${seconds}s${wasNull ? ' (initial)' : ' (updated)'}`);
+
         this._initialTimeWindowSeconds = seconds;
-        
-        // Si es la primera configuración, establecer el inicio del stream como el inicio de la ventana DVR
-        if (wasNull) {
-            // El inicio del stream es ahora - ventana_en_segundos
-            this._streamStartTime = now - (seconds * 1000);
-        }
-        
-        // La ventana actual es el tiempo transcurrido desde el inicio del stream hasta ahora
         this._currentTimeWindowSeconds = seconds;
-        
-        console.log(`[Player] (DVR Progress Manager) setDVRWindowSeconds: ${seconds}s${wasNull ? ' (initial setup)' : ' (updated)'}, stream starts at: ${new Date(this._streamStartTime).toISOString()}`);
-        
-        // Si era la primera configuración, inicializar el estado
+
         if (wasNull) {
-            this._updateLiveStatus();
-            this.getCurrentProgramInfo();
+            this._initializeStreamTimes();
+            this._updateLiveEdgePosition();
+            this.getCurrentProgramInfo().catch(console.error);
         }
-        
-        // Emitir actualización para reflejar los cambios
+
         this._emitProgressUpdate();
     }
-  
-    /*
-     *  Cambiar tipo de reproducción
-     * 
-     */
-    
-    async setPlaybackType(playbackType: DVR_PLAYBACK_TYPE, program: IBasicProgram | null = null) {
-        if (!this._isValidState()) {
-            throw new Error('[Player] (DVR Progress Manager) setPlaybackType: Invalid state - DVR window not configured or seekable range invalid');
-        }
-        
-        const previousType = this._playbackType;
-        
-        // Si no cambia el tipo, solo actualizamos el programa si es necesario
-        if (previousType === playbackType && !program) {
-            return;
-        }
-        
-        this._playbackType = playbackType;
-      
-        // Manejar programa según el tipo
-        // Actualizar programa -> lo necesitan todos para hacer el goToProgramStart
-        if (playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
-            playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT || 
-            playbackType === DVR_PLAYBACK_TYPE.PROGRAM ||
-            playbackType === DVR_PLAYBACK_TYPE.WINDOW) {
-            if (this._getEPGProgramAt) {
-                // Obtener programa actual si no se proporciona
-                if (!program) {
-                    // CRÍTICO: Para la primera petición EPG, usar liveEdge cuando currentTime es 0
-                    // ya que _getCurrentRealTime() devuelve windowStart + 0 = tiempo pasado
-                    const shouldUseLiveEdge = this._currentTime === 0;
-                    const requestTimestamp = shouldUseLiveEdge 
-                        ? this._getCurrentLiveEdge() 
-                        : this._getCurrentRealTime();
-                        
-                    console.log(`[Player] (DVR Progress Manager) EPG request:`, {
-                        currentTime: this._currentTime,
-                        shouldUseLiveEdge,
-                        requestTimestamp,
-                        liveEdge: this._getCurrentLiveEdge(),
-                        realTime: this._getCurrentRealTime()
-                    });
 
-                    try {
-                        this._currentProgram = await this._getEPGProgramAt(requestTimestamp);
-                    } catch (error) {
-                        console.error('Error obteniendo programa EPG:', error);
-                        this._currentProgram = null;
-                    }
-                } else {
-                    this._currentProgram = program;
-                }
+    async setPlaybackType(playbackType: string, program: any = null): Promise<void> {
+        if (!this._isValidState()) {
+            throw new Error('[DVR] setPlaybackType: Invalid state');
+        }
+
+        const previousType = this._playbackType;
+        console.log(`[DVR] setPlaybackType: ${previousType} -> ${playbackType}`);
+
+        this._playbackType = playbackType;
+
+        // Obtener programa si es necesario
+        if ((playbackType === DVR_PLAYBACK_TYPE.PROGRAM || 
+             playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) && 
+            !program && this._options.getEPGProgramAt) {
+            
+            try {
+                const timestamp = this._getProgressDatum();
+                program = await this._options.getEPGProgramAt(timestamp);
+            } catch (error) {
+                console.error('[DVR] Error getting program for mode change:', error);
             }
         }
 
-        // Para PROGRAM, iniciar desde el comienzo del programa
-        if (playbackType === DVR_PLAYBACK_TYPE.PROGRAM && this._currentProgram) {
-            this._isLiveEdgePosition = false;
-            this._seekToRealTime(this._currentProgram.startDate);
+        this._currentProgram = program;
+
+        // Acciones específicas por modo
+        switch (playbackType) {
+            case DVR_PLAYBACK_TYPE.PROGRAM:
+                if (this._currentProgram) {
+                    this.goToProgramStart();
+                }
+                break;
+            case DVR_PLAYBACK_TYPE.WINDOW:
+                this.goToLive();
+                break;
+            // PLAYLIST mantiene posición actual
         }
-        
-        // Para PLAYLIST_EXPAND_RIGHT, iniciar en el edge live
-        if (playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT) {
-            this._isLiveEdgePosition = true;
-        }
-      
-        if (this._onModeChange){
-            this._onModeChange({ 
-                previousType: previousType,
-                playbackType: this._playbackType, 
-                program: this._currentProgram 
+
+        // Emitir callbacks
+        if (this._options.onModeChange) {
+            this._options.onModeChange({
+                previousType,
+                playbackType,
+                program: this._currentProgram
             });
         }
 
         this._emitProgressUpdate();
     }
-  
-    /*
-     *  Ir al inicio del programa actual (solo para tipos PROGRAM y PLAYLIST)
-     * 
-     */
 
-    goToProgramStart() {
-        if (!this._isValidState()) {
-            console.warn('[Player] (DVR Progress Manager) goToProgramStart: Invalid state - DVR window not configured or seekable range invalid');
+    goToProgramStart(): void {
+        if (!this._isValidState() || !this._currentProgram) {
+            console.warn('[DVR] goToProgramStart: Invalid state or no program');
             return;
         }
+
+        console.log('[DVR] goToProgramStart to:', this._currentProgram.startDate);
+        this._isLiveEdgePosition = false;
         
-        // console.log(`[Player] (DVR Progress Manager) goToProgramStart ${JSON.stringify(this._currentProgram)}`);
-        if (!this._currentProgram) return;
-        
-        if (this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM || 
-            this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST ||
-            this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT ||
-            this._playbackType === DVR_PLAYBACK_TYPE.WINDOW) {
-            this._isLiveEdgePosition = false;
-            this._seekToRealTime(this._currentProgram.startDate);
+        // Si estamos pausados, actualizar la posición congelada al inicio del programa
+        if (this._isPaused || this._isBuffering) {
+            this._frozenProgressDatum = this._currentProgram.startDate;
+            console.log('[DVR] 🎯 Updated frozen position to program start during pause:', this._frozenProgressDatum);
         }
+        
+        // Llamar directamente al seek sin duplicar la lógica
+        const playerTime = this._timestampToPlayerTime(this._currentProgram.startDate);
+        if (this._options.onSeekRequest) {
+            this._options.onSeekRequest(playerTime);
+        }
+        
+        // Emitir update inmediato
+        this._emitProgressUpdate();
     }
-  
-    /*
-     *  Ir al edge live
-     * 
-     */
 
-    goToLive() {
+    goToLive(): void {
         if (!this._isValidState()) {
-            console.warn('[Player] (DVR Progress Manager) goToLive: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[DVR] goToLive: Invalid state');
             return;
         }
-        
+
+        console.log('[DVR] goToLive');
         this._isLiveEdgePosition = true;
         
-        // Para WINDOW y PROGRAM: resetear pausas pero mantener crecimiento natural
-        if (this._playbackType === DVR_PLAYBACK_TYPE.WINDOW || this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
-            this._totalPauseTime = 0;
-            this._pauseStartTime = 0;
-            // NO reseteamos _streamStartTime ni _currentTimeWindowSeconds 
-            // porque la ventana debe seguir creciendo naturalmente
-            
-            // En WINDOW y PROGRAM, ir al final del rango seekable
-            const targetTime = this._seekableRange.end;
-            this._seekTo(targetTime);
-            
-        } else if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
-                   this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT) {
-            // En PLAYLIST, ir al tiempo real actual (live edge)
-            const currentLiveEdge = this._getCurrentLiveEdge();
-            this._seekToRealTime(currentLiveEdge);
-        }
-    }
-  
-    /*
-     *  Ir a una hora específica (timestamp)
-     * 
-     */
-    
-    seekToTime(timestamp:number) {
-        if (!this._isValidState()) {
-            console.warn('[Player] (DVR Progress Manager) seekToTime: Invalid state - DVR window not configured or seekable range invalid');
-            return;
+        // Si estamos pausados, actualizar la posición congelada al live edge
+        if (this._isPaused || this._isBuffering) {
+            this._frozenProgressDatum = this._getCurrentLiveEdge();
+            console.log('[DVR] 🎯 Updated frozen position to live edge during pause:', this._frozenProgressDatum);
         }
         
-        this._isLiveEdgePosition = false;
-      
-        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
-            this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT) {
-            this._seekToRealTime(timestamp);
-        } else {
-            // Para WINDOW y PROGRAM, convertir timestamp a tiempo del reproductor
-            const targetTime = this._timestampToPlayerTime(timestamp);
-            this._seekTo(targetTime);
+        if (this._options.onSeekRequest) {
+            const liveEdge = this._getCurrentLiveEdgePlayerTime();
+            this._options.onSeekRequest(liveEdge);
         }
+        
+        // Emitir update inmediato
+        this._emitProgressUpdate();
     }
-  
-    /*
-     *  Avanzar tiempo determinado (en segundos)
-     * 
-     */
 
-    skipForward(seconds:number) {
+    seekToTime(timestamp: number): void {
         if (!this._isValidState()) {
-            console.warn('[Player] (DVR Progress Manager) skipForward: Invalid state - DVR window not configured or seekable range invalid');
+            console.warn('[DVR] seekToTime: Invalid state');
             return;
+        }
+
+        console.log('[DVR] seekToTime:', timestamp);
+        this._isLiveEdgePosition = false;
+        
+        // Si estamos pausados, actualizar la posición congelada
+        if (this._isPaused || this._isBuffering) {
+            this._frozenProgressDatum = timestamp;
+            console.log('[DVR] 🎯 Updated frozen position during pause to:', timestamp);
         }
         
-        if (this._currentTime === null) {
-            console.warn('[Player] (DVR Progress Manager) skipForward: Current time is null');
-            return;
+        const playerTime = this._timestampToPlayerTime(timestamp);
+        if (this._options.onSeekRequest) {
+            this._options.onSeekRequest(playerTime);
         }
+        
+        // Emitir update inmediato para reflejar el cambio en la UI
+        this._emitProgressUpdate();
+    }
+
+    skipForward(seconds: number): void {
+        if (!this._isValidState()) return;
         
         const newTime = this._currentTime + seconds;
-        this._seekTo(newTime);
-    }
-  
-    /*
-     *  Retroceder tiempo determinado (en segundos)
-     * 
-     */
-
-    skipBackward(seconds:number) {
-        if (!this._isValidState()) {
-            console.warn('[Player] (DVR Progress Manager) skipBackward: Invalid state - DVR window not configured or seekable range invalid');
-            return;
+        
+        // Si estamos pausados, calcular la nueva posición y actualizar frozen datum
+        if (this._isPaused || this._isBuffering) {
+            const currentPosition = this._frozenProgressDatum || this._getProgressDatum();
+            const newTimestamp = currentPosition + (seconds * 1000);
+            this._frozenProgressDatum = newTimestamp;
+            console.log('[DVR] 🎯 Updated frozen position during pause (skip forward):', newTimestamp);
         }
         
-        if (this._currentTime === null) {
-            console.warn('[Player] (DVR Progress Manager) skipBackward: Current time is null');
-            return;
+        if (this._options.onSeekRequest) {
+            this._options.onSeekRequest(newTime);
         }
+        
+        // Emitir update inmediato
+        this._emitProgressUpdate();
+    }
+
+    skipBackward(seconds: number): void {
+        if (!this._isValidState()) return;
         
         const newTime = Math.max(0, this._currentTime - seconds);
-        this._seekTo(newTime);
-    }
-  
-    /*
-     *  Buscar a una posición específica del slider (0-1)
-     * 
-     */
-
-    seekToProgress(progress: number) {
-        if (!this._isValidState()) {
-            console.warn('[Player] (DVR Progress Manager) seekToProgress: Invalid state - DVR window not configured or seekable range invalid');
-            return;
+        
+        // Si estamos pausados, calcular la nueva posición y actualizar frozen datum
+        if (this._isPaused || this._isBuffering) {
+            const currentPosition = this._frozenProgressDatum || this._getProgressDatum();
+            const newTimestamp = Math.max(0, currentPosition - (seconds * 1000));
+            this._frozenProgressDatum = newTimestamp;
+            console.log('[DVR] 🎯 Updated frozen position during pause (skip backward):', newTimestamp);
         }
         
-        const sliderValues = this.getSliderValues();
-        const range = sliderValues.maximumValue - sliderValues.minimumValue;
-        const targetValue = sliderValues.minimumValue + (range * progress);
-      
-        // Actualizar estado live según la posición
-        const tolerance = 0.95; // 95% del slider
-        this._isLiveEdgePosition = progress >= tolerance;
-      
-        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
-            this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT) {
-            this._seekToRealTime(targetValue);
-        } else {
-            // Para WINDOW y PROGRAM, buscar directamente al valor
-            this._seekTo(targetValue);
+        if (this._options.onSeekRequest) {
+            this._options.onSeekRequest(newTime);
         }
-    }
-  
-    /*
-     *  Obtener información del programa actual
-     * 
-     */
-
-    async getCurrentProgramInfo(): Promise<IBasicProgram | null> {
-        console.log(`[Player] (DVR Progress Manager) getCurrentProgramInfo - _getEPGProgramAt available: ${!!this._getEPGProgramAt}`);
         
-        if (!this._getEPGProgramAt) {
-            console.log('[Player] (DVR Progress Manager) getCurrentProgramInfo - No EPG hook configured, returning null');
+        // Emitir update inmediato
+        this._emitProgressUpdate();
+    }
+
+    seekToProgress(progress: number): void {
+        if (!this._isValidState()) return;
+
+        const { minimumValue, maximumValue } = this._getSliderBounds();
+        const range = maximumValue - minimumValue;
+        const targetTimestamp = minimumValue + (range * progress);
+
+        this._isLiveEdgePosition = progress >= 0.95; // 95% threshold
+        
+        // Si estamos pausados, actualizar la posición congelada
+        if (this._isPaused || this._isBuffering) {
+            this._frozenProgressDatum = targetTimestamp;
+            console.log('[DVR] 🎯 Updated frozen position during pause (seek to progress):', targetTimestamp);
+        }
+        
+        // Llamar directamente al seek sin duplicar la lógica de pausa
+        const playerTime = this._timestampToPlayerTime(targetTimestamp);
+        if (this._options.onSeekRequest) {
+            this._options.onSeekRequest(playerTime);
+        }
+        
+        // Emitir update inmediato
+        this._emitProgressUpdate();
+    }
+
+    async getCurrentProgramInfo(): Promise<any | null> {
+        console.log('[DVR] getCurrentProgramInfo - EPG available:', !!this._options.getEPGProgramAt);
+        
+        if (!this._options.getEPGProgramAt || !this._isValidState()) {
             return null;
         }
-        
-        // Verificar que el estado sea válido antes de obtener program info
-        if (!this._isValidState()) {
-            console.warn('[Player] (DVR Progress Manager) getCurrentProgramInfo - Invalid state, cannot get program info');
-            throw new Error('[Player] (DVR Progress Manager) getCurrentProgramInfo: Invalid state - DVR window not configured or seekable range invalid');
+
+        const timestamp = this._getProgressDatum();
+        console.log('[DVR] EPG request for timestamp:', timestamp);
+
+        if (this._options.onEPGRequest) {
+            this._options.onEPGRequest(timestamp);
         }
-      
-        const currentRealTime = this._getCurrentRealTime();
-        console.log(`[Player] (DVR Progress Manager) getCurrentProgramInfo - Requesting EPG for time: ${currentRealTime}`);
-        
+
         try {
-            this._currentProgram = await this._getEPGProgramAt(currentRealTime);
-            console.log(`[Player] (DVR Progress Manager) getCurrentProgramInfo - EPG result:`, this._currentProgram);
+            this._currentProgram = await this._options.getEPGProgramAt(timestamp);
+            this._epgRetryCount.delete(timestamp);
             return this._currentProgram;
         } catch (error) {
-            console.error('[Player] (DVR Progress Manager) getCurrentProgramInfo - Error obteniendo información del programa:', error);
+            console.error('[DVR] EPG error:', error);
+            this._handleEPGError(timestamp, error);
             return null;
         }
     }
-  
-    // MÉTODOS PRIVADOS
 
-    _isValidState(): boolean {
+    getStats(): any {
+        return {
+            initialTimeWindowSeconds: this._initialTimeWindowSeconds,
+            currentTimeWindowSeconds: this._currentTimeWindowSeconds,
+            totalPauseTime: this.totalPauseTime,
+            isLiveEdgePosition: this._isLiveEdgePosition,
+            playbackType: this._playbackType,
+            currentProgram: this._currentProgram,
+            streamStartTime: this._streamStartTime,
+            endStreamDate: this._endStreamDate,
+            duration: this._duration,
+            currentLiveEdge: this.currentLiveEdge,
+            progressDatum: this.progressDatum,
+            liveEdgeOffset: this.liveEdgeOffset
+        };
+    }
+
+    destroy(): void {
+        // Limpiar recursos si es necesario
+        this._epgRetryCount.clear();
+        
+        // Limpiar interval de pausa si existe
+        if (this._pauseUpdateInterval) {
+            clearInterval(this._pauseUpdateInterval);
+            this._pauseUpdateInterval = null;
+        }
+    }
+
+    reset(): void {
+        console.log('[DVR] reset');
+        this._totalPauseTime = 0;
+        this._pauseStartTime = 0;
+        this._isLiveEdgePosition = true;
+        this._frozenProgressDatum = undefined;
+        this._currentProgram = null;
+        this._lastProgressForEPG = null;
+        this._epgRetryCount.clear();
+        
+        // Limpiar interval de pausa si existe
+        if (this._pauseUpdateInterval) {
+            clearInterval(this._pauseUpdateInterval);
+            this._pauseUpdateInterval = null;
+        }
+        
+        // Recalcular ventana actual basada en tiempo transcurrido
+        if (this._streamStartTime && this._initialTimeWindowSeconds) {
+            const elapsed = (Date.now() - this._streamStartTime) / 1000;
+            this._currentTimeWindowSeconds = Math.max(this._initialTimeWindowSeconds, elapsed);
+        }
+        
+        this.setPlaybackType(DVR_PLAYBACK_TYPE.WINDOW);
+    }
+
+    // =================== GETTERS PÚBLICOS ===================
+
+    get isDVRWindowConfigured(): boolean {
+        return this._initialTimeWindowSeconds !== null && this._initialTimeWindowSeconds > 0;
+    }
+
+    get currentTimeWindowSeconds(): number | null {
+        return this._currentTimeWindowSeconds;
+    }
+
+    get totalPauseTime(): number {
+        let total = this._totalPauseTime;
+        if ((this._isPaused || this._isBuffering) && this._pauseStartTime > 0) {
+            total += (Date.now() - this._pauseStartTime);
+        }
+        return Math.floor(total / 1000);
+    }
+
+    get isLiveEdgePosition(): boolean {
+        return this._isLiveEdgePosition;
+    }
+
+    get playbackType(): string {
+        return this._playbackType;
+    }
+
+    get currentProgram(): any | null {
+        return this._currentProgram;
+    }
+
+    get streamStartTime(): number {
+        return this._streamStartTime;
+    }
+
+    get endStreamDate(): number | null {
+        return this._endStreamDate;
+    }
+
+    get duration(): number | null {
+        return this._duration;
+    }
+
+    get currentLiveEdge(): number | null {
+        return this._isValidState() ? this._getCurrentLiveEdge() : null;
+    }
+
+    get progressDatum(): number | null {
+        return this._isValidState() ? this._getProgressDatum() : null;
+    }
+
+    get liveEdgeOffset(): number | null {
+        return this._isValidState() ? this._getLiveEdgeOffset() : null;
+    }
+
+    // =================== MÉTODOS PRIVADOS ===================
+
+    private _initializeStreamTimes(): void {
+        const now = Date.now();
+        this._streamStartTime = now - (this._initialTimeWindowSeconds! * 1000);
+        console.log('[DVR] Stream initialized, starts at:', new Date(this._streamStartTime).toISOString());
+    }
+
+    private _isValidState(): boolean {
         return this._seekableRange !== null && 
                this._seekableRange.end > 0 &&
-               this._currentTime !== null &&
                this._currentTime >= 0 &&
                this._initialTimeWindowSeconds !== null && 
                this._initialTimeWindowSeconds > 0;
     }
-  
-    _handlePlaybackStateChange(isPaused: boolean, isBuffering: boolean) {
+
+    private _validatePlayerData(data: UpdatePlayerData): UpdatePlayerData {
+        // Validación básica con corrección automática
+        if (typeof data.currentTime !== 'number' || data.currentTime < 0) {
+            console.warn('[DVR] Invalid currentTime, correcting to 0');
+            data.currentTime = 0;
+        }
+
+        if (!data.seekableRange || 
+            typeof data.seekableRange.start !== 'number' ||
+            typeof data.seekableRange.end !== 'number' ||
+            data.seekableRange.start > data.seekableRange.end) {
+            
+            console.warn('[DVR] Invalid seekableRange, correcting');
+            data.seekableRange = { start: 0, end: Math.max(data.currentTime, 1) };
+        }
+
+        return data;
+    }
+
+    private _updatePauseTracking(isPaused: boolean, isBuffering: boolean): void {
         const wasStalled = this._isPaused || this._isBuffering;
         const isStalled = isPaused || isBuffering;
-      
+
         if (!wasStalled && isStalled) {
+            // Iniciando pausa/buffering
             this._pauseStartTime = Date.now();
+            if (this._isValidState()) {
+                this._frozenProgressDatum = this._getProgressDatum();
+                console.log('[DVR] 🧊 Freezing progressDatum at:', this._frozenProgressDatum);
+            }
             
             // Iniciar timer para actualizar progreso cada segundo durante pausa
+            // Esto permite que el liveEdgeOffset se actualice en tiempo real en la UI
             this._pauseUpdateInterval = setInterval(() => {
-
-                if (this._isLiveEdgePosition && this._pauseStartTime > 0 && (Date.now() - this._pauseStartTime) >= (this._toleranceSeconds * 1000)){
-                    this._isLiveEdgePosition = false;
+                // Verificar si ya no estamos en live edge después de cierto tiempo pausado
+                if (this._isLiveEdgePosition && this._pauseStartTime > 0) {
+                    const pausedDuration = (Date.now() - this._pauseStartTime) / 1000;
+                    if (pausedDuration >= LIVE_EDGE_TOLERANCE) {
+                        this._isLiveEdgePosition = false;
+                    }
                 }
                 
+                // Emitir update para que la UI muestre el offset creciente
                 this._emitProgressUpdate();
             }, 1000);
-
+            
         } else if (wasStalled && !isStalled) {
+            // Terminando pausa/buffering
             if (this._pauseStartTime > 0) {
-                this._totalPauseTime += Date.now() - this._pauseStartTime;
+                this._totalPauseTime += (Date.now() - this._pauseStartTime);
                 this._pauseStartTime = 0;
             }
+            this._frozenProgressDatum = undefined;
+            console.log('[DVR] ❄️ Unfreezing progressDatum');
             
             // Detener timer de updates
             if (this._pauseUpdateInterval) {
@@ -590,451 +608,204 @@ export class DVRProgressManagerClass {
                 this._pauseUpdateInterval = null;
             }
         }
-      
+
         this._isPaused = isPaused;
         this._isBuffering = isBuffering;
     }
-  
-    _updateTimeWindow() {
-        // Para PLAYLIST y PLAYLIST_EXPAND_RIGHT, la ventana está definida por el programa actual, no por tiempo transcurrido
-        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
-            this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT) {
-            return;
-        }
 
-        // Verificar que la ventana DVR esté configurada
-        if (this._initialTimeWindowSeconds === null) {
-            console.warn('[Player] (DVR Progress Manager) _updateTimeWindow: DVR window not configured, call setDVRWindowSeconds() first');
-            return;
-        }
+    private _updateTimeWindow(): void {
+        if (!this._initialTimeWindowSeconds) return;
 
-        // Para WINDOW y PROGRAM: la ventana crece continuamente desde el inicio del stream
-        const timeElapsedSinceStart = (Date.now() - this._streamStartTime) / 1000;
-        const naturalWindowSize = (this._initialTimeWindowSeconds || 0) + timeElapsedSinceStart;
-        
-        // Calcular tiempo adicional por pausas/buffering
-        let totalPauseTime = this._totalPauseTime;
-        if (this._pauseStartTime > 0) {
-            totalPauseTime += Date.now() - this._pauseStartTime;
-        }
-        
-        // La ventana final incluye el crecimiento natural + pausas adicionales
-        this._currentTimeWindowSeconds = naturalWindowSize + (totalPauseTime / 1000);
-        console.log(`[Player] (DVR Progress Manager) _updateTimeWindow`, {
-            timeElapsedSinceStart,
-            naturalWindowSize,
-            totalPauseTime,
-            currentTimeWindowSeconds: this._currentTimeWindowSeconds
-        });
+        // La ventana crece naturalmente con el tiempo transcurrido
+        const elapsed = (Date.now() - this._streamStartTime) / 1000;
+        this._currentTimeWindowSeconds = Math.max(this._initialTimeWindowSeconds, elapsed);
     }
-  
-    _updateLiveStatus() {
-        if (!this._isValidState() || this._currentTime === null) {
+
+    private _updateLiveEdgePosition(): void {
+        if (!this._isValidState()) {
             this._isLiveEdgePosition = false;
             return;
         }
 
-        // Considerar que estamos en vivo si estamos cerca del final del rango seekable
-        this._isLiveEdgePosition = (this._seekableRange.end - this._currentTime) <= this._toleranceSeconds;
+        // Considerar "en vivo" si estamos cerca del final del rango seekable
+        const offset = this._seekableRange.end - this._currentTime;
+        this._isLiveEdgePosition = offset <= LIVE_EDGE_TOLERANCE;
     }
-  
-    async _checkProgramChange() {
-        if (!this._getEPGNextProgram || !this._currentProgram) return;
-      
-        const currentRealTime = this._getCurrentRealTime();
 
-        console.log(`[Player] (Audio Cast Flavour) _checkProgramChange - Current Real Time: ${currentRealTime}, Current Program End Date: ${this._currentProgram?.endDate}`);
-      
+    private _getSliderBounds(): { minimumValue: number; maximumValue: number } {
+        const liveEdge = this._getCurrentLiveEdge();
+        
+        switch (this._playbackType) {
+            case DVR_PLAYBACK_TYPE.PROGRAM:
+                const programStart = this._currentProgram?.startDate || liveEdge - (this._currentTimeWindowSeconds! * 1000);
+                return { 
+                    minimumValue: programStart, 
+                    maximumValue: liveEdge 
+                };
+                
+            case DVR_PLAYBACK_TYPE.PLAYLIST:
+                if (!this._currentProgram) {
+                    return this._getWindowBounds();
+                }
+                return {
+                    minimumValue: this._currentProgram.startDate,
+                    maximumValue: this._currentProgram.endDate
+                };
+                
+            case DVR_PLAYBACK_TYPE.WINDOW:
+            default:
+                return this._getWindowBounds();
+        }
+    }
+
+    private _getWindowBounds(): { minimumValue: number; maximumValue: number } {
+        const liveEdge = this._getCurrentLiveEdge();
+        const windowStart = liveEdge - (this._currentTimeWindowSeconds! * 1000);
+        return { minimumValue: windowStart, maximumValue: liveEdge };
+    }
+
+    private _getProgressValue(): number {
+        if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
+            return this._getProgressDatum();
+        }
+        
+        // Para WINDOW y PROGRAM, usar timestamp calculado
+        return this._getProgressDatum();
+    }
+
+    private _getCurrentLiveEdge(): number {
+        const now = Date.now();
+        return this._endStreamDate ? Math.min(now, this._endStreamDate) : now;
+    }
+
+    private _getCurrentLiveEdgePlayerTime(): number {
+        // Convertir live edge timestamp a tiempo del reproductor
+        return this._seekableRange.end;
+    }
+
+    private _getProgressDatum(): number {
+        // Usar valor congelado durante pausas para evitar fluctuaciones
+        if (this._frozenProgressDatum !== undefined && (this._isPaused || this._isBuffering)) {
+            return this._frozenProgressDatum;
+        }
+
+        // Calcular timestamp real basado en la posición del reproductor
+        return this._playerTimeToTimestamp(this._currentTime);
+    }
+
+    private _getLiveEdgeOffset(): number {
+        const liveEdge = this._getCurrentLiveEdge();
+        const progress = this._getProgressDatum();
+        return Math.max(0, (liveEdge - progress) / 1000);
+    }
+
+    private _playerTimeToTimestamp(playerTime: number): number {
+        if (!this._streamStartTime) return Date.now();
+        
+        // Para streams DVR: playerTime = 0 corresponde al inicio de la ventana
+        const windowStart = this._getCurrentLiveEdge() - (this._currentTimeWindowSeconds! * 1000);
+        return windowStart + (playerTime * 1000);
+    }
+
+    private _timestampToPlayerTime(timestamp: number): number {
+        if (!this._streamStartTime) return 0;
+        
+        const windowStart = this._getCurrentLiveEdge() - (this._currentTimeWindowSeconds! * 1000);
+        return Math.max(0, (timestamp - windowStart) / 1000);
+    }
+
+    private _checkSignificantProgressChange(): void {
+        if (!this._options.onEPGRequest || this._playbackType !== DVR_PLAYBACK_TYPE.WINDOW) {
+            return;
+        }
+
+        const currentProgress = this._getProgressDatum();
+        
+        if (this._lastProgressForEPG === null) {
+            this._lastProgressForEPG = currentProgress;
+            return;
+        }
+
+        const progressDiff = Math.abs(currentProgress - this._lastProgressForEPG) / 1000;
+        
+        if (progressDiff >= PROGRESS_SIGNIFICANT_CHANGE) {
+            console.log(`[DVR] Significant progress change: ${progressDiff}s`);
+            this._lastProgressForEPG = currentProgress;
+            this._options.onEPGRequest(currentProgress);
+        }
+    }
+
+    private async _checkProgramChange(): Promise<void> {
+        if (!this._currentProgram || !this._options.getEPGProgramAt) return;
+
+        const currentProgress = this._getProgressDatum();
+        
         // Verificar si hemos salido del programa actual
-        if (this._currentProgram && currentRealTime >= this._currentProgram.endDate) {
-            const previousProgram = this._currentProgram;
+        if (currentProgress >= this._currentProgram.endDate) {
+            console.log('[DVR] Program ended, checking for next program');
             
             try {
-                const nextProgram = await this._getEPGNextProgram(this._currentProgram);
-        
-                if (nextProgram) {
+                const nextProgram = await this._options.getEPGProgramAt(currentProgress);
+                if (nextProgram && nextProgram.id !== this._currentProgram.id) {
+                    const previousProgram = this._currentProgram;
                     this._currentProgram = nextProgram;
 
-                    // Comportamiento según el tipo de reproducción
-                    if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST || 
-                        this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST_EXPAND_RIGHT) {
-                        // En PLAYLIST y PLAYLIST_EXPAND_RIGHT, continuar con el siguiente programa automáticamente
-                        // No necesitamos hacer seek, el contenido continúa
-                    } else if (this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM) {
-                        // En PROGRAM, empezar desde el inicio del nuevo programa
-                        this._isLiveEdgePosition = false;
-                        this._seekToRealTime(nextProgram.startDate);
-                    }
-
-                    if (this._onProgramChange){
-                        this._onProgramChange({
-                            previousProgram: previousProgram,
+                    if (this._options.onProgramChange) {
+                        this._options.onProgramChange({
+                            previousProgram,
                             currentProgram: nextProgram
                         });
                     }
                 }
             } catch (error) {
-                console.error('Error obteniendo siguiente programa EPG:', error);
+                console.error('[DVR] Error checking program change:', error);
             }
         }
     }
-  
-    _getWindowSliderValues(): SliderValues {
-        const currentLiveEdge = this._getCurrentLiveEdge();
-        const windowStart = currentLiveEdge - ((this._currentTimeWindowSeconds || 0) * 1000);
-        const progressDatum = this._getProgressDatum();
-        
-        // Calcular porcentaje de progreso
-        const range = currentLiveEdge - windowStart;
-        const progressInRange = progressDatum - windowStart;
-        const percentProgress = range > 0 ? Math.max(0, Math.min(1, progressInRange / range)) : 0;
-        
-        return {
-            minimumValue: windowStart,
-            maximumValue: currentLiveEdge,
-            progress: progressDatum,
-            percentProgress: percentProgress,
-            duration: this._duration || 0, // Usar duración externa, no calculada
-            canSeekToEnd: true,
-            isProgramLive: false,
-            progressDatum: progressDatum,
-            liveEdgeOffset: this._getLiveEdgeOffset(),
-            isLiveEdgePosition: this._isLiveEdgePosition
-        };
-    }
 
-    _getPlaylistSliderValues(): SliderValues {
-        if (!this._currentProgram) {
-            return this._getWindowSliderValues();
+    private async _handleEPGError(timestamp: number, error: any): Promise<void> {
+        const retryCount = this._epgRetryCount.get(timestamp) || 0;
+        
+        if (retryCount < EPG_RETRY_DELAYS.length) {
+            const delay = EPG_RETRY_DELAYS[retryCount];
+            this._epgRetryCount.set(timestamp, retryCount + 1);
+            
+            console.log(`[DVR] EPG retry ${retryCount + 1} in ${delay}ms`);
+            setTimeout(() => {
+                this.getCurrentProgramInfo();
+            }, delay);
+        } else {
+            console.error('[DVR] EPG max retries reached');
+            if (this._options.onEPGError) {
+                this._options.onEPGError({ timestamp, error, retryCount });
+            }
+            this._epgRetryCount.delete(timestamp);
         }
-      
-        const currentLiveEdge = this._getCurrentLiveEdge();
-        const programStart = this._currentProgram.startDate;
-        const programEnd = this._currentProgram.endDate;
-        const progressDatum = this._getProgressDatum();
-      
-        // Determinar si el programa está en directo
-        const isProgramLive = programEnd > currentLiveEdge;
-        
-        // Calcular porcentaje de progreso dentro del programa
-        const range = programEnd - programStart;
-        const progressInRange = progressDatum - programStart;
-        const percentProgress = range > 0 ? Math.max(0, Math.min(1, progressInRange / range)) : 0;
-        let percentLiveEdge = 0;
-
-        // Calcular porcentaje del liveEdge dentro del programa
-        try {
-            const liveEdgeInRange = currentLiveEdge - programStart;
-            percentLiveEdge = range > 0 ? Math.max(0, Math.min(1, liveEdgeInRange / range)) : 0;
-        } catch (error) {
-            console.error('Error al calcular percentLiveEdge:', error);
-        }
-      
-        return {
-            minimumValue: programStart,
-            maximumValue: programEnd,
-            progress: progressDatum,
-            percentProgress: percentProgress,
-            duration: this._duration || 0, // Usar duración externa, no calculada
-            canSeekToEnd: !isProgramLive,
-            liveEdge: currentLiveEdge,
-            percentLiveEdge: percentLiveEdge,
-            isProgramLive: isProgramLive,
-            progressDatum: progressDatum,
-            liveEdgeOffset: this._getLiveEdgeOffset(),
-            isLiveEdgePosition: this._isLiveEdgePosition
-        };
     }
 
-    _getProgramSliderValues(): SliderValues {
-        if (!this._currentProgram) {
-            return this._getWindowSliderValues();
-        }
-      
-        const currentLiveEdge = this._getCurrentLiveEdge();
-        const programStart = this._currentProgram.startDate;
-        const progressDatum = this._getProgressDatum();
-      
-        // Calcular porcentaje de progreso entre inicio programa y live edge
-        const range = currentLiveEdge - programStart;
-        const progressInRange = progressDatum - programStart;
-        const percentProgress = range > 0 ? Math.max(0, Math.min(1, progressInRange / range)) : 0;
-      
-        return {
-            minimumValue: programStart,
-            maximumValue: currentLiveEdge,
-            progress: progressDatum,
-            percentProgress: percentProgress,
-            duration: this._duration || 0, // Usar duración externa, no calculada
-            canSeekToEnd: true,
-            isProgramLive: false,
-            progressDatum: progressDatum,
-            liveEdgeOffset: this._getLiveEdgeOffset(),
-            isLiveEdgePosition: this._isLiveEdgePosition
-        };
-    }
-
-    _getPlaylistExpandRightSliderValues(): SliderValues {
-        if (!this._currentProgram) {
-            return this._getWindowSliderValues();
-        }
-      
-        const currentLiveEdge = this._getCurrentLiveEdge();
-        const programStart = this._currentProgram.startDate;
-        const progressDatum = this._getProgressDatum();
-        
-        // El slider va desde el inicio del programa hasta el live edge actual
-        // Calcular porcentaje de progreso entre inicio programa y live edge
-        const range = currentLiveEdge - programStart;
-        const progressInRange = progressDatum - programStart;
-        const percentProgress = range > 0 ? Math.max(0, Math.min(1, progressInRange / range)) : 0;
-        
-        return {
-            minimumValue: programStart,
-            maximumValue: currentLiveEdge,
-            progress: progressDatum,
-            percentProgress: percentProgress,
-            duration: this._duration || 0, // Usar duración externa, no calculada
-            canSeekToEnd: true,
-            isProgramLive: false,
-            progressDatum: progressDatum,
-            liveEdgeOffset: this._getLiveEdgeOffset(),
-            isLiveEdgePosition: this._isLiveEdgePosition
-        };
-    }
-  
-    _getCurrentRealTime(): number {
-        // Verificar si el estado es válido antes de obtener sliderValues
-        if (!this._isValidState() || this._currentTime === null) {
-            console.log('[Player] (DVR Progress Manager) _emitProgressUpdate: Invalid state, skipping progress update');
-            return Date.now();
-        }
-        // Verificar que la ventana DVR esté configurada
-        if (this._initialTimeWindowSeconds === null) {
-            console.warn('[Player] (DVR Progress Manager) _getCurrentRealTime: DVR window not configured, returning current timestamp');
-            return Date.now();
-        }
-
-        // Calcular el tiempo real basándose SOLO en el crecimiento natural, no en pausas
-        const currentLiveEdge = this._getCurrentLiveEdge();
-        
-        // Usar solo el crecimiento natural de la ventana (sin pausas)
-        const timeElapsedSinceStart = (Date.now() - this._streamStartTime) / 1000;
-        const naturalWindowSize = (this._initialTimeWindowSeconds || 0) + timeElapsedSinceStart;
-        const windowStart = currentLiveEdge - (naturalWindowSize * 1000);
-        
-        // El tiempo real es: live edge - (duración total - posición actual)
-        // Esto nos da el timestamp real correspondiente a la posición actual del player
-        const realTime = currentLiveEdge - ((this._duration || 0) - this._currentTime) * 1000;
-
-        console.log(`[Player] (DVR Progress Manager) _getCurrentRealTime`, {
-            currentLiveEdge,
-            timeElapsedSinceStart,
-            naturalWindowSize,
-            windowStart,
-            realTime
-        });
-        
-        return realTime;
-    }
-
-    _getCurrentLiveEdge(): number {
-        // El live edge actual es el menor entre "ahora" y endStreamDate (si existe)
-        const now = Date.now();
-        return this._endStreamDate ? Math.min(now, this._endStreamDate) : now;
-    }
-
-    _getProgressDatum(): number {
-        // progressDatum es el timestamp real del punto de reproducción actual
-        return this._getCurrentRealTime();
-    }
-
-    _getLiveEdgeOffset(): number {
-        // Segundos entre el punto de progreso y el live edge
-        const currentLiveEdge = this._getCurrentLiveEdge();
-        const progressDatum = this._getProgressDatum();
-        return Math.max(0, (currentLiveEdge - progressDatum) / 1000);
-    }
-  
-    _timestampToPlayerTime(timestamp:number) {
-        // Convertir timestamp real a tiempo del reproductor
-        const currentLiveEdge = this._getCurrentLiveEdge();
-        const timeDiff = (currentLiveEdge - timestamp) / 1000;
-        return this._seekableRange.end - timeDiff;
-    }
-  
-    _seekTo(playerTime:number) {
-        // Aquí invocarías el método seek del reproductor
-        // player.seek(playerTime);
-      
-        // Por ahora solo emitimos el evento
-        this._emitSeekRequest(playerTime);
-    }
-  
-    _seekToRealTime(timestamp:number) {
-        const playerTime = this._timestampToPlayerTime(timestamp);
-        this._seekTo(playerTime);
-    }
-
-    _emitProgressUpdate() {
-        // Verificar si el estado es válido antes de obtener sliderValues
+    private _emitProgressUpdate(): void {
         if (!this._isValidState()) {
-            console.log('[Player] (DVR Progress Manager) _emitProgressUpdate: Invalid state, skipping progress update');
+            console.log('[DVR] _emitProgressUpdate: Invalid state, skipping');
             return;
         }
-        
+
         try {
             const sliderValues = this.getSliderValues();
-          
-            if (this._onProgressUpdate){
-                this._onProgressUpdate({
+            
+            if (this._options.onProgressUpdate) {
+                this._options.onProgressUpdate({
                     ...sliderValues,
                     isLiveEdgePosition: this._isLiveEdgePosition,
                     isPaused: this._isPaused,
                     isBuffering: this._isBuffering,
                     playbackType: this._playbackType,
                     currentProgram: this._currentProgram,
-                    currentRealTime: this._getCurrentRealTime()
+                    windowCurrentSizeInSeconds: this._currentTimeWindowSeconds,
+                    canSeekToEnd: true
                 });
             }
         } catch (error) {
-            console.warn('[Player] (DVR Progress Manager) _emitProgressUpdate: Error getting slider values:', error);
+            console.warn('[DVR] _emitProgressUpdate error:', error);
         }
-    }
-  
-    _emitSeekRequest(playerTime:number) {
-        // Callback para que el componente padre ejecute el seek
-        this._updateLiveStatus();
-        if (this._onSeekRequest) {
-            this._onSeekRequest(playerTime);
-        }
-    }
-    
-    // MÉTODOS PÚBLICOS ADICIONALES
-  
-    /*
-     *  Limpiar recursos (llamar al desmontar el componente)
-     * 
-     */
-
-    destroy() {
-        if (this._pauseUpdateInterval) {
-            clearInterval(this._pauseUpdateInterval);
-            this._pauseUpdateInterval = null;
-        }
-    }
-  
-    /*
-     *  Resetear el gestor a estado inicial
-     * 
-     */
-
-    reset() {
-        // Resetear completamente - como si empezáramos de nuevo
-        this._totalPauseTime = 0;
-        this._pauseStartTime = 0;
-        this._isLiveEdgePosition = true;
-        // CRÍTICO: NO cambiar _streamStartTime para mantener consistencia EPG
-        // this._streamStartTime = Date.now(); // ❌ Esto causaba timestamps EPG inconsistentes
-        
-        // Calcular el tiempo transcurrido desde el inicio del stream
-        if (this._streamStartTime) {
-            const timeElapsedSinceStreamStart = (Date.now() - this._streamStartTime) / 1000;
-            this._currentTimeWindowSeconds = timeElapsedSinceStreamStart;
-            console.log(`[Player] (DVR Progress Manager) reset: Time elapsed since stream start: ${timeElapsedSinceStreamStart}s`);
-        } else {
-            this._currentTimeWindowSeconds = this._initialTimeWindowSeconds || null;
-        }
-        
-        this._duration = null;
-        
-        // Limpiar timer de pausa si existe
-        if (this._pauseUpdateInterval) {
-            clearInterval(this._pauseUpdateInterval);
-            this._pauseUpdateInterval = null;
-        }
-        
-        this.setPlaybackType(DVR_PLAYBACK_TYPE.WINDOW, null);
-    }
-  
-    /*
-     *  Obtener estadísticas actuales
-     * 
-     */
-
-    getStats() {
-        return {
-            initialTimeWindowSeconds: this._initialTimeWindowSeconds,
-            currentTimeWindowSeconds: this._currentTimeWindowSeconds,
-            totalPauseTime: this._totalPauseTime / 1000, // en segundos
-            isLiveEdgePosition: this._isLiveEdgePosition,
-            playbackType: this._playbackType,
-            currentProgram: this._currentProgram,
-            streamStartTime: this._streamStartTime,
-            endStreamDate: this._endStreamDate,
-            duration: this._duration,
-            currentLiveEdge: this._getCurrentLiveEdge(),
-            progressDatum: this._getProgressDatum(),
-            liveEdgeOffset: this._getLiveEdgeOffset()
-        };
-    }
-
-    // ATRIBUTOS PÚBLICOS
-    
-    get isDVRWindowConfigured() {
-        return this._initialTimeWindowSeconds !== null && this._initialTimeWindowSeconds > 0;
-    }
-    
-    get currentTimeWindowSeconds() {
-        return this._currentTimeWindowSeconds;
-    }
-
-    get totalPauseTime() {
-        return this._totalPauseTime;
-    }
-
-    get isLiveEdgePosition() {
-        return this._isLiveEdgePosition;
-    }
-
-    get playbackType() {
-        return this._playbackType;
-    }
-
-    get currentProgram() {
-        return this._currentProgram;
-    }
-
-    get streamStartTime() {
-        return this._streamStartTime;
-    }
-
-    get endStreamDate() {
-        return this._endStreamDate;
-    }
-
-    get duration() {
-        return this._duration;
-    }
-
-    get currentLiveEdge(): number | null {
-        if (!this._isValidState()) {
-            return null;
-        }
-        return this._getCurrentLiveEdge();
-    }
-
-    get progressDatum(): number | null {
-        if (!this._isValidState()) {
-            return null;
-        }
-        return this._getProgressDatum();
-    }
-
-    get liveEdgeOffset(): number | null {
-        if (!this._isValidState()) {
-            return null;
-        }
-        return this._getLiveEdgeOffset();
     }
 }

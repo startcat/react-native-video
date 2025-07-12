@@ -3,18 +3,18 @@
  *
  */
 
-import { type OnLoadData } from '../../types';
 import { type MediaTrack } from 'react-native-google-cast';
+import { type OnLoadData } from '../../types';
 
 import {
-    type IManifest,
-    type IYoubora,
-    type IYouboraSettingsFormat,
-    type IMappedYoubora,
-    type IVideoSource,
     type IBasicProgram,
     type ILanguagesMapping,
+    type IManifest,
+    type IMappedYoubora,
     type IPlayerMenuData,
+    type IVideoSource,
+    type IYoubora,
+    type IYouboraSettingsFormat,
 } from './types';
 
 export interface IPlayerHooks {
@@ -25,7 +25,6 @@ export interface IPlayerHooks {
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
     getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
-    getEPGNextProgram?: (program:IBasicProgram) => Promise<IBasicProgram | null>;
     mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
     mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 }
