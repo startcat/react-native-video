@@ -150,7 +150,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         });
 
-    }, [currentTime]);
+    }, []);
 
     useEffect(() => {
         console.log(`[Player] (Audio Flavour) 🔄 useEffect manifests TRIGGERED`);
@@ -761,12 +761,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             // CRÍTICO: Configurar DVR window ANTES de marcar contenido como cargado
             if (sourceRef.current?.isDVR && sourceRef.current?.dvrWindowSeconds) {
                 console.log(`[Player] (Audio Flavour) onLoad - 🔧 Configuring DVR window: ${sourceRef.current.dvrWindowSeconds}s`);
-                try {
-                    dvrProgressManagerRef.current?.setDVRWindowSeconds(sourceRef.current.dvrWindowSeconds);
-                    console.log(`[Player] (Audio Flavour) onLoad - ✅ DVR window configured successfully`);
-                } catch (error) {
-                    console.log(`[Player] (Audio Flavour) onLoad - ❌ ERROR configuring DVR window:`, error);
-                }
+                dvrProgressManagerRef.current?.setDVRWindowSeconds(sourceRef.current.dvrWindowSeconds);
             } else {
                 console.log(`[Player] (Audio Flavour) onLoad - ⚠️ Skipping DVR config - isDVR: ${sourceRef.current?.isDVR}, dvrWindowSeconds: ${sourceRef.current?.dvrWindowSeconds}`);
             }
