@@ -1,7 +1,7 @@
 // Imports para uso interno
 
 // Exportar tipos principales
-export * from './types';
+export * from './types/types';
 
 // Exportar constantes
 export * from './constants';
