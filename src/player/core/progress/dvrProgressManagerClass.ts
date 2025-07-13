@@ -1,35 +1,7 @@
 import { Platform } from 'react-native';
-
-// Constantes
-const PROGRESS_SIGNIFICANT_CHANGE = 5; // segundos
-const EPG_RETRY_DELAYS = [2000, 5000]; // ms para reintentos
-const LIVE_EDGE_TOLERANCE = 30; // segundos para considerar "en vivo"
-
-// Enums y tipos (asumiendo importación desde types)
-export const DVR_PLAYBACK_TYPE = {
-    WINDOW: 'window',
-    PROGRAM: 'program',
-    PLAYLIST: 'playlist'
-};
-
-export interface ProgramChangeData {
-    previousProgram: any | null; // IBasicProgram
-    currentProgram: any | null;
-}
-
-export interface ModeChangeData {
-    previousType: string; // DVR_PLAYBACK_TYPE
-    playbackType: string;
-    program: any | null;
-}
-
-export interface UpdatePlayerData {
-    currentTime: number;
-    duration?: number;
-    seekableRange: { start: number; end: number };
-    isBuffering: boolean;
-    isPaused: boolean;
-}
+import { EPG_RETRY_DELAYS, LIVE_EDGE_TOLERANCE, LOG_ENABLED, LOG_KEY, LOG_LEVEL, LOG_TYPE_LEVELS, PROGRESS_SIGNIFICANT_CHANGE } from './constants';
+import { DVR_PLAYBACK_TYPE } from './types/enums';
+import { UpdatePlayerData } from './types/types';
 
 export class DVRProgressManagerClass {
     // Estado principal
@@ -53,7 +25,7 @@ export class DVRProgressManagerClass {
     private _pauseUpdateInterval: ReturnType<typeof setTimeout> | null = null;
 
     // Estado de reproducción
-    private _playbackType: string = DVR_PLAYBACK_TYPE.WINDOW;
+    private _playbackType: DVR_PLAYBACK_TYPE = DVR_PLAYBACK_TYPE.WINDOW;
     private _currentProgram: any | null = null;
     private _lastProgressForEPG: number | null = null;
 
@@ -64,7 +36,7 @@ export class DVRProgressManagerClass {
     private _options: any = {};
 
     constructor(options: any = {}) {
-        console.log('[DVR] Constructor - DVR window configured:', !!options.dvrWindowSeconds);
+        this.log(`Constructor - DVR window configured: ${!!options.dvrWindowSeconds}`, 'info');
         
         this._options = {
             dvrWindowSeconds: null,
@@ -94,13 +66,16 @@ export class DVRProgressManagerClass {
         }
     }
 
-    // =================== MÉTODOS PÚBLICOS ===================
+    /*
+     *  Métodos públicos
+     * 
+     */
 
     async updatePlayerData(data: UpdatePlayerData): Promise<void> {
         if (!data) return;
 
         const wasValidBefore = this._isValidState();
-        console.log('[DVR] updatePlayerData:', { 
+        this.log('updatePlayerData', 'debug', { 
             currentTime: data.currentTime, 
             wasValidBefore,
             seekableRange: data.seekableRange 
@@ -139,7 +114,7 @@ export class DVRProgressManagerClass {
     }
 
     checkInitialSeek(mode: 'player' | 'cast'): void {
-        console.log(`[DVR] checkInitialSeek for ${mode}`);
+        this.log(`checkInitialSeek for ${mode}`, 'info');
         
         if (mode === 'player' && Platform.OS === 'ios') {
             setTimeout(() => {
@@ -150,7 +125,7 @@ export class DVRProgressManagerClass {
 
     getSliderValues(): any {
         if (!this._isValidState()) {
-            console.warn('[DVR] getSliderValues: Invalid state');
+            this.log('getSliderValues: Invalid state', 'warn');
             return {
                 minimumValue: 0,
                 maximumValue: 1,
@@ -190,12 +165,12 @@ export class DVRProgressManagerClass {
 
     setDVRWindowSeconds(seconds: number): void {
         if (seconds <= 0) {
-            console.warn('[DVR] setDVRWindowSeconds: Invalid window size');
+            this.log('setDVRWindowSeconds: Invalid window size', 'warn');
             return;
         }
 
         const wasNull = this._initialTimeWindowSeconds === null;
-        console.log(`[DVR] setDVRWindowSeconds: ${seconds}s${wasNull ? ' (initial)' : ' (updated)'}`);
+        this.log(`setDVRWindowSeconds: ${seconds}s${wasNull ? ' (initial)' : ' (updated)'}`, 'info');
 
         this._initialTimeWindowSeconds = seconds;
         this._currentTimeWindowSeconds = seconds;
@@ -209,13 +184,13 @@ export class DVRProgressManagerClass {
         this._emitProgressUpdate();
     }
 
-    async setPlaybackType(playbackType: string, program: any = null): Promise<void> {
+    async setPlaybackType(playbackType: DVR_PLAYBACK_TYPE, program: any = null): Promise<void> {
         if (!this._isValidState()) {
-            throw new Error('[DVR] setPlaybackType: Invalid state');
+            throw new Error('setPlaybackType: Invalid state');
         }
 
         const previousType = this._playbackType;
-        console.log(`[DVR] setPlaybackType: ${previousType} -> ${playbackType}`);
+        this.log(`setPlaybackType: ${previousType} -> ${playbackType}`, 'info');
 
         this._playbackType = playbackType;
 
@@ -228,7 +203,7 @@ export class DVRProgressManagerClass {
                 const timestamp = this._getProgressDatum();
                 program = await this._options.getEPGProgramAt(timestamp);
             } catch (error) {
-                console.error('[DVR] Error getting program for mode change:', error);
+                this.log('Error getting program for mode change', 'error', error);
             }
         }
 
@@ -261,17 +236,17 @@ export class DVRProgressManagerClass {
 
     goToProgramStart(): void {
         if (!this._isValidState() || !this._currentProgram) {
-            console.warn('[DVR] goToProgramStart: Invalid state or no program');
+            this.log('goToProgramStart: Invalid state or no program', 'warn');
             return;
         }
 
-        console.log('[DVR] goToProgramStart to:', this._currentProgram.startDate);
+        this.log(`goToProgramStart to: ${this._currentProgram.startDate}`, 'info');
         this._isLiveEdgePosition = false;
         
         // Si estamos pausados, actualizar la posición congelada al inicio del programa
         if (this._isPaused || this._isBuffering) {
             this._frozenProgressDatum = this._currentProgram.startDate;
-            console.log('[DVR] 🎯 Updated frozen position to program start during pause:', this._frozenProgressDatum);
+            this.log(`🎯 Updated frozen position to program start during pause: ${this._frozenProgressDatum}`, 'debug');
         }
         
         // Llamar directamente al seek sin duplicar la lógica
@@ -286,17 +261,17 @@ export class DVRProgressManagerClass {
 
     goToLive(): void {
         if (!this._isValidState()) {
-            console.warn('[DVR] goToLive: Invalid state');
+            this.log('goToLive: Invalid state', 'warn');
             return;
         }
 
-        console.log('[DVR] goToLive');
+        this.log('goToLive', 'info');
         this._isLiveEdgePosition = true;
         
         // Si estamos pausados, actualizar la posición congelada al live edge
         if (this._isPaused || this._isBuffering) {
             this._frozenProgressDatum = this._getCurrentLiveEdge();
-            console.log('[DVR] 🎯 Updated frozen position to live edge during pause:', this._frozenProgressDatum);
+            this.log(`🎯 Updated frozen position to live edge during pause: ${this._frozenProgressDatum}`, 'debug');
         }
         
         if (this._options.onSeekRequest) {
@@ -310,17 +285,17 @@ export class DVRProgressManagerClass {
 
     seekToTime(timestamp: number): void {
         if (!this._isValidState()) {
-            console.warn('[DVR] seekToTime: Invalid state');
+            this.log('seekToTime: Invalid state', 'warn');
             return;
         }
 
-        console.log('[DVR] seekToTime:', timestamp);
+        this.log(`seekToTime: ${timestamp}`, 'info');
         this._isLiveEdgePosition = false;
         
         // Si estamos pausados, actualizar la posición congelada
         if (this._isPaused || this._isBuffering) {
             this._frozenProgressDatum = timestamp;
-            console.log('[DVR] 🎯 Updated frozen position during pause to:', timestamp);
+            this.log(`🎯 Updated frozen position during pause to: ${timestamp}`, 'debug');
         }
         
         const playerTime = this._timestampToPlayerTime(timestamp);
@@ -342,7 +317,7 @@ export class DVRProgressManagerClass {
             const currentPosition = this._frozenProgressDatum || this._getProgressDatum();
             const newTimestamp = currentPosition + (seconds * 1000);
             this._frozenProgressDatum = newTimestamp;
-            console.log('[DVR] 🎯 Updated frozen position during pause (skip forward):', newTimestamp);
+            this.log(`🎯 Updated frozen position during pause (skip forward): ${newTimestamp}`, 'debug');
         }
         
         if (this._options.onSeekRequest) {
@@ -363,7 +338,7 @@ export class DVRProgressManagerClass {
             const currentPosition = this._frozenProgressDatum || this._getProgressDatum();
             const newTimestamp = Math.max(0, currentPosition - (seconds * 1000));
             this._frozenProgressDatum = newTimestamp;
-            console.log('[DVR] 🎯 Updated frozen position during pause (skip backward):', newTimestamp);
+            this.log(`🎯 Updated frozen position during pause (skip backward): ${newTimestamp}`, 'debug');
         }
         
         if (this._options.onSeekRequest) {
@@ -386,7 +361,7 @@ export class DVRProgressManagerClass {
         // Si estamos pausados, actualizar la posición congelada
         if (this._isPaused || this._isBuffering) {
             this._frozenProgressDatum = targetTimestamp;
-            console.log('[DVR] 🎯 Updated frozen position during pause (seek to progress):', targetTimestamp);
+            this.log(`🎯 Updated frozen position during pause (seek to progress): ${targetTimestamp}`, 'debug');
         }
         
         // Llamar directamente al seek sin duplicar la lógica de pausa
@@ -400,14 +375,14 @@ export class DVRProgressManagerClass {
     }
 
     async getCurrentProgramInfo(): Promise<any | null> {
-        console.log('[DVR] getCurrentProgramInfo - EPG available:', !!this._options.getEPGProgramAt);
+        this.log(`getCurrentProgramInfo - EPG available: ${!!this._options.getEPGProgramAt}`, 'debug');
         
         if (!this._options.getEPGProgramAt || !this._isValidState()) {
             return null;
         }
 
         const timestamp = this._getProgressDatum();
-        console.log('[DVR] EPG request for timestamp:', timestamp);
+        this.log(`EPG request for timestamp: ${timestamp}`, 'debug');
 
         if (this._options.onEPGRequest) {
             this._options.onEPGRequest(timestamp);
@@ -418,7 +393,7 @@ export class DVRProgressManagerClass {
             this._epgRetryCount.delete(timestamp);
             return this._currentProgram;
         } catch (error) {
-            console.error('[DVR] EPG error:', error);
+            this.log('EPG error', 'error', error);
             this._handleEPGError(timestamp, error);
             return null;
         }
@@ -453,7 +428,7 @@ export class DVRProgressManagerClass {
     }
 
     reset(): void {
-        console.log('[DVR] reset');
+        this.log('Reset', 'debug');
         this._totalPauseTime = 0;
         this._pauseStartTime = 0;
         this._isLiveEdgePosition = true;
@@ -477,7 +452,10 @@ export class DVRProgressManagerClass {
         this.setPlaybackType(DVR_PLAYBACK_TYPE.WINDOW);
     }
 
-    // =================== GETTERS PÚBLICOS ===================
+    /*
+     *  Getters públicos
+     * 
+     */
 
     get isDVRWindowConfigured(): boolean {
         return this._initialTimeWindowSeconds !== null && this._initialTimeWindowSeconds > 0;
@@ -531,12 +509,15 @@ export class DVRProgressManagerClass {
         return this._isValidState() ? this._getLiveEdgeOffset() : null;
     }
 
-    // =================== MÉTODOS PRIVADOS ===================
+    /*
+     *  Métodos privados
+     * 
+     */
 
     private _initializeStreamTimes(): void {
         const now = Date.now();
         this._streamStartTime = now - (this._initialTimeWindowSeconds! * 1000);
-        console.log('[DVR] Stream initialized, starts at:', new Date(this._streamStartTime).toISOString());
+        this.log(`Stream initialized, starts at: ${new Date(this._streamStartTime).toISOString()}`);
     }
 
     private _isValidState(): boolean {
@@ -550,7 +531,7 @@ export class DVRProgressManagerClass {
     private _validatePlayerData(data: UpdatePlayerData): UpdatePlayerData {
         // Validación básica con corrección automática
         if (typeof data.currentTime !== 'number' || data.currentTime < 0) {
-            console.warn('[DVR] Invalid currentTime, correcting to 0');
+            this.log('Invalid currentTime, correcting to 0', 'warn');
             data.currentTime = 0;
         }
 
@@ -559,7 +540,7 @@ export class DVRProgressManagerClass {
             typeof data.seekableRange.end !== 'number' ||
             data.seekableRange.start > data.seekableRange.end) {
             
-            console.warn('[DVR] Invalid seekableRange, correcting');
+            this.log('Invalid seekableRange, correcting', 'warn');
             data.seekableRange = { start: 0, end: Math.max(data.currentTime, 1) };
         }
 
@@ -575,7 +556,7 @@ export class DVRProgressManagerClass {
             this._pauseStartTime = Date.now();
             if (this._isValidState()) {
                 this._frozenProgressDatum = this._getProgressDatum();
-                console.log('[DVR] 🧊 Freezing progressDatum at:', this._frozenProgressDatum);
+                this.log('🧊 Freezing progressDatum at:', 'debug', this._frozenProgressDatum);
             }
             
             // Iniciar timer para actualizar progreso cada segundo durante pausa
@@ -600,7 +581,7 @@ export class DVRProgressManagerClass {
                 this._pauseStartTime = 0;
             }
             this._frozenProgressDatum = undefined;
-            console.log('[DVR] ❄️ Unfreezing progressDatum');
+            this.log('❄️ Unfreezing progressDatum', 'debug');
             
             // Detener timer de updates
             if (this._pauseUpdateInterval) {
@@ -729,7 +710,7 @@ export class DVRProgressManagerClass {
         const progressDiff = Math.abs(currentProgress - this._lastProgressForEPG) / 1000;
         
         if (progressDiff >= PROGRESS_SIGNIFICANT_CHANGE) {
-            console.log(`[DVR] Significant progress change: ${progressDiff}s`);
+            this.log(`Significant progress change: ${progressDiff}s`, 'debug');
             this._lastProgressForEPG = currentProgress;
             this._options.onEPGRequest(currentProgress);
         }
@@ -742,7 +723,7 @@ export class DVRProgressManagerClass {
         
         // Verificar si hemos salido del programa actual
         if (currentProgress >= this._currentProgram.endDate) {
-            console.log('[DVR] Program ended, checking for next program');
+            this.log('Program ended, checking for next program');
             
             try {
                 const nextProgram = await this._options.getEPGProgramAt(currentProgress);
@@ -758,7 +739,7 @@ export class DVRProgressManagerClass {
                     }
                 }
             } catch (error) {
-                console.error('[DVR] Error checking program change:', error);
+                this.log('Error checking program change', 'error', error);
             }
         }
     }
@@ -770,12 +751,12 @@ export class DVRProgressManagerClass {
             const delay = EPG_RETRY_DELAYS[retryCount];
             this._epgRetryCount.set(timestamp, retryCount + 1);
             
-            console.log(`[DVR] EPG retry ${retryCount + 1} in ${delay}ms`);
+            this.log(`EPG retry ${retryCount + 1} in ${delay}ms`, 'info');
             setTimeout(() => {
                 this.getCurrentProgramInfo();
             }, delay);
         } else {
-            console.error('[DVR] EPG max retries reached');
+            this.log('EPG max retries reached', 'error');
             if (this._options.onEPGError) {
                 this._options.onEPGError({ timestamp, error, retryCount });
             }
@@ -785,7 +766,7 @@ export class DVRProgressManagerClass {
 
     private _emitProgressUpdate(): void {
         if (!this._isValidState()) {
-            console.log('[DVR] _emitProgressUpdate: Invalid state, skipping');
+            this.log('_emitProgressUpdate: Invalid state, skipping', 'warn');
             return;
         }
 
@@ -805,7 +786,16 @@ export class DVRProgressManagerClass {
                 });
             }
         } catch (error) {
-            console.warn('[DVR] _emitProgressUpdate error:', error);
+            this.log('_emitProgressUpdate error', 'error', error);
+        }
+    }
+
+    private log(message: string, type: 'debug' | 'info' | 'warn' | 'error' = 'info', data?: any): void {
+        const logLevel = LOG_TYPE_LEVELS[type];
+        const minLogLevel = LOG_TYPE_LEVELS[LOG_LEVEL];
+
+        if (LOG_ENABLED && minLogLevel <= logLevel) {
+            console[type](`${LOG_KEY} ${message} ${data ? `:: ${JSON.stringify(data)}` : ''}`);
         }
     }
 }

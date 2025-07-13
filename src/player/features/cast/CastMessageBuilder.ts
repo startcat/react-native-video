@@ -185,7 +185,7 @@ export class CastMessageBuilder {
         if (metadata.isLive) {
             if (metadata.isDVR) {
                 // Para DVR, usar startPosition del metadata o -1
-                return -1; //metadata.startPosition || -1;
+                return metadata.startPosition || -1;
             } else {
                 // Para live, siempre empezar en el liveEdge (-1)
                 return -1;
