@@ -1,383 +1,434 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import {
-    CastManager
-} from '../CastManager';
-import { LOG_PREFIX } from '../constants';
-import {
-    CastContentInfo,
-    CastControlCommand,
-    CastControlParams,
-    CastManagerEvent,
-    CastManagerHookResult,
-    CastManagerState,
-    CastManagerStatus,
-    CastMessageConfig,
-    CastOperationResult,
-    CastProgressInfo,
-    CastStateInfo,
-    UseCastManagerConfig
-} from '../types';
+    CastSession,
+    RemoteMediaClient,
+    useCastSession,
+    useRemoteMediaClient,
+} from 'react-native-google-cast';
+
+import { CastMessageBuilder } from '../CastMessageBuilder';
+import { CastContentInfo, CastManager, CastManagerCallbacks, CastManagerState, MessageBuilderConfig } from '../types/types';
 import { useCastState } from './useCastState';
 
-/*
- *  Hook principal para gestionar Cast
- *
- */
-
-export function useCastManager(config: UseCastManagerConfig = {}): CastManagerHookResult {
-    const {
-        ...managerConfig
-    } = config;
-
-    const LOG_KEY = '(useCastManager)';
-
-    function log(message: string, data?: any): void {
-        if (managerConfig.debugMode) {
-            console.log(`${LOG_PREFIX} ${LOG_KEY} ${message} ${data ? `:: ${JSON.stringify(data)}` : ''}`);
-        }
-    }
+// ✅ Hook principal del Cast Manager
+export function useCastManager(
+    callbacks: CastManagerCallbacks = {},
+    messageBuilderConfig?: MessageBuilderConfig
+): CastManager {
+    // Usar hooks existentes
+    const castState = useCastState();
+    const nativeSession: CastSession = useCastSession();
+    const nativeClient: RemoteMediaClient = useRemoteMediaClient();
     
-    // Estados
-    const [status, setStatus] = useState<CastManagerStatus>(() => ({
-        state: CastManagerState.DISCONNECTED,
-        isConnected: false,
+    // Estado interno del manager
+    const [managerState, setManagerState] = useState<CastManagerState>({
         isLoading: false,
-        isContentLoaded: false,
-        hasSession: false,
-        hasClient: false
-    }));
-    
-    const [currentContent, setCurrentContent] = useState<CastContentInfo | undefined>();
-    const [progressInfo, setProgressInfo] = useState<CastProgressInfo | undefined>();
-    
-    // Referencias
-    const managerRef = useRef<CastManager | null>(null);
-    
-    // Hook de estado de Cast
-    const castState = useCastState({
-        debugMode: managerConfig.debugMode,
-        onStateChange: useCallback((newState: CastStateInfo, previousState: CastStateInfo) => {
-            log(`Cast state changed:`, {
-                from: previousState.managerState,
-                to: newState.managerState
-            });
-        }, [managerConfig.debugMode])
+        lastError: null,
+        lastAction: null,
+        canControl: false
     });
-
-    const memoizedCallbacks = useMemo(() => ({
-        onStateChange: (state: CastManagerState, previousState: CastManagerState) => {
-            log(`Manager state changed:`, {
-                from: previousState,
-                to: state
-            });
-            
-            // Actualizar estado local
-            setStatus((prev: CastManagerStatus) => ({ ...prev, state }));
-            
-            // Llamar callback del usuario
-            managerConfig.callbacks?.onStateChange?.(state, previousState);
-        },
-        onContentLoaded: (content: CastContentInfo) => {
-            log(`onContentLoaded:`, {
-                content
-            });
-            setCurrentContent(content);
-            managerConfig.callbacks?.onContentLoaded?.(content);
-        },
-        onContentLoadError: (error: string, content?: CastContentInfo) => {
-            log(`onContentLoadError:`, {
-                error,
-                content
-            });
-            managerConfig.callbacks?.onContentLoadError?.(error, content);
-        },
-        onPlaybackStarted: () => {
-            log(`onPlaybackStarted`);
-            setStatus((prev: CastManagerStatus) => ({ ...prev, isContentLoaded: true }));
-            managerConfig.callbacks?.onPlaybackStarted?.();
-        },
-        onPlaybackEnded: () => {
-            log(`onPlaybackEnded`);
-            managerConfig.callbacks?.onPlaybackEnded?.();
-        },
-        onBufferingChange: (isBuffering: boolean) => {
-            log(`onBufferingChange:`, {
-                isBuffering
-            });
-            managerConfig.callbacks?.onBufferingChange?.(isBuffering);
-        },
-        onTimeUpdate: (currentTime: number, duration: number) => {
-            log(`onTimeUpdate:`, {
-                currentTime,
-                duration
-            });
-            managerConfig.callbacks?.onTimeUpdate?.(currentTime, duration);
-        }
-    }), [managerConfig.debugMode]);
-
-    const memoizedManagerConfig = useMemo(() => ({
-        ...managerConfig,
-        callbacks: memoizedCallbacks
-    }), [
-        managerConfig.retryAttempts,
-        managerConfig.retryDelay,
-        managerConfig.loadTimeout,
-        managerConfig.debugMode,
-        memoizedCallbacks
-    ]);
     
-    // Inicializar manager UNA SOLA VEZ
-    useEffect(() => {
-        if (!managerRef.current) {
-            managerRef.current = new CastManager(memoizedManagerConfig);
-            log(`Manager initialized`);
-        }
-        
-        return () => {
-            if (managerRef.current) {
-                // Remover listener de eventos
-                managerRef.current.removeAllListeners(CastManagerEvent.TIME_UPDATE);
-                managerRef.current.destroy();
-                managerRef.current = null;
-            }
-        };
-    }, []); // Sin dependencias - se ejecuta solo una vez
-
-    // Actualizar callbacks del manager cuando cambien
-    useEffect(() => {
-        if (managerRef.current && memoizedManagerConfig.callbacks) {
-            // Actualizar solo los callbacks sin recrear el manager
-            managerRef.current['callbacks'] = memoizedManagerConfig.callbacks;
-            
-            log(`Callbacks updated:`, {
-                hasCallbacks: !!memoizedManagerConfig.callbacks,
-                callbackKeys: Object.keys(memoizedManagerConfig.callbacks)
-            });
-        }
-    }, [memoizedManagerConfig.callbacks]);
-
-    useEffect(() => {
-        if (!managerRef.current) return;
-
-        managerRef.current.updateCastState(
-            castState.castState,
-            castState.castSession,
-            castState.castClient,
-            castState.castMediaStatus,
-            castState.castStreamPosition
+    // Referencias para callbacks, contenido y message builder
+    const callbacksRef = useRef(callbacks);
+    const lastLoadedContentRef = useRef<string | null>(null);
+    const pendingSeekRef = useRef<number | null>(null);
+    const messageBuilderRef = useRef<CastMessageBuilder>(new CastMessageBuilder(messageBuilderConfig));
+    
+    // Actualizar callbacks
+    callbacksRef.current = callbacks;
+    
+    // ✅ Función helper para validar si se puede controlar
+    const canPerformAction = useCallback((): boolean => {
+        return (
+            castState.connection.status === 'connected' &&
+            !!nativeSession &&
+            !!nativeClient
         );
-
-        const newStatus = managerRef.current.getStatus();
-        
-        log(`newStatus: ${JSON.stringify(newStatus)}`);
-        
-        // Actualizar estado local
-        setStatus(newStatus);
-    }, [castState]);
-
-    // Funciones de acción estables
-    const loadContent = useCallback(async (config: CastMessageConfig): Promise<CastOperationResult> => {
-        if (!managerRef.current) {
-            log('Manager not initialized for loadContent');
-            return CastOperationResult.FAILED;
+    }, [castState.connection.status, nativeSession, nativeClient]);
+    
+    // ✅ Función helper para manejar errores
+    const handleActionError = useCallback((action: string, error: any): boolean => {
+        const errorMessage = error?.message || error?.toString() || 'Unknown error';
+        setManagerState((prev: CastManagerState) => ({
+            ...prev,
+            isLoading: false,
+            lastError: `${action}: ${errorMessage}`,
+            lastAction: action
+        }));
+        return false;
+    }, []);
+    
+    // ✅ Función helper para iniciar acción
+    const startAction = useCallback((action: string) => {
+        setManagerState((prev: CastManagerState) => ({
+            ...prev,
+            isLoading: true,
+            lastError: null,
+            lastAction: action
+        }));
+    }, []);
+    
+    // ✅ Función helper para completar acción
+    const completeAction = useCallback((action: string) => {
+        setManagerState((prev: CastManagerState) => ({
+            ...prev,
+            isLoading: false,
+            lastAction: action
+        }));
+    }, []);
+    
+    // ✅ Método para actualizar configuración del MessageBuilder
+    const updateMessageBuilderConfig = useCallback((newConfig: any) => {
+        messageBuilderRef.current.updateConfig(newConfig);
+    }, []);
+    
+    // ✅ Acción: Cargar contenido (usando CastMessageBuilder)
+    const loadContent = useCallback(async (content: CastContentInfo): Promise<boolean> => {
+        if (!canPerformAction()) {
+            handleActionError('loadContent', 'No Cast connection available');
+            return false;
         }
+        
+        // ✅ Evitar recargar el mismo contenido
+        if (lastLoadedContentRef.current === content.source.uri && 
+            castState.media.url === content.source.uri && 
+            !castState.media.isIdle) {
+            console.log('[CastManager] Content already loaded, skipping:', content.source.uri);
+            return true;
+        }
+        
+        startAction('loadContent');
         
         try {
-            const result = await managerRef.current.loadContent(config);
+            // ✅ Usar CastMessageBuilder para construir el mensaje
+            const castMessage = messageBuilderRef.current.buildCastMessage({
+                source: content.source,
+                manifest: content.manifest,
+                drm: content.drm,
+                youbora: content.youbora,
+                metadata: content.metadata
+            });
             
-            // Actualizar estado local basado en el resultado
-            if (result === CastOperationResult.SUCCESS) {
-                setCurrentContent(managerRef.current.getCurrentContent());
-                setProgressInfo(managerRef.current.getProgressInfo());
+            if (!castMessage || !castMessage.mediaInfo) {
+                throw new Error('Failed to build cast message');
             }
             
-            return result;
-        } catch (error) {
-            log('Error in loadContent:', error);
-            return CastOperationResult.FAILED;
+            // ✅ Configurar autoplay y posición de inicio
+            const loadOptions = {
+                autoplay: true,
+                position: content.metadata.startPosition || 0
+            };
+            
+            // Para contenido live, usar posición especial
+            if (content.metadata.isLive) {
+                if (content.metadata.isDVR && content.metadata.startPosition !== undefined) {
+                    loadOptions.position = content.metadata.startPosition;
+                } else {
+                    // Para live sin DVR o sin posición específica, usar -1 (live edge)
+                    loadOptions.position = -1;
+                }
+            }
+            
+            await nativeClient.loadMedia(castMessage.mediaInfo, loadOptions);
+            
+            lastLoadedContentRef.current = content.source.uri;
+            completeAction('loadContent');
+            
+            // Callback de éxito (se ejecutará cuando cambie el estado)
+            setTimeout(() => {
+                callbacksRef.current.onContentLoaded?.(content);
+            }, 100);
+            
+            return true;
+            
+        } catch (error: any) {
+            lastLoadedContentRef.current = null;
+            callbacksRef.current.onContentLoadError?.(
+                error?.message || 'Failed to load content', 
+                content
+            );
+            return handleActionError('loadContent', error);
         }
-    }, []);
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media]);
     
-    const clearContent = useCallback(() => {
-        if (managerRef.current) {
-            managerRef.current.clearCurrentContent();
-            setCurrentContent(undefined);
-            setProgressInfo(undefined);
-        }
-    }, []);
-    
-    const executeControl = useCallback(async (params: CastControlParams): Promise<CastOperationResult> => {
-        if (!managerRef.current) {
-            console.warn(`${LOG_PREFIX} ${LOG_KEY} executeControl: Manager not initialized`);
-            return CastOperationResult.FAILED;
+    // ✅ Acción: Limpiar contenido
+    const clearContent = useCallback(async (): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('clearContent', 'No Cast connection available');
         }
         
-        return managerRef.current.executeControl(params);
-    }, []);
+        startAction('clearContent');
+        
+        try {
+            await nativeClient.stop();
+            lastLoadedContentRef.current = null;
+            completeAction('clearContent');
+            return true;
+        } catch (error) {
+            return handleActionError('clearContent', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    // Controles específicos
-    const play = useCallback(() => executeControl({ command: CastControlCommand.PLAY }), [executeControl]);
-
-    const pause = useCallback(() => executeControl({ command: CastControlCommand.PAUSE }), [executeControl]);
-
-    const seek = useCallback((time: number) => executeControl({ 
-        command: CastControlCommand.SEEK, 
-        seekTime: time 
-    }), [executeControl]);
-
-    const skipForward = useCallback((seconds: number) => executeControl({ 
-        command: CastControlCommand.SKIP_FORWARD, 
-        value: seconds 
-    }), [executeControl]);
+    // ✅ Acción: Play
+    const play = useCallback(async (): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('play', 'No Cast connection available');
+        }
+        
+        startAction('play');
+        
+        try {
+            await nativeClient.play();
+            completeAction('play');
+            return true;
+        } catch (error) {
+            return handleActionError('play', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    const skipBackward = useCallback((seconds: number) => executeControl({ 
-        command: CastControlCommand.SKIP_BACKWARD, 
-        value: seconds 
-    }), [executeControl]);
+    // ✅ Acción: Pause
+    const pause = useCallback(async (): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('pause', 'No Cast connection available');
+        }
+        
+        startAction('pause');
+        
+        try {
+            await nativeClient.pause();
+            completeAction('pause');
+            return true;
+        } catch (error) {
+            return handleActionError('pause', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    const stop = useCallback(() => executeControl({ command: CastControlCommand.STOP }), [executeControl]);
+    // ✅ Acción: Seek
+    const seek = useCallback(async (position: number): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('seek', 'No Cast connection available');
+        }
+        
+        startAction('seek');
+        pendingSeekRef.current = position;
+        
+        try {
+            await nativeClient.seek({ position });
+            completeAction('seek');
+            
+            // Callback de seek completado
+            setTimeout(() => {
+                callbacksRef.current.onSeekCompleted?.(position);
+                pendingSeekRef.current = null;
+            }, 100);
+            
+            return true;
+        } catch (error) {
+            pendingSeekRef.current = null;
+            return handleActionError('seek', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    const mute = useCallback(() => executeControl({ command: CastControlCommand.MUTE }), [executeControl]);
+    // ✅ Acción: Skip Forward
+    const skipForward = useCallback(async (seconds: number = 30): Promise<boolean> => {
+        const newPosition = castState.media.currentTime + seconds;
+        return seek(newPosition);
+    }, [seek, castState.media.currentTime]);
     
-    const unmute = useCallback(() => executeControl({ command: CastControlCommand.UNMUTE }), [executeControl]);
+    // ✅ Acción: Skip Backward  
+    const skipBackward = useCallback(async (seconds: number = 30): Promise<boolean> => {
+        const newPosition = Math.max(0, castState.media.currentTime - seconds);
+        return seek(newPosition);
+    }, [seek, castState.media.currentTime]);
     
-    const setVolume = useCallback((volume: number) => executeControl({ 
-        command: CastControlCommand.VOLUME, 
-        volumeLevel: volume 
-    }), [executeControl]);
-
-    // Controles de pistas
-    const setAudioTrack = useCallback((trackIndex: number) => executeControl({
-        command: CastControlCommand.SET_AUDIO_TRACK,
-        audioTrackIndex: trackIndex
-    }), [executeControl]);
+    // ✅ Acción: Stop
+    const stop = useCallback(async (): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('stop', 'No Cast connection available');
+        }
+        
+        startAction('stop');
+        
+        try {
+            await nativeClient.stop();
+            lastLoadedContentRef.current = null;
+            completeAction('stop');
+            return true;
+        } catch (error) {
+            return handleActionError('stop', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    const setSubtitleTrack = useCallback((trackIndex: number) => executeControl({
-        command: CastControlCommand.SET_SUBTITLE_TRACK,
-        subtitleTrackIndex: trackIndex
-    }), [executeControl]);
+    // ✅ Acción: Mute
+    const mute = useCallback(async (): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('mute', 'No Cast connection available');
+        }
+        
+        startAction('mute');
+        
+        try {
+            await nativeSession.setMute(true);
+            completeAction('mute');
+            return true;
+        } catch (error) {
+            return handleActionError('mute', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
     
-    const disableSubtitles = useCallback(() => executeControl({
-        command: CastControlCommand.SET_SUBTITLE_TRACK,
-        subtitleTrackIndex: -1
-    }), [executeControl]);
+    // ✅ Acción: Unmute
+    const unmute = useCallback(async (): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('unmute', 'No Cast connection available');
+        }
+        
+        startAction('unmute');
+        
+        try {
+            await nativeSession.setMute(false);
+            completeAction('unmute');
+            return true;
+        } catch (error) {
+            return handleActionError('unmute', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
     
-    // Utilidades
-    const isSameContent = useCallback((config: CastMessageConfig): boolean => {
-        return managerRef.current?.isSameContent(config) || false;
-    }, []);
+    // ✅ Acción: Set Volume
+    const setVolume = useCallback(async (level: number): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('setVolume', 'No Cast connection available');
+        }
+        
+        const clampedLevel = Math.max(0, Math.min(1, level));
+        startAction('setVolume');
+        
+        try {
+            await nativeSession.setVolume(clampedLevel);
+            completeAction('setVolume');
+            
+            // Callback de cambio de volumen
+            setTimeout(() => {
+                callbacksRef.current.onVolumeChanged?.(clampedLevel, castState.volume.isMuted);
+            }, 100);
+            
+            return true;
+        } catch (error) {
+            return handleActionError('setVolume', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession, castState.volume.isMuted]);
     
-    const isContentLoaded = useCallback((): boolean => {
-        return status.isContentLoaded;
-    }, [status.isContentLoaded]);
+    // ✅ Acción: Set Audio Track
+    const setAudioTrack = useCallback(async (trackId: number): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('setAudioTrack', 'No Cast connection available');
+        }
+        
+        startAction('setAudioTrack');
+        
+        try {
+            await nativeClient.setActiveTrackIds([trackId]);
+            completeAction('setAudioTrack');
+            return true;
+        } catch (error) {
+            return handleActionError('setAudioTrack', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    const isReady = useCallback((): boolean => {
-        return status.isConnected && status.hasClient && status.hasSession;
-    }, [status.isConnected, status.hasClient, status.hasSession]);
+    // ✅ Acción: Set Subtitle Track
+    const setSubtitleTrack = useCallback(async (trackId: number): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('setSubtitleTrack', 'No Cast connection available');
+        }
+        
+        startAction('setSubtitleTrack');
+        
+        try {
+            // Mantener track de audio actual y añadir track de subtítulos
+            const currentAudioId = castState.media.audioTrack?.id;
+            const activeIds = currentAudioId ? [currentAudioId, trackId] : [trackId];
+            
+            await nativeClient.setActiveTrackIds(activeIds);
+            completeAction('setSubtitleTrack');
+            return true;
+        } catch (error) {
+            return handleActionError('setSubtitleTrack', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media.audioTrack]);
     
-    // Debug effect simplificado
+    // ✅ Acción: Disable Subtitles
+    const disableSubtitles = useCallback(async (): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('disableSubtitles', 'No Cast connection available');
+        }
+        
+        startAction('disableSubtitles');
+        
+        try {
+            // Solo mantener track de audio
+            const currentAudioId = castState.media.audioTrack?.id;
+            const activeIds = currentAudioId ? [currentAudioId] : [];
+            
+            await nativeClient.setActiveTrackIds(activeIds);
+            completeAction('disableSubtitles');
+            return true;
+        } catch (error) {
+            return handleActionError('disableSubtitles', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media.audioTrack]);
+    
+    // ✅ Actualizar estado de control
     useEffect(() => {
-        log(`Status updated:`, {
-            state: status.state,
-            isConnected: status.isConnected,
-            isLoading: status.isLoading,
-            isContentLoaded: status.isContentLoaded,
-            hasCurrentContent: !!currentContent,
-            hasProgressInfo: !!progressInfo
-        });
-    }, [status.state, status.isConnected, status.isLoading, status.isContentLoaded, currentContent, progressInfo]);
+        setManagerState((prev: CastManagerState) => ({
+            ...prev,
+            canControl: canPerformAction()
+        }));
+    }, [canPerformAction]);
+    
+    // ✅ Callbacks de eventos basados en cambios de estado
+    useEffect(() => {
+        const { media } = castState;
+        const callbacks = callbacksRef.current;
+        
+        // Detectar inicio de reproducción
+        if (media.isPlaying && !media.isIdle && callbacks.onPlaybackStarted) {
+            callbacks.onPlaybackStarted();
+        }
+        
+        // Detectar fin de reproducción
+        if (media.isIdle && lastLoadedContentRef.current && callbacks.onPlaybackEnded) {
+            callbacks.onPlaybackEnded();
+        }
+        
+    }, [castState.media]);
+    
+    // ✅ Callback de cambio de volumen
+    useEffect(() => {
+        const callbacks = callbacksRef.current;
+        if (callbacks.onVolumeChanged) {
+            callbacks.onVolumeChanged(castState.volume.level, castState.volume.isMuted);
+        }
+    }, [castState.volume.level, castState.volume.isMuted]);
     
     return {
-        // Estado
-        status,
-        currentContent,
-        progressInfo,
-        
-        // Acciones principales
+        // Acciones
         loadContent,
         clearContent,
-        
-        // Controles de reproducción
         play,
         pause,
         seek,
         skipForward,
         skipBackward,
         stop,
-        
-        // Controles de audio
         mute,
         unmute,
         setVolume,
-
-        // Controles de pistas
         setAudioTrack,
         setSubtitleTrack,
         disableSubtitles,
+        updateMessageBuilderConfig,
         
-        // Utilidades
-        isSameContent,
-        isContentLoaded,
-        isReady,
-        
-        // Manager instance
-        manager: managerRef.current!
+        // Estado
+        state: managerState
     };
-}
-
-/*
- *  Hook simplificado para casos básicos
- *
- */
-
-export function useSimpleCastManager(): {
-    isConnected: boolean;
-    isLoading: boolean;
-    currentContent?: CastContentInfo;
-    loadContent: (config: CastMessageConfig) => Promise<CastOperationResult>;
-    play: () => Promise<CastOperationResult>;
-    pause: () => Promise<CastOperationResult>;
-} {
-    const {
-        status,
-        currentContent,
-        loadContent,
-        play,
-        pause
-    } = useCastManager({
-        debugMode: false
-    });
-    
-    return {
-        isConnected: status.isConnected,
-        isLoading: status.isLoading,
-        currentContent,
-        loadContent,
-        play,
-        pause
-    };
-}
-
-/*
- *  Hook para obtener solo el estado de Cast
- *
- */
-
-export function useCastManagerStatus(): CastManagerStatus {
-    const { status } = useCastManager({ 
-        debugMode: false
-    });
-    return status;
-}
-
-/*
- *  Hook para obtener solo el progreso de Cast
- *
- */
-
-export function useCastManagerProgress(): CastProgressInfo | undefined {
-    const { progressInfo } = useCastManager({ 
-        debugMode: false
-    });
-    return progressInfo;
 }

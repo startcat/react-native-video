@@ -10,7 +10,7 @@ import {
 } from 'react-native-google-cast';
 
 import { CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastTrackInfo } from '../types/types';
-import { castReducer, createInitialCastState } from './utils';
+import { castReducer, createInitialCastState } from '../utils/castUtils';
 
 // ✅ Hook principal que maneja toda la sincronización
 export function useCastState(options: { 

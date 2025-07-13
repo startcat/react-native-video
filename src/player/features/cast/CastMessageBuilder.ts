@@ -6,11 +6,13 @@ import {
     SUPPORTED_MIME_TYPES
 } from './constants';
 import {
-    CastContentMetadata,
     CastContentType,
+} from './types/enums';
+import {
+    CastContentMetadata,
     CastMessageConfig,
     MessageBuilderConfig
-} from './types';
+} from './types/types';
 
 const LOG_KEY = '(CastMessageBuilder)';
 

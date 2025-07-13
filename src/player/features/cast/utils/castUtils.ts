@@ -1,367 +1,319 @@
-import {
-    CastContentInfo,
-    CastMessageConfig,
-    ContentComparisonResult
-} from '../types';
-import * as enums from '../types/enums';
+import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastState, CastTrackInfo, InternalCastState } from "../types/types";
 
-/*
- *  Valida si una URL es válida para Cast
- *
- */
-
-export function isValidUrl(url: string): boolean {
-    try {
-        const urlObj = new URL(url);
-        return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-    } catch {
-        return false;
-    }
-}
-
-/*
- *  Compara contenido actual con nuevo contenido
- *
- */
-
-export function compareContent(
-    current: CastContentInfo, 
-    newConfig: CastMessageConfig
-): ContentComparisonResult {
-    const result: ContentComparisonResult = {
-        isSameContent: false,
-        isSameUrl: false,
-        isSameStartPosition: false,
-        needsReload: true
-    };
-
-    console.log(`[DANI] compareContent ${current.contentUrl} <> ${newConfig.source.uri}`);
-    
-    // Comparar URLs
-    result.isSameUrl = normalizeUrl(current.contentUrl) === normalizeUrl(newConfig.source.uri);
-    
-    // Determinar si necesita recarga
-    result.needsReload = !result.isSameUrl;
-    
-    // Agregar razón si no es el mismo contenido
-    if (!result.isSameUrl) {
-        result.reason = 'Different URL';
-    }
-
-    console.log(`[DANI] compareContent result: ${JSON.stringify(result)}`);
-    
-    return result;
-}
-
-/*
- *  Formatea duración en segundos a formato legible
- *
- */
-
-export function formatDuration(seconds: number): string {
-    if (seconds < 0) return '00:00';
-    
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    if (hours > 0) {
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    } else {
-        return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-}
-
-/*
- *  Formatea tiempo en segundos a formato legible (alias de formatDuration)
- *
- */
-
-export function formatTime(seconds: number): string {
-    return formatDuration(seconds);
-}
-
-/*
- *  Normaliza URL para comparación
- *
- */
-
-export function normalizeUrl(url: string): string {
-    try {
-        const urlObj = new URL(url);
-        
-        // Remover parámetros que no afectan el contenido
-        const paramsToRemove = ['start', 'timestamp', '_ts', 'cache'];
-        paramsToRemove.forEach(param => {
-            urlObj.searchParams.delete(param);
-        });
-        
-        return urlObj.toString();
-    } catch {
-        return url;
-    }
-}
-
-/*
- *  Obtiene tipo de contenido desde CastContentInfo
- *
- */
-
-export function getContentTypeFromInfo(content: CastContentInfo): enums.CastContentType {
-    if (content.isLive) {
-        return content.isDVR ? enums.CastContentType.DVR : enums.CastContentType.LIVE;
-    }
-    return enums.CastContentType.VOD;
-}
-
-/*
- *  Obtiene tipo de contenido desde metadata
- *
- */
-
-export function getContentTypeFromMetadata(metadata: any): enums.CastContentType {
-    if (metadata.isLive) {
-        return metadata.isDVR ? enums.CastContentType.DVR : enums.CastContentType.LIVE;
-    }
-    return enums.CastContentType.VOD;
-}
-
-/*
- *  Genera hash simple de un string
- *
- */
-
-export function hashString(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    return Math.abs(hash).toString(16);
-}
-
-/*
- *  Valida si un objeto es un source válido
- *
- */
-
-export function isValidSource(source: any): boolean {
-    return source && 
-           typeof source === 'object' && 
-           typeof source.uri === 'string' && 
-           source.uri.length > 0 &&
-           isValidUrl(source.uri);
-}
-
-/*
- *  Valida si metadata es válida
- *
- */
-
-export function isValidMetadata(metadata: any): boolean {
-    return metadata && 
-           typeof metadata === 'object' &&
-           (metadata.id !== undefined || metadata.title !== undefined);
-}
-
-/*
- *  Extrae información de progreso desde media status
- *
- */
-
-export function extractProgressInfo(mediaStatus: any): {
-    currentTime: number;
-    duration: number;
-    progress: number;
-    isBuffering: boolean;
-    isPaused: boolean;
-} {
-    const currentTime = mediaStatus?.currentTime || 0;
-    const duration = mediaStatus?.mediaInfo?.streamDuration || 0;
-    const progress = duration > 0 ? currentTime / duration : 0;
-    
+// ✅ Estado inicial
+export function createInitialCastState(): CastState {
     return {
-        currentTime,
-        duration,
-        progress,
-        isBuffering: mediaStatus?.playerState === 'BUFFERING' || mediaStatus?.playerState === 'LOADING',
-        isPaused: mediaStatus?.playerState === 'PAUSED'
+        connection: {
+            status: 'disconnected',
+            deviceName: null,
+            statusText: 'Desconectado'
+        },
+        media: {
+            url: null,
+            title: null,
+            subtitle: null,
+            imageUrl: null,
+            isPlaying: false,
+            isPaused: false,
+            isBuffering: false,
+            isIdle: true,
+            currentTime: 0,
+            duration: null,
+            progress: 0,
+            playbackRate: 1.0,
+            audioTrack: null,
+            textTrack: null,
+            availableAudioTracks: [],
+            availableTextTracks: []
+        },
+        volume: {
+            level: 0.5,
+            isMuted: false,
+            canControl: false,
+            stepInterval: 0.05
+        },
+        error: {
+            hasError: false,
+            errorCode: null,
+            errorMessage: null,
+            lastErrorTime: null
+        },
+        lastUpdate: Date.now()
     };
 }
 
-/*
- *  Convierte tiempo en formato HH:MM:SS a segundos
- *
- */
-
-export function timeStringToSeconds(timeString: string): number {
-    const parts = timeString.split(':');
-    let seconds = 0;
-    
-    if (parts.length === 3) {
-        // HH:MM:SS
-        seconds = parseInt(parts[0] || '0') * 3600 + parseInt(parts[1] || '0') * 60 + parseInt(parts[2] || '0');
-    } else if (parts.length === 2) {
-        // MM:SS
-        seconds = parseInt(parts[0] || '0') * 60 + parseInt(parts[1] || '0');
-    } else if (parts.length === 1) {
-        // SS
-        seconds = parseInt(parts[0] || '0');
-    }
-    
-    return isNaN(seconds) ? 0 : seconds;
-}
-
-/*
- *  Obtiene información de estado legible
- *
- */
-
-export function getReadableState(state: string): string {
-    const stateMap: { [key: string]: string } = {
-        'IDLE': 'Inactivo',
-        'PLAYING': 'Reproduciendo',
-        'PAUSED': 'Pausado',
-        'BUFFERING': 'Cargando',
-        'LOADING': 'Cargando',
-        'UNKNOWN': 'Desconocido'
-    };
-    
-    return stateMap[state] || state;
-}
-
-/*
- *  Verifica si un estado indica reproducción activa
- *
- */
-
-export function isActivePlayback(state: string): boolean {
-    return state === 'PLAYING' || state === 'BUFFERING' || state === 'LOADING';
-}
-
-/*
- *  Verifica si un estado indica contenido pausado
- *
- */
-
-export function isPausedPlayback(state: string): boolean {
-    return state === 'PAUSED';
-}
-
-/*
- *  Verifica si un estado indica buffering
- *
- */
-
-export function isBufferingPlayback(state: string): boolean {
-    return state === 'BUFFERING' || state === 'LOADING';
-}
-
-/*
- *  Obtiene información de conectividad Cast
- *
- */
-
-export function getCastConnectivityInfo(castState: string): {
-    isConnected: boolean;
-    isConnecting: boolean;
-    isDisconnected: boolean;
-    statusText: string;
-} {
-    const isConnected = castState === 'CONNECTED';
-    const isConnecting = castState === 'CONNECTING';
-    const isDisconnected = castState === 'NOT_CONNECTED' || castState === 'NO_DEVICES_AVAILABLE';
-    
-    let statusText = 'Desconocido';
-    if (isConnected) statusText = 'Conectado';
-    else if (isConnecting) statusText = 'Conectando';
-    else if (isDisconnected) statusText = 'Desconectado';
-    
-    return {
-        isConnected,
-        isConnecting,
-        isDisconnected,
-        statusText
-    };
-}
-
-/*
- *  Calcula porcentaje de progreso
- *
- */
-
-export function calculateProgress(currentTime: number, duration: number): number {
-    if (duration <= 0) return 0;
-    return Math.min(Math.max(currentTime / duration, 0), 1);
-}
-
-/*
- *  Calcula tiempo restante
- *
- */
-
-export function calculateRemainingTime(currentTime: number, duration: number): number {
-    if (duration <= 0) return 0;
-    return Math.max(duration - currentTime, 0);
-}
-
-/*
- *  Verifica si dos tiempos son aproximadamente iguales
- *
- */
-
-export function timesAreEqual(time1: number, time2: number, tolerance: number = 1): boolean {
-    return Math.abs(time1 - time2) <= tolerance;
-}
-
-/*
- *  Clamp value between min and max
- *
- */
-
-export function clamp(value: number, min: number, max: number): number {
-    return Math.min(Math.max(value, min), max);
-}
-
-/*
- *  Debounce function
- *
- */
-
-export function debounce<T extends (...args: any[]) => any>(
-    func: T,
-    wait: number
-): (...args: Parameters<T>) => void {
-    let timeout: ReturnType<typeof setTimeout>;
-    
-    return function executedFunction(...args: Parameters<T>) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
+// ✅ Función para extraer información de tracks
+export function extractTracksInfo(mediaStatus: any) {
+    if (!mediaStatus || !mediaStatus.mediaInfo) {
+        return {
+            audioTrack: null,
+            textTrack: null,
+            availableAudioTracks: [],
+            availableTextTracks: []
         };
-        
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
+    }
+
+    const mediaInfo = mediaStatus.mediaInfo;
+    const activeTracks = mediaStatus.activeTrackIds || [];
+    const mediaTracks = mediaInfo.tracks || [];
+
+    // Procesar todas las pistas disponibles
+    const audioTracks: CastTrackInfo[] = [];
+    const textTracks: CastTrackInfo[] = [];
+    let activeAudioTrack: CastTrackInfo | null = null;
+    let activeTextTrack: CastTrackInfo | null = null;
+
+    mediaTracks.forEach((track: any) => {
+        const trackInfo: CastTrackInfo = {
+            id: track.trackId,
+            name: track.name || track.language || `Track ${track.trackId}`,
+            language: track.language || null,
+            type: track.type?.toUpperCase() || 'UNKNOWN'
+        };
+
+        const isActive = activeTracks.includes(track.trackId);
+
+        switch (track.type?.toUpperCase()) {
+            case 'AUDIO':
+                audioTracks.push(trackInfo);
+                if (isActive) {
+                    activeAudioTrack = trackInfo;
+                }
+                break;
+            case 'TEXT':
+                textTracks.push(trackInfo);
+                if (isActive) {
+                    activeTextTrack = trackInfo;
+                }
+                break;
+        }
+    });
+
+    return {
+        audioTrack: activeAudioTrack,
+        textTrack: activeTextTrack,
+        availableAudioTracks: audioTracks,
+        availableTextTracks: textTracks
     };
 }
 
-/*
- *  Throttle function
- *
- */
+// ✅ Función para extraer metadata del MediaInfo
+export function extractMediaMetadata(mediaInfo: any) {
+    if (!mediaInfo || !mediaInfo.metadata) {
+        return {
+            title: null,
+            subtitle: null,
+            imageUrl: null
+        };
+    }
 
-export function throttle<T extends (...args: any[]) => any>(
-    func: T,
-    limit: number
-): (...args: Parameters<T>) => void {
-    let inThrottle: boolean;
+    const metadata = mediaInfo.metadata;
     
-    return function executedFunction(...args: Parameters<T>) {
-        if (!inThrottle) {
-            func(...args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
-        }
+    return {
+        title: metadata.title || metadata.movieTitle || null,
+        subtitle: metadata.subtitle || metadata.artist || metadata.albumArtist || null,
+        imageUrl: metadata.images?.[0]?.url || null
     };
+}
+
+// ✅ Reducer que procesa toda la data nativa de forma síncrona
+export function castReducer(state: InternalCastState, action: CastAction): InternalCastState {
+    switch (action.type) {
+        case 'SYNC_UPDATE': {
+            const { payload } = action;
+            const {
+                nativeCastState,
+                nativeSession,
+                nativeClient,
+                nativeMediaStatus,
+                nativeStreamPosition
+            } = payload;
+
+            // ✅ Procesar conexión
+            const connection: CastConnectionInfo = (() => {
+                const castStateStr = String(nativeCastState || 'NOT_CONNECTED').toUpperCase();
+                
+                switch (castStateStr) {
+                    case 'CONNECTED':
+                        return {
+                            status: 'connected',
+                            deviceName: nativeSession?.deviceName || 'Dispositivo Cast',
+                            statusText: `Conectado a ${nativeSession?.deviceName || 'dispositivo'}`
+                        };
+                    case 'CONNECTING':
+                        return {
+                            status: 'connecting',
+                            deviceName: null,
+                            statusText: 'Conectando...'
+                        };
+                    default:
+                        return {
+                            status: 'disconnected',
+                            deviceName: null,
+                            statusText: 'Desconectado'
+                        };
+                }
+            })();
+
+            // ✅ Procesar media (solo si tenemos conexión completa)
+            const media: CastMediaInfo = (() => {
+                const hasValidConnection = connection.status === 'connected' && nativeSession && nativeClient;
+                
+                if (!hasValidConnection || !nativeMediaStatus) {
+                    return {
+                        url: null,
+                        title: null,
+                        subtitle: null,
+                        imageUrl: null,
+                        isPlaying: false,
+                        isPaused: false,
+                        isBuffering: false,
+                        isIdle: true,
+                        currentTime: 0,
+                        duration: null,
+                        progress: 0,
+                        playbackRate: 1.0,
+                        audioTrack: null,
+                        textTrack: null,
+                        availableAudioTracks: [],
+                        availableTextTracks: []
+                    };
+                }
+
+                const playerState = nativeMediaStatus.playerState;
+                const mediaInfo = nativeMediaStatus.mediaInfo;
+                const metadata = extractMediaMetadata(mediaInfo);
+                const tracksInfo = extractTracksInfo(nativeMediaStatus);
+                
+                // ✅ Lógica mejorada para currentTime - evitar saltos a 0
+                let currentTime = nativeStreamPosition || 0;
+                
+                // Si recibimos 0 pero tenemos una posición válida previa Y estamos buffering/loading
+                // mantener la posición previa para evitar saltos visuales en DASH/DVR
+                const isBufferingState = playerState === 'BUFFERING' || playerState === 'LOADING';
+                const shouldPreservePosition = (
+                    currentTime === 0 && 
+                    state.lastValidPosition > 0 && 
+                    isBufferingState &&
+                    // Solo preservar si la diferencia de tiempo es pequeña (< 5 segundos desde la última actualización)
+                    (Date.now() - state.castState.lastUpdate) < 5000
+                );
+                
+                if (shouldPreservePosition) {
+                    currentTime = state.lastValidPosition;
+                }
+                
+                const duration = mediaInfo?.streamDuration || null;
+                // ✅ Progress sin alteraciones - preserva valores originales para DVR
+                const progress = duration && duration > 0 ? currentTime / duration : 0;
+
+                return {
+                    url: mediaInfo?.contentId || null,
+                    title: metadata.title,
+                    subtitle: metadata.subtitle,
+                    imageUrl: metadata.imageUrl,
+                    isPlaying: playerState === 'PLAYING',
+                    isPaused: playerState === 'PAUSED',
+                    isBuffering: isBufferingState,
+                    isIdle: playerState === 'IDLE',
+                    currentTime,
+                    duration,
+                    progress, // ✅ Valor original sin clamp
+                    playbackRate: nativeMediaStatus.playbackRate || 1.0,
+                    audioTrack: tracksInfo.audioTrack,
+                    textTrack: tracksInfo.textTrack,
+                    availableAudioTracks: tracksInfo.availableAudioTracks,
+                    availableTextTracks: tracksInfo.availableTextTracks
+                };
+            })();
+
+            // ✅ Mantener volumen actual (se actualiza por separado)
+            const volume = state.castState.volume;
+
+            // ✅ Procesar errores del MediaStatus
+            const error: CastErrorInfo = (() => {
+                if (nativeMediaStatus?.idleReason === 'ERROR') {
+                    return {
+                        hasError: true,
+                        errorCode: 'MEDIA_ERROR',
+                        errorMessage: 'Error en la reproducción del media',
+                        lastErrorTime: Date.now()
+                    };
+                }
+                
+                // Mantener error previo si no hay nuevo estado
+                return state.castState.error;
+            })();
+
+            // Actualizar lastValidPosition si tenemos una posición real y válida
+            const newLastValidPosition = (
+                media.currentTime > 0 && 
+                !media.isBuffering && 
+                media.isPlaying
+            ) ? media.currentTime : state.lastValidPosition;
+
+            return {
+                castState: {
+                    connection,
+                    media,
+                    volume,
+                    error,
+                    lastUpdate: Date.now()
+                },
+                lastValidPosition: newLastValidPosition,
+                updateSequence: state.updateSequence + 1,
+                volumeUpdatePromise: state.volumeUpdatePromise
+            };
+        }
+
+        case 'UPDATE_VOLUME': {
+            return {
+                ...state,
+                castState: {
+                    ...state.castState,
+                    volume: {
+                        ...state.castState.volume,
+                        ...action.payload
+                    },
+                    lastUpdate: Date.now()
+                },
+                volumeUpdatePromise: null
+            };
+        }
+
+        case 'SET_ERROR': {
+            return {
+                ...state,
+                castState: {
+                    ...state.castState,
+                    error: {
+                        hasError: true,
+                        errorCode: action.payload.errorCode,
+                        errorMessage: action.payload.errorMessage,
+                        lastErrorTime: Date.now()
+                    },
+                    lastUpdate: Date.now()
+                }
+            };
+        }
+
+        case 'CLEAR_ERROR': {
+            return {
+                ...state,
+                castState: {
+                    ...state.castState,
+                    error: {
+                        hasError: false,
+                        errorCode: null,
+                        errorMessage: null,
+                        lastErrorTime: null
+                    },
+                    lastUpdate: Date.now()
+                }
+            };
+        }
+
+        default:
+            return state;
+    }
 }
