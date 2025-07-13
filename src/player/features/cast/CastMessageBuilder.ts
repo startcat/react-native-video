@@ -77,6 +77,9 @@ export class CastMessageBuilder {
                 // Agregar metadata personalizada
                 message.mediaInfo.customData = {
                     ...message.mediaInfo.customData,
+                    sourceDescription: {
+                        metadata: metadata
+                    },
                     contentType: this.getContentType(config.metadata),
                     buildTimestamp: Date.now(),
                     builderVersion: '1.0.0'

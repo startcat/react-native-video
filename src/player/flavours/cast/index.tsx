@@ -32,8 +32,6 @@ import {
     type ProgramChangeData
 } from '../../modules/dvr';
 
-
-
 import { SourceClass, type onSourceChangedProps } from '../../modules/source';
 import { TudumClass } from '../../modules/tudum';
 import { VODProgressManagerClass } from '../../modules/vod';

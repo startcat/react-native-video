@@ -1,6 +1,8 @@
+import { useCastManager } from './useCastManager';
 import { useCastState } from './useCastState';
 
 export function useCastReady(): boolean {
-    const { connection, media } = useCastState();
-    return connection.status === 'connected' && !media.isIdle;
+    const { connection } = useCastState();
+    const castManager = useCastManager();
+    return connection.status === 'connected' && castManager.state.canControl;
 }

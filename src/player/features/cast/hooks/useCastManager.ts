@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
     CastSession,
@@ -33,10 +33,16 @@ export function useCastManager(
     const callbacksRef = useRef(callbacks);
     const lastLoadedContentRef = useRef<string | null>(null);
     const pendingSeekRef = useRef<number | null>(null);
-    const messageBuilderRef = useRef<CastMessageBuilder>(new CastMessageBuilder(messageBuilderConfig));
+    const messageBuilderRef = useRef<CastMessageBuilder>();
+
+    if (!messageBuilderRef.current) {
+        messageBuilderRef.current = new CastMessageBuilder(messageBuilderConfig);
+    }
     
     // Actualizar callbacks
-    callbacksRef.current = callbacks;
+    useEffect(() => {
+        callbacksRef.current = callbacks;
+    }, [callbacks]);
     
     // ✅ Función helper para validar si se puede controlar
     const canPerformAction = useCallback((): boolean => {
@@ -102,7 +108,7 @@ export function useCastManager(
         
         try {
             // ✅ Usar CastMessageBuilder para construir el mensaje
-            const castMessage = messageBuilderRef.current.buildCastMessage({
+            const castMessage = messageBuilderRef.current?.buildCastMessage({
                 source: content.source,
                 manifest: content.manifest,
                 drm: content.drm,
@@ -114,23 +120,7 @@ export function useCastManager(
                 throw new Error('Failed to build cast message');
             }
             
-            // ✅ Configurar autoplay y posición de inicio
-            const loadOptions = {
-                autoplay: true,
-                position: content.metadata.startPosition || 0
-            };
-            
-            // Para contenido live, usar posición especial
-            if (content.metadata.isLive) {
-                if (content.metadata.isDVR && content.metadata.startPosition !== undefined) {
-                    loadOptions.position = content.metadata.startPosition;
-                } else {
-                    // Para live sin DVR o sin posición específica, usar -1 (live edge)
-                    loadOptions.position = -1;
-                }
-            }
-            
-            await nativeClient.loadMedia(castMessage.mediaInfo, loadOptions);
+            await nativeClient.loadMedia(castMessage);
             
             lastLoadedContentRef.current = content.source.uri;
             completeAction('loadContent');
@@ -410,7 +400,7 @@ export function useCastManager(
         }
     }, [castState.volume.level, castState.volume.isMuted]);
     
-    return {
+    return useMemo(() => ({
         // Acciones
         loadContent,
         clearContent,
@@ -430,5 +420,22 @@ export function useCastManager(
         
         // Estado
         state: managerState
-    };
+    }), [
+        loadContent,
+        clearContent,
+        play,
+        pause,
+        seek,
+        skipForward,
+        skipBackward,
+        stop,
+        mute,
+        unmute,
+        setVolume,
+        setAudioTrack,
+        setSubtitleTrack,
+        disableSubtitles,
+        updateMessageBuilderConfig,
+        managerState
+    ]);
 }
