@@ -1,4 +1,4 @@
-import { EventListener } from '../types';
+import { EventListener } from '../types/events';
 
 export class SimpleEventEmitter {
     private events: { [key: string]: EventListener[] } = {};

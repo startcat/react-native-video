@@ -1,7 +1,4 @@
 // Imports para uso interno
-import { CastManager } from './CastManager';
-import { CastMessageBuilder } from './CastMessageBuilder';
-import type { CastManagerConfig } from './types';
 
 // Exportar tipos principales
 export * from './types';
@@ -10,20 +7,10 @@ export * from './types';
 export * from './constants';
 
 // Exportar clases principales
-export { CastManager } from './CastManager';
 export { CastMessageBuilder } from './CastMessageBuilder';
 
 // Exportar EventEmitter para React Native
 export { EventEmitter, SimpleEventEmitter } from './utils/SimpleEventEmitter';
-
-// Exportar hooks
-export {
-    useCastConnectivity, useCastProgress, useCastReady, useCastState, useCastVolume
-} from './hooks/useCastState';
-
-export {
-    useCastManager, useCastManagerProgress, useCastManagerStatus, useSimpleCastManager
-} from './hooks/useCastManager';
 
 // Exportar utilidades
 export * from './utils/castUtils';
@@ -37,6 +24,7 @@ export const defaultCastConfig = {
     streamPositionInterval: 1
 };
 
+/*
 // Función helper para crear configuración personalizada
 export function createCastConfig(overrides: Partial<CastManagerConfig> = {}) {
     return {
@@ -54,3 +42,4 @@ export function createCastManager(config: Partial<CastManagerConfig> = {}) {
 export function createCastMessageBuilder(config: Partial<CastManagerConfig> = {}) {
     return new CastMessageBuilder(config);
 }
+*/

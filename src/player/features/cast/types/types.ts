@@ -5,6 +5,8 @@ import {
     RemoteMediaClient
 } from 'react-native-google-cast';
 
+import { IDrm, IMappedYoubora, IVideoSource } from '../../types';
+
 export interface CastConnectionInfo {
     status: 'connected' | 'connecting' | 'disconnected';
     deviceName: string | null;
@@ -96,3 +98,98 @@ export type CastAction =
     | {
         type: 'CLEAR_ERROR';
     };
+
+// ✅ Interfaces para el manager (compatibles con CastMessageBuilder)
+export interface CastContentInfo {
+    // Información de la fuente
+    source: {
+        uri: string;
+    };
+    manifest: any; // Manifest data requerido por CastMessageBuilder
+    drm?: any; // DRM config opcional
+    youbora?: any; // Youbora config opcional
+    
+    // Metadata del contenido
+    metadata: {
+        id: string;
+        title?: string;
+        subtitle?: string;
+        description?: string;
+        poster?: string;
+        squaredPoster?: string;
+        liveStartDate?: string;
+        adTagUrl?: string;
+        hasNext?: boolean;
+        isLive?: boolean;
+        isDVR?: boolean;
+        startPosition?: number; // Posición inicial en segundos
+    };
+}
+
+export interface CastManagerCallbacks {
+    onContentLoaded?: (contentInfo: CastContentInfo) => void;
+    onContentLoadError?: (error: string, contentInfo: CastContentInfo) => void;
+    onPlaybackStarted?: () => void;
+    onPlaybackEnded?: () => void;
+    onSeekCompleted?: (newPosition: number) => void;
+    onVolumeChanged?: (level: number, isMuted: boolean) => void;
+}
+
+export interface CastManagerActions {
+    loadContent: (content: CastContentInfo) => Promise<boolean>;
+    clearContent: () => Promise<boolean>;
+    play: () => Promise<boolean>;
+    pause: () => Promise<boolean>;
+    seek: (position: number) => Promise<boolean>;
+    skipForward: (seconds?: number) => Promise<boolean>;
+    skipBackward: (seconds?: number) => Promise<boolean>;
+    stop: () => Promise<boolean>;
+    mute: () => Promise<boolean>;
+    unmute: () => Promise<boolean>;
+    setVolume: (level: number) => Promise<boolean>;
+    setAudioTrack: (trackId: number) => Promise<boolean>;
+    setSubtitleTrack: (trackId: number) => Promise<boolean>;
+    disableSubtitles: () => Promise<boolean>;
+    updateMessageBuilderConfig: (newConfig: any) => void;
+}
+
+export interface CastManagerState {
+    isLoading: boolean;
+    lastError: string | null;
+    lastAction: string | null;
+    canControl: boolean;
+}
+
+export interface CastManager extends CastManagerActions {
+    state: CastManagerState;
+}
+
+export interface MessageBuilderConfig {
+    enableYoubora?: boolean;
+    enableAds?: boolean;
+    defaultStartPosition?: number;
+    debugMode?: boolean;
+}
+
+export interface CastContentMetadata {
+    id?: number;
+    title?: string;
+    subtitle?: string;
+    description?: string;
+    poster?: string;
+    squaredPoster?: string;
+    liveStartDate?: number;
+    adTagUrl?: string;
+    hasNext?: boolean;
+    isLive?: boolean;
+    isDVR?: boolean;
+    startPosition?: number;
+}
+
+export interface CastMessageConfig {
+    source: IVideoSource;
+    manifest: any;
+    drm?: IDrm;
+    youbora?: IMappedYoubora;
+    metadata: CastContentMetadata;
+}
