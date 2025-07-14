@@ -25,12 +25,12 @@ import {
     type SliderValues
 } from '../../../types';
 
-import { useIsBuffering } from '../../modules/buffer';
 import {
     DVRProgressManagerClass,
     type ModeChangeData,
     type ProgramChangeData
-} from '../../modules/dvr';
+} from '../../core/progress';
+import { useIsBuffering } from '../../modules/buffer';
 
 import { SourceClass, type onSourceChangedProps } from '../../modules/source';
 import { TudumClass } from '../../modules/tudum';

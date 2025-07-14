@@ -56,6 +56,22 @@ export class VODProgressManagerClass {
      * 
      */
 
+    // Método para actualizar callbacks cuando cambian las referencias
+    updateCallbacks(callbacks: {
+        onProgressUpdate?: ((data: ProgressUpdateData) => void) | null;
+        onSeekRequest?: ((playerTime: number) => void) | null;
+    }): void {
+
+        if (callbacks.onProgressUpdate) {
+            this._onProgressUpdate = callbacks.onProgressUpdate;
+        }
+        if (callbacks.onSeekRequest) {
+            this._onSeekRequest = callbacks.onSeekRequest;
+        }
+
+        // this.log(`updateCallbacks - Updated ${updatedCallbacks.length} callbacks`, 'debug');
+    }
+
     updatePlayerData(data: UpdatePlayerData) {
         // console.log(`[Player] (VOD Progress Manager) updatePlayerData...`);
         const { currentTime, seekableRange, duration, isPaused, isBuffering } = data;

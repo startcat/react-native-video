@@ -51,9 +51,7 @@ import {
     type ModeChangeData,
     type ProgramChangeData,
     DVRProgressManagerClass
-} from '../../modules/dvr';
-
-
+} from '../../core/progress';
 
 import { styles } from '../styles';
 
