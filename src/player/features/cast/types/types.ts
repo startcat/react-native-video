@@ -32,6 +32,7 @@ export interface CastMediaInfo {
     currentTime: number;
     duration: number | null;
     progress: number; // ✅ Valor original sin clamp - puede ser cualquier valor para DVR
+    seekableRange: { start: number; end: number } | null;
     playbackRate: number;
     audioTrack: CastTrackInfo | null;
     textTrack: CastTrackInfo | null;

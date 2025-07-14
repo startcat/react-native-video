@@ -19,6 +19,7 @@ export function createInitialCastState(): CastState {
             isIdle: true,
             currentTime: 0,
             duration: null,
+            seekableRange: null,
             progress: 0,
             playbackRate: 1.0,
             audioTrack: null,
@@ -130,19 +131,19 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
             } = payload;
 
             // ✅ DEBUGGING
-            console.log('[CastReducer] SYNC_UPDATE:', {
-                nativeMediaStatus: nativeMediaStatus ? {
-                    isPlaying: nativeMediaStatus.isPlaying,
-                    isPaused: nativeMediaStatus.isPaused,
-                    isIdle: nativeMediaStatus.isIdle,
-                    playerState: nativeMediaStatus.playerState
-                } : null,
-                currentMediaState: {
-                    isPlaying: state.castState.media.isPlaying,
-                    isPaused: state.castState.media.isPaused,
-                    isIdle: state.castState.media.isIdle
-                }
-            });
+            // console.log('[CastReducer] SYNC_UPDATE:', {
+            //     nativeMediaStatus: nativeMediaStatus ? {
+            //         isPlaying: nativeMediaStatus.isPlaying,
+            //         isPaused: nativeMediaStatus.isPaused,
+            //         isIdle: nativeMediaStatus.isIdle,
+            //         playerState: nativeMediaStatus.playerState
+            //     } : null,
+            //     currentMediaState: {
+            //         isPlaying: state.castState.media.isPlaying,
+            //         isPaused: state.castState.media.isPaused,
+            //         isIdle: state.castState.media.isIdle
+            //     }
+            // });
 
             // ✅ Procesar conexión
             const connection: CastConnectionInfo = (() => {
@@ -186,6 +187,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                         isIdle: true,
                         currentTime: 0,
                         duration: null,
+                        seekableRange: null,
                         progress: 0,
                         playbackRate: 1.0,
                         audioTrack: null,
@@ -236,6 +238,10 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                     isIdle: normalizedPlayerState === 'IDLE',
                     currentTime,
                     duration,
+                    seekableRange: {
+                        start: nativeMediaStatus.liveSeekableRange?.startTime || 0,
+                        end: nativeMediaStatus.liveSeekableRange?.endTime || 0
+                    },
                     progress, // ✅ Valor original sin clamp
                     playbackRate: nativeMediaStatus.playbackRate || 1.0,
                     audioTrack: tracksInfo.audioTrack,

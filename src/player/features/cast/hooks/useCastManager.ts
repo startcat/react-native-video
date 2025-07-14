@@ -258,49 +258,66 @@ export function useCastManager(
     
     // ✅ Acción: Mute
     const mute = useCallback(async (): Promise<boolean> => {
+        console.log(`[DANI] [CastManager] mute() - ENTRY`);
+        
         if (!canPerformAction()) {
+            console.log(`[DANI] [CastManager] mute() - Cannot perform action`);
             return handleActionError('mute', 'No Cast connection available');
         }
         
+        console.log(`[DANI] [CastManager] mute() - Calling nativeSession.setMute(true)`);
         startAction('mute');
         
         try {
             await nativeSession.setMute(true);
+            console.log(`[DANI] [CastManager] mute() - SUCCESS - Native mute completed`);
             completeAction('mute');
             return true;
         } catch (error) {
+            console.log(`[DANI] [CastManager] mute() - ERROR:`, error);
             return handleActionError('mute', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
     
     // ✅ Acción: Unmute
     const unmute = useCallback(async (): Promise<boolean> => {
+        console.log(`[DANI] [CastManager] unmute() - ENTRY`);
+        
         if (!canPerformAction()) {
+            console.log(`[DANI] [CastManager] unmute() - Cannot perform action`);
             return handleActionError('unmute', 'No Cast connection available');
         }
         
+        console.log(`[DANI] [CastManager] unmute() - Calling nativeSession.setMute(false)`);
         startAction('unmute');
         
         try {
             await nativeSession.setMute(false);
+            console.log(`[DANI] [CastManager] unmute() - SUCCESS - Native unmute completed`);
             completeAction('unmute');
             return true;
         } catch (error) {
+            console.log(`[DANI] [CastManager] unmute() - ERROR:`, error);
             return handleActionError('unmute', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
     
     // ✅ Acción: Set Volume
     const setVolume = useCallback(async (level: number): Promise<boolean> => {
+        console.log(`[DANI] [CastManager] setVolume(${level}) - ENTRY`);
+        
         if (!canPerformAction()) {
+            console.log(`[DANI] [CastManager] setVolume() - Cannot perform action`);
             return handleActionError('setVolume', 'No Cast connection available');
         }
         
         const clampedLevel = Math.max(0, Math.min(1, level));
+        console.log(`[DANI] [CastManager] setVolume() - Calling nativeSession.setVolume(${clampedLevel})`);
         startAction('setVolume');
         
         try {
             await nativeSession.setVolume(clampedLevel);
+            console.log(`[DANI] [CastManager] setVolume() - SUCCESS - Native setVolume completed`);
             completeAction('setVolume');
             
             // Callback de cambio de volumen
@@ -310,6 +327,7 @@ export function useCastManager(
             
             return true;
         } catch (error) {
+            console.log(`[DANI] [CastManager] setVolume() - ERROR:`, error);
             return handleActionError('setVolume', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession, castState.volume.isMuted]);

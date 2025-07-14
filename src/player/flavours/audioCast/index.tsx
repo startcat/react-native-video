@@ -285,6 +285,15 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
     // ✅ useEffect para cargar contenido cuando Cast esté listo
     useEffect(() => {
+        console.log(`[Player] (Audio Cast Flavour) Cast ready useEffect - State check:`, {
+            castConnected,
+            sourceReady: sourceRef.current?.isReady,
+            currentSourceType: currentSourceType.current,
+            isContentLoaded,
+            isLoadingContent,
+            hasTriedLoading
+        });
+        
         if (castConnected && 
             sourceRef.current?.isReady && 
             currentSourceType.current === 'content' && 
@@ -306,7 +315,11 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                 isReady: true
             };
             
-            loadContentWithCastManager(sourceData);
+            // Add a small delay to ensure Cast client is truly stable
+            setTimeout(() => {
+                console.log(`[Player] (Audio Cast Flavour) Cast ready - About to load content with delay`);
+                loadContentWithCastManager(sourceData);
+            }, 100);
         }
     }, [castConnected, sourceRef.current?.isReady, currentSourceType.current, isContentLoaded, isLoadingContent, hasTriedLoading]);
 
@@ -317,7 +330,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         }
     }, [castProgress.currentTime, castConnected]);
 
-    // Sync with Cast playing state
+    // Sync with Cast playing state with debounce to prevent immediate override
     useEffect(() => {
         const isPlaying = castPlaying;
         const shouldBePaused = !isPlaying;
@@ -332,14 +345,24 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             
             return () => clearTimeout(timeout);
         }
+        
+        return undefined;
     }, [castPlaying, paused]);
 
-    // Sync with Cast volume
+    // Sync with Cast volume with debounce to prevent immediate override
     useEffect(() => {
         if (castVolume.isMuted !== muted) {
-            console.log(`[Player] (Audio Cast Flavour) Cast mute state changed: ${castVolume.isMuted}`);
-            setMuted(castVolume.isMuted);
+            // Add a small delay to allow Cast commands to propagate
+            // This prevents immediate override of user mute actions
+            const timeout = setTimeout(() => {
+                console.log(`[Player] (Audio Cast Flavour) Cast mute state changed: ${castVolume.isMuted}`);
+                setMuted(castVolume.isMuted);
+            }, 500); // Wait 500ms before syncing
+            
+            return () => clearTimeout(timeout);
         }
+        
+        return undefined;
     }, [castVolume.isMuted, muted]);
 
     useEffect(() => {

@@ -103,20 +103,20 @@ export function useCastState(options: {
         if (!isMountedRef.current) return;
         
         // ✅ DEBUGGING: Logear estados nativos
-        console.log('[CastState] Native state sync:', {
-            nativeCastState,
-            hasSession: !!nativeSession,
-            hasClient: !!nativeClient,
-            hasMedia: !!nativeMediaStatus,
-            mediaStatus: nativeMediaStatus ? {
-                isPlaying: nativeMediaStatus.isPlaying,
-                isPaused: nativeMediaStatus.isPaused,
-                isIdle: nativeMediaStatus.isIdle,
-                playerState: nativeMediaStatus.playerState
-            } : null,
-            position: nativeStreamPosition,
-            sequence: state.updateSequence + 1
-        });
+        // console.log('[CastState] Native state sync:', {
+        //     nativeCastState,
+        //     hasSession: !!nativeSession,
+        //     hasClient: !!nativeClient,
+        //     hasMedia: !!nativeMediaStatus,
+        //     mediaStatus: nativeMediaStatus ? {
+        //         isPlaying: nativeMediaStatus.isPlaying,
+        //         isPaused: nativeMediaStatus.isPaused,
+        //         isIdle: nativeMediaStatus.isIdle,
+        //         playerState: nativeMediaStatus.playerState
+        //     } : null,
+        //     position: nativeStreamPosition,
+        //     sequence: state.updateSequence + 1
+        // });
         
         dispatch({
             type: 'SYNC_UPDATE',
