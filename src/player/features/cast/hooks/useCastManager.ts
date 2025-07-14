@@ -179,17 +179,23 @@ export function useCastManager(
     
     // ✅ Acción: Pause
     const pause = useCallback(async (): Promise<boolean> => {
+        console.log(`[DANI] [CastManager] pause() - ENTRY`);
+
         if (!canPerformAction()) {
+            console.log(`[DANI] [CastManager] pause() - Cannot perform action`);
             return handleActionError('pause', 'No Cast connection available');
         }
-        
+
+        console.log(`[DANI] [CastManager] pause() - Calling nativeClient.pause()`);
         startAction('pause');
         
         try {
             await nativeClient.pause();
+            console.log(`[DANI] [CastManager] pause() - SUCCESS - Native pause completed`);
             completeAction('pause');
             return true;
         } catch (error) {
+            console.log(`[DANI] [CastManager] pause() - ERROR:`, error);
             return handleActionError('pause', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -379,6 +385,8 @@ export function useCastManager(
     useEffect(() => {
         const { media } = castState;
         const callbacks = callbacksRef.current;
+
+        console.log(`[DANI] [CastManager] (useEffect) Cast State Media: ${JSON.stringify(media)}`);
         
         // Detectar inicio de reproducción
         if (media.isPlaying && !media.isIdle && callbacks.onPlaybackStarted) {
