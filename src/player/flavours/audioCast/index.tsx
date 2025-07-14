@@ -100,6 +100,8 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     }, []);
 
     const onPlaybackStartedCallback = useCallback(() => {
+        const now = Date.now();
+        console.log(`[DANI] [AudioCast] [${now}] 🎬 onPlaybackStarted CALLBACK EXECUTED`);
         console.log(`[Player] (Audio Cast Flavour) Cast Manager - Playback started`);
         setPaused(false);
         setBuffering(false);
@@ -173,6 +175,12 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     // Control para evitar mezcla de sources
     const currentSourceType = useRef<'tudum' | 'content' | null>(null);
     const pendingContentSource = useRef<onSourceChangedProps | null>(null);
+
+    const userInteractionInProgressRef = useRef<boolean>(false);
+    const setUserInteraction = useCallback((isActive: boolean) => {
+        userInteractionInProgressRef.current = isActive;
+        console.log(`[DANI] [AudioCast] User interaction: ${isActive ? 'STARTED' : 'ENDED'}`);
+    }, []);
 
     // ✅ CREATE REFS FOR MAIN CALLBACKS to avoid circular dependencies
     const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
@@ -291,8 +299,15 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             currentSourceType: currentSourceType.current,
             isContentLoaded,
             isLoadingContent,
-            hasTriedLoading
+            hasTriedLoading,
+            userInteractionInProgress: userInteractionInProgressRef.current
         });
+
+        // ✅ NUEVO: Skip auto-loading if user is interacting to prevent race condition
+        if (userInteractionInProgressRef.current) {
+            console.log(`[DANI] [AudioCast] ⚠️ SKIPPING auto-loading - User interaction in progress`);
+            return;
+        }
         
         if (castConnected && 
             sourceRef.current?.isReady && 
@@ -317,18 +332,28 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             
             // Add a small delay to ensure Cast client is truly stable
             setTimeout(() => {
+                // ✅ NUEVO: Double-check no user interaction started during timeout
+                if (userInteractionInProgressRef.current) {
+                    console.log(`[DANI] [AudioCast] ⚠️ ABORTING auto-loading - User interaction started during timeout`);
+                    return;
+                }
                 console.log(`[Player] (Audio Cast Flavour) Cast ready - About to load content with delay`);
                 loadContentWithCastManager(sourceData);
             }, 100);
         }
     }, [castConnected, sourceRef.current?.isReady, currentSourceType.current, isContentLoaded, isLoadingContent, hasTriedLoading]);
 
-    // Sync with Cast progress
+    // Sync with Cast progress with debounce to prevent immediate override of seeks
     useEffect(() => {
         if (castConnected && castProgress.currentTime !== currentTime) {
-            setCurrentTime(castProgress.currentTime);
+            const timeout = setTimeout(() => {
+                console.log(`[Player] (Audio Cast Flavour) Cast currentTime sync: ${castProgress.currentTime} (was ${currentTime})`);
+                setCurrentTime(castProgress.currentTime);
+            }, 500);
+            return () => clearTimeout(timeout);
         }
-    }, [castProgress.currentTime, castConnected]);
+        return undefined;
+    }, [castProgress.currentTime, castConnected, currentTime]);
 
     // Sync with Cast playing state with debounce to prevent immediate override
     useEffect(() => {
@@ -364,18 +389,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         
         return undefined;
     }, [castVolume.isMuted, muted]);
-
-    useEffect(() => {
-        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
-            onControlsPress(data.action, data.value);
-        });
-
-        return (() => {
-            if (typeof(actionsAudioPlayerListener) === 'string'){
-                EventRegister.removeEventListener(actionsAudioPlayerListener);
-            }
-        });
-    }, []);
 
     // ✅ useEffect manifests - COMPLETO CON INVOCACIONES CORRECTAS
     useEffect(() => {
@@ -858,9 +871,25 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     };
 
     function onSeekRequest(playerTime: number) {
+        const now = Date.now();
         console.log(`[Player] (Audio Cast Flavour) onSeekRequest: ${playerTime}`);
+        console.log(`[DANI] [AudioCast] [${now}] onSeekRequest - castConnected: ${castConnected}`);
+        
+        // ✅ NUEVO: Marcar interacción del usuario para prevenir race condition
+        userInteractionInProgressRef.current = true;
+        
+        // 🔍 DESYNC DETECTION: Test connection state before seek action
+        console.log(`[DANI] [DESYNC TEST] [${now}] AudioCast castConnected: ${castConnected}`);
+        console.log(`[DANI] [DESYNC TEST] [${now}] About to call castManager.seek(${playerTime}) - this will trigger canPerformAction() check`);
+        
         // ✅ USAR castManager.seek en lugar de nativeClient
-        castManager.seek(playerTime);
+        castManager.seek(playerTime).finally(() => {
+            // ✅ NUEVO: Limpiar marca de interacción cuando termine el seek
+            setTimeout(() => {
+                userInteractionInProgressRef.current = false;
+                console.log(`[DANI] [AudioCast] Seek completed - User interaction cleared`);
+            }, 200); // Small delay to ensure seek is fully processed
+        });
     };
 
     // ✅ REFACTORIZAR onControlsPress para usar castManager
@@ -869,14 +898,22 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause'];
 
         console.log(`[Player] (Audio Cast Flavour) onControlsPress: ${id} (${value})`);
+        const now = Date.now();
+        console.log(`[DANI] [AudioCast] [${now}] onControlsPress - castConnected: ${castConnected}`);
 
         if (id === CONTROL_ACTION.PAUSE){
+            console.log(`[DANI] [AudioCast] [${now}] PAUSE command - castConnected: ${castConnected}, will call castManager.${value ? 'pause' : 'play'}()`);
+            
+            // 🔍 DESYNC DETECTION: Test both connection states before action
+            console.log(`[DANI] [DESYNC TEST] [${now}] AudioCast castConnected: ${castConnected}`);
+            console.log(`[DANI] [DESYNC TEST] [${now}] About to call castManager.${value ? 'pause' : 'play'}() - this will trigger canPerformAction() check`);
+            
             if (value) {
                 await castManager.pause();
             } else {
                 await castManager.play();
             }
-            setPaused(!!value);
+            // setPaused(!!value);
         }
 
         if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
@@ -892,7 +929,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             } else {
                 await castManager.unmute();
             }
-            setMuted(!!value);
+            // setMuted(!!value);
         }
 
         if (id === CONTROL_ACTION.VOLUME && typeof(value) === 'number'){
@@ -962,6 +999,19 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         }
 
     }, [castManager, props.events]);
+
+    useEffect(() => {
+        const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
+            console.log(`[Player] (Audio Cast Flavour) audioPlayerAction received: ${JSON.stringify(data)}`);
+            onControlsPress(data.action, data.value);
+        });
+
+        return (() => {
+            if (typeof(actionsAudioPlayerListener) === 'string'){
+                EventRegister.removeEventListener(actionsAudioPlayerListener);
+            }
+        });
+    }, [onControlsPress]);
 
     // Simular eventos del reproductor usando Cast hooks
     const onLoad = useCallback(async (e: { currentTime: number; duration: number }) => {

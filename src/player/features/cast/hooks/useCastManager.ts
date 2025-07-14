@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
     CastSession,
@@ -34,6 +34,7 @@ export function useCastManager(
     const lastLoadedContentRef = useRef<string | null>(null);
     const pendingSeekRef = useRef<number | null>(null);
     const messageBuilderRef = useRef<CastMessageBuilder>();
+    const lastPlaybackStartedTimeRef = useRef<number | null>(null);
 
     if (!messageBuilderRef.current) {
         messageBuilderRef.current = new CastMessageBuilder(messageBuilderConfig);
@@ -46,12 +47,17 @@ export function useCastManager(
     
     // ✅ Función helper para validar si se puede controlar
     const canPerformAction = useCallback((): boolean => {
-        return (
-            castState.connection.status === 'connected' &&
-            !!nativeSession &&
-            !!nativeClient
-        );
-    }, [castState.connection.status, nativeSession, nativeClient]);
+        const now = Date.now();
+        const connectionOk = castState.connection.status === 'connected';
+        const sessionOk = !!nativeSession;
+        const clientOk = !!nativeClient;
+        const canPerform = connectionOk && sessionOk && clientOk;
+        
+        console.log(`[DANI] [CastManager] [${now}] canPerformAction() - connectionStatus: '${castState.connection.status}' (${connectionOk}), hasSession: ${sessionOk}, hasClient: ${clientOk} => ${canPerform}`);
+        console.log(`[DANI] [CastManager] [${now}] castState.lastUpdate: ${castState.lastUpdate}, age: ${now - (castState.lastUpdate || 0)}ms`);
+        
+        return canPerform;
+    }, [castState.connection.status, castState.lastUpdate, nativeSession, nativeClient]);
     
     // ✅ Función helper para manejar errores
     const handleActionError = useCallback((action: string, error: any): boolean => {
@@ -162,17 +168,22 @@ export function useCastManager(
     
     // ✅ Acción: Play
     const play = useCallback(async (): Promise<boolean> => {
+        console.log(`[DANI] [CastManager] play() - ENTRY`);
         if (!canPerformAction()) {
+            console.log(`[DANI] [CastManager] play() - Cannot perform action`);
             return handleActionError('play', 'No Cast connection available');
         }
         
+        console.log(`[DANI] [CastManager] play() - Calling nativeClient.play()`);
         startAction('play');
         
         try {
             await nativeClient.play();
+            console.log(`[DANI] [CastManager] play() - SUCCESS - Native play completed`);
             completeAction('play');
             return true;
         } catch (error) {
+            console.log(`[DANI] [CastManager] play() - ERROR:`, error);
             return handleActionError('play', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -202,15 +213,19 @@ export function useCastManager(
     
     // ✅ Acción: Seek
     const seek = useCallback(async (position: number): Promise<boolean> => {
+        console.log(`[DANI] [CastManager] seek() - ENTRY - position: ${position}`);
         if (!canPerformAction()) {
+            console.log(`[DANI] [CastManager] seek() - Cannot perform action`);
             return handleActionError('seek', 'No Cast connection available');
         }
         
+        console.log(`[DANI] [CastManager] seek() - Calling nativeClient.seek() with position: ${position}`);
         startAction('seek');
         pendingSeekRef.current = position;
         
         try {
             await nativeClient.seek({ position });
+            console.log(`[DANI] [CastManager] seek() - SUCCESS - Native seek completed to position: ${position}`);
             completeAction('seek');
             
             // Callback de seek completado
@@ -221,6 +236,7 @@ export function useCastManager(
             
             return true;
         } catch (error) {
+            console.log(`[DANI] [CastManager] seek() - ERROR:`, error);
             pendingSeekRef.current = null;
             return handleActionError('seek', error);
         }
@@ -240,18 +256,23 @@ export function useCastManager(
     
     // ✅ Acción: Stop
     const stop = useCallback(async (): Promise<boolean> => {
+        console.log(`[DANI] [CastManager] stop() - ENTRY`);
         if (!canPerformAction()) {
+            console.log(`[DANI] [CastManager] stop() - Cannot perform action`);
             return handleActionError('stop', 'No Cast connection available');
         }
         
+        console.log(`[DANI] [CastManager] stop() - Calling nativeClient.stop()`);
         startAction('stop');
         
         try {
             await nativeClient.stop();
+            console.log(`[DANI] [CastManager] stop() - SUCCESS - Native stop completed, content cleared`);
             lastLoadedContentRef.current = null;
             completeAction('stop');
             return true;
         } catch (error) {
+            console.log(`[DANI] [CastManager] stop() - ERROR:`, error);
             return handleActionError('stop', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -404,10 +425,22 @@ export function useCastManager(
         const { media } = castState;
         const callbacks = callbacksRef.current;
 
-        console.log(`[DANI] [CastManager] (useEffect) Cast State Media: ${JSON.stringify(media)}`);
+        console.log(`[DANI] [CastManager] (useEffect) Cast State Media - isPlaying: ${media.isPlaying}, isIdle: ${media.isIdle}`);
         
-        // Detectar inicio de reproducción
+        // Detectar inicio de reproducción (solo cuando cambia el estado de playing/idle)
         if (media.isPlaying && !media.isIdle && callbacks.onPlaybackStarted) {
+            console.log(`[DANI] [CastManager] 🔥 FIRING onPlaybackStarted callback - media.isPlaying: ${media.isPlaying}, media.isIdle: ${media.isIdle}`);
+            
+            // Debounce para evitar múltiples callbacks en ráfaga
+            if (lastPlaybackStartedTimeRef.current) {
+                const timeSinceLastCallback = Date.now() - lastPlaybackStartedTimeRef.current;
+                if (timeSinceLastCallback < 1000) { // 1 segundo de debounce
+                    console.log(`[DANI] [CastManager] ⏸️ DEBOUNCING onPlaybackStarted - ${timeSinceLastCallback}ms since last callback`);
+                    return;
+                }
+            }
+            
+            lastPlaybackStartedTimeRef.current = Date.now();
             callbacks.onPlaybackStarted();
         }
         
@@ -416,7 +449,7 @@ export function useCastManager(
             callbacks.onPlaybackEnded();
         }
         
-    }, [castState.media]);
+    }, [castState.media.isPlaying, castState.media.isIdle, castState.media.url]);
     
     // ✅ Callback de cambio de volumen
     useEffect(() => {
@@ -426,7 +459,7 @@ export function useCastManager(
         }
     }, [castState.volume.level, castState.volume.isMuted]);
     
-    return useMemo(() => ({
+    return {
         // Acciones
         loadContent,
         clearContent,
@@ -446,22 +479,5 @@ export function useCastManager(
         
         // Estado
         state: managerState
-    }), [
-        loadContent,
-        clearContent,
-        play,
-        pause,
-        seek,
-        skipForward,
-        skipBackward,
-        stop,
-        mute,
-        unmute,
-        setVolume,
-        setAudioTrack,
-        setSubtitleTrack,
-        disableSubtitles,
-        updateMessageBuilderConfig,
-        managerState
-    ]);
+    };
 }
