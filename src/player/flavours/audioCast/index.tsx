@@ -181,28 +181,30 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     const onEndRef = useRef<() => void>();
     const onErrorRef = useRef<(e: any) => void>();
 
-    // Initialize VOD Progress Manager only once
-    if (!vodProgressManagerRef.current) {
-        vodProgressManagerRef.current = new VODProgressManagerClass({
-            // onProgressUpdate: onProgressUpdate,
-            // onSeekRequest: onSeekRequest
-        });
-    }
+    useEffect(() => {
+        // Initialize VOD Progress Manager only once
+        if (!vodProgressManagerRef.current) {
+            vodProgressManagerRef.current = new VODProgressManagerClass({
+                onProgressUpdate: onProgressUpdate,
+                onSeekRequest: onSeekRequest
+            });
+        }
 
-    // Initialize DVR Progress Manager only once
-    if (!dvrProgressManagerRef.current) {
-        console.log(`[Player] (Audio Cast Flavour) Initializing DVR Progress Manager`);
-        console.log(`[Player] (Audio Cast Flavour) EPG hooks available - getEPGProgramAt: ${!!props.hooks?.getEPGProgramAt}`);
-        
-        dvrProgressManagerRef.current = new DVRProgressManagerClass({
-            playbackType: props.playerProgress?.liveValues?.playbackType,
-            getEPGProgramAt: props.hooks?.getEPGProgramAt,
-            // onModeChange: onDVRModeChange,
-            // onProgramChange: onDVRProgramChange,
-            // onProgressUpdate: onProgressUpdate,
-            // onSeekRequest: onSeekRequest
-        });
-    }
+        // Initialize DVR Progress Manager only once
+        if (!dvrProgressManagerRef.current) {
+            console.log(`[Player] (Audio Cast Flavour) Initializing DVR Progress Manager`);
+            console.log(`[Player] (Audio Cast Flavour) EPG hooks available - getEPGProgramAt: ${!!props.hooks?.getEPGProgramAt}`);
+            
+            dvrProgressManagerRef.current = new DVRProgressManagerClass({
+                playbackType: props.playerProgress?.liveValues?.playbackType,
+                getEPGProgramAt: props.hooks?.getEPGProgramAt,
+                onModeChange: onDVRModeChange,
+                onProgramChange: onDVRProgramChange,
+                onProgressUpdate: onProgressUpdate,
+                onSeekRequest: onSeekRequest
+            });
+        }
+    }, []);
 
     // Hook para el estado de buffering
     const isBuffering = useIsBuffering({
