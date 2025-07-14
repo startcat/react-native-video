@@ -102,6 +102,22 @@ export function useCastState(options: {
     useEffect(() => {
         if (!isMountedRef.current) return;
         
+        // ✅ DEBUGGING: Logear estados nativos
+        console.log('[CastState] Native state sync:', {
+            nativeCastState,
+            hasSession: !!nativeSession,
+            hasClient: !!nativeClient,
+            hasMedia: !!nativeMediaStatus,
+            mediaStatus: nativeMediaStatus ? {
+                isPlaying: nativeMediaStatus.isPlaying,
+                isPaused: nativeMediaStatus.isPaused,
+                isIdle: nativeMediaStatus.isIdle,
+                playerState: nativeMediaStatus.playerState
+            } : null,
+            position: nativeStreamPosition,
+            sequence: state.updateSequence + 1
+        });
+        
         dispatch({
             type: 'SYNC_UPDATE',
             payload: {
@@ -112,17 +128,6 @@ export function useCastState(options: {
                 nativeStreamPosition
             }
         });
-        
-        if (debugMode) {
-            console.log('[CastState] Synchronized update:', {
-                castState: nativeCastState,
-                hasSession: !!nativeSession,
-                hasClient: !!nativeClient,
-                hasMedia: !!nativeMediaStatus,
-                position: nativeStreamPosition,
-                sequence: state.updateSequence + 1
-            });
-        }
         
     }, [nativeCastState, nativeSession, nativeClient, nativeMediaStatus, nativeStreamPosition, debugMode]);
     

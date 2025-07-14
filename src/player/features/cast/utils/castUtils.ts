@@ -129,6 +129,21 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 nativeStreamPosition
             } = payload;
 
+            // ✅ DEBUGGING
+            console.log('[CastReducer] SYNC_UPDATE:', {
+                nativeMediaStatus: nativeMediaStatus ? {
+                    isPlaying: nativeMediaStatus.isPlaying,
+                    isPaused: nativeMediaStatus.isPaused,
+                    isIdle: nativeMediaStatus.isIdle,
+                    playerState: nativeMediaStatus.playerState
+                } : null,
+                currentMediaState: {
+                    isPlaying: state.castState.media.isPlaying,
+                    isPaused: state.castState.media.isPaused,
+                    isIdle: state.castState.media.isIdle
+                }
+            });
+
             // ✅ Procesar conexión
             const connection: CastConnectionInfo = (() => {
                 const castStateStr = String(nativeCastState || 'NOT_CONNECTED').toUpperCase();
@@ -185,12 +200,15 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 const metadata = extractMediaMetadata(mediaInfo);
                 const tracksInfo = extractTracksInfo(nativeMediaStatus);
                 
+                // ✅ Normalizar playerState a mayúsculas para comparación
+                const normalizedPlayerState = String(playerState || '').toUpperCase();
+
                 // ✅ Lógica mejorada para currentTime - evitar saltos a 0
                 let currentTime = nativeStreamPosition || 0;
                 
                 // Si recibimos 0 pero tenemos una posición válida previa Y estamos buffering/loading
                 // mantener la posición previa para evitar saltos visuales en DASH/DVR
-                const isBufferingState = playerState === 'BUFFERING' || playerState === 'LOADING';
+                const isBufferingState = normalizedPlayerState === 'BUFFERING' || normalizedPlayerState === 'LOADING';
                 const shouldPreservePosition = (
                     currentTime === 0 && 
                     state.lastValidPosition > 0 && 
@@ -212,10 +230,10 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                     title: metadata.title,
                     subtitle: metadata.subtitle,
                     imageUrl: metadata.imageUrl,
-                    isPlaying: playerState === 'PLAYING',
-                    isPaused: playerState === 'PAUSED',
+                    isPlaying: normalizedPlayerState === 'PLAYING',
+                    isPaused: normalizedPlayerState === 'PAUSED',
                     isBuffering: isBufferingState,
-                    isIdle: playerState === 'IDLE',
+                    isIdle: normalizedPlayerState === 'IDLE',
                     currentTime,
                     duration,
                     progress, // ✅ Valor original sin clamp

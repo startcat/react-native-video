@@ -51,6 +51,7 @@ import {
     type IDrm,
     type IMappedYoubora,
     CONTROL_ACTION,
+    ProgressUpdateData,
     YOUBORA_FORMAT,
 } from '../../types';
 
@@ -79,14 +80,17 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         setIsContentLoaded(true);
         setHasTriedLoading(true);
         
-        // Simular onLoad using ref to avoid circular dependency
         setTimeout(() => {
-            onLoadRef.current?.({
-                currentTime: content.metadata.startPosition || 0,
-                duration: castProgressRef.current.duration || 0
-            });
+            if (castProgress.duration && castProgress.duration > 0) {
+                const duration = castProgress.duration;
+                console.log(`[Player] (Audio Cast Flavour) onContentLoadedCallback - calling onLoad with duration: ${duration}`);
+                onLoadRef.current?.({
+                    currentTime: content.metadata.startPosition || 0,
+                    duration: duration
+                });
+            }
         }, 100);
-    }, []);
+    }, [castProgress.duration]);
 
     const onContentLoadErrorCallback = useCallback((error: string, content: CastContentInfo) => {
         console.log(`[Player] (Audio Cast Flavour) Cast Manager - Content load error:`, error);
@@ -174,11 +178,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
     const onEndRef = useRef<() => void>();
     const onErrorRef = useRef<(e: any) => void>();
-    const castProgressRef = useRef(castProgress);
-    
-    useEffect(() => {
-        castProgressRef.current = castProgress;
-    }, [castProgress]);
 
     // Initialize VOD Progress Manager only once
     if (!vodProgressManagerRef.current) {
@@ -239,6 +238,43 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         }
     });
 
+    useEffect(() => {
+        if (castConnected && castProgress?.duration && castProgress?.duration > 0 && currentSourceType.current === 'content' && 
+            !sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
+            
+            // Si sliderValues existe pero tiene duration 0, actualizarlo
+            if (sliderValues.current && sliderValues.current.duration === 0) {
+                console.log(`[Player] (Audio Cast Flavour) Updating sliderValues duration from Cast: ${castProgress.duration}s`);
+                
+                sliderValues.current = {
+                    ...sliderValues.current,
+                    duration: castProgress.duration
+                };
+                
+                // Trigger re-render
+                setSliderValuesUpdate((prev: number) => prev + 1);
+            }
+        }
+    }, [castProgress.duration, castConnected]);
+
+    useEffect(() => {
+        // Solo logear cambios significativos, no cada tick
+        const significantChange = 
+            Math.abs(castProgress.currentTime - currentTime) > 1 || 
+            castPlaying !== !paused ||
+            castVolume.isMuted !== muted;
+            
+        if (significantChange) {
+            console.log(`[Player] (Audio Cast Flavour) Cast hooks state:`, {
+                castConnected,
+                castPlaying,
+                castProgress: { currentTime: castProgress.currentTime, duration: castProgress.duration },
+                castVolume: { level: castVolume.level, isMuted: castVolume.isMuted },
+                localState: { currentTime, paused, muted }
+            });
+        }
+    }, [castConnected, castPlaying, castProgress.currentTime, castProgress.duration, castVolume.level, castVolume.isMuted, currentTime, paused, muted]);
+
     // Detectar cuando el contenido termina usando cambios en el estado
     useEffect(() => {
         if (castMedia.isIdle && isContentLoaded && currentSourceType.current) {
@@ -284,17 +320,27 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     // Sync with Cast playing state
     useEffect(() => {
         const isPlaying = castPlaying;
-        if (paused === isPlaying) {
-            setPaused(!isPlaying);
+        const shouldBePaused = !isPlaying;
+        
+        if (paused !== shouldBePaused) {
+            // Add a small delay to allow Cast commands to propagate
+            // This prevents immediate override of user actions
+            const timeout = setTimeout(() => {
+                console.log(`[Player] (Audio Cast Flavour) Cast playing state changed: ${isPlaying} (setting paused to ${shouldBePaused})`);
+                setPaused(shouldBePaused);
+            }, 500); // Wait 500ms before syncing
+            
+            return () => clearTimeout(timeout);
         }
-    }, [castPlaying]);
+    }, [castPlaying, paused]);
 
     // Sync with Cast volume
     useEffect(() => {
         if (castVolume.isMuted !== muted) {
+            console.log(`[Player] (Audio Cast Flavour) Cast mute state changed: ${castVolume.isMuted}`);
             setMuted(castVolume.isMuted);
         }
-    }, [castVolume.isMuted]);
+    }, [castVolume.isMuted, muted]);
 
     useEffect(() => {
         const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
@@ -746,9 +792,10 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         console.log(`[Player] (Audio Cast Flavour) onDVRProgramChange: ${JSON.stringify(data)}`);
     };
 
-    function onProgressUpdate(data: any) {
+    function onProgressUpdate(data: ProgressUpdateData) {
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
+            console.log(`[Player] (Audio Cast Flavour) onProgressUpdate: ${JSON.stringify(data)}`);
             sliderValues.current = {
                 minimumValue: data.minimumValue,
                 maximumValue: data.maximumValue,
@@ -901,7 +948,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         console.log(`[Player] (Audio Cast Flavour) onLoad ENTRY - duration: ${e.duration}, currentTime: ${e.currentTime}`);
 
         // Solo procesar onLoad para contenido principal, no para tudum
-        if (currentSourceType.current === 'content' && !isContentLoaded) {
+        if (currentSourceType.current === 'content' && e.duration > 0) {
             console.log(`[Player] (Audio Cast Flavour) onLoad - ✅ CONDITIONS MET - Processing content load`);
 
             // Para VOD, establecer la duración desde el evento onLoad
@@ -979,6 +1026,8 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             playableDuration: castProgress.duration || 0,
             seekableDuration: castProgress.duration || 0
         };
+
+        console.log(`[Player] (Audio Cast Flavour) Simulating onProgress: ${JSON.stringify(e)}`);
 
         // Solo procesar progreso para contenido principal, no para tudum
         if (currentSourceType.current === 'content') {
