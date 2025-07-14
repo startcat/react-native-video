@@ -11,7 +11,7 @@ import {
 import { CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastTrackInfo } from '../types/types';
 import { castReducer, createInitialCastState, getVolume } from '../utils/castUtils';
 
-// ✅ Hook principal que maneja toda la sincronización
+// Hook principal que maneja toda la sincronización
 export function useCastState(options: { 
     debugMode?: boolean;
     onConnectionChange?: (status: CastConnectionInfo['status']) => void;
@@ -54,7 +54,7 @@ export function useCastState(options: {
         return () => { isMountedRef.current = false; };
     }, []);
     
-    // ✅ UN SOLO useEffect que sincroniza TODO junto
+    // UN SOLO useEffect que sincroniza TODO junto
     useEffect(() => {
         if (!isMountedRef.current) return;
         
@@ -79,7 +79,6 @@ export function useCastState(options: {
         updateVolume();
     }, [nativeSession, nativeStreamPosition]);
     
-    // ✅ Efecto para callbacks cuando cambian los datos
     useEffect(() => {
         const currentState = state.castState;
         const prevState = prevStateRef.current;
@@ -100,7 +99,7 @@ export function useCastState(options: {
             callbacks.onMediaChange(currentState.media);
         }
         
-        // ✅ Callback de cambio de pista de audio
+        // Callback de cambio de pista de audio
         if (
             currentState.media.audioTrack?.id !== prevState.media.audioTrack?.id &&
             callbacks.onAudioTrackChange
@@ -108,7 +107,7 @@ export function useCastState(options: {
             callbacks.onAudioTrackChange(currentState.media.audioTrack);
         }
         
-        // ✅ Callback de cambio de pista de subtítulos
+        // Callback de cambio de pista de subtítulos
         if (
             currentState.media.textTrack?.id !== prevState.media.textTrack?.id &&
             callbacks.onTextTrackChange

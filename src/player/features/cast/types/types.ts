@@ -2,10 +2,11 @@ import {
     CastSession,
     CastState,
     MediaStatus,
-    RemoteMediaClient
+    RemoteMediaClient,
+    type MediaTrack
 } from 'react-native-google-cast';
 
-import { IDrm, IMappedYoubora, IVideoSource } from '../../types';
+import { IDrm, IMappedYoubora, IVideoSource } from '../../../types';
 
 export interface CastConnectionInfo {
     status: 'connected' | 'connecting' | 'disconnected';
@@ -38,6 +39,7 @@ export interface CastMediaInfo {
     textTrack: CastTrackInfo | null;
     availableAudioTracks: CastTrackInfo[];
     availableTextTracks: CastTrackInfo[];
+    mediaTracks: MediaTrack[];
 }
 
 export interface CastVolumeInfo {
@@ -146,6 +148,7 @@ export interface CastManagerActions {
     setVolume: (level: number) => Promise<boolean>;
     setAudioTrack: (trackId: number) => Promise<boolean>;
     setSubtitleTrack: (trackId: number) => Promise<boolean>;
+    setActiveTrackIds: (trackIds: number[]) => Promise<boolean>;
     disableSubtitles: () => Promise<boolean>;
     updateMessageBuilderConfig: (newConfig: any) => void;
 }

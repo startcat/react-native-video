@@ -10,7 +10,7 @@ import {
 
 
 
-const getTrackId = (type:string, index:number, menuData?:Array<IPlayerMenuData>) => {
+export const getTrackId = (type:string, index:number, menuData?:Array<IPlayerMenuData>) => {
 
     let item = menuData?.find(item => item.type === type && item.index === index);
 
