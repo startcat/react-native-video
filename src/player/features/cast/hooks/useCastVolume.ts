@@ -8,6 +8,5 @@ export function useCastVolume(): CastVolumeInfo {
     return useMemo(() => castState.volume, [
         castState.volume.level,
         castState.volume.isMuted,
-        castState.volume.canControl
     ]);
 }

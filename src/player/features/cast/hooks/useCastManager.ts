@@ -270,6 +270,12 @@ export function useCastManager(
         try {
             await nativeSession.setMute(true);
             completeAction('mute');
+
+            // Callback de mute completado
+            setTimeout(() => {
+                callbacksRef.current.onVolumeChanged?.(0, true);
+            }, 100);
+
             return true;
         } catch (error) {
             console.log(`[DANI] [CastManager] mute() - ERROR:`, error);
@@ -288,6 +294,18 @@ export function useCastManager(
         try {
             await nativeSession.setMute(false);
             completeAction('unmute');
+
+            // Callback de unmute completado
+            setTimeout(async () => {
+                try {
+                    const currentVolume = await nativeSession.getVolume();
+                    callbacksRef.current.onVolumeChanged?.(currentVolume, false);
+                } catch (error) {
+                    console.log(`[CastManager] unmute() - Failed to get volume:`, error);
+                    callbacksRef.current.onVolumeChanged?.(0.5, false); // Fallback volume
+                }
+            }, 100);
+            
             return true;
         } catch (error) {
             console.log(`[DANI] [CastManager] unmute() - ERROR:`, error);

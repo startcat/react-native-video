@@ -43,8 +43,6 @@ export interface CastMediaInfo {
 export interface CastVolumeInfo {
     level: number; // 0-1
     isMuted: boolean;
-    canControl: boolean;
-    stepInterval: number;
 }
 
 export interface CastErrorInfo {
@@ -67,7 +65,6 @@ export interface InternalCastState {
     castState: CastState;
     lastValidPosition: number;
     updateSequence: number;
-    volumeUpdatePromise: Promise<void> | null;
 }
 
 export type CastAction = 
@@ -86,7 +83,6 @@ export type CastAction =
         payload: {
             level: number;
             isMuted: boolean;
-            canControl: boolean;
         };
     }
     | {
