@@ -1,3 +1,4 @@
+import { CastSession } from "react-native-google-cast";
 import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastState, CastTrackInfo, InternalCastState } from "../types/types";
 
 // ✅ Estado inicial
@@ -117,6 +118,23 @@ export function extractMediaMetadata(mediaInfo: any) {
     };
 }
 
+export async function getVolume(session: CastSession): Promise<{ level: number; isMuted: boolean }> {
+    
+    if (session){
+        const volume = await session.getVolume();
+        const isMuted = await session.isMute();
+        return {
+            level: volume,
+            isMuted: isMuted
+        };
+    }
+
+    return {
+        level: 0,
+        isMuted: false
+    };
+}
+
 // ✅ Reducer que procesa toda la data nativa de forma síncrona
 export function castReducer(state: InternalCastState, action: CastAction): InternalCastState {
     switch (action.type) {
@@ -133,17 +151,21 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
             // ✅ DEBUGGING
             console.log('[CastReducer] SYNC_UPDATE:', {
                 nativeMediaStatus: nativeMediaStatus ? {
-                    isPlaying: nativeMediaStatus.isPlaying,
-                    isPaused: nativeMediaStatus.isPaused,
-                    isIdle: nativeMediaStatus.isIdle,
-                    playerState: nativeMediaStatus.playerState
+                    isPlaying: !!nativeMediaStatus.isPlaying,
+                    isPaused: !!nativeMediaStatus.isPaused,
+                    isIdle: !!nativeMediaStatus.isIdle,
+                    playerState: nativeMediaStatus.playerState,
                 } : null,
                 currentMediaState: {
-                    isPlaying: state.castState.media.isPlaying,
-                    isPaused: state.castState.media.isPaused,
-                    isIdle: state.castState.media.isIdle
+                    isPlaying: !!state.castState.media.isPlaying,
+                    isPaused: !!state.castState.media.isPaused,
+                    isIdle: !!state.castState.media.isIdle
                 }
             });
+
+            // if (nativeMediaStatus) {
+            //     console.log(`[CastReducer] FULL nativeMediaStatus: ${JSON.stringify(nativeMediaStatus)}`);
+            // }
 
             // ✅ Procesar conexión
             const connection: CastConnectionInfo = (() => {
@@ -251,9 +273,6 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 };
             })();
 
-            // ✅ Mantener volumen actual (se actualiza por separado)
-            const volume = state.castState.volume;
-
             // ✅ Procesar errores del MediaStatus
             const error: CastErrorInfo = (() => {
                 if (nativeMediaStatus?.idleReason === 'ERROR') {
@@ -275,18 +294,17 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 !media.isBuffering && 
                 media.isPlaying
             ) ? media.currentTime : state.lastValidPosition;
-
+            
             return {
                 castState: {
+                    ...state.castState,
                     connection,
                     media,
-                    volume,
                     error,
                     lastUpdate: Date.now()
                 },
                 lastValidPosition: newLastValidPosition,
                 updateSequence: state.updateSequence + 1,
-                volumeUpdatePromise: state.volumeUpdatePromise
             };
         }
 
@@ -300,8 +318,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                         ...action.payload
                     },
                     lastUpdate: Date.now()
-                },
-                volumeUpdatePromise: null
+                }
             };
         }
 

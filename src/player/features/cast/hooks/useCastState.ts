@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import {
-    CastSession,
     CastState,
     useCastSession,
     useMediaStatus,
@@ -10,7 +9,7 @@ import {
 } from 'react-native-google-cast';
 
 import { CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastTrackInfo } from '../types/types';
-import { castReducer, createInitialCastState } from '../utils/castUtils';
+import { castReducer, createInitialCastState, getVolume } from '../utils/castUtils';
 
 // ✅ Hook principal que maneja toda la sincronización
 export function useCastState(options: { 
@@ -41,8 +40,7 @@ export function useCastState(options: {
     const [state, dispatch] = useReducer(castReducer, {
         castState: createInitialCastState(),
         lastValidPosition: 0,
-        updateSequence: 0,
-        volumeUpdatePromise: null
+        updateSequence: 0
     });
     
     const isMountedRef = useRef(true);
@@ -56,68 +54,9 @@ export function useCastState(options: {
         return () => { isMountedRef.current = false; };
     }, []);
     
-    // ✅ Función para actualizar volumen de forma async
-    const updateVolumeInfo = useCallback(async (session: CastSession) => {
-        console.log(`[CastState] updateVolumeInfo - session: ${session}, volumeUpdatePromise: ${state.volumeUpdatePromise}`);
-        if (!session || state.volumeUpdatePromise) return;
-        
-        const volumePromise = (async () => {
-            try {
-                const [volume, isMuted] = await Promise.all([
-                    session.getVolume(),
-                    session.isMute()
-                ]);
-                
-                if (isMountedRef.current) {
-                    dispatch({
-                        type: 'UPDATE_VOLUME',
-                        payload: {
-                            level: Math.max(0, Math.min(1, volume)), // Clamp 0-1
-                            isMuted,
-                            canControl: true
-                        }
-                    });
-                }
-            } catch (error) {
-                if (isMountedRef.current) {
-                    dispatch({
-                        type: 'UPDATE_VOLUME',
-                        payload: {
-                            level: 0.5,
-                            isMuted: false,
-                            canControl: false
-                        }
-                    });
-                    
-                    if (debugMode) {
-                        console.warn('[CastState] Volume update failed:', error);
-                    }
-                }
-            }
-        })();
-        
-        return volumePromise;
-    }, [state.volumeUpdatePromise, debugMode]);
-    
     // ✅ UN SOLO useEffect que sincroniza TODO junto
     useEffect(() => {
         if (!isMountedRef.current) return;
-        
-        // ✅ DEBUGGING: Logear estados nativos
-        // console.log('[CastState] Native state sync:', {
-        //     nativeCastState,
-        //     hasSession: !!nativeSession,
-        //     hasClient: !!nativeClient,
-        //     hasMedia: !!nativeMediaStatus,
-        //     mediaStatus: nativeMediaStatus ? {
-        //         isPlaying: nativeMediaStatus.isPlaying,
-        //         isPaused: nativeMediaStatus.isPaused,
-        //         isIdle: nativeMediaStatus.isIdle,
-        //         playerState: nativeMediaStatus.playerState
-        //     } : null,
-        //     position: nativeStreamPosition,
-        //     sequence: state.updateSequence + 1
-        // });
         
         dispatch({
             type: 'SYNC_UPDATE',
@@ -131,24 +70,14 @@ export function useCastState(options: {
         });
         
     }, [nativeCastState, nativeSession, nativeClient, nativeMediaStatus, nativeStreamPosition, debugMode]);
-    
-    // ✅ Efecto para actualizar volumen cuando hay sesión válida
+
     useEffect(() => {
-        console.log(`[CastState] useEffect - nativeSession: ${nativeSession}, connectionStatus: ${state.castState.connection.status}`);
-        if (nativeSession && state.castState.connection.status === 'connected') {
-            updateVolumeInfo(nativeSession);
-        } else if (!nativeSession) {
-            // Reset volumen cuando no hay sesión
-            dispatch({
-                type: 'UPDATE_VOLUME',
-                payload: {
-                    level: 0.5,
-                    isMuted: false,
-                    canControl: false
-                }
-            });
-        }
-    }, [nativeSession, state.castState.connection.status, updateVolumeInfo]);
+        const updateVolume = async () => {
+            const volume = await getVolume(nativeSession);
+            dispatch({ type: 'UPDATE_VOLUME', payload: volume });
+        };
+        updateVolume();
+    }, [nativeSession, nativeStreamPosition]);
     
     // ✅ Efecto para callbacks cuando cambian los datos
     useEffect(() => {
