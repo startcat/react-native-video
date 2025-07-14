@@ -213,7 +213,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         onBufferingChange: props.events?.onBuffering
     });
 
-    // ✅ USAR useCastMonitor en lugar de implementación manual
     useCastMonitor({
         onConnect: () => {
             console.log(`[Player] (Audio Cast Flavour) Cast connected`);
