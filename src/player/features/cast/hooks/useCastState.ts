@@ -58,6 +58,7 @@ export function useCastState(options: {
     
     // ✅ Función para actualizar volumen de forma async
     const updateVolumeInfo = useCallback(async (session: CastSession) => {
+        console.log(`[CastState] updateVolumeInfo - session: ${session}, volumeUpdatePromise: ${state.volumeUpdatePromise}`);
         if (!session || state.volumeUpdatePromise) return;
         
         const volumePromise = (async () => {
@@ -133,6 +134,7 @@ export function useCastState(options: {
     
     // ✅ Efecto para actualizar volumen cuando hay sesión válida
     useEffect(() => {
+        console.log(`[CastState] useEffect - nativeSession: ${nativeSession}, connectionStatus: ${state.castState.connection.status}`);
         if (nativeSession && state.castState.connection.status === 'connected') {
             updateVolumeInfo(nativeSession);
         } else if (!nativeSession) {
