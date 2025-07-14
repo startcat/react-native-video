@@ -847,7 +847,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     // Actualizar callbacks del DVRProgressManagerClass cuando cambien
     useEffect(() => {
         if (vodProgressManagerRef.current) {
-            console.log(`[Player] (Audio Cast Flavour) Updating VOD Progress Manager callbacks`);
             vodProgressManagerRef.current?.updateCallbacks({
                 onProgressUpdate: onProgressUpdate,
                 onSeekRequest: onSeekRequest
@@ -855,7 +854,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         }
 
         if (dvrProgressManagerRef.current) {
-            console.log(`[Player] (Audio Cast Flavour) Updating DVR Progress Manager callbacks`);
             dvrProgressManagerRef.current?.updateCallbacks({
                 getEPGProgramAt: props.hooks?.getEPGProgramAt,
                 onModeChange: onDVRModeChange,

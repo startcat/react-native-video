@@ -28,8 +28,13 @@ import {
     type ModeChangeData,
     type ProgramChangeData
 } from '../../core/progress';
-import { useIsBuffering } from '../../modules/buffer';
 
+import { mergeCastMenuData } from '../../utils';
+import {
+    getTrackId
+} from '../actions/cast';
+
+import { useIsBuffering } from '../../modules/buffer';
 import { SourceClass, type onSourceChangedProps } from '../../modules/source';
 import { TudumClass } from '../../modules/tudum';
 import { VODProgressManagerClass } from '../../modules/vod';
@@ -130,8 +135,18 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         if (!isContentLoaded) {
             setIsContentLoaded(true);
             isChangingSource.current = false;
+
+            console.log(`[Player] (Cast Flavour) Cast Manager - Playback started - mediaTracks:`, castMedia.mediaTracks);
+            
+            if (castMedia.mediaTracks && castMedia.mediaTracks.length > 0) {
+                if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function') {
+                    setMenuData(props.hooks.mergeCastMenuData(castMedia.mediaTracks, props.languagesMapping));
+                } else {
+                    setMenuData(mergeCastMenuData(castMedia.mediaTracks, props.languagesMapping));
+                }
+            }
         }
-    }, [isContentLoaded]);
+    }, [isContentLoaded, castMedia.mediaTracks]);
 
     const onPlaybackEndedCallback = useCallback(() => {
         console.log(`[Player] (Cast Flavour) Cast Manager - Playback ended`);
@@ -219,13 +234,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             if (track !== null) {
                 console.log(`[Player] (Cast Flavour) Text track changed:`, track);
             }
-            // if (tracks && tracks.length > 0) {
-            //     if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function') {
-            //         setMenuData(props.hooks.mergeCastMenuData(tracks, props.languagesMapping));
-            //     } else {
-            //         setMenuData(mergeCastMenuData(tracks, props.languagesMapping));
-            //     }
-            // }
         },
     });
 
@@ -674,10 +682,31 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     // ✅ HANDLE TRACK CHANGES
     const handleTrackChanges = () => {
         console.log(`[Player] (Cast Flavour) handleTrackChanges...`);
+        let activeTracks:Array<number> = [];
         if (castConnected && menuData) {
             console.log(`[Player] (Cast Flavour) handleTrackChanges - audio: ${audioIndex}, subtitle: ${subtitleIndex}`);
             // Usar la función existente de Cast para cambiar tracks
-            // changeActiveTracks(castClient, menuData, audioIndex, subtitleIndex);
+            if (castManager && menuData){
+
+                if (typeof(audioIndex) === 'number'){
+                    activeTracks.push( getTrackId('audio', audioIndex, menuData)! );
+                }
+                
+                if (typeof(subtitleIndex) === 'number' && subtitleIndex !== -1){
+                    activeTracks.push( getTrackId('text', subtitleIndex, menuData)! );
+                }
+        
+                if (activeTracks.length){
+                    console.log(`[Player] (Cast Actions) handleTrackChanges ${JSON.stringify(activeTracks)}`);
+                    castManager.setActiveTrackIds(activeTracks);
+                } else {
+                    console.log(`[Player] (Cast Actions) handleTrackChanges empty ids... ${JSON.stringify(activeTracks)}`);
+                }
+        
+            } else {
+                console.log(`[Player] (Cast Actions) handleTrackChanges without objects: castManager ${!!castManager} / menuData ${!!menuData}`);
+            }
+
         }
     };
 
@@ -770,7 +799,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     // Actualizar callbacks del DVRProgressManagerClass cuando cambien
     useEffect(() => {
         if (vodProgressManagerRef.current) {
-            console.log(`[Player] (Cast Flavour) Updating VOD Progress Manager callbacks`);
             vodProgressManagerRef.current?.updateCallbacks({
                 onProgressUpdate: onProgressUpdate,
                 onSeekRequest: onSeekRequest
@@ -778,7 +806,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         }
 
         if (dvrProgressManagerRef.current) {
-            console.log(`[Player] (Cast Flavour) Updating DVR Progress Manager callbacks`);
             dvrProgressManagerRef.current?.updateCallbacks({
                 getEPGProgramAt: props.hooks?.getEPGProgramAt,
                 onModeChange: onDVRModeChange,
@@ -822,6 +849,16 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             setIsContentLoaded(true);
             setIsLoadingContent(false);
 
+            console.log(`[Player] (Cast Flavour) onLoad - mediaTracks:`, castMedia.mediaTracks);
+            
+            if (castMedia.mediaTracks && castMedia.mediaTracks.length > 0) {
+                if (props.hooks?.mergeCastMenuData && typeof(props.hooks.mergeCastMenuData) === 'function') {
+                    setMenuData(props.hooks.mergeCastMenuData(castMedia.mediaTracks, props.languagesMapping));
+                } else {
+                    setMenuData(mergeCastMenuData(castMedia.mediaTracks, props.languagesMapping));
+                }
+            }
+
             if (props.events?.onStart) {
                 props.events.onStart();
             }
@@ -834,7 +871,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             console.log(`[Player] (Cast Flavour) onLoad - Tudum loaded, duration: ${e.duration}`);
             setIsLoadingContent(false);
         }
-    }, [paused, props.events]);
+    }, [paused, props.events, castMedia.mediaTracks]);
 
     const onEnd = useCallback(() => {
         console.log(`[Player] (Cast Flavour) onEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`);

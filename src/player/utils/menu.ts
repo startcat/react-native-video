@@ -1,14 +1,14 @@
 import { i18n } from '../locales';
 
-import { 
+import {
     type OnLoadData
 } from '../../types';
 
-import { 
+import {
     type MediaTrack
 } from 'react-native-google-cast';
 
-import { 
+import {
     type ILanguagesMapping,
     type IPlayerMenuData,
     PLAYER_MENU_DATA_TYPE

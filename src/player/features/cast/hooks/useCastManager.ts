@@ -11,7 +11,7 @@ import { CastMessageBuilder } from '../CastMessageBuilder';
 import { CastContentInfo, CastManager, CastManagerCallbacks, CastManagerState, MessageBuilderConfig } from '../types/types';
 import { useCastState } from './useCastState';
 
-// ✅ Hook principal del Cast Manager
+// Hook principal del Cast Manager
 export function useCastManager(
     callbacks: CastManagerCallbacks = {},
     messageBuilderConfig?: MessageBuilderConfig
@@ -44,7 +44,7 @@ export function useCastManager(
         callbacksRef.current = callbacks;
     }, [callbacks]);
     
-    // ✅ Función helper para validar si se puede controlar
+    // Función helper para validar si se puede controlar
     const canPerformAction = useCallback((): boolean => {
         const connectionOk = castState.connection.status === 'connected';
         const sessionOk = !!nativeSession;
@@ -52,7 +52,7 @@ export function useCastManager(
         const canPerform = connectionOk && sessionOk && clientOk;
         
         if (!canPerform){
-            console.log(`[DANI] [CastManager] canPerformAction() - connectionStatus: '${castState.connection.status}' (${connectionOk}), hasSession: ${sessionOk}, hasClient: ${clientOk} => ${canPerform}`);
+            console.log(`[CastManager] canPerformAction() - connectionStatus: '${castState.connection.status}' (${connectionOk}), hasSession: ${sessionOk}, hasClient: ${clientOk} => ${canPerform}`);
         }
         
         return canPerform;
@@ -70,7 +70,7 @@ export function useCastManager(
         return false;
     }, []);
     
-    // ✅ Función helper para iniciar acción
+    // Función helper para iniciar acción
     const startAction = useCallback((action: string) => {
         setManagerState((prev: CastManagerState) => ({
             ...prev,
@@ -80,7 +80,7 @@ export function useCastManager(
         }));
     }, []);
     
-    // ✅ Función helper para completar acción
+    // Función helper para completar acción
     const completeAction = useCallback((action: string) => {
         setManagerState((prev: CastManagerState) => ({
             ...prev,
@@ -89,19 +89,19 @@ export function useCastManager(
         }));
     }, []);
     
-    // ✅ Método para actualizar configuración del MessageBuilder
+    // Método para actualizar configuración del MessageBuilder
     const updateMessageBuilderConfig = useCallback((newConfig: any) => {
         messageBuilderRef.current.updateConfig(newConfig);
     }, []);
     
-    // ✅ Acción: Cargar contenido (usando CastMessageBuilder)
+    // Acción: Cargar contenido (usando CastMessageBuilder)
     const loadContent = useCallback(async (content: CastContentInfo): Promise<boolean> => {
         if (!canPerformAction()) {
             handleActionError('loadContent', 'No Cast connection available');
             return false;
         }
         
-        // ✅ Evitar recargar el mismo contenido
+        // Evitar recargar el mismo contenido
         if (lastLoadedContentRef.current === content.source.uri && 
             castState.media.url === content.source.uri && 
             !castState.media.isIdle) {
@@ -150,7 +150,7 @@ export function useCastManager(
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media]);
     
-    // ✅ Acción: Limpiar contenido
+    // Acción: Limpiar contenido
     const clearContent = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('clearContent', 'No Cast connection available');
@@ -168,7 +168,7 @@ export function useCastManager(
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    // ✅ Acción: Play
+    // Acción: Play
     const play = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('play', 'No Cast connection available');
@@ -181,12 +181,12 @@ export function useCastManager(
             completeAction('play');
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] play() - ERROR:`, error);
+            console.log(`[CastManager] play() - ERROR:`, error);
             return handleActionError('play', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    // ✅ Acción: Pause
+    // Acción: Pause
     const pause = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('pause', 'No Cast connection available');
@@ -199,12 +199,12 @@ export function useCastManager(
             completeAction('pause');
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] pause() - ERROR:`, error);
+            console.log(`[CastManager] pause() - ERROR:`, error);
             return handleActionError('pause', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    // ✅ Acción: Seek
+    // Acción: Seek
     const seek = useCallback(async (position: number): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('seek', 'No Cast connection available');
@@ -223,24 +223,24 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] seek() - ERROR:`, error);
+            console.log(`[CastManager] seek() - ERROR:`, error);
             return handleActionError('seek', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    // ✅ Acción: Skip Forward
+    // Acción: Skip Forward
     const skipForward = useCallback(async (seconds: number = 15): Promise<boolean> => {
         const newPosition = castState.media.currentTime + seconds;
         return seek(newPosition);
     }, [seek, castState.media.currentTime]);
     
-    // ✅ Acción: Skip Backward  
+    // Acción: Skip Backward  
     const skipBackward = useCallback(async (seconds: number = 15): Promise<boolean> => {
         const newPosition = Math.max(0, castState.media.currentTime - seconds);
         return seek(newPosition);
     }, [seek, castState.media.currentTime]);
     
-    // ✅ Acción: Stop
+    // Acción: Stop
     const stop = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('stop', 'No Cast connection available');
@@ -254,12 +254,12 @@ export function useCastManager(
             completeAction('stop');
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] stop() - ERROR:`, error);
+            console.log(`[CastManager] stop() - ERROR:`, error);
             return handleActionError('stop', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    // ✅ Acción: Mute
+    // Acción: Mute
     const mute = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('mute', 'No Cast connection available');
@@ -278,12 +278,12 @@ export function useCastManager(
 
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] mute() - ERROR:`, error);
+            console.log(`[CastManager] mute() - ERROR:`, error);
             return handleActionError('mute', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
     
-    // ✅ Acción: Unmute
+    // Acción: Unmute
     const unmute = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('unmute', 'No Cast connection available');
@@ -308,12 +308,12 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] unmute() - ERROR:`, error);
+            console.log(`[CastManager] unmute() - ERROR:`, error);
             return handleActionError('unmute', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
     
-    // ✅ Acción: Set Volume
+    // Acción: Set Volume
     const setVolume = useCallback(async (level: number): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('setVolume', 'No Cast connection available');
@@ -333,12 +333,12 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] setVolume() - ERROR:`, error);
+            console.log(`[CastManager] setVolume() - ERROR:`, error);
             return handleActionError('setVolume', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession, castState.volume.isMuted]);
     
-    // ✅ Acción: Set Audio Track
+    // Acción: Set Audio Track
     const setAudioTrack = useCallback(async (trackId: number): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('setAudioTrack', 'No Cast connection available');
@@ -351,12 +351,12 @@ export function useCastManager(
             completeAction('setAudioTrack');
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] setAudioTrack() - ERROR:`, error);
+            console.log(`[CastManager] setAudioTrack() - ERROR:`, error);
             return handleActionError('setAudioTrack', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    // ✅ Acción: Set Subtitle Track
+    // Acción: Set Subtitle Track
     const setSubtitleTrack = useCallback(async (trackId: number): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('setSubtitleTrack', 'No Cast connection available');
@@ -373,12 +373,29 @@ export function useCastManager(
             completeAction('setSubtitleTrack');
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] setSubtitleTrack() - ERROR:`, error);
+            console.log(`[CastManager] setSubtitleTrack() - ERROR:`, error);
             return handleActionError('setSubtitleTrack', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media.audioTrack]);
+
+    const setActiveTrackIds = useCallback(async (trackIds: number[]): Promise<boolean> => {
+        if (!canPerformAction()) {
+            return handleActionError('setActiveTrackIds', 'No Cast connection available');
+        }
+        
+        startAction('setActiveTrackIds');
+        
+        try {
+            await nativeClient.setActiveTrackIds(trackIds);
+            completeAction('setActiveTrackIds');
+            return true;
+        } catch (error) {
+            console.log(`[CastManager] setActiveTrackIds() - ERROR:`, error);
+            return handleActionError('setActiveTrackIds', error);
+        }
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
-    // ✅ Acción: Disable Subtitles
+    // Acción: Disable Subtitles
     const disableSubtitles = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
             return handleActionError('disableSubtitles', 'No Cast connection available');
@@ -395,12 +412,12 @@ export function useCastManager(
             completeAction('disableSubtitles');
             return true;
         } catch (error) {
-            console.log(`[DANI] [CastManager] disableSubtitles() - ERROR:`, error);
+            console.log(`[CastManager] disableSubtitles() - ERROR:`, error);
             return handleActionError('disableSubtitles', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media.audioTrack]);
     
-    // ✅ Actualizar estado de control
+    // Actualizar estado de control
     useEffect(() => {
         setManagerState((prev: CastManagerState) => ({
             ...prev,
@@ -408,16 +425,16 @@ export function useCastManager(
         }));
     }, [canPerformAction]);
     
-    // ✅ Callbacks de eventos basados en cambios de estado
+    // Callbacks de eventos basados en cambios de estado: onPlaybackStarted, onPlaybackEnded
     useEffect(() => {
         const { media } = castState;
         const callbacks = callbacksRef.current;
 
-        console.log(`[DANI] [CastManager] (useEffect) Cast State Media - isPlaying: ${media.isPlaying}, isIdle: ${media.isIdle}, url: ${media.url}, ref: ${lastLoadedContentRef.current}`);
+        console.log(`[CastManager] (useEffect) Cast State Media - isPlaying: ${media.isPlaying}, isIdle: ${media.isIdle}, url: ${media.url}, ref: ${lastLoadedContentRef.current}`);
         
-        // Detectar inicio de reproducción (solo cuando cambia el estado de playing/idle)
+        // Detectar inicio de reproducción -> Primera reproducción de un nuevo contenido
         if (media.isPlaying && !media.isIdle && callbacks.onPlaybackStarted && (!lastLoadedContentRef.current || lastLoadedContentRef.current !== media.url)) {
-            console.log(`[DANI] [CastManager] 🔥 FIRING onPlaybackStarted callback - media.isPlaying: ${media.isPlaying}, media.isIdle: ${media.isIdle}`);
+            console.log(`[CastManager] 🔥 FIRING onPlaybackStarted callback - media.isPlaying: ${media.isPlaying}, media.isIdle: ${media.isIdle}`);
             lastLoadedContentRef.current = media.url;
             callbacks.onPlaybackStarted();
         }
@@ -430,7 +447,7 @@ export function useCastManager(
         
     }, [castState.media.isPlaying, castState.media.isIdle, castState.media.url]);
     
-    // ✅ Callback de cambio de volumen
+    // Callback de cambio de volumen: onVolumeChanged
     useEffect(() => {
         const callbacks = callbacksRef.current;
         if (callbacks.onVolumeChanged) {
@@ -453,6 +470,7 @@ export function useCastManager(
         setVolume,
         setAudioTrack,
         setSubtitleTrack,
+        setActiveTrackIds,
         disableSubtitles,
         updateMessageBuilderConfig,
         
