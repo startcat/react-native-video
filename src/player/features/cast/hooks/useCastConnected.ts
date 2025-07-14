@@ -1,6 +1,12 @@
+import { useMemo } from 'react';
 import { useCastConnection } from './useCastConnection';
 
 export function useCastConnected(): boolean {
     const connection = useCastConnection();
-    return connection.status === 'connected';
+    
+    const isConnected = useMemo(() => {
+        return connection.status === 'connected';
+    }, [connection.status]);
+    
+    return isConnected;
 }
