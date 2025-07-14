@@ -125,6 +125,8 @@ export function useCastManager(
                 throw new Error('Failed to build cast message');
             }
             
+            console.log(`[CastManager] loadContent() - castMessage: ${JSON.stringify(castMessage)}`);
+            
             await nativeClient.loadMedia(castMessage);
             
             lastLoadedContentRef.current = content.source.uri;

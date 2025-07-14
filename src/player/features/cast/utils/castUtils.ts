@@ -131,19 +131,19 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
             } = payload;
 
             // ✅ DEBUGGING
-            // console.log('[CastReducer] SYNC_UPDATE:', {
-            //     nativeMediaStatus: nativeMediaStatus ? {
-            //         isPlaying: nativeMediaStatus.isPlaying,
-            //         isPaused: nativeMediaStatus.isPaused,
-            //         isIdle: nativeMediaStatus.isIdle,
-            //         playerState: nativeMediaStatus.playerState
-            //     } : null,
-            //     currentMediaState: {
-            //         isPlaying: state.castState.media.isPlaying,
-            //         isPaused: state.castState.media.isPaused,
-            //         isIdle: state.castState.media.isIdle
-            //     }
-            // });
+            console.log('[CastReducer] SYNC_UPDATE:', {
+                nativeMediaStatus: nativeMediaStatus ? {
+                    isPlaying: nativeMediaStatus.isPlaying,
+                    isPaused: nativeMediaStatus.isPaused,
+                    isIdle: nativeMediaStatus.isIdle,
+                    playerState: nativeMediaStatus.playerState
+                } : null,
+                currentMediaState: {
+                    isPlaying: state.castState.media.isPlaying,
+                    isPaused: state.castState.media.isPaused,
+                    isIdle: state.castState.media.isIdle
+                }
+            });
 
             // ✅ Procesar conexión
             const connection: CastConnectionInfo = (() => {

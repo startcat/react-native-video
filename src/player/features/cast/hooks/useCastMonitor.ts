@@ -43,15 +43,23 @@ export function useCastMonitor(callbacks: {
         }
         
         // ✅ Monitor cambios de pista de audio
-        if (media.audioTrack?.id !== prevAudioTrackRef.current && callbacks.onAudioTrackChange) {
-            callbacks.onAudioTrackChange(media.audioTrack);
-            prevAudioTrackRef.current = media.audioTrack?.id || null;
+        const currentAudioTrackId = media.audioTrack?.id || null;
+        if (currentAudioTrackId !== prevAudioTrackRef.current && callbacks.onAudioTrackChange) {
+            // Only trigger callback if it's a meaningful change (not just null → null)
+            if (currentAudioTrackId !== null || prevAudioTrackRef.current !== null) {
+                callbacks.onAudioTrackChange(media.audioTrack);
+            }
+            prevAudioTrackRef.current = currentAudioTrackId;
         }
         
         // ✅ Monitor cambios de pista de subtítulos
-        if (media.textTrack?.id !== prevTextTrackRef.current && callbacks.onTextTrackChange) {
-            callbacks.onTextTrackChange(media.textTrack);
-            prevTextTrackRef.current = media.textTrack?.id || null;
+        const currentTextTrackId = media.textTrack?.id || null;
+        if (currentTextTrackId !== prevTextTrackRef.current && callbacks.onTextTrackChange) {
+            // Only trigger callback if it's a meaningful change (not just null → null)
+            if (currentTextTrackId !== null || prevTextTrackRef.current !== null) {
+                callbacks.onTextTrackChange(media.textTrack);
+            }
+            prevTextTrackRef.current = currentTextTrackId;
         }
         
         // Monitor errores
