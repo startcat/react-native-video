@@ -71,6 +71,47 @@ export class DVRProgressManagerClass {
      * 
      */
 
+    // Método para actualizar callbacks cuando cambian las referencias
+    updateCallbacks(callbacks: {
+        getEPGProgramAt?: ((timestamp: number) => Promise<any>) | null;
+        onModeChange?: ((data: any) => void) | null;
+        onProgramChange?: ((data: any) => void) | null;
+        onProgressUpdate?: ((data: any) => void) | null;
+        onSeekRequest?: ((playerTime: number) => void) | null;
+        onEPGRequest?: ((timestamp: number) => void) | null;
+        onEPGError?: ((data: any) => void) | null;
+        onValidationError?: ((error: string) => void) | null;
+    }): void {
+
+        if (callbacks.getEPGProgramAt !== undefined) {
+            this._options.getEPGProgramAt = callbacks.getEPGProgramAt;
+        }
+        if (callbacks.onModeChange !== undefined) {
+            this._options.onModeChange = callbacks.onModeChange;
+        }
+        if (callbacks.onProgramChange !== undefined) {
+            this._options.onProgramChange = callbacks.onProgramChange;
+        }
+        if (callbacks.onProgressUpdate !== undefined) {
+            this._options.onProgressUpdate = callbacks.onProgressUpdate;
+        }
+        if (callbacks.onSeekRequest !== undefined) {
+            this._options.onSeekRequest = callbacks.onSeekRequest;
+        }
+        if (callbacks.onEPGRequest !== undefined) {
+            this._options.onEPGRequest = callbacks.onEPGRequest;
+        }
+        if (callbacks.onEPGError !== undefined) {
+            this._options.onEPGError = callbacks.onEPGError;
+        }
+        if (callbacks.onValidationError !== undefined) {
+            this._options.onValidationError = callbacks.onValidationError;
+        }
+        
+        const updatedCallbacks = Object.keys(callbacks).filter(key => callbacks[key as keyof typeof callbacks] !== undefined);
+        this.log(`updateCallbacks - Updated ${updatedCallbacks.length} callbacks`, 'debug');
+    }
+
     async updatePlayerData(data: UpdatePlayerData): Promise<void> {
         console.log(`[DANI] updatePlayerData: ${JSON.stringify(data)}`);
         if (!data) return;
