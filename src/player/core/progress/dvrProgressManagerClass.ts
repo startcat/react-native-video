@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { EPG_RETRY_DELAYS, LIVE_EDGE_TOLERANCE, LOG_ENABLED, LOG_KEY, LOG_LEVEL, LOG_TYPE_LEVELS, PROGRESS_SIGNIFICANT_CHANGE } from './constants';
+import { UpdatePlayerData } from './types/dvr';
 import { DVR_PLAYBACK_TYPE } from './types/enums';
-import { UpdatePlayerData } from './types/types';
 
 export class DVRProgressManagerClass {
     // Estado principal
