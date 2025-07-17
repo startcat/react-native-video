@@ -629,6 +629,7 @@ export interface PlayerProps extends ICommonPlayerProps {
     playOffline?: boolean;
     liveStartDate?:string;
     timeMarkers?: Array<ITimeMarkers>;
+    isAutoNext?: boolean;
 
     languagesMapping?:ILanguagesMapping;
     audioIndex?: number;
@@ -662,7 +663,7 @@ export interface AudioPlayerContentsDpo extends ICommonPlayerProps {
     manifests?:Array<IManifest>,
     headers?: Headers;
     extraData?: any;
-    isAutoNext?: boolean; // NUEVO: indicar si es salto automático
+    isAutoNext?: boolean;
 
     // Initial State
     initialState?: IPlayerInitialState;
