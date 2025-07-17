@@ -1,272 +1,241 @@
-import { BaseProgressManager } from './BaseProgressManager';
-import { type VODProgressManagerOptions, type VODProgressUpdateData, type VODSliderValues, type VODUpdatePlayerData } from './types/vod';
+import {
+    type ProgressUpdateData,
+    type SeekableRange,
+    type SliderValues
+} from "../../types";
 
-export class VODProgressManagerClass extends BaseProgressManager {
+import { type BaseUpdatePlayerData } from "./types/base";
+
+export interface VODProgressManagerData {
+    currentTime?: number;
+    duration?: number;
+    isPaused?: boolean;
+    isBuffering?: boolean;
+
+    // Callbacks
+    onProgressUpdate?: (data:ProgressUpdateData) => void;
+    onSeekRequest?: (playerTime:number) => void;
+}
+
+export class VODProgressManagerClass {
+
+    private _currentTime: number;
+    private _duration: number;
+    private _seekableRange: SeekableRange;
+
+    private _isPaused: boolean = false;
+    private _isBuffering: boolean = false;
+
+    private _onProgressUpdate?: (data:ProgressUpdateData) => void;
+    private _onSeekRequest?: (playerTime:number) => void;
     
-    // Estado específico del VOD
-    private _autoSeekToEnd: boolean = false;
-    private _enableLooping: boolean = false;
-
-    constructor(options: VODProgressManagerOptions = {}) {
-        super(options);
-        
-        // Configuración específica del VOD
-        this._autoSeekToEnd = options.autoSeekToEnd || false;
-        this._enableLooping = options.enableLooping || false;
-        
-        // Inicializar seekableRange basado en duration
-        if (this._duration) {
-            this._seekableRange = { start: 0, end: this._duration };
-        }
-        
-        this.log(`VOD Progress Manager initialized - Duration: ${this._duration}`, 'info');
+    constructor(options: VODProgressManagerData = {}) {
+        // Estado del reproductor VOD
+        this._currentTime = options.currentTime || 0;
+        this._duration = options.duration || 0;
+        this._seekableRange = { start: 0, end: options.duration || 0 };
+        this._isPaused = options.isPaused || false;
+        this._isBuffering = options.isBuffering || false;
+      
+        // Callbacks
+        this._onProgressUpdate = options.onProgressUpdate;
+        this._onSeekRequest = options.onSeekRequest;
+      
+        console.log(`[Player] (VOD Progress Manager) Constructor - Stats ${JSON.stringify(this.getStats())}`);
     }
-
+  
     /*
-     *  Implementación de métodos abstractos
-     *
+     *  Actualiza los datos del reproductor
+     * 
      */
 
-    updatePlayerData(data: VODUpdatePlayerData): void {
-        this.log('updatePlayerData', 'debug', { 
-            currentTime: data.currentTime, 
-            duration: data.duration,
-            seekableRange: data.seekableRange 
-        });
+    // Método para actualizar callbacks cuando cambian las referencias
+    updateCallbacks(callbacks: {
+        onProgressUpdate?: ((data: ProgressUpdateData) => void) | null;
+        onSeekRequest?: ((playerTime: number) => void) | null;
+    }): void {
 
-        // Usar la validación y actualización base
-        this._updateBasicPlayerData(data);
-        
-        // Lógica específica del VOD
-        this._updateVODSpecificData(data);
-        
-        // Verificar si llegamos al final
-        this._checkEndOfContent();
-        
-        // Emitir actualización
-        this._emitProgressUpdate();
-    }
-
-    getSliderValues(): VODSliderValues {
-        if (!this._isValidState()) {
-            this.log('getSliderValues: Invalid state', 'warn');
-            return {
-                minimumValue: 0,
-                maximumValue: 1,
-                progress: 0,
-                percentProgress: 0,
-                duration: this._duration,
-                canSeekToEnd: false
-            };
+        if (callbacks.onProgressUpdate) {
+            this._onProgressUpdate = callbacks.onProgressUpdate;
+        }
+        if (callbacks.onSeekRequest) {
+            this._onSeekRequest = callbacks.onSeekRequest;
         }
 
+        // this.log(`updateCallbacks - Updated ${updatedCallbacks.length} callbacks`, 'debug');
+    }
+
+    updatePlayerData(data: BaseUpdatePlayerData) {
+        // console.log(`[Player] (VOD Progress Manager) updatePlayerData...`);
+        const { currentTime, seekableRange, duration, isPaused, isBuffering } = data;
+      
+        this._currentTime = currentTime || 0;
+        this._duration = duration || this._duration;
+        this._seekableRange = seekableRange || this._seekableRange;
+        this._isPaused = isPaused;
+        this._isBuffering = isBuffering;
+      
+        // Emitir actualización
+        this._emitProgressUpdate();
+
+        // console.log(`[Player] (VOD Progress Manager) updatePlayerData - Stats ${JSON.stringify(this.getStats())}`);
+    }
+  
+    /*
+     *  Obtiene los valores calculados para el slider VOD
+     * 
+     */
+    
+    getSliderValues(): SliderValues {
         // Calcular porcentaje de progreso (0.0 - 1.0)
         const totalDuration = this._seekableRange.end - this._seekableRange.start;
         const currentProgress = this._currentTime - this._seekableRange.start;
-        const percentProgress = totalDuration > 0 ? 
-            Math.max(0, Math.min(1, currentProgress / totalDuration)) : 0;
+        const percentProgress = totalDuration > 0 ? Math.max(0, Math.min(1, currentProgress / totalDuration)) : 0;
         
         return {
             minimumValue: this._seekableRange.start,
             maximumValue: this._seekableRange.end,
             progress: this._currentTime,
-            percentProgress,
+            percentProgress: percentProgress,
             duration: this._duration,
             canSeekToEnd: true
         };
     }
+  
+    /*
+     *  Avanzar tiempo determinado (en segundos)
+     * 
+     */
 
-    reset(): void {
-        this.log('Resetting VOD progress manager', 'info');
+    skipForward(seconds: number) {
+        const newTime = Math.min(this._seekableRange.end, this._currentTime + seconds);
+        this._seekTo(newTime);
+    }
+  
+    /*
+     *  Retroceder tiempo determinado (en segundos)
+     * 
+     */
+
+    skipBackward(seconds: number) {
+        const newTime = Math.max(0, this._currentTime - seconds);
+        this._seekTo(newTime);
+    }
+  
+    /*
+     *  Buscar a una posición específica del slider (0-1)
+     * 
+     */
+
+    seekToProgress(progress: number) {
+        const sliderValues = this.getSliderValues();
+        const range = sliderValues.maximumValue - sliderValues.minimumValue;
+        const targetValue = sliderValues.minimumValue + (range * progress);
         
-        // Reset del estado base
+        this._seekTo(targetValue);
+    }
+  
+    /*
+     *  Buscar a una posición específica en segundos
+     * 
+     */
+
+    seekToTime(time: number) {
+        this._seekTo(time);
+    }
+  
+    // MÉTODOS PRIVADOS
+  
+    private _seekTo(playerTime: number) {
+        // Validar que el tiempo esté dentro del rango válido
+        const clampedTime = Math.max(
+            this._seekableRange.start, 
+            Math.min(this._seekableRange.end, playerTime)
+        );
+        
+        // Actualizar el tiempo actual
+        this._currentTime = clampedTime;
+        
+        // Emitir solicitud de seek
+        this._emitSeekRequest(clampedTime);
+    }
+
+    private _emitProgressUpdate() {
+        const sliderValues = this.getSliderValues();
+      
+        if (this._onProgressUpdate) {
+            this._onProgressUpdate({
+                ...sliderValues,
+                isPaused: this._isPaused,
+                isBuffering: this._isBuffering,
+                isLiveEdgePosition: false,
+                isProgramLive: false, // VOD nunca está en vivo
+                canSeekToEnd: true // VOD siempre permite seek al final
+            });
+        }
+    }
+  
+    private _emitSeekRequest(playerTime: number) {
+        // Callback para que el componente padre ejecute el seek
+        if (this._onSeekRequest) {
+            this._onSeekRequest(playerTime);
+        }
+    }
+  
+    // MÉTODOS PÚBLICOS ADICIONALES
+  
+    /*
+     *  Resetear el gestor a estado inicial
+     * 
+     */
+
+    reset() {
+        // Resetear completamente - como si empezáramos de nuevo
         this._currentTime = 0;
-        this._duration = null;
+        this._duration = 0;
         this._seekableRange = { start: 0, end: 0 };
         this._isPaused = false;
         this._isBuffering = false;
-        
-        // Reset específico del VOD
-        this._autoSeekToEnd = false;
-        this._enableLooping = false;
-        
-        this._emitProgressUpdate();
-    }
 
-    getStats(): any {
-        const baseStats = {
+        console.log(`[Player] (VOD Progress Manager) reset - Stats ${JSON.stringify(this.getStats())}`);
+    }
+  
+    /*
+     *  Obtener estadísticas actuales
+     * 
+     */
+
+    getStats() {
+        console.log(`[Player] (VOD Progress Manager) getStats...`);
+        return {
             currentTime: this._currentTime,
             duration: this._duration,
-            seekableRange: this._seekableRange,
+            progress: this._duration > 0 ? this._currentTime / this._duration : 0,
             isPaused: this._isPaused,
-            isBuffering: this._isBuffering,
-            progress: this._duration ? this._currentTime / this._duration : 0,
-            percentProgress: this.getSliderValues().percentProgress
-        };
-
-        const vodStats = {
-            ...baseStats,
-            autoSeekToEnd: this._autoSeekToEnd,
-            enableLooping: this._enableLooping,
-            isNearEnd: this._isNearEnd(),
-            remainingTime: this._getRemainingTime()
-        };
-
-        this.log('getStats', 'debug', vodStats);
-        return vodStats;
-    }
-
-    /*
-     *  Métodos públicos específicos del VOD
-     *
-     */
-
-    setAutoSeekToEnd(enabled: boolean): void {
-        this._autoSeekToEnd = enabled;
-        this.log(`Auto seek to end: ${enabled}`, 'info');
-    }
-
-    setLooping(enabled: boolean): void {
-        this._enableLooping = enabled;
-        this.log(`Looping: ${enabled}`, 'info');
-    }
-
-    goToStart(): void {
-        this.log('Going to start', 'info');
-        this._seekTo(this._seekableRange.start);
-    }
-
-    goToEnd(): void {
-        this.log('Going to end', 'info');
-        this._seekTo(this._seekableRange.end);
-    }
-
-    jumpToPercentage(percentage: number): void {
-        if (percentage < 0 || percentage > 1) {
-            this.log(`Invalid percentage: ${percentage}`, 'warn');
-            return;
-        }
-
-        const range = this._seekableRange.end - this._seekableRange.start;
-        const targetTime = this._seekableRange.start + (range * percentage);
-        
-        this.log(`Jumping to ${(percentage * 100).toFixed(1)}%`, 'info');
-        this._seekTo(targetTime);
-    }
-
-    getRemainingTime(): number {
-        return this._getRemainingTime();
-    }
-
-    getProgress(): number {
-        return this._duration ? this._currentTime / this._duration : 0;
-    }
-
-    isNearEnd(thresholdSeconds: number = 10): boolean {
-        return this._getRemainingTime() <= thresholdSeconds;
-    }
-
-    /*
-     *  Métodos protegidos sobrescritos
-     *
-     */
-
-    protected _handleSeekTo(playerTime: number): void {
-        this.log(`VOD seeking to: ${playerTime}`, 'debug');
-        
-        // Actualizar currentTime para reflejar el seek inmediatamente
-        this._currentTime = playerTime;
-        
-        // Llamar al callback de seek
-        if (this._options.onSeekRequest) {
-            this._options.onSeekRequest(playerTime);
-        }
-        
-        // Emitir actualización inmediata
-        this._emitProgressUpdate();
-    }
-
-    protected _buildProgressData(): VODProgressUpdateData {
-        const sliderValues = this.getSliderValues();
-        
-        return {
-            ...sliderValues,
-            isPaused: this._isPaused,
-            isBuffering: this._isBuffering,
-            isLiveEdgePosition: false, // VOD nunca está en vivo
-            isProgramLive: false, // VOD nunca está en vivo
-            canSeekToEnd: true // VOD siempre permite seek al final
+            isBuffering: this._isBuffering
         };
     }
 
-    /*
-     *  Métodos privados específicos del VOD
-     *
-     */
-
-    private _updateVODSpecificData(data: VODUpdatePlayerData): void {
-        // Actualizar seekableRange si tenemos nueva duración
-        if (data.duration && data.duration !== this._duration) {
-            this._seekableRange.end = data.duration;
-            this.log(`Updated seekableRange end to: ${data.duration}`, 'debug');
-        }
+    // GETTERS PÚBLICOS
+    
+    get currentTime() {
+        return this._currentTime;
+    }
+    
+    get duration() {
+        return this._duration;
+    }
+    
+    get progress() {
+        return this._duration > 0 ? this._currentTime / this._duration : 0;
+    }
+    
+    get isPaused() {
+        return this._isPaused;
+    }
+    
+    get isBuffering() {
+        return this._isBuffering;
     }
 
-    private _checkEndOfContent(): void {
-        if (!this._duration) return;
-
-        const isAtEnd = this._currentTime >= this._duration - 1; // 1 segundo de tolerancia
-        
-        if (isAtEnd) {
-            this.log('Reached end of content', 'info');
-            
-            if (this._enableLooping) {
-                this.log('Looping enabled, going to start', 'info');
-                setTimeout(() => this.goToStart(), 100);
-            } else if (this._autoSeekToEnd) {
-                this.log('Auto seek to end enabled', 'info');
-                this.goToEnd();
-            }
-        }
-    }
-
-    private _getRemainingTime(): number {
-        if (!this._duration) return 0;
-        return Math.max(0, this._duration - this._currentTime);
-    }
-
-    private _isNearEnd(thresholdSeconds: number = 10): boolean {
-        return this._getRemainingTime() <= thresholdSeconds;
-    }
-
-    /*
-     *  Validación específica del VOD
-     *
-     */
-
-    protected _isValidState(): boolean {
-        const baseValid = super._isValidState();
-        
-        // VOD requiere duración válida
-        const vodValid = this._duration !== null && this._duration > 0;
-        
-        if (!vodValid) {
-            this.log('VOD invalid state: no duration', 'debug');
-        }
-        
-        return baseValid && vodValid;
-    }
-
-    /*
-     *  Destrucción específica del VOD
-     *
-     */
-
-    destroy(): void {
-        this.log('Destroying VOD progress manager', 'info');
-        super.destroy();
-        
-        this._autoSeekToEnd = false;
-        this._enableLooping = false;
-    }
 }

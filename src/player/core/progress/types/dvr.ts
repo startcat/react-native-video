@@ -1,4 +1,3 @@
-import { type SeekableRange } from './base';
 import { DVR_PLAYBACK_TYPE } from './enums';
 
 import {
@@ -6,6 +5,12 @@ import {
     type BaseSliderValues,
     type BaseUpdatePlayerData
 } from './base';
+
+export interface EPGErrorData {
+    timestamp: number;
+    error: any;
+    retryCount: number;
+}
 
 export interface ProgramChangeData {
     previousProgram: any | null; // IBasicProgram
@@ -18,14 +23,6 @@ export interface ModeChangeData {
     program: any | null;
 }
 
-export interface UpdatePlayerData {
-    currentTime: number;
-    duration?: number;
-    seekableRange: SeekableRange;
-    isBuffering: boolean;
-    isPaused: boolean;
-}
-
 export interface DVRUpdatePlayerData extends BaseUpdatePlayerData {
     // DVR puede tener propiedades adicionales específicas si es necesario
 }
@@ -35,10 +32,10 @@ export interface DVRProgressManagerOptions extends BaseProgressManagerOptions {
     dvrWindowSeconds?: number;
     playbackType?: DVR_PLAYBACK_TYPE;
     getEPGProgramAt?: ((timestamp: number) => Promise<any>) | null;
-    onModeChange?: ((data: any) => void) | null;
-    onProgramChange?: ((data: any) => void) | null;
+    onModeChange?: ((data: ModeChangeData) => void) | null;
+    onProgramChange?: ((data: ProgramChangeData) => void) | null;
     onEPGRequest?: ((timestamp: number) => void) | null;
-    onEPGError?: ((data: any) => void) | null;
+    onEPGError?: ((data: EPGErrorData) => void) | null;
 }
 
 export interface DVRSliderValues extends BaseSliderValues {

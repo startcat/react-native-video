@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { EPG_RETRY_DELAYS, LIVE_EDGE_TOLERANCE, LOG_ENABLED, LOG_KEY, LOG_LEVEL, LOG_TYPE_LEVELS, PROGRESS_SIGNIFICANT_CHANGE } from './constants';
-import { UpdatePlayerData } from './types/dvr';
+import { type BaseUpdatePlayerData } from './types/base';
 import { DVR_PLAYBACK_TYPE } from './types/enums';
 
 export class DVRProgressManagerClass {
@@ -112,7 +112,7 @@ export class DVRProgressManagerClass {
         this.log(`updateCallbacks - Updated ${updatedCallbacks.length} callbacks`, 'debug');
     }
 
-    async updatePlayerData(data: UpdatePlayerData): Promise<void> {
+    async updatePlayerData(data: BaseUpdatePlayerData): Promise<void> {
         console.log(`[DANI] updatePlayerData: ${JSON.stringify(data)}`);
         if (!data) return;
 
@@ -571,7 +571,7 @@ export class DVRProgressManagerClass {
                this._initialTimeWindowSeconds > 0;
     }
 
-    private _validatePlayerData(data: UpdatePlayerData): UpdatePlayerData {
+    private _validatePlayerData(data: BaseUpdatePlayerData): BaseUpdatePlayerData {
         // Validación básica con corrección automática
         if (typeof data.currentTime !== 'number' || data.currentTime < 0) {
             this.log('Invalid currentTime, correcting to 0', 'warn');
