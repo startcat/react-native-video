@@ -33,13 +33,10 @@ import {
 } from '../../modules/tudum';
 
 import {
-    VODProgressManagerClass,
-} from '../../modules/vod';
-
-import {
     type ModeChangeData,
     type ProgramChangeData,
-    DVRProgressManagerClass
+    DVRProgressManagerClass,
+    VODProgressManagerClass,
 } from '../../core/progress';
 
 import { styles } from '../styles';

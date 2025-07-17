@@ -1,6 +1,7 @@
 import { CastSession } from "react-native-google-cast";
 import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastState, CastTrackInfo, InternalCastState } from "../types/types";
 
+
 // ✅ Estado inicial
 export function createInitialCastState(): CastState {
     return {

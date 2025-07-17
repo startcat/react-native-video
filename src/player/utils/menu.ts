@@ -39,6 +39,14 @@ const sortByIndex = (a: IPlayerMenuData, b: IPlayerMenuData) => {
 
 }
 
+export const getTrackId = (type:string, index:number, menuData?:Array<IPlayerMenuData>) => {
+
+    let item = menuData?.find(item => item.type === type && item.index === index);
+
+    return item?.id;
+
+}
+
 export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguagesMapping, isDASH?: boolean):Array<IPlayerMenuData> => {
 
     let menuData:Array<IPlayerMenuData> = [];

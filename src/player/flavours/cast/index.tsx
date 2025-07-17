@@ -25,19 +25,16 @@ import {
 
 import {
     DVRProgressManagerClass,
+    VODProgressManagerClass,
     type ModeChangeData,
     type ProgramChangeData
 } from '../../core/progress';
 
-import { mergeCastMenuData } from '../../utils';
-import {
-    getTrackId
-} from '../actions/cast';
+import { getTrackId, mergeCastMenuData } from '../../utils';
 
 import { useIsBuffering } from '../../modules/buffer';
 import { SourceClass, type onSourceChangedProps } from '../../modules/source';
 import { TudumClass } from '../../modules/tudum';
-import { VODProgressManagerClass } from '../../modules/vod';
 
 // Importar hooks individuales de Cast como en AudioCastFlavour
 import {
