@@ -9,9 +9,6 @@ export * from './constants';
 // Exportar clases principales
 export { CastMessageBuilder } from './CastMessageBuilder';
 
-// Exportar EventEmitter para React Native
-export { EventEmitter, SimpleEventEmitter } from './utils/SimpleEventEmitter';
-
 // Exportar utilidades
 export * from './utils/castUtils';
 
