@@ -27,7 +27,7 @@ import {
 
 import {
     useIsBuffering
-} from '../../modules/buffer';
+} from '../../core/buffering';
 
 import {
     mergeMenuData,

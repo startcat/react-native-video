@@ -32,7 +32,7 @@ import {
 
 import { getTrackId, mergeCastMenuData } from '../../utils';
 
-import { useIsBuffering } from '../../modules/buffer';
+import { useIsBuffering } from '../../core/buffering';
 import { SourceClass, type onSourceChangedProps } from '../../modules/source';
 import { TudumClass } from '../../modules/tudum';
 

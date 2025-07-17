@@ -17,7 +17,7 @@ import Video, { type VideoRef } from '../../../Video';
 
 import {
     useIsBuffering
-} from '../../modules/buffer';
+} from '../../core/buffering';
 
 import {
     type onSourceChangedProps,

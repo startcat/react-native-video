@@ -310,6 +310,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                             onEnd: onEnd,
                             onClose: hidePlayer,
                         }}
+
+                        // Player Features
+                        features={dpoData.features}
                     />
                 : null
             }
@@ -350,6 +353,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                             onEnd: onEnd,
                             onClose: hidePlayer,
                         }}
+
+                        // Player Features
+                        features={dpoData.features}
                     />
                 : null
             }
