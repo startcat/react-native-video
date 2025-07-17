@@ -113,7 +113,6 @@ export class DVRProgressManagerClass {
     }
 
     async updatePlayerData(data: BaseUpdatePlayerData): Promise<void> {
-        console.log(`[DANI] updatePlayerData: ${JSON.stringify(data)}`);
         if (!data) return;
 
         const wasValidBefore = this._isValidState();
@@ -563,7 +562,6 @@ export class DVRProgressManagerClass {
     }
 
     private _isValidState(): boolean {
-        console.log(`[DANI] isValidState: ${this._seekableRange, this._seekableRange.end, this._currentTime, this._initialTimeWindowSeconds}`);
         return this._seekableRange !== null && 
                this._seekableRange.end > 0 &&
                this._currentTime >= 0 &&

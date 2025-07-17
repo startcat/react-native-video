@@ -97,9 +97,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     }, []);
 
     const onPlaybackStartedCallback = useCallback(() => {
-        const now = Date.now();
-        console.log(`[DANI] [AudioCast] [${now}] 🎬 onPlaybackStarted CALLBACK EXECUTED`);
-        console.log(`[Player] (Audio Cast Flavour) Cast Manager - Playback started`);
+        console.log(`[Player] (Audio Cast Flavour) Cast Manager - 🎬 onPlaybackStarted`);
         setPaused(false);
         setBuffering(false);
     }, []);
