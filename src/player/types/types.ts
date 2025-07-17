@@ -5,6 +5,7 @@ import * as Enums from './enums';
 
 import {
     type ICommonPlayerProps,
+    type IPlayerFeatures,
     type IPlayerInitialState,
     type IPlayerProgress,
     type IPlayerTimeMarkers
@@ -520,6 +521,9 @@ export interface AudioFlavourProps extends ICommonPlayerProps {
 
     // Events
     events: IInnerPlayerEvents;
+
+    // Player Features
+    features?: IPlayerFeatures;
 }
 
 export interface AudioCastFlavourProps extends ICommonPlayerProps {
@@ -550,6 +554,9 @@ export interface AudioCastFlavourProps extends ICommonPlayerProps {
 
     // Events
     events: IInnerPlayerEvents;
+
+    // Player Features
+    features?: IPlayerFeatures;
 }
 
 export interface NormalFlavourProps extends ICommonPlayerProps {
@@ -579,6 +586,9 @@ export interface NormalFlavourProps extends ICommonPlayerProps {
 
     // Events
     events: IInnerPlayerEvents;
+
+    // Player Features
+    features?: IPlayerFeatures;
 }
 
 export interface CastFlavourProps extends ICommonPlayerProps {
@@ -607,6 +617,9 @@ export interface CastFlavourProps extends ICommonPlayerProps {
 
     // Events
     events: IInnerPlayerEvents;
+
+    // Player Features
+    features?: IPlayerFeatures;
 }
 
 export interface PlayerProps extends ICommonPlayerProps {
@@ -637,6 +650,9 @@ export interface PlayerProps extends ICommonPlayerProps {
 
     // Events
     events: IPlayerEvents;
+
+    // Player Features
+    features?: IPlayerFeatures;
 }
 
 export interface AudioPlayerContentsDpo extends ICommonPlayerProps {
@@ -659,6 +675,9 @@ export interface AudioPlayerContentsDpo extends ICommonPlayerProps {
 
     // Events
     events?: IPlayerEvents;
+
+    // Player Features
+    features?: IPlayerFeatures;
 }
 
 export interface AudioPlayerProps {

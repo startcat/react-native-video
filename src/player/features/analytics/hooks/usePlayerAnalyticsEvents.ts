@@ -5,7 +5,7 @@ import { type PlayerAnalyticsPlugin } from "../types";
 export const usePlayerAnalyticsEvents = (
     mediaData: any,
     plugins: PlayerAnalyticsPlugin[] = []
-  ) => {
+) => {
 
     const playerAnalyticsEventsRef = useRef<PlayerAnalyticsEvents | null>(null);
   
@@ -32,8 +32,8 @@ export const usePlayerAnalyticsEvents = (
             playerAnalyticsEventsRef.current?.destroy();
             playerAnalyticsEventsRef.current = null;
         };
-        
+
     }, [mediaData, plugins]);
   
     return playerAnalyticsEventsRef.current;
-  };
+};

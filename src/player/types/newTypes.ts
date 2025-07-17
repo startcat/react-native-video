@@ -3,13 +3,14 @@
  *
  */
 
+import { type PlayerAnalyticsPlugin } from '../features/analytics/types';
 import * as Enums from './enums';
 
-import { 
+import {
     type IBasicProgram,
-    type SliderValues,
+    type ITimeMarkers,
     type IYoubora,
-    type ITimeMarkers
+    type SliderValues
 } from './index';
 
 export interface IPlayerLiveValues {
@@ -76,4 +77,8 @@ export interface ICommonPlayerProps {
     playerAnalytics?: IPlayerAnalytics;
     playerTimeMarkers?: IPlayerTimeMarkers;
     playerAds?: IPlayerAds;    
+}
+
+export interface IPlayerFeatures {
+    analyticsConfig?: PlayerAnalyticsPlugin[];
 }
