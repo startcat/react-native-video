@@ -249,6 +249,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                         ...props.events,
                         onChangeCommonData: changeCommonData,
                     }}
+
+                    // Player Features
+                    features={props.features}
                 />
             </Suspense>
         );
@@ -295,6 +298,9 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                         ...props.events,
                         onChangeCommonData: changeCommonData,
                     }}
+
+                    // Features
+                    features={props.features}
                 />
             </Suspense>
         );

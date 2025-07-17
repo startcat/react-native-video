@@ -21,7 +21,7 @@ import { type CastContentInfo } from '../../features/cast/types/types';
 
 import {
     useIsBuffering
-} from '../../modules/buffer';
+} from '../../core/buffering';
 
 import {
     type onSourceChangedProps,
