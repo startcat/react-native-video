@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
     type IPlayerProgress,
     type OnBufferData,
-    //type OnVideoErrorData,
     type OnLoadData,
     type OnProgressData,
     type OnReceiveAdEventData,
+    type OnVideoErrorData,
     type ProgressUpdateData,
     type SelectedTrack,
     type SelectedVideoTrack,
@@ -28,6 +28,7 @@ import {
 import {
     useIsBuffering
 } from '../../core/buffering';
+
 
 import {
     mergeMenuData,
@@ -49,6 +50,8 @@ import {
     DVRProgressManagerClass,
     VODProgressManagerClass,
 } from '../../core/progress';
+
+import { useVideoAnalytics } from '../../core/events/hooks/useVideoAnalytics';
 
 import { styles } from '../styles';
 
@@ -149,6 +152,22 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         buffering: buffering,
         paused: paused,
         onBufferingChange: props.events?.onBuffering
+    });
+
+    // Hook para los plugins de analíticas
+    const {
+        videoEvents,
+        analyticsEvents,
+        adapter,
+        getCurrentPosition,
+        getDuration,
+        isPlaying: isAnalyticsPlaying,
+        isBuffering: isAnalyticsBuffering,
+        isSeekInProgress,
+        getSeekFromPosition,
+        getSeekToPosition
+    } = useVideoAnalytics({
+        plugins: props.features?.analyticsConfig || [],
     });
 
     useEffect(() => {
@@ -408,6 +427,16 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         }
 
     }, [menuData]);
+
+    // Función auxiliar para combinar eventos
+    const combineEventHandlers = (originalHandler?: Function, analyticsHandler?: Function) => {
+        return (...args: any[]) => {
+            // Ejecutar handler original primero
+            originalHandler?.(...args);
+            // Luego ejecutar handler de analíticas
+            analyticsHandler?.(...args);
+        };
+    };
 
     // Source Cooking
     const onSourceChanged = (data:onSourceChangedProps) => {
@@ -738,13 +767,23 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }
 
-    const onLoad = async (e: OnLoadData) => {
+    const onSlidingComplete = (value: number) => {
+        // console.log(`[Player] (Video Flavour) onSlidingComplete: ${value}`);
+        onControlsPress(CONTROL_ACTION.SEEK, value);
+    }
 
+    /*
+     *  Handlers para los eventos
+     *
+     */
+
+    const handleOnLoad = (e: OnLoadData) => {
         console.log(`[Player] (Video Flavour) onLoad (${sourceRef.current?.playerSource?.uri})`);
-        console.log(`[Player] (Video Flavour) onLoad currentSourceType: ${currentSourceType.current}`);
-        console.log(`[Player] (Video Flavour) onLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-        console.log(`[Player] (Video Flavour) onLoad isContentLoaded ${isContentLoaded}`);
-        console.log(`[Player] (Video Flavour) onLoad duration: ${e.duration}, currentTime: ${e.currentTime}`);
+        
+        // console.log(`[Player] (Video Flavour) onLoad currentSourceType: ${currentSourceType.current}`);
+        // console.log(`[Player] (Video Flavour) onLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
+        // console.log(`[Player] (Video Flavour) onLoad isContentLoaded ${isContentLoaded}`);
+        // console.log(`[Player] (Video Flavour) onLoad duration: ${e.duration}, currentTime: ${e.currentTime}`);
 
         // Solo procesar onLoad para contenido principal, no para tudum
         if (currentSourceType.current === 'content' && !isContentLoaded) {
@@ -792,35 +831,17 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         } else {
             console.log(`[Player] (Video Flavour) onLoad - Ignoring load event (sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded})`);
         }
+    };
 
+    const handleOnBuffer = (e: OnBufferData) => {
+        setBuffering(!!e?.isBuffering);
     }
 
-    const onEnd = () => {
-        console.log(`[Player] (Video Flavour) onEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`);
-        
-        if (currentSourceType.current === 'tudum') {
-            // Acaba la reproducción del Tudum externo
-            console.log(`[Player] (Video Flavour) onEnd: Tudum finished, switching to main content`);
-            isChangingSource.current = true;
-            switchFromTudumToContent();
-
-        } else if (currentSourceType.current === 'content' && props.events?.onEnd) {
-            // Termina el contenido principal
-            console.log(`[Player] (Video Flavour) onEnd: Content finished, preparing for possible auto next`);
-            
-            // Preparar tudum para salto automático antes de notificar
-            if (tudumRef.current) {
-                tudumRef.current.prepareForAutoNext();
-            }
-            
-            props.events.onEnd();
-        } else {
-            console.log(`[Player] (Video Flavour) onEnd: Unknown state - currentSourceType: ${currentSourceType.current}, hasOnEnd: ${!!props.events?.onEnd}`);
-        }
+    const handleReadyForDisplay = () => {
+        setBuffering(false);
     }
 
-    const onProgress = (e: OnProgressData) => {
-
+    const handleOnProgress = (e: OnProgressData) => {
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             // Trigger para el cambio de estado
             setCurrentTime(e.currentTime);
@@ -861,14 +882,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         } else {
             console.log(`[Player] (Video Flavour) onProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.playableDuration}`);
         }
+    };
 
-    }
-
-    const onReadyForDisplay = () => {
-        setBuffering(false);
-    }
-
-    const onReceiveAdEvent = (e: OnReceiveAdEventData) => {
+    const handleOnReceiveAdEvent = (e: OnReceiveAdEventData) => {
 
         if (e.event === 'STARTED'){
             setIsPlayingAd(true);
@@ -883,22 +899,34 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }
 
-    // const onVolumeChange = (e: OnVolumeChangeData) => {
+    const handleOnEnd = () => {
+        console.log(`[Player] (Video Flavour) onEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`);
+        
+        if (currentSourceType.current === 'tudum') {
+            // Acaba la reproducción del Tudum externo
+            console.log(`[Player] (Video Flavour) onEnd: Tudum finished, switching to main content`);
+            isChangingSource.current = true;
+            switchFromTudumToContent();
 
-    // }
+        } else if (currentSourceType.current === 'content' && props.events?.onEnd) {
+            // Termina el contenido principal
+            console.log(`[Player] (Video Flavour) onEnd: Content finished, preparing for possible auto next`);
+            
+            // Preparar tudum para salto automático antes de notificar
+            if (tudumRef.current) {
+                tudumRef.current.prepareForAutoNext();
+            }
+            
+            props.events.onEnd();
+        } else {
+            console.log(`[Player] (Video Flavour) onEnd: Unknown state - currentSourceType: ${currentSourceType.current}, hasOnEnd: ${!!props.events?.onEnd}`);
+        }
+    };
 
-    const onBuffer = (e: OnBufferData) => {
-        setBuffering(!!e?.isBuffering);
-    }
-
-    const onError = (e: any) => {
+    const handleOnError = (e: OnVideoErrorData) => {
         console.log(`[Player] (Video Flavour) onError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
-    }
+    };
 
-    const onSlidingComplete = (value: number) => {
-        // console.log(`[Player] (Video Flavour) onSlidingComplete: ${value}`);
-        onControlsPress(CONTROL_ACTION.SEEK, value);
-    }
 
     return (
         <View style={styles.container}>
@@ -967,14 +995,32 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             selectedTextTrack={tudumRef.current?.isPlaying || (typeof(selectedTextTrack?.value) === 'number' && selectedTextTrack?.value < 0) ? undefined : selectedTextTrack}
                             subtitleStyle={props.subtitleStyle}
 
-                            //onVolumeChange={onVolumeChange}
-                            onEnd={onEnd}
-                            onLoad={onLoad}
-                            onProgress={onProgress}
-                            onReadyForDisplay={onReadyForDisplay}
-                            onReceiveAdEvent={onReceiveAdEvent}
-                            onBuffer={onBuffer}
-                            onError={onError}
+                            // Eventos combinados: originales + analytics
+                            onLoadStart={videoEvents.onLoadStart}
+                            onLoad={combineEventHandlers(handleOnLoad, videoEvents.onLoad)}
+                            onProgress={combineEventHandlers(handleOnProgress, videoEvents.onProgress)}
+                            onEnd={combineEventHandlers(handleOnEnd, videoEvents.onEnd)}
+                            onError={combineEventHandlers(handleOnError, videoEvents.onError)}
+                            onReadyForDisplay={combineEventHandlers(handleReadyForDisplay, videoEvents.onReadyForDisplay)}
+                            onReceiveAdEvent={combineEventHandlers(handleOnReceiveAdEvent, videoEvents.onReceiveAdEvent)}
+                            onBuffer={combineEventHandlers(handleOnBuffer, videoEvents.onBuffer)}
+                            onSeek={videoEvents.onSeek}
+                            onPlaybackStateChanged={videoEvents.onPlaybackStateChanged}
+                            onPlaybackRateChange={videoEvents.onPlaybackRateChange}
+                            onVolumeChange={videoEvents.onVolumeChange}
+                            onAudioTracks={videoEvents.onAudioTracks}
+                            onTextTracks={videoEvents.onTextTracks}
+                            onVideoTracks={videoEvents.onVideoTracks}
+                            onBandwidthUpdate={videoEvents.onBandwidthUpdate}
+                            onAspectRatio={videoEvents.onAspectRatio}
+                            onTimedMetadata={videoEvents.onTimedMetadata}
+                            onAudioBecomingNoisy={videoEvents.onAudioBecomingNoisy}
+                            onIdle={videoEvents.onIdle}
+                            onExternalPlaybackChange={videoEvents.onExternalPlaybackChange}
+                            onFullscreenPlayerWillPresent={videoEvents.onFullscreenPlayerWillPresent}
+                            onFullscreenPlayerDidPresent={videoEvents.onFullscreenPlayerDidPresent}
+                            onFullscreenPlayerWillDismiss={videoEvents.onFullscreenPlayerWillDismiss}
+                            onFullscreenPlayerDidDismiss={videoEvents.onFullscreenPlayerDidDismiss}
                         />
                     </View>
                 : null
