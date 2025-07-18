@@ -38,27 +38,10 @@ import type {
     OnTextTracksData
 } from '../../../../types/events';
 
-interface UseVideoAnalyticsProps {
-    plugins?: PlayerAnalyticsPlugin[];
-}
-
-interface UseVideoAnalyticsReturn {
-    // Eventos para conectar con el componente Video
-    videoEvents: ReactVideoEvents;
-    
-    // Métodos para control manual
-    analyticsEvents: PlayerAnalyticsEvents;
-    adapter: VideoEventsAdapter;
-    
-    // Utilidades
-    getCurrentPosition: () => number;
-    getDuration: () => number;
-    isPlaying: () => boolean;
-    isBuffering: () => boolean;
-    isSeekInProgress: () => boolean;
-    getSeekFromPosition: () => number | undefined;
-    getSeekToPosition: () => number | undefined;
-}
+import {
+    type UseVideoAnalyticsProps,
+    type UseVideoAnalyticsReturn
+} from '../types';
 
 export const useVideoAnalytics = ({
     plugins = []
