@@ -3,7 +3,6 @@ import { PlayerAnalyticsEvents } from "../PlayerAnalyticsEvents";
 import { type PlayerAnalyticsPlugin } from "../types";
 
 export const usePlayerAnalyticsEvents = (
-    mediaData: any,
     plugins: PlayerAnalyticsPlugin[] = []
 ) => {
 
@@ -11,7 +10,7 @@ export const usePlayerAnalyticsEvents = (
   
     useEffect(() => {
 
-        if (mediaData && plugins.length > 0) {
+        if (plugins.length > 0) {
             // Limpiar instancia anterior
             playerAnalyticsEventsRef.current?.destroy();
   
@@ -33,7 +32,7 @@ export const usePlayerAnalyticsEvents = (
             playerAnalyticsEventsRef.current = null;
         };
 
-    }, [mediaData, plugins]);
+    }, [plugins]);
   
     return playerAnalyticsEventsRef.current;
 };
