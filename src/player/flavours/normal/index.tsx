@@ -14,7 +14,6 @@ import {
     type SelectedVideoTrack,
     type SliderValues,
     SelectedTrackType,
-    //type OnVolumeChangeData,
     SelectedVideoTrackType
 } from '../../../types';
 import Video, { type VideoRef } from '../../../Video';
@@ -28,7 +27,6 @@ import {
 import {
     useIsBuffering
 } from '../../core/buffering';
-
 
 import {
     mergeMenuData,
@@ -840,7 +838,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         setBuffering(!!e?.isBuffering);
     }
 
-    const handleReadyForDisplay = () => {
+    const handleOnReadyForDisplay = () => {
         setBuffering(false);
     }
 
@@ -930,7 +928,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         console.log(`[Player] (Video Flavour) onError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
     };
 
-
+    /*
+     *  Render
+     *
+     */
+    
     return (
         <View style={styles.container}>
             {
@@ -1004,7 +1006,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             onProgress={combineEventHandlers(handleOnProgress, videoEvents.onProgress)}
                             onEnd={combineEventHandlers(handleOnEnd, videoEvents.onEnd)}
                             onError={combineEventHandlers(handleOnError, videoEvents.onError)}
-                            onReadyForDisplay={combineEventHandlers(handleReadyForDisplay, videoEvents.onReadyForDisplay)}
+                            onReadyForDisplay={combineEventHandlers(handleOnReadyForDisplay, videoEvents.onReadyForDisplay)}
                             onReceiveAdEvent={combineEventHandlers(handleOnReceiveAdEvent, videoEvents.onReceiveAdEvent)}
                             onBuffer={combineEventHandlers(handleOnBuffer, videoEvents.onBuffer)}
                             onSeek={videoEvents.onSeek}
