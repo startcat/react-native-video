@@ -120,8 +120,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     if (!vodProgressManagerRef.current) {
         vodProgressManagerRef.current = new VODProgressManagerClass({
             // Callbacks
-            onProgressUpdate: onProgressUpdate,
-            onSeekRequest: onSeekRequest
+            onProgressUpdate: handleOnProgressUpdate,
+            onSeekRequest: handleOnSeekRequest
         });
     }
 
@@ -134,10 +134,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             getEPGProgramAt: props.hooks?.getEPGProgramAt,
         
             // Callbacks
-            onModeChange: onDVRModeChange,
-            onProgramChange: onDVRProgramChange,
-            onProgressUpdate: onProgressUpdate,
-            onSeekRequest: onSeekRequest
+            onModeChange: handleOnDVRModeChange,
+            onProgramChange: handleOnDVRProgramChange,
+            onProgressUpdate: handleOnProgressUpdate,
+            onSeekRequest: handleOnSeekRequest
         });
     }
 
@@ -158,14 +158,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const {
         videoEvents,
         analyticsEvents,
-        adapter,
-        getCurrentPosition,
-        getDuration,
-        isPlaying: isAnalyticsPlaying,
-        isBuffering: isAnalyticsBuffering,
-        isSeekInProgress,
-        getSeekFromPosition,
-        getSeekToPosition
     } = useVideoAnalytics({
         plugins: props.features?.analyticsConfig || [],
     });
@@ -566,19 +558,20 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }
 
     /*
-     *  DVR Progress Manager
+     *  Gestores de Progreso
+     *
      */
 
-    function onDVRModeChange(data:ModeChangeData) {
-        console.log(`[Player] (Video Flavour) onDVRModeChange: ${JSON.stringify(data)}`);
+    function handleOnDVRModeChange(data:ModeChangeData) {
+        console.log(`[Player] (Video Flavour) handleOnDVRModeChange: ${JSON.stringify(data)}`);
     };
 
-    function onDVRProgramChange(data:ProgramChangeData) {
-        console.log(`[Player] (Video Flavour) onDVRProgramChange: ${JSON.stringify(data)}`);
+    function handleOnDVRProgramChange(data:ProgramChangeData) {
+        console.log(`[Player] (Video Flavour) handleOnDVRProgramChange: ${JSON.stringify(data)}`);
     };
 
-    function onProgressUpdate(data: ProgressUpdateData) {
-        // console.log(`[Player] (Video Flavour) onProgressUpdate - currentSourceType: ${currentSourceType.current}, duration: ${data.duration}`);
+    function handleOnProgressUpdate(data: ProgressUpdateData) {
+        // console.log(`[Player] (Video Flavour) handleOnProgressUpdate - currentSourceType: ${currentSourceType.current}, duration: ${data.duration}`);
         
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
@@ -610,26 +603,30 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                     currentProgram: data.currentProgram,
                 };
             } catch (ex: any) {
-                console.log(`[Player] (Video Flavour) onProgressUpdate - error ${ex?.message}`);
+                console.log(`[Player] (Video Flavour) handleOnProgressUpdate - error ${ex?.message}`);
             }
 
         } else {
-            console.log(`[Player] (Video Flavour) onProgressUpdate - Ignoring progress update for ${currentSourceType.current}`);
+            console.log(`[Player] (Video Flavour) handleOnProgressUpdate - Ignoring progress update for ${currentSourceType.current}`);
         }
     };
 
-    function onSeekRequest(playerTime:number) {
-        console.log(`[Player] (Video Flavour) onSeekRequest: ${playerTime}`);
+    function handleOnSeekRequest(playerTime:number) {
+        console.log(`[Player] (Video Flavour) handleOnSeekRequest: ${playerTime}`);
         // Seek en player real
         refVideoPlayer.current?.seek(playerTime);
     };
 
-    // Functions
-    const onControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
+    /*
+     *  Handlers para los eventos de interfaz
+     *
+     */
+
+    const handleOnControlsPress = (id: CONTROL_ACTION, value?:number | boolean) => {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'audioIndex', 'subtitleIndex'];
 
-        console.log(`[Player] (Video Flavour) onControlsPress: ${id} (${value})`);
+        console.log(`[Player] (Video Flavour) handleOnControlsPress: ${id} (${value})`);
 
         if (id === CONTROL_ACTION.PAUSE){
             setPaused(!!value);
@@ -642,11 +639,17 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         if (id === CONTROL_ACTION.NEXT && props.events?.onNext){
             setIsContentLoaded(false);
             props.events?.onNext();
+
+            // Evento analíticas
+            analyticsEvents.onStop({ reason: 'navigation' });
         }
 
         if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious){
             setIsContentLoaded(false);
             props.events.onPrevious();
+
+            // Evento analíticas
+            analyticsEvents.onStop({ reason: 'navigation' });
         }
         
         if (sourceRef.current?.isHLS && id === CONTROL_ACTION.VIDEO_INDEX && typeof(value) === 'number'){
@@ -767,9 +770,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }
 
-    const onSlidingComplete = (value: number) => {
-        // console.log(`[Player] (Video Flavour) onSlidingComplete: ${value}`);
-        onControlsPress(CONTROL_ACTION.SEEK, value);
+    const handleOnSlidingComplete = (value: number) => {
+        // console.log(`[Player] (Video Flavour) handleOnSlidingComplete: ${value}`);
+        handleOnControlsPress(CONTROL_ACTION.SEEK, value);
     }
 
     /*
@@ -1078,8 +1081,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         // Events
                         events={{
                             ...props.events,
-                            onPress: onControlsPress,
-                            onSlidingComplete: onSlidingComplete,
+                            onPress: handleOnControlsPress,
+                            onSlidingComplete: handleOnSlidingComplete,
                         }}
                     />
                 : null

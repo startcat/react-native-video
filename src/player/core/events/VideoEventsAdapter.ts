@@ -1,5 +1,4 @@
 /*
- *  VideoEventsAdapter.ts
  *  Adaptador principal que conecta eventos del Video con PlayerAnalyticsEvents
  *
  */
