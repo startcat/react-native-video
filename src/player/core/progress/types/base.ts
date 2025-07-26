@@ -23,11 +23,3 @@ export interface BaseProgressManagerOptions {
     isPaused?: boolean;
     isBuffering?: boolean;
 }
-
-export interface BaseSliderValues {
-    minimumValue: number;
-    maximumValue: number;
-    progress: number;
-    percentProgress: number;
-    canSeekToEnd: boolean;
-}

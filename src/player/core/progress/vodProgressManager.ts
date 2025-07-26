@@ -1,5 +1,6 @@
 import { BaseProgressManager } from './BaseProgressManager';
-import { type VODProgressManagerOptions, type VODProgressUpdateData, type VODSliderValues, type VODUpdatePlayerData } from './types/vod';
+import { type VODProgressManagerOptions, type VODProgressUpdateData, type VODUpdatePlayerData } from './types/vod';
+import { type SliderValues } from '../../types/types';
 
 export class VODProgressManagerClass extends BaseProgressManager {
     
@@ -47,7 +48,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
         this._emitProgressUpdate();
     }
 
-    getSliderValues(): VODSliderValues {
+    getSliderValues(): SliderValues {
         if (!this._isValidState()) {
             this.log('getSliderValues: Invalid state', 'warn');
             return {
@@ -55,8 +56,9 @@ export class VODProgressManagerClass extends BaseProgressManager {
                 maximumValue: 1,
                 progress: 0,
                 percentProgress: 0,
-                duration: this._duration,
-                canSeekToEnd: false
+                duration: this._duration || undefined,
+                canSeekToEnd: false,
+                isLiveEdgePosition: false, // VOD nunca está en live edge
             };
         }
 
@@ -71,8 +73,9 @@ export class VODProgressManagerClass extends BaseProgressManager {
             maximumValue: this._seekableRange.end,
             progress: this._currentTime,
             percentProgress,
-            duration: this._duration,
-            canSeekToEnd: true
+            duration: this._duration || undefined,
+            canSeekToEnd: true,
+            isLiveEdgePosition: false, 
         };
     }
 
@@ -80,11 +83,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
         this.log('Resetting VOD progress manager', 'info');
         
         // Reset del estado base
-        this._currentTime = 0;
-        this._duration = null;
-        this._seekableRange = { start: 0, end: 0 };
-        this._isPaused = false;
-        this._isBuffering = false;
+        super.reset();
         
         // Reset específico del VOD
         this._autoSeekToEnd = false;
@@ -94,18 +93,14 @@ export class VODProgressManagerClass extends BaseProgressManager {
     }
 
     getStats(): any {
-        const baseStats = {
-            currentTime: this._currentTime,
-            duration: this._duration,
-            seekableRange: this._seekableRange,
-            isPaused: this._isPaused,
-            isBuffering: this._isBuffering,
-            progress: this._duration ? this._currentTime / this._duration : 0,
-            percentProgress: this.getSliderValues().percentProgress
-        };
-
+        const baseStats = super.getStats();
+        
         const vodStats = {
             ...baseStats,
+            progress: this._duration ? this._currentTime / this._duration : 0,
+            percentProgress: this.getSliderValues().percentProgress,
+            isLiveStream: false,
+            isProgramLive: false,
             autoSeekToEnd: this._autoSeekToEnd,
             enableLooping: this._enableLooping,
             isNearEnd: this._isNearEnd(),
@@ -193,9 +188,8 @@ export class VODProgressManagerClass extends BaseProgressManager {
             ...sliderValues,
             isPaused: this._isPaused,
             isBuffering: this._isBuffering,
-            isLiveEdgePosition: false, // VOD nunca está en vivo
-            isProgramLive: false, // VOD nunca está en vivo
-            canSeekToEnd: true // VOD siempre permite seek al final
+            isLiveEdgePosition: false,
+            isProgramLive: false,
         };
     }
 

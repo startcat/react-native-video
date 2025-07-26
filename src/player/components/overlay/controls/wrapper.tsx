@@ -112,21 +112,21 @@ const ControlsBase = (props: ControlsProps): React.ReactElement => {
                 )}
 
                 <Timeline 
-                    playerProgress={playerProgress}
+                    playerProgress={commonProps.playerProgress}
                     thumbnailsMetadata={props.thumbnailsMetadata}
                     avoidThumbnails={props.avoidTimelineThumbnails}
-                    sliderVOD={components?.sliderVOD}
-                    sliderDVR={components?.sliderDVR}
-                    onSlidingStart={events?.onSlidingStart}
-                    onSlidingMove={events?.onSlidingMove}
-                    onSlidingComplete={events?.onSlidingComplete}
+                    sliderVOD={commonProps.components?.sliderVOD}
+                    sliderDVR={commonProps.components?.sliderDVR}
+                    onSlidingStart={commonProps.events?.onSlidingStart}
+                    onSlidingMove={commonProps.events?.onSlidingMove}
+                    onSlidingComplete={commonProps.events?.onSlidingComplete}
                 />
 
                 <View style={styles.temporalButtonsBar}>
                     <TimeMarks 
-                        playerTimeMarkers={playerTimeMarkers}
-                        playerProgress={playerProgress}
-                        components={components}
+                        playerTimeMarkers={commonProps.playerTimeMarkers}
+                        playerProgress={commonProps.playerProgress}
+                        components={commonProps.components}
                         onPress={handlePress}
                     />
                 </View>

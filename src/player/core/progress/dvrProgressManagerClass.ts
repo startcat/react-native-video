@@ -1,17 +1,18 @@
 import { Platform } from 'react-native';
 import { EPG_RETRY_DELAYS, LIVE_EDGE_TOLERANCE, LOG_ENABLED, LOG_KEY, LOG_LEVEL, LOG_TYPE_LEVELS, PROGRESS_SIGNIFICANT_CHANGE } from './constants';
 import { type BaseUpdatePlayerData } from './types/base';
+import { type DVRSliderValues } from './types/dvr';
 import { DVR_PLAYBACK_TYPE } from './types/enums';
 
 export class DVRProgressManagerClass {
-    // Estado principal
+    // Estado específico del DVR
     private _initialTimeWindowSeconds: number | null = null;
     private _currentTimeWindowSeconds: number | null = null;
     private _streamStartTime: number = 0;
     private _endStreamDate: number | null = null;
     private _duration: number | null = null;
 
-    // Estado del reproductor
+    // Estado de reproducción
     private _currentTime: number = 0;
     private _seekableRange: { start: number; end: number } = { start: 0, end: 0 };
     private _isPaused: boolean = false;
@@ -164,7 +165,7 @@ export class DVRProgressManagerClass {
         }
     }
 
-    getSliderValues(): any {
+    getSliderValues(): DVRSliderValues {
         if (!this._isValidState()) {
             this.log('getSliderValues: Invalid state', 'warn');
             return {
@@ -176,7 +177,9 @@ export class DVRProgressManagerClass {
                 percentLiveEdge: 0,
                 progressDatum: null,
                 liveEdgeOffset: null,
-                canSeekToEnd: false
+                canSeekToEnd: false,
+                isProgramLive: false, // Estado inválido, no está en vivo
+                isLiveEdgePosition: false // Estado inválido, no está en live edge
             };
         }
 
@@ -195,7 +198,9 @@ export class DVRProgressManagerClass {
                 Math.max(0, Math.min(1, (liveEdge - minimumValue) / range)) : 0,
             progressDatum: this._getProgressDatum(),
             liveEdgeOffset: this._getLiveEdgeOffset(),
-            canSeekToEnd: true
+            canSeekToEnd: true,
+            isProgramLive: this._isLiveEdgePosition, // DVR está en vivo si está en live edge
+            isLiveEdgePosition: this._isLiveEdgePosition // Indica si está en el live edge
         };
     }
 
@@ -218,8 +223,16 @@ export class DVRProgressManagerClass {
 
         if (wasNull) {
             this._initializeStreamTimes();
-            this._updateLiveEdgePosition();
-            this.getCurrentProgramInfo().catch(console.error);
+
+            // Solo ejecutar métodos que requieren estado válido si el estado es válido
+            if (this._isValidState()) {
+                this.log('State is valid - executing dependent methods', 'debug');
+                this._updateLiveEdgePosition();
+                this.getCurrentProgramInfo().catch(console.error);
+            } else {
+                this.log('State not valid yet - skipping dependent methods', 'debug');
+            }
+
         }
 
         this._emitProgressUpdate();
@@ -562,11 +575,15 @@ export class DVRProgressManagerClass {
     }
 
     private _isValidState(): boolean {
-        return this._seekableRange !== null && 
+        const isValid = this._seekableRange !== null && 
                this._seekableRange.end > 0 &&
                this._currentTime >= 0 &&
                this._initialTimeWindowSeconds !== null && 
                this._initialTimeWindowSeconds > 0;
+
+        console.log(`_isValidState - isValid: ${isValid}`);
+        
+        return isValid;
     }
 
     private _validatePlayerData(data: BaseUpdatePlayerData): BaseUpdatePlayerData {
