@@ -1,4 +1,5 @@
-import { type BaseProgressManagerOptions, type BaseSliderValues, type BaseUpdatePlayerData } from './base';
+import { type SliderValues } from '../../../types/types';
+import { type BaseProgressManagerOptions, type BaseUpdatePlayerData } from './base';
 
 export interface VODUpdatePlayerData extends BaseUpdatePlayerData {
     // VOD puede tener propiedades adicionales específicas si es necesario
@@ -10,11 +11,7 @@ export interface VODProgressManagerOptions extends BaseProgressManagerOptions {
     enableLooping?: boolean;
 }
 
-export interface VODSliderValues extends BaseSliderValues {
-    duration: number | null;
-}
-
-export interface VODProgressUpdateData extends VODSliderValues {
+export interface VODProgressUpdateData extends SliderValues {
     isPaused: boolean;
     isBuffering: boolean;
     isLiveEdgePosition: boolean;

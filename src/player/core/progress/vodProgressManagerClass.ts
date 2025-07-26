@@ -1,8 +1,9 @@
 import {
     type ProgressUpdateData,
-    type SeekableRange,
-    type SliderValues
+    type SeekableRange
 } from "../../types";
+
+import { type VODSliderValues } from "./types/vod";
 
 import { type BaseUpdatePlayerData } from "./types/base";
 
@@ -86,7 +87,7 @@ export class VODProgressManagerClass {
      * 
      */
     
-    getSliderValues(): SliderValues {
+    getSliderValues(): VODSliderValues {
         // Calcular porcentaje de progreso (0.0 - 1.0)
         const totalDuration = this._seekableRange.end - this._seekableRange.start;
         const currentProgress = this._currentTime - this._seekableRange.start;
@@ -97,8 +98,9 @@ export class VODProgressManagerClass {
             maximumValue: this._seekableRange.end,
             progress: this._currentTime,
             percentProgress: percentProgress,
-            duration: this._duration,
-            canSeekToEnd: true
+            duration: this._duration || undefined, // Convertir null a undefined
+            canSeekToEnd: true,
+            isProgramLive: false // VOD nunca está en vivo
         };
     }
   

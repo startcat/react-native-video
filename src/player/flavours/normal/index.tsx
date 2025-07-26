@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useAirplayConnectivity } from 'react-airplay';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -113,31 +113,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     // Control para evitar mezcla de sources
     const currentSourceType = useRef<'tudum' | 'content' | null>(null);
     const pendingContentSource = useRef<onSourceChangedProps | null>(null);
-    
-    // Initialize VOD Progress Manager only once
-    if (!vodProgressManagerRef.current) {
-        vodProgressManagerRef.current = new VODProgressManagerClass({
-            // Callbacks
-            onProgressUpdate: handleOnProgressUpdate,
-            onSeekRequest: handleOnSeekRequest
-        });
-    }
-
-    // Initialize DVR Progress Manager only once
-    if (!dvrProgressManagerRef.current) {
-        dvrProgressManagerRef.current = new DVRProgressManagerClass({
-            playbackType: props.playerProgress?.liveValues?.playbackType,
-
-            // Metadata
-            getEPGProgramAt: props.hooks?.getEPGProgramAt,
-        
-            // Callbacks
-            onModeChange: handleOnDVRModeChange,
-            onProgramChange: handleOnDVRProgramChange,
-            onProgressUpdate: handleOnProgressUpdate,
-            onSeekRequest: handleOnSeekRequest
-        });
-    }
 
     // Hook para la orientación de la pantalla
     const isLandscapePlayer = useIsLandscape();
@@ -463,11 +438,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         } else if (currentSourceType.current === 'content') {
             // Si ya estamos en modo contenido, procesar normalmente
             console.log(`[Player] (Video Flavour) onSourceChanged - Processing content source normally`);
-
-            // Si el stream es DVR, debemos actualizar el tamaño de la ventana
-            if (data.isDVR && dvrProgressManagerRef.current) {
-                dvrProgressManagerRef.current.setDVRWindowSeconds(data.dvrWindowSeconds || 3600);
-            }
             
             try {
                 playerProgressRef.current = {
@@ -560,16 +530,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
      *
      */
 
-    function handleOnDVRModeChange(data:ModeChangeData) {
-        console.log(`[Player] (Video Flavour) handleOnDVRModeChange: ${JSON.stringify(data)}`);
-    };
-
-    function handleOnDVRProgramChange(data:ProgramChangeData) {
-        console.log(`[Player] (Video Flavour) handleOnDVRProgramChange: ${JSON.stringify(data)}`);
-    };
-
-    function handleOnProgressUpdate(data: ProgressUpdateData) {
-        // console.log(`[Player] (Video Flavour) handleOnProgressUpdate - currentSourceType: ${currentSourceType.current}, duration: ${data.duration}`);
+    const handleOnProgressUpdate = useCallback((data: ProgressUpdateData) => {
+        console.log(`[Player] (Video Flavour) handleOnProgressUpdate - currentSourceType: ${currentSourceType.current}, duration: ${data.duration}`);
         
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
@@ -585,7 +547,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 isProgramLive: data.isProgramLive,
                 progressDatum: data.progressDatum,
                 liveEdgeOffset: data.liveEdgeOffset,
-                isLiveEdgePosition: data.isLiveEdgePosition,
             };
 
             try {
@@ -603,17 +564,60 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             } catch (ex: any) {
                 console.log(`[Player] (Video Flavour) handleOnProgressUpdate - error ${ex?.message}`);
             }
-
-        } else {
-            console.log(`[Player] (Video Flavour) handleOnProgressUpdate - Ignoring progress update for ${currentSourceType.current}`);
         }
-    };
+    }, [currentTime, paused, muted, isContentLoaded, props.playerProgress]);
 
-    function handleOnSeekRequest(playerTime:number) {
+    const handleOnSeekRequest = useCallback((playerTime: number) => {
         console.log(`[Player] (Video Flavour) handleOnSeekRequest: ${playerTime}`);
-        // Seek en player real
         refVideoPlayer.current?.seek(playerTime);
-    };
+    }, []);
+
+    const handleOnDVRModeChange = useCallback((data: ModeChangeData) => {
+        console.log(`[Player] (Video Flavour) handleOnDVRModeChange: ${JSON.stringify(data)}`);
+    }, []);
+
+    const handleOnDVRProgramChange = useCallback((data: ProgramChangeData) => {
+        console.log(`[Player] (Video Flavour) handleOnDVRProgramChange: ${JSON.stringify(data)}`);
+    }, []);
+
+    /*
+     *  Inicialización de Progress Managers
+     *
+     */
+
+    useEffect(() => {
+        // Initialize VOD Progress Manager
+        if (!vodProgressManagerRef.current) {
+            vodProgressManagerRef.current = new VODProgressManagerClass({
+                onProgressUpdate: handleOnProgressUpdate,
+                onSeekRequest: handleOnSeekRequest
+            });
+            console.log('[Player] VOD Progress Manager initialized');
+        }
+
+        // Initialize DVR Progress Manager  
+        if (!dvrProgressManagerRef.current) {
+            dvrProgressManagerRef.current = new DVRProgressManagerClass({
+                playbackType: props.playerProgress?.liveValues?.playbackType,
+                getEPGProgramAt: props.hooks?.getEPGProgramAt,
+                onModeChange: handleOnDVRModeChange,
+                onProgramChange: handleOnDVRProgramChange,
+                onProgressUpdate: handleOnProgressUpdate,
+                onSeekRequest: handleOnSeekRequest
+            });
+            console.log('[Player] DVR Progress Manager initialized');
+        }
+    }, [handleOnProgressUpdate, handleOnSeekRequest, handleOnDVRModeChange, handleOnDVRProgramChange]);
+
+    useEffect(() => {
+        const isLiveContent = !!props.playerProgress?.isLive;
+        
+        if (isLiveContent && sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+            const dvrWindow = sourceRef.current.dvrWindowSeconds || 3600; // 1 hora por defecto
+            console.log(`[Player] Setting DVR window: ${dvrWindow}s`);
+            dvrProgressManagerRef.current.setDVRWindowSeconds(dvrWindow);
+        }
+    }, [props.playerProgress?.isLive, sourceRef.current?.isDVR, sourceRef.current?.dvrWindowSeconds]);
 
     /*
      *  Handlers para los eventos de interfaz
@@ -802,11 +806,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 });
             }
 
-            // Inicializar progress managers
-            if (sourceRef.current?.isDVR) {
-                dvrProgressManagerRef.current?.setDVRWindowSeconds(sourceRef.current.dvrWindowSeconds);
-            }
-
             isChangingSource.current = false;
             setIsContentLoaded(true);
 
@@ -843,6 +842,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }
 
     const handleOnProgress = (e: OnProgressData) => {
+        console.log(`[Player] (Video Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, duration: ${e.playableDuration}, seekableDuration: ${e.seekableDuration}`);
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             // Trigger para el cambio de estado
             setCurrentTime(e.currentTime);

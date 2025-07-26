@@ -258,17 +258,41 @@ export interface IBasicProgram {
     extraData?: any;
 }
 
+/**
+ * Interfaz unificada de SliderValues que puede ser utilizada por todos los flavours
+ * independientemente de si trabajan con contenido VOD o DVR.
+ * 
+ * Propiedades básicas (siempre presentes):
+ * - minimumValue, maximumValue, progress, percentProgress, canSeekToEnd
+ * 
+ * Propiedades específicas de VOD (opcionales):
+ * - duration: Duración total del contenido VOD
+ * 
+ * Propiedades específicas de DVR (opcionales):
+ * - liveEdge: Posición temporal del live edge
+ * - percentLiveEdge: Porcentaje del live edge en el slider (0.0 - 1.0)
+ * - progressDatum: Timestamp absoluto de la posición actual
+ * - liveEdgeOffset: Segundos de retraso respecto al live edge
+ * - isProgramLive: Indica si el programa actual está en directo
+ */
 export interface SliderValues {
+    // Propiedades básicas (obligatorias)
     minimumValue: number;
     maximumValue: number;
     progress: number;
     percentProgress: number; // Porcentaje del slider (0.0 - 1.0)
-    duration?: number; // Duración del media para VODs
-    liveEdge?: number; // Posición del liveEdge
-    percentLiveEdge?: number; // Porcentaje del liveEdge (0.0 - 1.0)
-    progressDatum?: number; // Timestamp del progress
-    liveEdgeOffset?: number; // Segundos por detrás del liveEdge
-    canSeekToEnd?: boolean; // Indica si se puede hacer seek hasta el final (true para DVR/VOD)
+    canSeekToEnd: boolean; // Indica si se puede hacer seek hasta el final
+    
+    // Propiedades específicas de VOD (opcionales)
+    duration?: number; // Duración del media para contenido VOD
+    
+    // Propiedades específicas de DVR (opcionales)
+    liveEdge?: number | null; // Posición temporal del live edge
+    percentLiveEdge?: number; // Porcentaje del live edge (0.0 - 1.0)
+    progressDatum?: number | null; // Timestamp absoluto del progress
+    liveEdgeOffset?: number | null; // Segundos por detrás del live edge
+    isProgramLive?: boolean; // Indica si el programa está en directo
+    isLiveEdgePosition?: boolean; // Indica si la posición actual está en el live edge
 }
 
 export interface ProgressUpdateData extends SliderValues {

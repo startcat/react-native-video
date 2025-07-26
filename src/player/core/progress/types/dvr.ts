@@ -1,8 +1,8 @@
+import { type SliderValues } from '../../../types/types';
 import { DVR_PLAYBACK_TYPE } from './enums';
 
 import {
     type BaseProgressManagerOptions,
-    type BaseSliderValues,
     type BaseUpdatePlayerData
 } from './base';
 
@@ -38,14 +38,7 @@ export interface DVRProgressManagerOptions extends BaseProgressManagerOptions {
     onEPGError?: ((data: EPGErrorData) => void) | null;
 }
 
-export interface DVRSliderValues extends BaseSliderValues {
-    liveEdge: number | null;
-    percentLiveEdge: number;
-    progressDatum: number | null;
-    liveEdgeOffset: number | null;
-}
-
-export interface DVRProgressUpdateData extends DVRSliderValues {
+export interface DVRProgressUpdateData extends SliderValues {
     isPaused: boolean;
     isBuffering: boolean;
     isLiveEdgePosition: boolean;

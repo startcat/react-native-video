@@ -1,13 +1,14 @@
+// Timeline/wrapper.tsx - Corrección de SliderValues
+
 import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-
-import { VODSlider, DVRSlider } from './slider';
-import { ThumbnailsContainer } from './thumbnails';
-import { 
+import {
     type IThumbnailMetadata,
     type TimelineProps
 } from '../../../../types';
+import { DVRSlider, VODSlider } from './slider';
 import { styles } from './styles';
+import { ThumbnailsContainer } from './thumbnails';
 
 const TimelineBase = ({
     playerProgress,
@@ -23,12 +24,21 @@ const TimelineBase = ({
     // Extract values from playerProgress
     const currentTime = playerProgress?.currentTime || 0;
     const duration = playerProgress?.duration;
-    const dvrTimeValue = playerProgress?.liveValues?.currentRealTime;
     const isLive = playerProgress?.isLive || false;
     const isDVR = playerProgress?.isDVR || false;
+    const sliderValues = playerProgress?.sliderValues;
 
     const [showThumbnails, setShowThumbnails] = useState<boolean>(false);
     const [sliderValueVOD, setSliderValueVOD] = useState<number | undefined>(currentTime);
+
+    // Validar si tenemos sliderValues válidos
+    const hasValidSliderValues = useMemo(() => {
+        return sliderValues && 
+               typeof sliderValues.minimumValue === 'number' && 
+               typeof sliderValues.maximumValue === 'number' && 
+               typeof sliderValues.progress === 'number' &&
+               sliderValues.maximumValue > sliderValues.minimumValue;
+    }, [sliderValues]);
 
     const handleSlidingStart = useCallback((value: number) => {
         setShowThumbnails(true);
@@ -55,36 +65,52 @@ const TimelineBase = ({
         }
     }, [propOnSlidingComplete]);
 
-    // Componentes creados con createElement memorizados
-    const SliderVODComponent = useMemo(() => {
-        if (!sliderVOD) return null;
+    // Crear SliderValues seguros para VOD
+    const vodSliderValues = useMemo(() => {
+        if (hasValidSliderValues) {
+            return sliderValues!;
+        }
         
-        const sliderValues = playerProgress?.sliderValues || {
-            minimumValue: 0,
-            maximumValue: duration || 0,
-            progress: currentTime,
-            canSeekToEnd: true
-        };
+        // Fallback solo si tenemos duración válida
+        if (typeof duration === 'number' && duration > 0) {
+            return {
+                minimumValue: 0,
+                maximumValue: duration,
+                progress: currentTime,
+                percentProgress: duration > 0 ? Math.min(1, Math.max(0, currentTime / duration)) : 0,
+                canSeekToEnd: true,
+                duration: duration,
+                isLiveEdgePosition: false // VOD nunca está en live edge
+            };
+        }
+        
+        return null;
+    }, [hasValidSliderValues, sliderValues, duration, currentTime]);
+
+    // Crear SliderValues seguros para DVR
+    const dvrSliderValues = useMemo(() => {
+        if (hasValidSliderValues && (sliderValues!.liveEdge !== undefined || isDVR)) {
+            return sliderValues!;
+        }
+        
+        return null;
+    }, [hasValidSliderValues, sliderValues, isDVR]);
+
+    // Componentes con SliderValues válidos
+    const SliderVODComponent = useMemo(() => {
+        if (!sliderVOD || !vodSliderValues) return null;
         
         return React.createElement(sliderVOD, {
-            ...sliderValues,
+            ...vodSliderValues,
             thumbnailsMetadata,
             onSlidingStart: handleSlidingStart,
             onSlidingMove: handleSlidingMove,
             onSlidingComplete: handleSlidingComplete
         });
-    }, [sliderVOD, playerProgress?.sliderValues, currentTime, duration, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+    }, [sliderVOD, vodSliderValues, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
     const SliderDVRComponent = useMemo(() => {
-        if (!sliderDVR) return null;
-        
-        const dvrSliderValues = {
-            minimumValue: 0,
-            maximumValue: duration || 0,
-            progress: dvrTimeValue || 0,
-            canSeekToEnd: true,
-            liveEdge: duration
-        };
+        if (!sliderDVR || !dvrSliderValues) return null;
         
         return React.createElement(sliderDVR, { 
             ...dvrSliderValues,
@@ -93,36 +119,41 @@ const TimelineBase = ({
             onSlidingMove: handleSlidingMove,
             onSlidingComplete: handleSlidingComplete
         });
-    }, [sliderDVR, dvrTimeValue, duration, isLive, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+    }, [sliderDVR, dvrSliderValues, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
-    // Componentes default memorizados
+    // Componentes default solo si tenemos valores válidos
     const DefaultVODSlider = useMemo(() => {
-        const sliderValues = playerProgress?.sliderValues || {
-            minimumValue: 0,
-            maximumValue: duration || 0,
-            progress: currentTime,
-            canSeekToEnd: true
-        };
+        if (!vodSliderValues) {
+            console.warn('[Timeline] VOD Slider not rendered - invalid slider values', {
+                hasValidSliderValues,
+                duration,
+                currentTime,
+                sliderValuesAvailable: !!sliderValues
+            });
+            return null;
+        }
         
         return (
             <VODSlider
-                {...sliderValues}
+                {...vodSliderValues}
                 thumbnailsMetadata={thumbnailsMetadata}
                 onSlidingStart={handleSlidingStart}
                 onSlidingMove={handleSlidingMove}
                 onSlidingComplete={handleSlidingComplete}
             />
         );
-    }, [playerProgress?.sliderValues, currentTime, duration, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+    }, [vodSliderValues, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete, hasValidSliderValues, duration, currentTime, sliderValues]);
 
     const DefaultDVRSlider = useMemo(() => {
-        const dvrSliderValues = {
-            minimumValue: 0,
-            maximumValue: duration || 0,
-            progress: dvrTimeValue || 0,
-            canSeekToEnd: true,
-            liveEdge: duration
-        };
+        if (!dvrSliderValues) {
+            console.warn('[Timeline] DVR Slider not rendered - invalid slider values', {
+                hasValidSliderValues,
+                isDVR,
+                hasLiveEdge: sliderValues?.liveEdge !== undefined,
+                sliderValuesAvailable: !!sliderValues
+            });
+            return null;
+        }
 
         return (
             <DVRSlider
@@ -132,14 +163,26 @@ const TimelineBase = ({
                 onSlidingComplete={handleSlidingComplete}
             />
         );
-    }, [dvrTimeValue, duration, isLive, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
+    }, [dvrSliderValues, handleSlidingStart, handleSlidingMove, handleSlidingComplete, hasValidSliderValues, isDVR, sliderValues]);
 
-    // Condiciones memorizadas para renderizado condicional
-    const showVODSlider = useMemo(() => !isLive, [isLive]);
-    const showDVRSlider = useMemo(() => isDVR, [isDVR]);
+    // Condiciones de renderizado mejoradas
+    const showVODSlider = useMemo(() => !isLive && !isDVR && !!vodSliderValues, [isLive, isDVR, vodSliderValues]);
+    const showDVRSlider = useMemo(() => (isLive || isDVR) && !!dvrSliderValues, [isLive, isDVR, dvrSliderValues]);
+    
     const showThumbnailsContainer = useMemo(() => 
         !avoidThumbnails && showThumbnails && !!thumbnailsMetadata,
     [avoidThumbnails, showThumbnails, thumbnailsMetadata]);
+
+    // Log de debug para tracking
+    console.log('[Timeline] Render decision:', {
+        showVODSlider,
+        showDVRSlider,
+        hasValidSliderValues,
+        isLive,
+        isDVR,
+        vodSliderValuesAvailable: !!vodSliderValues,
+        dvrSliderValuesAvailable: !!dvrSliderValues
+    });
 
     // Componente ThumbnailsContainer memoizado
     const ThumbnailsComponent = useMemo(() => 
@@ -154,28 +197,31 @@ const TimelineBase = ({
     return (
         <View style={styles.container}>
             <View style={styles.barSlider}>
-                {showVODSlider && SliderVODComponent}
-                {showVODSlider && !SliderVODComponent && DefaultVODSlider}
-                {showDVRSlider && !showVODSlider && SliderDVRComponent}
-                {showDVRSlider && !showVODSlider && !SliderDVRComponent && DefaultDVRSlider}
+                {showVODSlider && (SliderVODComponent || DefaultVODSlider)}
+                {showDVRSlider && (SliderDVRComponent || DefaultDVRSlider)}
+                {!showVODSlider && !showDVRSlider && (
+                    <View style={{ height: 20, justifyContent: 'center', alignItems: 'center' }}>
+                        {/* Placeholder o mensaje de carga si es necesario */}
+                    </View>
+                )}
             </View>
             {ThumbnailsComponent}
         </View>
     );
 };
 
-// Comparador personalizado para evitar renderizados innecesarios
+// Comparador mejorado
 const arePropsEqual = (prevProps: TimelineProps, nextProps: TimelineProps): boolean => {
-    // Compare playerProgress values
     const prevProgress = prevProps.playerProgress;
     const nextProgress = nextProps.playerProgress;
     
     const progressEqual = (
         prevProgress?.currentTime === nextProgress?.currentTime &&
         prevProgress?.duration === nextProgress?.duration &&
-        prevProgress?.liveValues?.currentRealTime === nextProgress?.liveValues?.currentRealTime &&
         prevProgress?.isLive === nextProgress?.isLive &&
-        prevProgress?.isDVR === nextProgress?.isDVR
+        prevProgress?.isDVR === nextProgress?.isDVR &&
+        // Comparación profunda de sliderValues
+        JSON.stringify(prevProgress?.sliderValues) === JSON.stringify(nextProgress?.sliderValues)
     );
     
     return (
