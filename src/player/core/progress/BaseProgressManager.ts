@@ -147,6 +147,10 @@ export abstract class BaseProgressManager {
         this._emitProgressUpdate();
     }
 
+    public setManualSeeking(isManualSeeking: boolean): void {
+        this.log(`Manual seeking: ${isManualSeeking}`, 'debug');
+    }
+
     /*
      *  Getters públicos comunes
      *
