@@ -124,12 +124,6 @@ const TimelineBase = ({
     // Componentes default solo si tenemos valores válidos
     const DefaultVODSlider = useMemo(() => {
         if (!vodSliderValues) {
-            console.warn('[Timeline] VOD Slider not rendered - invalid slider values', {
-                hasValidSliderValues,
-                duration,
-                currentTime,
-                sliderValuesAvailable: !!sliderValues
-            });
             return null;
         }
         
@@ -142,16 +136,10 @@ const TimelineBase = ({
                 onSlidingComplete={handleSlidingComplete}
             />
         );
-    }, [vodSliderValues, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete, hasValidSliderValues, duration, currentTime, sliderValues]);
+    }, [vodSliderValues, thumbnailsMetadata, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
     const DefaultDVRSlider = useMemo(() => {
         if (!dvrSliderValues) {
-            console.warn('[Timeline] DVR Slider not rendered - invalid slider values', {
-                hasValidSliderValues,
-                isDVR,
-                hasLiveEdge: sliderValues?.liveEdge !== undefined,
-                sliderValuesAvailable: !!sliderValues
-            });
             return null;
         }
 
@@ -163,7 +151,7 @@ const TimelineBase = ({
                 onSlidingComplete={handleSlidingComplete}
             />
         );
-    }, [dvrSliderValues, handleSlidingStart, handleSlidingMove, handleSlidingComplete, hasValidSliderValues, isDVR, sliderValues]);
+    }, [dvrSliderValues, handleSlidingStart, handleSlidingMove, handleSlidingComplete]);
 
     // Condiciones de renderizado mejoradas
     const showVODSlider = useMemo(() => !isLive && !isDVR && !!vodSliderValues, [isLive, isDVR, vodSliderValues]);
@@ -210,30 +198,4 @@ const TimelineBase = ({
     );
 };
 
-// Comparador mejorado
-const arePropsEqual = (prevProps: TimelineProps, nextProps: TimelineProps): boolean => {
-    const prevProgress = prevProps.playerProgress;
-    const nextProgress = nextProps.playerProgress;
-    
-    const progressEqual = (
-        prevProgress?.currentTime === nextProgress?.currentTime &&
-        prevProgress?.duration === nextProgress?.duration &&
-        prevProgress?.isLive === nextProgress?.isLive &&
-        prevProgress?.isDVR === nextProgress?.isDVR &&
-        // Comparación profunda de sliderValues
-        JSON.stringify(prevProgress?.sliderValues) === JSON.stringify(nextProgress?.sliderValues)
-    );
-    
-    return (
-        progressEqual &&
-        prevProps.sliderVOD === nextProps.sliderVOD &&
-        prevProps.sliderDVR === nextProps.sliderDVR &&
-        prevProps.avoidThumbnails === nextProps.avoidThumbnails &&
-        prevProps.thumbnailsMetadata === nextProps.thumbnailsMetadata &&
-        prevProps.onSlidingStart === nextProps.onSlidingStart &&
-        prevProps.onSlidingMove === nextProps.onSlidingMove &&
-        prevProps.onSlidingComplete === nextProps.onSlidingComplete
-    );
-};
-
-export const Timeline = React.memo(TimelineBase, arePropsEqual);
+export const Timeline = TimelineBase;

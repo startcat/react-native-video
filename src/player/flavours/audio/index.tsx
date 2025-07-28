@@ -251,34 +251,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         console.log(`[Player] (Audio Flavour) 🔍 isChangingSource current value: ${isChangingSource.current}`);
     }, [isContentLoaded]);
 
-    useEffect(() => {
-        EventRegister.emit('audioPlayerProgress', {
-            preloading: isBuffering,
-            isContentLoaded: isContentLoaded,
-            speedRate: speedRate,
-            extraData: props.extraData,
-            // Nuevas Props Agrupadas
-            playerMetadata: props.playerMetadata,
-            playerProgress: {
-                ...props.playerProgress,
-                currentTime: currentTime,
-                isPaused: paused,
-                isMuted: muted,
-                isLive: sourceRef.current?.isLive,
-                isDVR: sourceRef.current?.isDVR,
-                isBinary: sourceRef.current?.isBinary,
-                isChangingSource: isChangingSource.current,
-                sliderValues: sliderValues.current,
-                currentProgram: playerProgressRef.current?.currentProgram,
-            },
-            playerAnalytics: props.playerAnalytics,
-            playerTimeMarkers: props.playerTimeMarkers,
-            //Events
-            events: props.events,
-        } as AudioControlsProps);
-
-    }, [currentTime, props.playerMetadata, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate, sliderValuesUpdate]);
-
     // Función para cargar source del tudum
     const loadTudumSource = () => {
         console.log(`[Player] (Audio Flavour) loadTudumSource`);
@@ -513,6 +485,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 isProgramLive: data.isProgramLive,
                 progressDatum: data.progressDatum,
                 liveEdgeOffset: data.liveEdgeOffset,
+                isLiveEdgePosition: data.isLiveEdgePosition
             };
 
             try {
@@ -574,6 +547,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             console.log('[Player] DVR Progress Manager initialized');
         }
     }, [handleOnProgressUpdate, handleOnSeekRequest, handleOnDVRModeChange, handleOnDVRProgramChange]);
+
+    useEffect(() => {
+        return () => {
+            if (vodProgressManagerRef.current) {
+                vodProgressManagerRef.current.destroy();
+            }
+            if (dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.destroy();
+            }
+        };
+    }, []);
 
     useEffect(() => {
         const isLiveContent = !!props.playerProgress?.isLive;
@@ -642,7 +626,32 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         console.log(`[Player] (Audio Flavour) handleOnControlsPress: ${id} (${value})`);
 
         if (id === CONTROL_ACTION.PAUSE){
-            setPaused(!!value);
+            const newPausedState = !!value;
+            setPaused(newPausedState);
+            
+            // Notificar cambio de pausa a los progress managers
+            if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+                console.log(`[DANI] (Audio Flavour) Notifying DVR pause change: ${newPausedState}`);
+                dvrProgressManagerRef.current.notifyManualPause(newPausedState);
+                dvrProgressManagerRef.current.updatePlayerData({
+                    currentTime: currentTime,
+                    seekableRange: { start: 0, end: currentTime + 100 }, // Valor temporal
+                    isBuffering: isBuffering,
+                    isPaused: newPausedState
+                });
+            }
+            
+            if (!sourceRef.current?.isLive && vodProgressManagerRef.current) {
+                console.log(`[DANI] (Audio Flavour) Notifying VOD pause change: ${newPausedState}`);
+                const currentDuration = vodProgressManagerRef.current.duration || 0;
+                vodProgressManagerRef.current.updatePlayerData({
+                    currentTime: currentTime,
+                    seekableRange: { start: 0, end: currentDuration },
+                    duration: currentDuration,
+                    isBuffering: isBuffering,
+                    isPaused: newPausedState
+                });
+            }
         }
 
         if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
@@ -760,12 +769,61 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
         }
 
-    }, [currentTime]);
+    }, [currentTime, isBuffering]);
+
+    const handleOnSlidingStart = (value: number) => {
+        console.log(`[Player] (Audio Flavour) handleOnSlidingStart: ${value}`);
+        
+        // Activar manual seeking en el progress manager correspondiente
+        if (sourceRef.current?.isDVR) {
+            dvrProgressManagerRef.current?.setManualSeeking(true);
+        }
+    };
 
     const handleOnSlidingComplete = (value: number) => {
-        // console.log(`[Player] (Audio Flavour) handleOnSlidingComplete: ${value}`);
+        console.log(`[Player] (Audio Flavour) handleOnSlidingComplete: ${value}`);
+
+        // Desactivar manual seeking y hacer el seek
+        if (sourceRef.current?.isDVR) {
+            dvrProgressManagerRef.current?.setManualSeeking(false);
+        }
+
         handleOnControlsPress(CONTROL_ACTION.SEEK, value);
     }
+
+    /*
+     *  Evento del progreso del audio player
+     *
+     */
+
+    useEffect(() => {
+        console.log(`[DANI] audioPlayerProgress...`);
+        EventRegister.emit('audioPlayerProgress', {
+            preloading: isBuffering,
+            isContentLoaded: isContentLoaded,
+            speedRate: speedRate,
+            extraData: props.extraData,
+            // Nuevas Props Agrupadas
+            playerMetadata: props.playerMetadata,
+            playerProgress: {
+                ...props.playerProgress,
+                currentTime: currentTime,
+                isPaused: paused,
+                isMuted: muted,
+                isLive: sourceRef.current?.isLive,
+                isDVR: sourceRef.current?.isDVR,
+                isBinary: sourceRef.current?.isBinary,
+                isChangingSource: isChangingSource.current,
+                sliderValues: sliderValues.current,
+                currentProgram: playerProgressRef.current?.currentProgram,
+            },
+            playerAnalytics: props.playerAnalytics,
+            playerTimeMarkers: props.playerTimeMarkers,
+            //Events
+            events: props.events,
+        } as AudioControlsProps);
+
+    }, [currentTime, props.playerMetadata, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate, sliderValuesUpdate, handleOnControlsPress]);
 
     /*
      *  Handlers para los eventos
@@ -928,6 +986,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         //Events
         events: {
             onPress: handleOnControlsPress,
+            onSlidingStart: handleOnSlidingStart,
             onSlidingComplete: handleOnSlidingComplete
         }
 
