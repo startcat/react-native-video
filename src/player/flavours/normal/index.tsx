@@ -93,7 +93,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const refVideoPlayer = useRef<VideoRef>(null);
     const videoQualityIndex = useRef<number>(-1);
-    const sliderValues = useRef<SliderValues>();
+    const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
 
     // Player Progress
     const playerProgressRef = useRef<IPlayerProgress>();
@@ -141,9 +141,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }, [videoSource?.uri]);
 
     useEffect(() => {
-        console.log(`[Player] (Video Flavour) useEffect manifests - isAutoNext: ${props.isAutoNext}`);
-        console.log(`[Player] (Video Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
-        console.log(`[Player] (Video Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
+        // console.log(`[Player] (Video Flavour) useEffect manifests - isAutoNext: ${props.isAutoNext}`);
+        // console.log(`[Player] (Video Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
+        // console.log(`[Player] (Video Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
 
         // Verificar si es contenido live/DVR vs VOD
         const isLiveContent = !!props.playerProgress?.isLive;
@@ -197,7 +197,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             // Reset completo solo para VOD
             currentSourceType.current = null;
             pendingContentSource.current = null;
-            sliderValues.current = undefined;
+            setSliderValues(undefined);
             setIsContentLoaded(false);
             
             // Reset progress managers solo para VOD
@@ -304,7 +304,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         tudumRef.current!.isPlaying = false;
         
         // Reset completo de progress managers y sliderValues
-        sliderValues.current = undefined;
+        setSliderValues(undefined);
         vodProgressManagerRef.current?.reset();
         dvrProgressManagerRef.current?.reset();
         
@@ -405,10 +405,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     // Source Cooking
     const onSourceChanged = (data:onSourceChangedProps) => {
-        console.log(`[Player] (Video Flavour) onSourceChanged - currentSourceType: ${currentSourceType.current}`);
-        console.log(`[Player] (Video Flavour) onSourceChanged - tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-        console.log(`[Player] (Video Flavour) onSourceChanged - data isReady: ${data.isReady}`);
-        console.log(`[Player] (Video Flavour) onSourceChanged - data ${JSON.stringify(data)}`);
+        // console.log(`[Player] (Video Flavour) onSourceChanged - currentSourceType: ${currentSourceType.current}`);
+        // console.log(`[Player] (Video Flavour) onSourceChanged - tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
+        // console.log(`[Player] (Video Flavour) onSourceChanged - data isReady: ${data.isReady}`);
+        // console.log(`[Player] (Video Flavour) onSourceChanged - data ${JSON.stringify(data)}`);
         
         if (!sourceRef.current?.isLive && !sourceRef.current?.isDownloaded && currentSourceType.current === 'tudum') {
             // Si estamos reproduciendo tudum, guardar el source del contenido para después
@@ -423,12 +423,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                     playerProgressRef.current = {
                         ...props.playerProgress,
                         currentTime: currentTime,
-                        duration: sliderValues.current?.duration || 0,
+                        duration: sliderValues?.duration || 0,
                         isPaused: paused,
                         isMuted: muted,
                         isContentLoaded: isContentLoaded,
                         isChangingSource: isChangingSource.current,
-                        sliderValues: sliderValues.current,
+                        sliderValues: sliderValues,
                     };
                 } catch (ex: any) {
                     console.log(`[Player] (Video Flavour) onSourceChanged - error ${ex?.message}`);
@@ -443,12 +443,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 playerProgressRef.current = {
                     ...props.playerProgress,
                     currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
+                    duration: sliderValues?.duration || 0,
                     isPaused: paused,
                     isMuted: muted,
                     isContentLoaded: isContentLoaded,
                     isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
+                    sliderValues: sliderValues,
                 };
             } catch (ex: any) {
                 console.log(`[Player] (Video Flavour) onSourceChanged - error ${ex?.message}`);
@@ -470,12 +470,12 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 playerProgressRef.current = {
                     ...props.playerProgress,
                     currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
+                    duration: sliderValues?.duration || 0,
                     isPaused: paused,
                     isMuted: muted,
                     isContentLoaded: isContentLoaded,
                     isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
+                    sliderValues: sliderValues,
                 };
             } catch (ex: any) {
                 console.log(`[Player] (Video Flavour) onSourceChanged - error ${ex?.message}`);
@@ -531,11 +531,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
      */
 
     const handleOnProgressUpdate = useCallback((data: ProgressUpdateData) => {
-        console.log(`[Player] (Video Flavour) handleOnProgressUpdate - currentSourceType: ${currentSourceType.current}, duration: ${data.duration}`);
+        console.log(`[DANI] (Video Flavour) handleOnProgressUpdate - currentSourceType: ${currentSourceType.current}, data: ${JSON.stringify(data)}`);
         
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
-            sliderValues.current = {
+            setSliderValues({
                 minimumValue: data.minimumValue,
                 maximumValue: data.maximumValue,
                 progress: data.progress,
@@ -547,18 +547,19 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 isProgramLive: data.isProgramLive,
                 progressDatum: data.progressDatum,
                 liveEdgeOffset: data.liveEdgeOffset,
-            };
+                isLiveEdgePosition: data.isLiveEdgePosition
+            });
 
             try {
                 playerProgressRef.current = {
                     ...props.playerProgress,
                     currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
+                    duration: sliderValues?.duration || 0,
                     isPaused: paused,
                     isMuted: muted,
                     isContentLoaded: isContentLoaded,
                     isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
+                    sliderValues: sliderValues,
                     currentProgram: data.currentProgram,
                 };
             } catch (ex: any) {
@@ -610,6 +611,17 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }, [handleOnProgressUpdate, handleOnSeekRequest, handleOnDVRModeChange, handleOnDVRProgramChange]);
 
     useEffect(() => {
+        return () => {
+            if (vodProgressManagerRef.current) {
+                vodProgressManagerRef.current.destroy();
+            }
+            if (dvrProgressManagerRef.current) {
+                dvrProgressManagerRef.current.destroy();
+            }
+        };
+    }, []);
+
+    useEffect(() => {
         const isLiveContent = !!props.playerProgress?.isLive;
         
         if (isLiveContent && sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
@@ -631,7 +643,32 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         console.log(`[Player] (Video Flavour) handleOnControlsPress: ${id} (${value})`);
 
         if (id === CONTROL_ACTION.PAUSE){
-            setPaused(!!value);
+            const newPausedState = !!value;
+            setPaused(newPausedState);
+
+            // Notificar cambio de pausa a los progress managers
+            if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+                console.log(`[Player] (Video Flavour) Notifying DVR pause change: ${newPausedState}`);
+                dvrProgressManagerRef.current.notifyManualPause(newPausedState);
+                dvrProgressManagerRef.current.updatePlayerData({
+                    currentTime: currentTime,
+                    seekableRange: { start: 0, end: currentTime + 100 }, // Valor temporal
+                    isBuffering: isBuffering,
+                    isPaused: newPausedState
+                });
+            }
+        
+            if (!sourceRef.current?.isLive && vodProgressManagerRef.current) {
+                console.log(`[Player] (Video Flavour) Notifying VOD pause change: ${newPausedState}`);
+                const currentDuration = vodProgressManagerRef.current.duration || 0;
+                vodProgressManagerRef.current.updatePlayerData({
+                    currentTime: currentTime,
+                    seekableRange: { start: 0, end: currentDuration },
+                    duration: currentDuration,
+                    isBuffering: isBuffering,
+                    isPaused: newPausedState
+                });
+            }
         }
         
         if (id === CONTROL_ACTION.MUTE){
@@ -772,8 +809,23 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     }
 
+    const handleOnSlidingStart = (value: number) => {
+        console.log(`[Player] (Video Flavour) handleOnSlidingStart: ${value}`);
+        
+        // Activar manual seeking en el progress manager correspondiente
+        if (sourceRef.current?.isDVR) {
+            dvrProgressManagerRef.current?.setManualSeeking(true);
+        }
+    };
+
     const handleOnSlidingComplete = (value: number) => {
-        // console.log(`[Player] (Video Flavour) handleOnSlidingComplete: ${value}`);
+        console.log(`[Player] (Video Flavour) handleOnSlidingComplete: ${value}`);
+
+        // Desactivar manual seeking y hacer el seek
+        if (sourceRef.current?.isDVR) {
+            dvrProgressManagerRef.current?.setManualSeeking(false);
+        }
+
         handleOnControlsPress(CONTROL_ACTION.SEEK, value);
     }
 
@@ -1063,7 +1115,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         playerProgress={{
                             ...props.playerProgress,
                             currentTime: currentTime,
-                            duration: sliderValues.current?.duration || 0,
+                            duration: sliderValues?.duration || 0,
                             isBuffering: isBuffering,
                             isContentLoaded: isContentLoaded,
                             isChangingSource: isChangingSource.current,
@@ -1071,7 +1123,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                             isLive: sourceRef.current?.isLive,
                             isPaused: paused,
                             isMuted: muted,
-                            sliderValues: sliderValues.current,
+                            sliderValues: sliderValues,
                         }}
                         playerAnalytics={props.playerAnalytics}
                         playerTimeMarkers={props.playerTimeMarkers}
@@ -1084,6 +1136,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         events={{
                             ...props.events,
                             onPress: handleOnControlsPress,
+                            onSlidingStart: handleOnSlidingStart,
                             onSlidingComplete: handleOnSlidingComplete,
                         }}
                     />
