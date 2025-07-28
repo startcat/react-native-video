@@ -161,17 +161,6 @@ const TimelineBase = ({
         !avoidThumbnails && showThumbnails && !!thumbnailsMetadata,
     [avoidThumbnails, showThumbnails, thumbnailsMetadata]);
 
-    // Log de debug para tracking
-    console.log('[Timeline] Render decision:', {
-        showVODSlider,
-        showDVRSlider,
-        hasValidSliderValues,
-        isLive,
-        isDVR,
-        vodSliderValuesAvailable: !!vodSliderValues,
-        dvrSliderValuesAvailable: !!dvrSliderValues
-    });
-
     // Componente ThumbnailsContainer memoizado
     const ThumbnailsComponent = useMemo(() => 
         showThumbnailsContainer ? (
