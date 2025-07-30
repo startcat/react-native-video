@@ -294,6 +294,8 @@ export abstract class BaseProgressManager {
 
         try {
             const progressData = this._buildProgressData();
+
+            console.log(`[DANI] _emitProgressUpdate ${JSON.stringify(progressData)}`);
             
             if (this._options.onProgressUpdate) {
                 this._options.onProgressUpdate(progressData);
