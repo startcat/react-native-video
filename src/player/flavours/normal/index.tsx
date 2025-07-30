@@ -531,7 +531,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
      */
 
     const handleOnProgressUpdate = useCallback((data: ProgressUpdateData) => {
-        console.log(`[DANI] (Video Flavour) handleOnProgressUpdate - currentSourceType: ${currentSourceType.current}, data: ${JSON.stringify(data)}`);
+        console.log(`[Player] (Video Flavour) handleOnProgressUpdate ${JSON.stringify(data)}`);
         
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {

@@ -68,13 +68,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const refVideoPlayer = useRef<VideoRef>(null);
     const sleepTimerObj = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const sliderValues = useRef<SliderValues>();
+    const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
 
     // Player Progress
     const playerProgressRef = useRef<IPlayerProgress>();
-    
-    // Trigger para forzar re-render cuando sliderValues cambie
-    const [sliderValuesUpdate, setSliderValuesUpdate] = useState<number>(0);
 
     // Source
     const sourceRef = useRef<SourceClass | null>(null);
@@ -192,7 +189,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             // Reset completo solo para VOD
             currentSourceType.current = null;
             pendingContentSource.current = null;
-            sliderValues.current = undefined;
+            setSliderValues(undefined);
             setIsContentLoaded(false);
             
             // Reset progress managers solo para VOD
@@ -305,7 +302,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         tudumRef.current!.isPlaying = false;
         
         // Reset completo de progress managers y sliderValues
-        sliderValues.current = undefined;
+        setSliderValues(undefined);
         vodProgressManagerRef.current?.reset();
         dvrProgressManagerRef.current?.reset();
         
@@ -361,12 +358,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     playerProgressRef.current = {
                         ...props.playerProgress,
                         currentTime: currentTime,
-                        duration: sliderValues.current?.duration || 0,
+                        duration: sliderValues?.duration || 0,
                         isPaused: paused,
                         isMuted: muted,
                         isContentLoaded: isContentLoaded,
                         isChangingSource: isChangingSource.current,
-                        sliderValues: sliderValues.current,
+                        sliderValues: sliderValues,
                     };
                 } catch (ex: any) {
                     console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
@@ -381,12 +378,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 playerProgressRef.current = {
                     ...props.playerProgress,
                     currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
+                    duration: sliderValues?.duration || 0,
                     isPaused: paused,
                     isMuted: muted,
                     isContentLoaded: isContentLoaded,
                     isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
+                    sliderValues: sliderValues,
                 };
             } catch (ex: any) {
                 console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
@@ -408,12 +405,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 playerProgressRef.current = {
                     ...props.playerProgress,
                     currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
+                    duration: sliderValues?.duration || 0,
                     isPaused: paused,
                     isMuted: muted,
                     isContentLoaded: isContentLoaded,
                     isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
+                    sliderValues: sliderValues,
                 };
             } catch (ex: any) {
                 console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
@@ -469,11 +466,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
      */
 
     const handleOnProgressUpdate = useCallback((data: ProgressUpdateData) => {
-        console.log(`[Player] (Audio Flavour) handleOnProgressUpdate - currentSourceType: ${currentSourceType.current}, duration: ${data.duration}`);
+        console.log(`[Player] (Audio Flavour) handleOnProgressUpdate ${JSON.stringify(data)}`);
         
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
-            sliderValues.current = {
+            setSliderValues({
                 minimumValue: data.minimumValue,
                 maximumValue: data.maximumValue,
                 progress: data.progress,
@@ -486,22 +483,22 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 progressDatum: data.progressDatum,
                 liveEdgeOffset: data.liveEdgeOffset,
                 isLiveEdgePosition: data.isLiveEdgePosition
-            };
+            });
 
             try {
                 playerProgressRef.current = {
                     ...props.playerProgress,
                     currentTime: currentTime,
-                    duration: sliderValues.current?.duration || 0,
+                    duration: sliderValues?.duration || 0,
                     isPaused: paused,
                     isMuted: muted,
                     isContentLoaded: isContentLoaded,
                     isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues.current,
+                    sliderValues: sliderValues,
                     currentProgram: data.currentProgram,
                 };
             } catch (ex: any) {
-                console.log(`[Player] (Video Flavour) handleOnProgressUpdate - error ${ex?.message}`);
+                console.log(`[Player] (Audio Flavour) handleOnProgressUpdate - error ${ex?.message}`);
             }
         }
     }, [currentTime, paused, muted, isContentLoaded, props.playerProgress]);
@@ -814,7 +811,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 isDVR: sourceRef.current?.isDVR,
                 isBinary: sourceRef.current?.isBinary,
                 isChangingSource: isChangingSource.current,
-                sliderValues: sliderValues.current,
+                sliderValues: sliderValues,
                 currentProgram: playerProgressRef.current?.currentProgram,
             },
             playerAnalytics: props.playerAnalytics,
@@ -823,7 +820,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             events: props.events,
         } as AudioControlsProps);
 
-    }, [currentTime, props.playerMetadata, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate, sliderValuesUpdate, handleOnControlsPress]);
+    }, [currentTime, sliderValues, props.playerProgress, props.playerMetadata, paused, muted, isBuffering, sourceRef.current?.isDVR, isContentLoaded, speedRate, handleOnControlsPress]);
 
     /*
      *  Handlers para los eventos

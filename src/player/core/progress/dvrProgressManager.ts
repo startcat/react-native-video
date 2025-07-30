@@ -275,6 +275,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
             
             // Timer obligatorio cada 1 segundo
             this._pauseUpdateInterval = setInterval(() => {
+                console.log(`[DANI] _pauseUpdateInterval TICK`);
                 const pausedFor = this._pauseStartTime > 0 ? (Date.now() - this._pauseStartTime) / 1000 : 0;
 
                 // Incrementar el seekableRange.end congelado para simular el crecimiento de la ventana DVR
