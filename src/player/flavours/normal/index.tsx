@@ -649,7 +649,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             // Notificar cambio de pausa a los progress managers
             if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
                 console.log(`[Player] (Video Flavour) Notifying DVR pause change: ${newPausedState}`);
-                dvrProgressManagerRef.current.notifyManualPause(newPausedState);
                 dvrProgressManagerRef.current.updatePlayerData({
                     currentTime: currentTime,
                     seekableRange: { start: 0, end: currentTime + 100 }, // Valor temporal
