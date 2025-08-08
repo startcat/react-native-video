@@ -887,6 +887,8 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const handleOnProgress = (e: OnProgressData) => {
+        
+        console.log(`[Player] (Audio Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, duration: ${e.playableDuration}, seekableDuration: ${e.seekableDuration}`);
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             // Trigger para el cambio de estado

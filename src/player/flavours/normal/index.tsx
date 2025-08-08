@@ -894,7 +894,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }
 
     const handleOnProgress = (e: OnProgressData) => {
-        console.log(`[Player] (Video Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, duration: ${e.playableDuration}, seekableDuration: ${e.seekableDuration}`);
+
+        console.log(`[Player] (Video Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, duration: ${e.playableDuration}, seekableDuration: ${e.seekableDuration}`);
+
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             // Trigger para el cambio de estado
             setCurrentTime(e.currentTime);

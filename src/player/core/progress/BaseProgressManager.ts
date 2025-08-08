@@ -1,4 +1,5 @@
 import { type SliderValues } from '../../types/types';
+import { formatOffset, formatTimestamp, formatTimestampDifference } from '../../utils/time';
 import { LOG_ENABLED, LOG_KEY, LOG_LEVEL, LOG_TYPE_LEVELS } from './constants';
 import {
     type BaseProgressManagerOptions,
@@ -295,11 +296,33 @@ export abstract class BaseProgressManager {
         try {
             const progressData = this._buildProgressData();
 
-            console.log(`[DANI] _emitProgressUpdate ${JSON.stringify(progressData)}`);
+            // console.log(`[DANI] _emitProgressUpdate ${JSON.stringify(progressData)}`);
+            console.log(`[DVRProgressManager] _emitProgressUpdate :: ` +
+                `${formatTimestamp(progressData.progress)} / ${formatTimestamp(progressData.maximumValue)} ` +
+                `(${((progressData.percentProgress || 0) * 100).toFixed(1)}%)`
+            );
+            
+            console.log(`[DVRProgressManager] _emitProgressUpdate :: ` +
+                `Window: ${formatTimestamp(progressData.minimumValue)} - ${formatTimestamp(progressData.maximumValue)} ` +
+                `[${formatTimestampDifference(progressData.minimumValue, progressData.maximumValue)}]`
+            );
+            
+            console.log(`[DVRProgressManager] _emitProgressUpdate :: ` +
+                `Live Edge: ${progressData.isLiveEdgePosition ? '🔴 LIVE' : '⏸️ DELAYED'} ` +
+                `-${formatOffset(progressData.liveEdgeOffset)} ` +
+                `(${((progressData.percentLiveEdge || 0) * 100).toFixed(1)}% of slider)`
+            );
+            
+            console.log(`[DVRProgressManager] _emitProgressUpdate :: ` +
+                `Progress: ${formatTimestamp(progressData.progressDatum)} ` +
+                `| Live: ${formatTimestamp(progressData.liveEdge)} ` +
+                `| Mode: ${progressData.playbackType || 'WINDOW'}`
+            );
             
             if (this._options.onProgressUpdate) {
                 this._options.onProgressUpdate(progressData);
             }
+            
         } catch (error) {
             this.log('_emitProgressUpdate error', 'error', error);
             this._emitFallbackProgressUpdate();
