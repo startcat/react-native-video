@@ -102,3 +102,29 @@ export function parseToDetails (durationInSeconds: number | string): string {
     }
 
 };
+
+// Función helper para formatear timestamps absolutos a hora local
+export function formatTimestamp(timestamp: number | null | undefined): string {
+    if (!timestamp || timestamp <= 0) return '--:--:--';
+    
+    const date = new Date(timestamp);
+    // Formato HH:MM:SS en hora local
+    return date.toLocaleTimeString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: false 
+    });
+}
+
+// Función helper para calcular duración entre dos timestamps
+export function formatTimestampDifference(startTimestamp: number, endTimestamp: number): string {
+    const diffInSeconds = Math.abs(endTimestamp - startTimestamp) / 1000;
+    return parseToCounter(diffInSeconds);
+}
+
+// Función helper para formatear el offset (ya está en segundos)
+export function formatOffset(offsetInSeconds: number | null | undefined): string {
+    if (offsetInSeconds === null || offsetInSeconds === undefined) return '--:--';
+    return parseToCounter(offsetInSeconds);
+}
