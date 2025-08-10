@@ -75,10 +75,8 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
         const wasValidBefore = this._isValidState();
         
-        // ✅ CORREGIDO: Gestión de pausas ANTES de actualizar estado básico
         this._updateDVRPauseTracking(data.isPaused, data.isBuffering);
         
-        // Usar la validación y actualización base
         this._updateBasicPlayerData(data);
 
         const isValidNow = this._isValidState();
@@ -381,12 +379,13 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         this._handleStandardSeek(time);
     }
 
-    // ✅ NUEVO: Métodos públicos para eventos de slider (SIN timeout automático)
+    // Métodos públicos para eventos de slider
     onSliderSlidingStart(): void {
         this.log('Slider sliding started - entering manual seeking mode', 'debug');
         this._isManualSeeking = true;
     }
 
+    // Métodos públicos para eventos de slider
     onSliderSlidingComplete(): void {
         this.log('Slider sliding completed - exiting manual seeking mode', 'debug');
         this._isManualSeeking = false;
@@ -506,7 +505,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
     protected _handleSeekTo(playerTime: number): void {
         this.log(`DVR seeking to: ${playerTime}`, 'debug');
         
-        // ✅ NUEVO: Si estamos pausados, actualizar frozen position inmediatamente
+        // Si estamos pausados, actualizar frozen position inmediatamente
         if (this._isPaused || this._isBuffering) {
             const newTimestamp = this._playerTimeToTimestamp(playerTime);
             this._frozenProgressDatum = newTimestamp;
@@ -590,9 +589,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
      *
      */
 
-    /**
-     * Actualizar ventana desde seekableRange (fuente de verdad)
-     */
+    // Actualizar ventana desde seekableRange (fuente de verdad)
     private _updateTimeWindowFromSeekableRange(): void {
         const seekableDuration = this._seekableRange.end - this._seekableRange.start;
         
@@ -607,9 +604,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         }
     }
 
-    /**
-     * Inicializar tiempos basado en seekableRange
-     */
+    // Inicializar tiempos basado en seekableRange
     private _initializeStreamTimesFromSeekableRange(): void {
         const seekableDuration = this._seekableRange.end - this._seekableRange.start;
         const now = Date.now();
@@ -618,9 +613,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         this.log(`Stream times initialized from seekableRange: ${seekableDuration}s`, 'debug');
     }
 
-    /**
-     * Validar consistencia durante pausas
-     */
+    // Validar consistencia durante pausas
     private _validatePauseConsistency(): boolean {
         if (!this._frozenProgressDatum) return true;
         
@@ -637,9 +630,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         return isValid;
     }
 
-    /**
-     * Recalcular valores durante pausa
-     */
+    // Recalcular valores durante pausa
     private _recalculatePauseValues(): void {
         if (this._isValidState()) {
             this._frozenProgressDatum = this._getProgressDatum();
@@ -647,9 +638,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         }
     }
 
-    /**
-     * Log con información de progreso en formato solicitado
-     */
+    // Log con información de progreso en formato fácil de validar
     private _logProgressInfo(): void {
         if (!this._isValidState()) return;
 
@@ -677,9 +666,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         this.log(`${statusIcon} Progress: ${timeStr} | Offset: ${offsetStr} | Mode: ${this._playbackType} | Status: ${statusText}`, 'info');
     }
 
-    /**
-     * Limpiar todos los timeouts de EPG
-     */
+    // Limpiar todos los timeouts de EPG
     private _clearEPGRetryTimeouts(): void {
         for (const [timestamp, timeoutId] of this._epgRetryTimeouts) {
             clearTimeout(timeoutId);
@@ -695,6 +682,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
         this.log(`Pause tracking: wasStalled=${wasStalled}, isStalled=${isStalled}`, 'debug');
 
+        // Verificar el código exacto del timer de pausa
         if (!wasStalled && isStalled) {
             // Iniciando pausa/buffering
             this._pauseStartTime = Date.now();
@@ -714,10 +702,13 @@ export class DVRProgressManagerClass extends BaseProgressManager {
                     
                     this.log(`⏱️ Pause timer tick - duration: ${Math.floor(pausedDuration)}s`, 'debug');
                     
-                    // Actualizar liveEdgePosition si llevamos mucho tiempo pausado
-                    if (this._isLiveEdgePosition && pausedDuration >= LIVE_EDGE_TOLERANCE) {
-                        this._isLiveEdgePosition = false;
-                        this.log('🔴 Left live edge due to pause duration', 'info');
+                    // Actualizar liveEdgePosition basado en offset real
+                    if (this._isLiveEdgePosition) {
+                        const currentOffset = this._getLiveEdgeOffset();
+                        if (currentOffset > LIVE_EDGE_TOLERANCE) {
+                            this._isLiveEdgePosition = false;
+                            this.log(`🔴 Left live edge due to offset: ${currentOffset.toFixed(1)}s > ${LIVE_EDGE_TOLERANCE}s`, 'info');
+                        }
                     }
                     
                     // Log cada segundo durante pausa para mostrar crecimiento del offset
@@ -864,9 +855,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         return result;
     }
 
-    /**
-     * Calcular windowStart desde seekableRange (fuente de verdad)
-     */
+    // Calcular windowStart desde seekableRange (fuente de verdad)
     private _getWindowStart(): number {
         const liveEdge = this._getCurrentLiveEdge();
         const seekableDuration = this._seekableRange.end - this._seekableRange.start;
@@ -899,7 +888,6 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         return Math.max(0, (liveEdge - progress) / 1000);
     }
 
-    // Simplificado según regla fundamental
     private _isProgramCurrentlyLive(): boolean {
         if (!this._currentProgram) return false;
         
@@ -908,17 +896,13 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         return this._currentProgram.endDate > now;
     }
 
-    /**
-     * Conversión simple y unificada para todos los modos
-     */
+    // Conversión simple y unificada para todos los modos
     private _playerTimeToTimestamp(playerTime: number): number {
         const windowStart = this._getWindowStart();
         return windowStart + (playerTime * 1000);
     }
 
-    /**
-     * Conversión simple basada en el modo
-     */
+    // Conversión simple basada en el modo
     private _timestampToPlayerTime(timestamp: number): number {
         if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST && this._currentProgram) {
             // En PLAYLIST: timestamp relativo al programa
