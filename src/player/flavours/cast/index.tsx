@@ -8,6 +8,7 @@ import { styles } from '../styles';
 
 import {
     CONTROL_ACTION,
+    DVR_PLAYBACK_TYPE,
     PLAYER_MENU_DATA_TYPE,
     YOUBORA_FORMAT,
     type CastFlavourProps,
@@ -61,6 +62,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     const [audioIndex, setAudioIndex] = useState<number>(props.audioIndex!);
     const [subtitleIndex, setSubtitleIndex] = useState<number>(props.subtitleIndex!);
     const [sliderValuesUpdate, setSliderValuesUpdate] = useState<number>(0);
+    const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
 
     const isChangingSource = useRef<boolean>(true);
     const sliderValues = useRef<SliderValues>();
@@ -858,7 +860,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             }
 
             if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-                dvrProgressManagerRef.current?.checkInitialSeek('cast');
+                dvrProgressManagerRef.current?.checkInitialSeek('cast', isLiveProgramRestricted);
             }
 
         } else if (currentSourceType.current === 'tudum') {
@@ -980,8 +982,80 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             props.events.onPrevious();
         }
 
+        if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR){
+            
+            const timestamp = props.events?.onLiveStartProgram?.();
+            console.log(`[Player] (Video Flavour) handleOnControlsPress: ${id} (${value}) - timestamp: ${timestamp}`);
+            
+            if (typeof(timestamp) === 'number'){
+                isChangingSource.current = true;
+                setIsContentLoaded(false);
+                setBuffering(true);
+                setIsLiveProgramRestricted(true);
+
+                if (sourceRef.current){
+                    sourceRef.current.changeDvrUriParameters(timestamp);
+                }
+
+                if (dvrProgressManagerRef.current){
+                    dvrProgressManagerRef.current?.reset();
+                    dvrProgressManagerRef.current.setPlaybackType(DVR_PLAYBACK_TYPE.PROGRAM);
+                }
+
+                const sourceData: onSourceChangedProps = {
+                    id: sourceRef.current?.id,
+                    source: sourceRef.current?.playerSource,
+                    drm: sourceRef.current?.playerSourceDrm,
+                    dvrWindowSeconds: sourceRef.current?.dvrWindowSeconds,
+                    isLive: sourceRef.current?.isLive,
+                    isDVR: sourceRef.current?.isDVR,
+                    isFakeVOD: sourceRef.current?.isFakeVOD,
+                    isReady: true
+                };
+
+                setTimeout(() => {
+                    loadContentWithCastManager(sourceData);
+                }, 100);
+
+            }
+            
+        }
+
         if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR) {
-            dvrProgressManagerRef.current?.goToLive();
+
+            if (isLiveProgramRestricted){
+                isChangingSource.current = true;
+                setIsContentLoaded(false);
+                setBuffering(true);
+                setIsLiveProgramRestricted(false);
+
+                if (sourceRef.current){
+                    sourceRef.current.reloadDvrStream();
+                }
+
+                const sourceData: onSourceChangedProps = {
+                    id: sourceRef.current?.id,
+                    source: sourceRef.current?.playerSource,
+                    drm: sourceRef.current?.playerSourceDrm,
+                    dvrWindowSeconds: sourceRef.current?.dvrWindowSeconds,
+                    isLive: sourceRef.current?.isLive,
+                    isDVR: sourceRef.current?.isDVR,
+                    isFakeVOD: sourceRef.current?.isFakeVOD,
+                    isReady: true
+                };
+
+                dvrProgressManagerRef.current?.reset();
+
+                setTimeout(() => {
+                    loadContentWithCastManager(sourceData);
+                    
+                    
+                }, 100);
+
+            } else {
+                // Volver al directo en DVR
+                dvrProgressManagerRef.current?.goToLive();
+            }
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && sourceRef.current?.isDVR) {

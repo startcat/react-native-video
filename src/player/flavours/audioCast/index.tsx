@@ -87,7 +87,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                 });
             }
         }, 100);
-    }, []);
+    }, [castProgress.duration]);
 
     const onContentLoadErrorCallback = useCallback((error: string, content: CastContentInfo) => {
         console.log(`[Player] (Audio Cast Flavour) Cast Manager - Content load error:`, error);
@@ -175,31 +175,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
     const onEndRef = useRef<() => void>();
     const onErrorRef = useRef<(e: any) => void>();
-
-    useEffect(() => {
-        // Initialize VOD Progress Manager only once
-        if (!vodProgressManagerRef.current) {
-            vodProgressManagerRef.current = new VODProgressManagerClass({
-                onProgressUpdate: onProgressUpdate,
-                onSeekRequest: onSeekRequest
-            });
-        }
-
-        // Initialize DVR Progress Manager only once
-        if (!dvrProgressManagerRef.current) {
-            console.log(`[Player] (Audio Cast Flavour) Initializing DVR Progress Manager`);
-            console.log(`[Player] (Audio Cast Flavour) EPG hooks available - getEPGProgramAt: ${!!props.hooks?.getEPGProgramAt}`);
-            
-            dvrProgressManagerRef.current = new DVRProgressManagerClass({
-                playbackType: props.playerProgress?.liveValues?.playbackType,
-                getEPGProgramAt: props.hooks?.getEPGProgramAt,
-                onModeChange: onDVRModeChange,
-                onProgramChange: onDVRProgramChange,
-                onProgressUpdate: onProgressUpdate,
-                onSeekRequest: onSeekRequest
-            });
-        }
-    }, []);
 
     // Hook para el estado de buffering
     const isBuffering = useIsBuffering({
@@ -529,7 +504,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                     startingPoint = sourceRef.current.dvrWindowSeconds;
                 }
 
-                // ✅ USAR castManager.loadContent
                 const success = await castManager.loadContent({
                     source: data.source,
                     manifest: sourceRef.current?.currentManifest || {},
@@ -832,7 +806,32 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     const onSeekRequest = useCallback((playerTime: number) => {
         console.log(`[Player] (Audio Cast Flavour) onSeekRequest: ${playerTime}`);
         castManager.seek(playerTime);
-    }, []);
+    }, [castManager]);
+
+    useEffect(() => {
+        // Initialize VOD Progress Manager only once
+        if (!vodProgressManagerRef.current) {
+            vodProgressManagerRef.current = new VODProgressManagerClass({
+                onProgressUpdate: onProgressUpdate,
+                onSeekRequest: onSeekRequest
+            });
+        }
+
+        // Initialize DVR Progress Manager only once
+        if (!dvrProgressManagerRef.current) {
+            console.log(`[Player] (Audio Cast Flavour) Initializing DVR Progress Manager`);
+            console.log(`[Player] (Audio Cast Flavour) EPG hooks available - getEPGProgramAt: ${!!props.hooks?.getEPGProgramAt}`);
+            
+            dvrProgressManagerRef.current = new DVRProgressManagerClass({
+                playbackType: props.playerProgress?.liveValues?.playbackType,
+                getEPGProgramAt: props.hooks?.getEPGProgramAt,
+                onModeChange: onDVRModeChange,
+                onProgramChange: onDVRProgramChange,
+                onProgressUpdate: onProgressUpdate,
+                onSeekRequest: onSeekRequest
+            });
+        }
+    }, [onProgressUpdate, onSeekRequest, onDVRModeChange, onDVRProgramChange]);
 
     // Actualizar callbacks del DVRProgressManagerClass cuando cambien
     useEffect(() => {

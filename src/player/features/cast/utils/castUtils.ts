@@ -2,7 +2,7 @@ import { CastSession } from "react-native-google-cast";
 import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastState, CastTrackInfo, InternalCastState } from "../types/types";
 
 
-// ✅ Estado inicial
+// Estado inicial
 export function createInitialCastState(): CastState {
     return {
         connection: {
@@ -45,7 +45,7 @@ export function createInitialCastState(): CastState {
     };
 }
 
-// ✅ Función para extraer información de tracks
+// Función para extraer información de tracks
 export function extractTracksInfo(mediaStatus: any) {
     if (!mediaStatus || !mediaStatus.mediaInfo) {
         return {
@@ -101,7 +101,7 @@ export function extractTracksInfo(mediaStatus: any) {
     };
 }
 
-// ✅ Función para extraer metadata del MediaInfo
+// Función para extraer metadata del MediaInfo
 export function extractMediaMetadata(mediaInfo: any) {
     if (!mediaInfo || !mediaInfo.metadata) {
         return {
@@ -137,7 +137,7 @@ export async function getVolume(session: CastSession): Promise<{ level: number; 
     };
 }
 
-// ✅ Reducer que procesa toda la data nativa de forma síncrona
+// Reducer que procesa toda la data nativa de forma síncrona
 export function castReducer(state: InternalCastState, action: CastAction): InternalCastState {
     switch (action.type) {
         case 'SYNC_UPDATE': {
@@ -169,7 +169,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
             //     console.log(`[CastReducer] FULL nativeMediaStatus: ${JSON.stringify(nativeMediaStatus)}`);
             // }
 
-            // ✅ Procesar conexión
+            // Procesar conexión
             const connection: CastConnectionInfo = (() => {
                 const castStateStr = String(nativeCastState || 'NOT_CONNECTED').toUpperCase();
                 
@@ -195,7 +195,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 }
             })();
 
-            // ✅ Procesar media (solo si tenemos conexión completa)
+            // Procesar media (solo si tenemos conexión completa)
             const media: CastMediaInfo = (() => {
                 const hasValidConnection = connection.status === 'connected' && nativeSession && nativeClient;
                 
@@ -227,10 +227,10 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 const metadata = extractMediaMetadata(mediaInfo);
                 const tracksInfo = extractTracksInfo(nativeMediaStatus);
                 
-                // ✅ Normalizar playerState a mayúsculas para comparación
+                // Normalizar playerState a mayúsculas para comparación
                 const normalizedPlayerState = String(playerState || '').toUpperCase();
 
-                // ✅ Lógica mejorada para currentTime - evitar saltos a 0
+                // Lógica mejorada para currentTime - evitar saltos a 0
                 let currentTime = nativeStreamPosition || 0;
                 
                 // Si recibimos 0 pero tenemos una posición válida previa Y estamos buffering/loading
@@ -249,7 +249,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 }
                 
                 const duration = mediaInfo?.streamDuration || null;
-                // ✅ Progress sin alteraciones - preserva valores originales para DVR
+                // Progress sin alteraciones - preserva valores originales para DVR
                 const progress = duration && duration > 0 ? currentTime / duration : 0;
 
                 return {
@@ -267,7 +267,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                         start: nativeMediaStatus.liveSeekableRange?.startTime || 0,
                         end: nativeMediaStatus.liveSeekableRange?.endTime || 0
                     },
-                    progress, // ✅ Valor original sin clamp
+                    progress,
                     playbackRate: nativeMediaStatus.playbackRate || 1.0,
                     audioTrack: tracksInfo.audioTrack,
                     textTrack: tracksInfo.textTrack,
@@ -277,7 +277,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 };
             })();
 
-            // ✅ Procesar errores del MediaStatus
+            // Procesar errores del MediaStatus
             const error: CastErrorInfo = (() => {
                 if (nativeMediaStatus?.idleReason === 'ERROR') {
                     return {

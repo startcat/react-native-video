@@ -190,42 +190,32 @@ export class SourceClass {
 
     }
 
-    public reloadDvrStream(liveStartProgramTimestamp?:number) {
-        
+    public reloadDvrStream() {
+
+        this._videoSource = {
+            ...this._videoSource,
+            uri: this.calculateSourceUri()!
+        };
+
+        this._isReady = true;
+        console.log(`${LOG_TAG} reloadDvrStream finished (isReady ${!!this._isReady}): ${this._videoSource?.uri}`);
+
+        this.getStats();
     }
 
-    private changeDvrUriParameters(liveStartProgramTimestamp?:number) {
-        
+    public changeDvrUriParameters(liveStartProgramTimestamp?:number) {
+        console.log(`${LOG_TAG} changeDvrUriParameters -> liveStartProgramTimestamp: ${liveStartProgramTimestamp}`);
+
+        this._videoSource = {
+            ...this._videoSource,
+            uri: this.changeUriStartTimestamp(this._videoSource?.uri || '', liveStartProgramTimestamp)
+        };
+
+        this._isReady = true;
+        console.log(`${LOG_TAG} changeDvrUriParameters finished (isReady ${!!this._isReady}): ${this._videoSource?.uri}`);
+
+        this.getStats();
     }
-
-    // private calculateDvrWindow() {
-
-    //     // Preparamos la ventada de tiempo del directo (DVR) si estamos ante un Live
-    //     if (this._isDVR){
-
-    //         this._needsLiveInitialSeek = false;
-
-    //         if (typeof(this._liveStartProgramTimestamp) === 'number' && this._liveStartProgramTimestamp > 0){
-    //             const minutes = getMinutesFromTimestamp(this._liveStartProgramTimestamp);
-
-    //             console.log(`[Player] (Normal Flavour) setPlayerSource -> liveStartProgramTimestamp minutes ${minutes}`);
-
-    //             // Revisamos que la ventana de DVR no sea inferior que el timestamp de inicio del programa
-    //             // Por ahora no lo hacemos, ya que el valor de la ventana de DVR es el que viene del manifest mientras que el stream tiene una ventana mucho mayor
-    //             // if (minutes < currentManifest.current?.dvr_window_minutes){
-    //                 // Adecuamos el valor de la ventana de DVR, para la barra de progreso y los calculos de DVR
-    //                 this._dvrWindowSeconds = minutes * 60;
-    //                 this._dvrTimeValue = 0;
-    //                 this._needsLiveInitialSeek = true;
-    //             // }
-
-    //         } else if (this._currentManifest?.dvr_window_minutes){
-    //             this._dvrWindowSeconds = this._currentManifest?.dvr_window_minutes * 60;
-    //             this._dvrTimeValue = this._dvrWindowSeconds;
-    //         }
-    //     }
-
-    // }
 
     private calculateSourceUri(): string | null {
 
@@ -234,10 +224,12 @@ export class SourceClass {
         // Preparamos la uri por si necesitamos incorporar el start en el dvr
         if (this._getSourceUri && typeof this._getSourceUri === 'function' && this._currentManifest){
             uri = this._getSourceUri(this._currentManifest, this._currentManifest?.dvr_window_minutes, this._liveStartProgramTimestamp);
+            console.log(`${LOG_TAG} calculateSourceUri -> uri: ${uri} (from external function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`);
 
         } else {
             uri = getVideoSourceUri(this._currentManifest!, this._currentManifest?.dvr_window_minutes, this._liveStartProgramTimestamp);
-            
+            console.log(`${LOG_TAG} calculateSourceUri -> uri: ${uri} (from internal function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`);
+
         }
 
         return uri;
@@ -269,21 +261,6 @@ export class SourceClass {
 
     }
 
-    // private calculateDvrSliderValues(uri: string | null) {
-
-    //     // Recalculamos la ventana de tiempo para el slider en DVR
-    //     if (typeof uri === 'string' && this._currentManifest && typeof(this._currentManifest?.dvr_window_minutes) === 'number' && this._currentManifest?.dvr_window_minutes > 0 && !this._liveStartProgramTimestamp){
-    //         const dvrRecalculatedMinutes = getMinutesSinceStart(uri);
-
-    //         if (dvrRecalculatedMinutes){
-    //             this._dvrWindowSeconds = dvrRecalculatedMinutes * 60;
-    //             this._dvrTimeValue = this._dvrWindowSeconds;
-    //             startPosition = ((dvrRecalculatedMinutes * 60) + 600) * 1000;
-    //         }
-    //     }
-
-    // }
-
     private calculateStartingPosition():number {
 
         let startPosition = 0;
@@ -294,6 +271,27 @@ export class SourceClass {
         }
 
         return startPosition;
+    }
+
+    private changeUriStartTimestamp(uri:string, timestamp?:number): string {
+        
+        if (!uri || typeof(uri) !== 'string'){
+            return uri;
+    
+        }
+    
+        if (uri.indexOf('?') > -1){
+            uri = `${uri.substring(0, uri.indexOf('?'))}?start=${timestamp}`; //&start-tag=true
+    
+        } else {
+            uri = `${uri}?start=${timestamp}`; //&start-tag=true
+    
+        }
+
+        // uri = uri.replaceAll('master.m3u8', 'bitrate_3.m3u8');
+    
+        return uri;
+
     }
 
     private getStats() {
