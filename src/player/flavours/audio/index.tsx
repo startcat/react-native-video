@@ -625,29 +625,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         if (id === CONTROL_ACTION.PAUSE){
             const newPausedState = !!value;
             setPaused(newPausedState);
-            
-            // Notificar cambio de pausa a los progress managers
-            if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-                console.log(`[DANI] (Audio Flavour) Notifying DVR pause change: ${newPausedState}`);
-                dvrProgressManagerRef.current.updatePlayerData({
-                    currentTime: currentTime,
-                    seekableRange: { start: 0, end: currentTime + 100 }, // Valor temporal
-                    isBuffering: isBuffering,
-                    isPaused: newPausedState
-                });
-            }
-            
-            if (!sourceRef.current?.isLive && vodProgressManagerRef.current) {
-                console.log(`[DANI] (Audio Flavour) Notifying VOD pause change: ${newPausedState}`);
-                const currentDuration = vodProgressManagerRef.current.duration || 0;
-                vodProgressManagerRef.current.updatePlayerData({
-                    currentTime: currentTime,
-                    seekableRange: { start: 0, end: currentDuration },
-                    duration: currentDuration,
-                    isBuffering: isBuffering,
-                    isPaused: newPausedState
-                });
-            }
         }
 
         if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
@@ -793,7 +770,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
      */
 
     useEffect(() => {
-        console.log(`[DANI] audioPlayerProgress...`);
         EventRegister.emit('audioPlayerProgress', {
             preloading: isBuffering,
             isContentLoaded: isContentLoaded,
