@@ -5,8 +5,8 @@
 
 import * as Enums from './enums';
 
-import { 
-    type ICommonData 
+import {
+    type ICommonData
 } from './types';
 
 export interface IPlayerEvents {

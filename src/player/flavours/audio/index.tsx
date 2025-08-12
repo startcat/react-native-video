@@ -10,7 +10,7 @@ import {
     type OnProgressData,
     type OnVideoErrorData,
     type ProgressUpdateData,
-    type SliderValues,
+    type SliderValues
 } from '../../../types';
 import Video, { type VideoRef } from '../../../Video';
 
@@ -616,7 +616,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
      *
      */
 
-    const handleOnControlsPress = useCallback((id: CONTROL_ACTION, value?: number | boolean) => {
+    const handleOnControlsPress = useCallback(async (id: CONTROL_ACTION, value?: number | boolean) => {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause'];
 

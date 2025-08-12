@@ -262,14 +262,19 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         }
     }
 
-    checkInitialSeek(mode: 'player' | 'cast'): void {
-        this.log(`checkInitialSeek for ${mode}`, 'info');
-        
-        if (mode === 'player' && Platform.OS === 'ios') {
-            setTimeout(() => {
+    checkInitialSeek(mode: 'player' | 'cast', isLiveProgramRestricted: boolean): void {
+        this.log(`checkInitialSeek for ${mode} - isLiveProgramRestricted: ${isLiveProgramRestricted}`, 'info');
+
+        setTimeout(() => {
+            if (!isLiveProgramRestricted && !this._isLiveEdgePosition){
                 this.goToLive();
-            }, 300);
-        }
+            } else if (isLiveProgramRestricted){
+                this._isLiveEdgePosition = false;
+                this._handleSeekTo(0);
+            } else if (mode === 'player' && Platform.OS === 'ios') {
+                this.goToLive();
+            }            
+        }, 300);
     }
 
     async setPlaybackType(playbackType: DVR_PLAYBACK_TYPE, program: any = null): Promise<void> {

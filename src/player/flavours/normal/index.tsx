@@ -13,6 +13,7 @@ import {
     type SelectedTrack,
     type SelectedVideoTrack,
     type SliderValues,
+    DVR_PLAYBACK_TYPE,
     SelectedTrackType,
     SelectedVideoTrackType
 } from '../../../types';
@@ -90,10 +91,11 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         type:SelectedVideoTrackType.AUTO
     });
     const [maxBitRate, setMaxBitRate] = useState<number>(0);
-
+    
     const refVideoPlayer = useRef<VideoRef>(null);
     const videoQualityIndex = useRef<number>(-1);
     const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
+    const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
 
     // Player Progress
     const playerProgressRef = useRef<IPlayerProgress>();
@@ -703,26 +705,59 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             setSpeedRate(value);
         }
 
-        /*
         if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR){
             
             const timestamp = props.events?.onLiveStartProgram?.();
+            console.log(`[Player] (Video Flavour) handleOnControlsPress: ${id} (${value}) - timestamp: ${timestamp}`);
             
             if (typeof(timestamp) === 'number'){
                 isChangingSource.current = true;
-                liveStartProgramTimestamp.current = timestamp;
+                setVideoSource(undefined);
                 setIsContentLoaded(false);
-                setDvrTimeValue(0);
-                setHasSeekOverDRV(false);
-                setPlayerSource();
+                setBuffering(true);
+                setIsLiveProgramRestricted(true);
+
+                if (sourceRef.current){
+                    sourceRef.current.changeDvrUriParameters(timestamp);
+                }
+
+                if (dvrProgressManagerRef.current){
+                    dvrProgressManagerRef.current?.reset();
+                    dvrProgressManagerRef.current.setPlaybackType(DVR_PLAYBACK_TYPE.PROGRAM);
+                }
+
+                setTimeout(() => {
+                    setVideoSource(sourceRef.current?.playerSource!);
+                }, 100);
+
             }
             
         }
-        */
 
         if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR){
-            // Volver al directo en DVR
-            dvrProgressManagerRef.current?.goToLive();
+
+            if (isLiveProgramRestricted){
+                isChangingSource.current = true;
+                setVideoSource(undefined);
+                setIsContentLoaded(false);
+                setBuffering(true);
+                setIsLiveProgramRestricted(false);
+
+                if (sourceRef.current){
+                    sourceRef.current.reloadDvrStream();
+                }
+
+                setTimeout(() => {
+                    setVideoSource(sourceRef.current?.playerSource!);
+                    dvrProgressManagerRef.current?.reset();
+                    
+                }, 100);
+
+            } else {
+                // Volver al directo en DVR
+                dvrProgressManagerRef.current?.goToLive();
+            }
+
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && sourceRef.current?.isDVR){
@@ -851,7 +886,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
             // Seek inicial al cargar un live con DVR
             if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-                dvrProgressManagerRef.current.checkInitialSeek('player');
+                dvrProgressManagerRef.current.checkInitialSeek('player', isLiveProgramRestricted);
             }
 
         } else if (currentSourceType.current === 'tudum') {
