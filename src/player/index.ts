@@ -1,5 +1,6 @@
 export * from './components';
-export * from './overlay';
-export * from './utils';
+export * from './components/overlay';
 export * from './flavours';
 export * from './types';
+export * from './utils';
+

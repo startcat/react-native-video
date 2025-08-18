@@ -1,10 +1,12 @@
-import { 
-    IManifest, 
-    IDrm,
-    IMappedYoubora,
-    ICastMetadata,
-    DRM_TYPE 
+import {
+    type ICastMetadata,
+    type IDrm,
+    type IManifest,
+    type IMappedYoubora,
+    DRM_TYPE
 } from '../types';
+
+import { type CastMessage } from '../features/cast/types';
 
 import { getAbsoluteUri } from './siteUrl';
 
@@ -15,14 +17,14 @@ const LOG_KEY = '[Cast Message]';
 
 function log (message: string) {
 
-    if (__DEV__ && LOG_ENABLED){
+    if (LOG_ENABLED){
         console.log(`${LOG_KEY} ${message}`);
 
     }
 
 }
 
-export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: IDrm, youbora?: IMappedYoubora, metadata?: ICastMetadata) => {
+export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: IDrm, youbora?: IMappedYoubora, metadata?: ICastMetadata): CastMessage => {
 
     let messageMetadata = {},
         message = {};
@@ -56,8 +58,6 @@ export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: I
     message = {
         mediaInfo: {
             contentId: uri,
-            // Evitamos indicar el mime type
-            //contentType: 'application/dash+xml',
             metadata: messageMetadata
         },
         customData: {
@@ -70,11 +70,11 @@ export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: I
             }
         },
         autoplay: true,
-        startTime: metadata?.startPosition || 0
+        startTime: metadata?.startPosition || undefined
     };
 
     log(`Cast Message ${JSON.stringify(message)}`);
 
-    return message;
+    return message as CastMessage;
 
 }

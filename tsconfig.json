@@ -26,10 +26,14 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "target": "esnext",
-    "verbatimModuleSyntax": true,
+    "target": "es2018",
+    "verbatimModuleSyntax": false,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
+    "./src/**/*",
+    "./src/**/*.ts",
+    "./src/**/*.tsx",
     "./src/**/*.json"
   ],
   "exclude": ["examples", "lib", "docs"]
