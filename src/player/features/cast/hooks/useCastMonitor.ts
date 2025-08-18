@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { CastConnectionInfo, CastErrorInfo, CastTrackInfo } from '../types/types';
 import { useCastState } from './useCastState';
 
-// ✅ Hook para monitorear cambios específicos
+// Hook para monitorear cambios específicos
 export function useCastMonitor(callbacks: {
     onConnect?: () => void;
     onDisconnect?: () => void;
@@ -42,7 +42,7 @@ export function useCastMonitor(callbacks: {
             prevPlayingRef.current = media.isPlaying;
         }
         
-        // ✅ Monitor cambios de pista de audio
+        // Monitor cambios de pista de audio
         const currentAudioTrackId = media.audioTrack?.id || null;
         if (currentAudioTrackId !== prevAudioTrackRef.current && callbacks.onAudioTrackChange) {
             // Only trigger callback if it's a meaningful change (not just null → null)
@@ -52,7 +52,7 @@ export function useCastMonitor(callbacks: {
             prevAudioTrackRef.current = currentAudioTrackId;
         }
         
-        // ✅ Monitor cambios de pista de subtítulos
+        // Monitor cambios de pista de subtítulos
         const currentTextTrackId = media.textTrack?.id || null;
         if (currentTextTrackId !== prevTextTrackRef.current && callbacks.onTextTrackChange) {
             // Only trigger callback if it's a meaningful change (not just null → null)

@@ -17,7 +17,7 @@ const LOG_KEY = '[Cast Message]';
 
 function log (message: string) {
 
-    if (__DEV__ && LOG_ENABLED){
+    if (LOG_ENABLED){
         console.log(`${LOG_KEY} ${message}`);
 
     }
@@ -58,8 +58,6 @@ export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: I
     message = {
         mediaInfo: {
             contentId: uri,
-            // Evitamos indicar el mime type
-            //contentType: 'application/dash+xml',
             metadata: messageMetadata
         },
         customData: {

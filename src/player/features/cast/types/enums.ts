@@ -75,7 +75,7 @@ export enum CastManagerEvent {
 }
 
 export enum CastStreamType {
-    BUFFERED = 'BUFFERED',
-    LIVE = 'LIVE',
-    NONE = 'NONE'
+    BUFFERED = 'buffered',
+    LIVE = 'live',
+    NONE = 'none'
 }

@@ -165,9 +165,9 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
             //     }
             // });
 
-            // if (nativeMediaStatus) {
-            //     console.log(`[CastReducer] FULL nativeMediaStatus: ${JSON.stringify(nativeMediaStatus)}`);
-            // }
+            if (nativeMediaStatus) {
+                console.log(`[CastReducer] FULL nativeMediaStatus: ${JSON.stringify(nativeMediaStatus)}`);
+            }
 
             // Procesar conexión
             const connection: CastConnectionInfo = (() => {

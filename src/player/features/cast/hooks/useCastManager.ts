@@ -58,7 +58,7 @@ export function useCastManager(
         return canPerform;
     }, [castState.connection.status, castState.lastUpdate, nativeSession, nativeClient]);
     
-    // ✅ Función helper para manejar errores
+    // Función helper para manejar errores
     const handleActionError = useCallback((action: string, error: any): boolean => {
         const errorMessage = error?.message || error?.toString() || 'Unknown error';
         setManagerState((prev: CastManagerState) => ({
@@ -112,7 +112,7 @@ export function useCastManager(
         startAction('loadContent');
         
         try {
-            // ✅ Usar CastMessageBuilder para construir el mensaje
+            // Usar CastMessageBuilder para construir el mensaje
             const castMessage = messageBuilderRef.current?.buildCastMessage({
                 source: content.source,
                 manifest: content.manifest,

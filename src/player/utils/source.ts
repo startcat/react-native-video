@@ -113,6 +113,8 @@ export const getBestManifest = (manifests: Array<IManifest>, isCasting?: boolean
 
             }
 
+            return undefined;
+
         });
 
         if (!manifest){

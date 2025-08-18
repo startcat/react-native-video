@@ -62,7 +62,7 @@ import { useCastState } from '@/features/cast';
 
 function MyCastComponent() {
     const castInfo = useCastState({
-        streamPositionInterval: 2,
+        streamPositionInterval: 1,
         debugMode: true,
         onStateChange: (newState, prevState) => {
             console.log('Cast state changed:', newState.managerState);
