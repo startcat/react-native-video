@@ -91,7 +91,7 @@ const addLiveTimestamp = (uri: string, subtractMinutes: number, liveStartProgram
 
 }
 
-export const getBestManifest = (manifests: Array<IManifest>, isCasting?: boolean): IManifest | undefined => {
+export const getBestManifest = (manifests: Array<IManifest>, isCasting?: boolean, isLive?: boolean): IManifest | undefined => {
 
     let manifest: IManifest | undefined;
 

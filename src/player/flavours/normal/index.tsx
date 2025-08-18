@@ -170,6 +170,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                     squaredPoster: props.playerMetadata?.squaredPoster,
                     manifests: props.manifests,
                     startPosition: props.playerProgress?.currentTime || 0,
+                    isLive: true,
+                    isCast: false,
                     headers: props.headers,
                     getBestManifest: props.hooks?.getBestManifest,
                     getSourceUri: props.hooks?.getSourceUri,
@@ -190,7 +192,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 squaredPoster: props.playerMetadata?.squaredPoster,
                 manifests: props.manifests,
                 startPosition: props.playerProgress?.currentTime || 0,
-                isLive: !!props.playerProgress?.isLive,
+                isLive: true,
+                isCast: false,
                 headers: props.headers,
             });
 
@@ -233,6 +236,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                     squaredPoster: props.playerMetadata?.squaredPoster,
                     manifests: props.manifests,
                     startPosition: props.playerProgress?.currentTime || 0,
+                    isLive: false,
+                    isCast: false,
                     headers: props.headers,
                     getBestManifest: props.hooks?.getBestManifest,
                     getSourceUri: props.hooks?.getSourceUri,
@@ -286,6 +291,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 manifests: props.manifests,
                 startPosition: props.playerProgress?.currentTime || 0,
                 isLive: !!props.playerProgress?.isLive,
+                isCast: false,
                 headers: props.headers,
             });
 

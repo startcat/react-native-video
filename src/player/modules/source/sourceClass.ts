@@ -22,6 +22,7 @@ export interface onSourceChangedProps {
     drm?:IDrm;
     dvrWindowSeconds?:number;
     isLive?:boolean;
+    isCast?:boolean;
     isDVR?:boolean;
     isReady?:boolean;
     isFakeVOD?:boolean;
@@ -40,10 +41,11 @@ export interface SourceClassProps {
     manifests?: Array<IManifest>;
     startPosition?: number;
     isLive?: boolean;
+    isCast?: boolean;
     headers?: Headers;
 
     // Callbacks
-    getBestManifest?: (manifests: Array<IManifest>, isCasting?: boolean) => IManifest | undefined;
+    getBestManifest?: (manifests: Array<IManifest>, isCasting?: boolean, isLive?: boolean) => IManifest | undefined;
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     onSourceChanged?: (data:onSourceChangedProps) => void;
 }
@@ -63,6 +65,7 @@ export class SourceClass {
     private _dvrWindowSeconds?:number;
 
     private _isLive:boolean = false;
+    private _isCast:boolean = false;
     private _isDVR:boolean = false;
     private _isHLS:boolean = false;
     private _isDASH:boolean = false;
@@ -71,7 +74,7 @@ export class SourceClass {
     private _isBinary:boolean = false;
     private _isFakeVOD:boolean = false;
 
-    private _getBestManifest: (manifests: Array<IManifest>, isCasting?: boolean) => IManifest | undefined;
+    private _getBestManifest: (manifests: Array<IManifest>, isCasting?: boolean, isLive?: boolean) => IManifest | undefined;
     private _getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
 
 	constructor(props:SourceClassProps) {
@@ -99,6 +102,7 @@ export class SourceClass {
         this._needsLiveInitialSeek = false;
 
         this._isLive = false;
+        this._isCast = false;
         this._isDVR = false;
         this._isHLS = false;
         this._isDASH = false;
@@ -119,7 +123,7 @@ export class SourceClass {
         }
 
         // Cogemos el manifest adecuado
-        this._currentManifest = this._getBestManifest(props.manifests);
+        this._currentManifest = this._getBestManifest(props.manifests, props.isCast, props.isLive);
 
         if (!this._currentManifest){
             this.clearCurrentSource();
@@ -143,6 +147,9 @@ export class SourceClass {
 
         // Marcamos si es Live
         this._isLive = !!props.isLive;
+
+        // Marcamos si es Casting
+        this._isCast = !!props.isCast;
 
         // Marcamos si es DVR
         this._isDVR = this._isLive && typeof(this._currentManifest?.dvr_window_minutes) === 'number' && this._currentManifest?.dvr_window_minutes > 0;
@@ -188,6 +195,7 @@ export class SourceClass {
                 drm:this._drm,
                 dvrWindowSeconds:this._dvrWindowSeconds,
                 isLive:this._isLive,
+                isCast:this._isCast,
                 isDVR:this._isDVR,
                 isFakeVOD:this._isFakeVOD,
                 isReady:true
@@ -295,8 +303,6 @@ export class SourceClass {
             uri = `${uri}?start=${timestamp}`; //&start-tag=true
     
         }
-
-        // uri = uri.replaceAll('master.m3u8', 'bitrate_3.m3u8');
     
         return uri;
 
@@ -306,6 +312,7 @@ export class SourceClass {
 
         const stats = {
             isLive: this._isLive,
+            isCast: this._isCast,
             isDVR: this._isDVR,
             isHLS: this._isHLS,
             isDASH: this._isDASH,
@@ -344,6 +351,10 @@ export class SourceClass {
 
     get isLive(): boolean {
         return !!this._isLive;
+    }
+
+    get isCast(): boolean {
+        return !!this._isCast;
     }
 
     get isDVR(): boolean {

@@ -405,6 +405,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 squaredPoster: props.playerMetadata?.squaredPoster,
                 manifests: props.manifests,
                 startPosition: props.playerProgress?.currentTime || 0,
+                isLive: true,
+                isCast: true,
                 headers: props.headers,
                 getBestManifest: props.hooks?.getBestManifest,
                 getSourceUri: props.hooks?.getSourceUri,
@@ -424,7 +426,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             squaredPoster: props.playerMetadata?.squaredPoster,
             manifests: props.manifests,
             startPosition: props.playerProgress?.currentTime || 0,
-            isLive: !!props.playerProgress?.isLive,
+            isLive: true,
+            isCast: true,
             headers: props.headers,
         });
     };
@@ -467,6 +470,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 squaredPoster: props.playerMetadata?.squaredPoster,
                 manifests: props.manifests,
                 startPosition: props.playerProgress?.currentTime || 0,
+                isLive: false,
+                isCast: true,
                 headers: props.headers,
                 getBestManifest: props.hooks?.getBestManifest,
                 getSourceUri: props.hooks?.getSourceUri,
@@ -559,6 +564,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 manifests: props.manifests,
                 startPosition: props.playerProgress?.currentTime || 0,
                 isLive: !!props.playerProgress?.isLive,
+                isCast: true,
                 headers: props.headers,
             });
         }
