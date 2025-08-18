@@ -218,6 +218,8 @@ export abstract class BaseProgressManager {
             data.currentTime = 0;
         }
 
+        const currentTimeVariation = Math.abs(data.currentTime - this._currentTime);
+
         if (!data.seekableRange || 
             typeof data.seekableRange.start !== 'number' ||
             typeof data.seekableRange.end !== 'number' ||
@@ -225,6 +227,11 @@ export abstract class BaseProgressManager {
             
             this.log('Invalid seekableRange, correcting', 'warn');
             data.seekableRange = { start: 0, end: Math.max(data.currentTime, 1) };
+        }
+
+        if (this._seekableRange.end > 0 && Math.abs(data.seekableRange.end - this._seekableRange.end) < 10 && currentTimeVariation < 2){
+            this.log('Normalizing seekableRange, correcting', 'debug');
+            data.seekableRange = { start: this._seekableRange.start, end: this._seekableRange.end + currentTimeVariation };
         }
 
         if (data.duration !== undefined && (typeof data.duration !== 'number' || data.duration < 0)) {
