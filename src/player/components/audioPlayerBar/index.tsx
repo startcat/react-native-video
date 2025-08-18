@@ -15,7 +15,7 @@ import {
     type AudioPlayerProps,
     type IAudioPlayerContent,
     type ICommonData,
-    CONTROL_ACTION,
+    CONTROL_ACTION
 } from '../../types';
 
 const PLAYER_MAX_HEIGHT = 80;
@@ -38,12 +38,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
     const [contentId, setContentId] = useState<IAudioPlayerContent | null>();
     const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo | null>(null);
 
-    const currentTime = useRef<number>(0);
-    const duration = useRef<number>(0);
-    const volume = useRef<number>();
-    const isPaused = useRef<boolean>(false);
-    const isMuted = useRef<boolean>(false);
-    const watchingProgressIntervalObj = useRef<NodeJS.Timeout>();
+    const watchingProgressIntervalObj = useRef<ReturnType<typeof setTimeout>>();
 
     const castState = useCastState();
 
@@ -116,7 +111,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                 try {
                     const dpo = await props.fetchContentData(contentId?.current!);
 
-                    currentTime.current = dpo?.startPosition || 0;
+                    if (dpo?.playerProgress){
+                        dpo.playerProgress.currentTime = dpo?.initialState?.startPosition || 0;
+                    }
 
                     setDpoData(dpo);
 
@@ -147,19 +144,19 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
     React.useEffect(() => {
 
-        console.log(`[Audio Player Bar] dpoData?.id ${dpoData?.id}`);
+        console.log(`[Audio Player Bar] dpoData?.playerMetadata?.id ${dpoData?.playerMetadata?.id}`);
 
         // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
-        if (typeof(dpoData?.watchingProgressInterval) === 'number' && dpoData?.watchingProgressInterval > 0 && dpoData?.addContentProgress){
+        if (typeof(dpoData?.hooks?.watchingProgressInterval) === 'number' && dpoData?.hooks?.watchingProgressInterval > 0 && dpoData?.hooks?.addContentProgress){
             watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
 
                 // Evitamos mandar el watching progress en directos y en Chromecast
                 if (hasBeenLoaded.current && !dpoData?.isLive){
                     // @ts-ignore
-                    dpoData.addContentProgress(currentTime.current, duration.current, props.id);
+                    dpoData.hooks?.addContentProgress(dpoData.playerProgress?.currentTime, dpoData.playerProgress?.duration, props.id);
                 }
 
-            }, dpoData?.watchingProgressInterval);
+            }, dpoData?.hooks?.watchingProgressInterval);
 
         }
 
@@ -171,13 +168,11 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         };
 
-    }, [dpoData?.id]);
+    }, [dpoData?.playerMetadata?.id]);
 
     const clearDataToChangeContents = () => {
 
         hasBeenLoaded.current = false;
-        currentTime.current = 0;
-        duration.current = 0;
         setDpoData(null);
 
     }
@@ -206,8 +201,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
         }
 
-        if (dpoData?.onEnd){
-            dpoData?.onEnd();
+        if (dpoData?.events?.onEnd){
+            dpoData?.events?.onEnd();
 
         }
 
@@ -222,12 +217,12 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
     const changeCommonData = (data: ICommonData) => {
 
-        if (data?.time){
-            currentTime.current = data.time;
+        if (data?.time && dpoData?.playerProgress){
+            dpoData.playerProgress.currentTime = data.time;
         }
 
-        if (data?.duration){
-            duration.current = data.duration;
+        if (data?.duration && dpoData?.playerProgress){
+            dpoData.playerProgress.duration = data.duration;
 
             if (!hasBeenLoaded.current){
                 hasBeenLoaded.current = true;
@@ -235,26 +230,26 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         }
 
-        if ((data?.time !== undefined || data?.duration !== undefined) && dpoData?.onProgress){
-            dpoData?.onProgress(currentTime.current, duration.current);
+        if ((data?.time !== undefined || data?.duration !== undefined) && dpoData?.events?.onProgress){
+            dpoData?.events?.onProgress(dpoData.playerProgress.currentTime, dpoData.playerProgress.duration);
         }
 
         if (data?.paused !== undefined){
-            isPaused.current = !!data.paused;
+            dpoData.playerProgress.isPaused = !!data.paused;
 
-            if (!!data.paused && dpoData?.onPause){
-                dpoData?.onPause();
-            } else if (dpoData?.onPlay){
-                dpoData?.onPlay();
+            if (!!data.paused && dpoData?.events?.onPause){
+                dpoData?.events?.onPause();
+            } else if (dpoData?.events?.onPlay){
+                dpoData?.events?.onPlay();
             }
         }
 
         if (data?.muted !== undefined){
-            isMuted.current = !!data.muted;
+            dpoData.playerProgress.isMuted = !!data.muted;
         }
 
         if (typeof(data?.volume) === 'number'){
-            volume.current = data.volume;
+            dpoData.playerProgress.volume = data.volume;
         }
         
     }
@@ -280,31 +275,10 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             {
                 contentId?.current && dpoData && (castState !== CastState.CONNECTING && castState !== CastState.CONNECTED)?
                     <AudioFlavour
-                        id={dpoData.id}
-                        title={dpoData.title}
-                        subtitle={dpoData.subtitle}
-                        description={dpoData.description}
-                        // languagesMapping={props.languagesMapping}
-
                         manifests={dpoData.manifests}
                         headers={dpoData.headers}
-                        poster={dpoData.poster}
-                        squaredPoster={dpoData.squaredPoster}
-                        youbora={dpoData.youbora}
-                        hasNext={dpoData.hasNext}
-                        hasPrev={dpoData.hasPrev}
-
-                        paused={isPaused.current}
-                        muted={isMuted.current}
-
                         playOffline={dpoData.playOffline}
-                        multiSession={dpoData.multiSession}
-                        isLive={dpoData.isLive}
                         showExternalTudum={dpoData.showExternalTudum}
-                        forcedDvrWindowMinutes={dpoData.forcedDvrWindowMinutes}
-                        // liveStartDate={props.liveStartDate}
-
-                        currentTime={currentTime.current}
 
                         // Extra Data
                         extraData={dpoData.extraData}
@@ -313,24 +287,32 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         backgroundColor={props.backgroundColor}
                         topDividerColor={props.topDividerColor}
 
+                        // Initial State
+                        initialState={dpoData.initialState}
+
+                        // Nuevas Props Agrupadas
+                        playerProgress={dpoData.playerProgress}
+                        playerMetadata={dpoData.playerMetadata}
+                        playerAnalytics={dpoData.playerAnalytics}
+                        playerTimeMarkers={dpoData.playerTimeMarkers}
+                        playerAds={dpoData.playerAds}
+
                         // Components
                         controls={props.controls}
 
-                        // Utils
-                        getSourceUri={dpoData.getSourceUri}
-                        getYouboraOptions={dpoData.getYouboraOptions}
-                        getTudumSource={dpoData.getTudumSource}
+                        // Hooks
+                        hooks={dpoData.hooks}
 
                         // Events
-                        onChangeCommonData={changeCommonData}
-                        onDVRChange={dpoData.onDVRChange}
-                        onNext={dpoData.onNext}
-                        onPrevious={dpoData.onPrevious}
-                        onEnd={onEnd}
-                        onClose={hidePlayer}
-                        onBuffering={dpoData?.onBuffering}
-                        onSeek={dpoData?.onSeek}
-                        onStart={dpoData?.onStart}
+                        events={{
+                            ...dpoData.events,
+                            onChangeCommonData: changeCommonData,
+                            onEnd: onEnd,
+                            onClose: hidePlayer,
+                        }}
+
+                        // Player Features
+                        features={dpoData.features}
                     />
                 : null
             }
@@ -338,28 +320,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             {
                 contentId?.current && dpoData && (castState === CastState.CONNECTING || castState === CastState.CONNECTED)?
                     <AudioCastFlavour
-                        id={dpoData.id}
-                        title={dpoData.title}
-                        subtitle={dpoData.subtitle}
-                        description={dpoData.description}
-                        // languagesMapping={props.languagesMapping}
-
                         manifests={dpoData.manifests}
                         headers={dpoData.headers}
-                        poster={dpoData.poster}
-                        squaredPoster={dpoData.squaredPoster}
-                        youbora={dpoData.youbora}
-                        hasNext={dpoData.hasNext}
-                        hasPrev={dpoData.hasPrev}
-
-                        paused={isPaused.current}
-                        muted={isMuted.current}
-                        
-                        isLive={dpoData.isLive}
-                        forcedDvrWindowMinutes={dpoData.forcedDvrWindowMinutes}
-                        // liveStartDate={props.liveStartDate}
-
-                        currentTime={currentTime.current}
 
                         // Extra Data
                         extraData={dpoData.extraData}
@@ -368,22 +330,32 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                         backgroundColor={props.backgroundColor}
                         topDividerColor={props.topDividerColor}
 
+                        // Initial State
+                        initialState={dpoData.initialState}
+
+                        // Nuevas Props Agrupadas
+                        playerProgress={dpoData.playerProgress}
+                        playerMetadata={dpoData.playerMetadata}
+                        playerAnalytics={dpoData.playerAnalytics}
+                        playerTimeMarkers={dpoData.playerTimeMarkers}
+                        playerAds={dpoData.playerAds}
+
                         // Components
                         controls={props.controls}
 
-                        // Utils
-                        getYouboraOptions={dpoData.getYouboraOptions}
+                        // Hooks
+                        hooks={dpoData.hooks}
 
                         // Events
-                        onChangeCommonData={changeCommonData}
-                        onDVRChange={dpoData.onDVRChange}
-                        onNext={dpoData.onNext}
-                        onPrevious={dpoData.onPrevious}
-                        onEnd={onEnd}
-                        onClose={hidePlayer}
-                        onBuffering={dpoData?.onBuffering}
-                        onSeek={dpoData?.onSeek}
-                        onStart={dpoData?.onStart}
+                        events={{
+                            ...dpoData.events,
+                            onChangeCommonData: changeCommonData,
+                            onEnd: onEnd,
+                            onClose: hidePlayer,
+                        }}
+
+                        // Player Features
+                        features={dpoData.features}
                     />
                 : null
             }

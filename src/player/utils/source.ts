@@ -1,14 +1,14 @@
 import { Platform } from 'react-native';
-import { getAbsoluteUri } from './siteUrl';
-import { 
-    IManifest, 
-    STREAM_FORMAT_TYPE, 
-    DRM_TYPE 
+import {
+    DRM_TYPE,
+    IManifest,
+    STREAM_FORMAT_TYPE
 } from '../types';
+import { getAbsoluteUri } from './siteUrl';
 
 import qs from 'qs';
 
-const LOG_ENABLED = true;
+const LOG_ENABLED = false;
 const LOG_KEY = '[Video Player Source]';
 
 
@@ -91,7 +91,7 @@ const addLiveTimestamp = (uri: string, subtractMinutes: number, liveStartProgram
 
 }
 
-export const getBestManifest = (manifests: Array<IManifest>, isCasting?: boolean): IManifest | undefined => {
+export const getBestManifest = (manifests: Array<IManifest>, isCasting?: boolean, isLive?: boolean): IManifest | undefined => {
 
     let manifest: IManifest | undefined;
 
@@ -112,6 +112,8 @@ export const getBestManifest = (manifests: Array<IManifest>, isCasting?: boolean
                 return item.type === STREAM_FORMAT_TYPE.DASH;
 
             }
+
+            return undefined;
 
         });
 

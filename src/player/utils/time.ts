@@ -22,8 +22,8 @@ export function subtractMinutesFromDate(date: Date, min: number): Date {
     try {
         date.setMinutes(date.getMinutes() - min); 
 
-    } catch(ex){
-        console.log(ex.message);
+    } catch(ex: unknown){
+        console.log(ex instanceof Error ? ex.message : 'Unknown error');
     }
     
     return date;
@@ -42,8 +42,19 @@ export function parseToCounter (durationInSeconds: number | string): string {
 
     }
 
-    if (seconds < 0){
-        seconds = 0;
+    // Validar que el valor sea razonable para duraciones de contenido multimedia
+    if (
+        !Number.isFinite(seconds) ||
+        seconds < 0 ||
+        seconds > 86400 || // Más de 24 horas en segundos (contenido muy largo)
+        seconds > 1000000000000 // Detectar timestamps Unix en milisegundos (demasiado grande)
+    ) {
+        return '00:00';
+    }
+
+    // Si parece ser un timestamp Unix (valores muy grandes), rechazar
+    if (seconds > 1000000000) { // Timestamp Unix (mayor a ~31 años en segundos)
+        return '00:00';
     }
 
     const segments = segmentDuration(seconds);
@@ -91,3 +102,29 @@ export function parseToDetails (durationInSeconds: number | string): string {
     }
 
 };
+
+// Función helper para formatear timestamps absolutos a hora local
+export function formatTimestamp(timestamp: number | null | undefined): string {
+    if (!timestamp || timestamp <= 0) return '--:--:--';
+    
+    const date = new Date(timestamp);
+    // Formato HH:MM:SS en hora local
+    return date.toLocaleTimeString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit',
+        hour12: false 
+    });
+}
+
+// Función helper para calcular duración entre dos timestamps
+export function formatTimestampDifference(startTimestamp: number, endTimestamp: number): string {
+    const diffInSeconds = Math.abs(endTimestamp - startTimestamp) / 1000;
+    return parseToCounter(diffInSeconds);
+}
+
+// Función helper para formatear el offset (ya está en segundos)
+export function formatOffset(offsetInSeconds: number | null | undefined): string {
+    if (offsetInSeconds === null || offsetInSeconds === undefined) return '--:--';
+    return parseToCounter(offsetInSeconds);
+}
