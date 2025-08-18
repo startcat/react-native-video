@@ -57,6 +57,8 @@ export class CastMessageBuilder {
             // Calcular posición de inicio
             const startPosition = this.calculateStartPosition(config);
 
+            const streamType = metadata.isLive ? 'live' : 'buffered';
+
             // Construir mensaje usando función existente
             const message = getSourceMessageForCast(
                 config.source.uri,
@@ -73,6 +75,7 @@ export class CastMessageBuilder {
             if (message && message.mediaInfo) {
                 message.mediaInfo.contentId = contentId;
                 message.mediaInfo.contentType = this.getMimeType(config.source.uri);
+                message.mediaInfo.streamType = streamType;
                 
                 // Agregar metadata personalizada
                 message.mediaInfo.customData = {
@@ -80,7 +83,9 @@ export class CastMessageBuilder {
                     sourceDescription: {
                         metadata: metadata
                     },
-                    contentType: this.getContentType(config.metadata),
+                    streamType: streamType,
+                    contentType: this.getMimeType(config.source.uri),
+                    type: this.getContentType(config.metadata),
                     buildTimestamp: Date.now(),
                     builderVersion: '1.0.0'
                 };
@@ -95,6 +100,8 @@ export class CastMessageBuilder {
                     startPosition
                 } : null
             });
+
+            console.log(`[DANI] message: ${JSON.stringify(message)}`);
 
             return message;
 

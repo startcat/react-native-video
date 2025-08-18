@@ -145,6 +145,13 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     // USAR CAST MANAGER para todas las acciones
     const castManager = useCastManager(castManagerCallbacks, castManagerConfig);
 
+    // Refs para evitar dependencias en useCallbacks
+    const castManagerRef = useRef(castManager);
+
+    useEffect(() => {
+        castManagerRef.current = castManager;
+    }, [castManager]);
+
     // Estados derivados del Cast
     const [currentTime, setCurrentTime] = useState<number>(castProgress.currentTime || 0);
     const [paused, setPaused] = useState<boolean>(!castPlaying);
@@ -231,26 +238,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             }
         }
     }, [castProgress.duration, castConnected]);
-
-    /*
-    useEffect(() => {
-        // Solo logear cambios significativos, no cada tick
-        const significantChange = 
-            Math.abs(castProgress.currentTime - currentTime) > 1 || 
-            castPlaying !== !paused ||
-            castVolume.isMuted !== muted;
-            
-        if (significantChange) {
-            console.log(`[Player] (Audio Cast Flavour) Cast hooks state:`, {
-                castConnected,
-                castPlaying,
-                castProgress: { currentTime: castProgress.currentTime, duration: castProgress.duration },
-                castVolume: { level: castVolume.level, isMuted: castVolume.isMuted },
-                localState: { currentTime, paused, muted }
-            });
-        }
-    }, [castConnected, castPlaying, castProgress.currentTime, castProgress.duration, castVolume.level, castVolume.isMuted, currentTime, paused, muted]);
-    */
 
     // Detectar cuando el contenido termina usando cambios en el estado
     useEffect(() => {
@@ -504,7 +491,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                     startingPoint = sourceRef.current.dvrWindowSeconds;
                 }
 
-                const success = await castManager.loadContent({
+                const success = await castManagerRef.current?.loadContent({
                     source: data.source,
                     manifest: sourceRef.current?.currentManifest || {},
                     drm: data.drm,
@@ -535,7 +522,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                 onError({ message: error?.message || 'Failed to load content to Cast' });
             }
         }
-    }, [castManager, castMedia, props.hooks, props.playerAnalytics, props.playerProgress, props.playerMetadata, props.liveStartDate, props.playerAds, props.events]);
+    }, [castMedia, props.hooks, props.playerAnalytics, props.playerProgress, props.playerMetadata, props.liveStartDate, props.playerAds, props.events]);
 
     const loadTudumSource = useCallback(async () => {
         // console.log(`[Player] (Audio Cast Flavour) loadTudumSource`);
@@ -558,7 +545,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             console.log(`[Player] (Audio Cast Flavour) Loading tudum to Cast:`, tudumRef.current.source);
             
             // USAR castManager.loadContent para tudum
-            const success = await castManager.loadContent({
+            const success = await castManagerRef.current?.loadContent({
                 source: tudumRef.current.source,
                 manifest: {},
                 drm: tudumRef.current.drm,
@@ -595,7 +582,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             currentSourceType.current = 'content';
             loadContentSource();
         }
-    }, [castManager, castConnected]);
+    }, [castConnected]);
 
     const loadContentSource = useCallback(() => {
         // console.log(`[Player] (Audio Cast Flavour) loadContentSource`);
@@ -804,9 +791,13 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     }, [paused, muted, isContentLoaded]);
 
     const onSeekRequest = useCallback((playerTime: number) => {
-        console.log(`[Player] (Audio Cast Flavour) onSeekRequest: ${playerTime}`);
-        castManager.seek(playerTime);
-    }, [castManager]);
+        if (!!castManagerRef.current){
+            console.log(`[Player] (Audio Cast Flavour) onSeekRequest:`, playerTime);
+            castManagerRef.current.seek(playerTime);
+        } else {
+            console.log(`[Player] (Audio Cast Flavour) onSeekRequest - castManager is not initialized`);
+        }
+    }, []);
 
     useEffect(() => {
         // Initialize VOD Progress Manager only once
@@ -831,7 +822,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                 onSeekRequest: onSeekRequest
             });
         }
-    }, [onProgressUpdate, onSeekRequest, onDVRModeChange, onDVRProgramChange]);
+    }, []);
 
     // Actualizar callbacks del DVRProgressManagerClass cuando cambien
     useEffect(() => {
@@ -867,14 +858,14 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
         if (id === CONTROL_ACTION.PAUSE){
             if (value) {
-                await castManager.pause();
+                await castManagerRef.current?.pause();
             } else {
-                await castManager.play();
+                await castManagerRef.current?.play();
             }
         }
 
         if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
-            await castManager.stop();
+            await castManagerRef.current?.stop();
             if (props.events?.onClose){
                 props.events.onClose();
             }
@@ -882,14 +873,14 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         
         if (id === CONTROL_ACTION.MUTE){
             if (value) {
-                await castManager.mute();
+                await castManagerRef.current?.mute();
             } else {
-                await castManager.unmute();
+                await castManagerRef.current?.unmute();
             }
         }
 
         if (id === CONTROL_ACTION.VOLUME && typeof(value) === 'number'){
-            await castManager.setVolume(value);
+            await castManagerRef.current?.setVolume(value);
         }
         
         if (id === CONTROL_ACTION.NEXT && props.events?.onNext){            
@@ -954,7 +945,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             props.events.onChangeCommonData(data);
         }
 
-    }, [castManager, props.events]);
+    }, [props.events]);
 
     useEffect(() => {
         const actionsAudioPlayerListener = EventRegister.addEventListener('audioPlayerAction', (data: AudioPlayerActionEventProps) => {
@@ -1062,11 +1053,10 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         if (currentSourceType.current === 'content') {
             if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR){
                 // Para VOD: mantener duración establecida en onLoad
-                const currentDuration = vodProgressManagerRef.current?.duration || 0;
                 vodProgressManagerRef.current?.updatePlayerData({
                     currentTime: e.currentTime,
-                    seekableRange: { start: 0, end: currentDuration > 0 ? currentDuration : e.seekableDuration },
-                    duration: currentDuration,
+                    seekableRange: { start: 0, end: e.seekableDuration },
+                    duration: e.seekableDuration,
                     isBuffering: isBuffering || isLoadingContent,
                     isPaused: paused
                 });
@@ -1076,7 +1066,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                 // Para DVR, usar la duración del progreso
                 dvrProgressManagerRef.current?.updatePlayerData({
                     currentTime: e.currentTime,
-                    duration: e.playableDuration,
+                    duration: e.seekableDuration,
                     seekableRange: { start: 0, end: e.seekableDuration },
                     isBuffering: isBuffering || isLoadingContent,
                     isPaused: paused
@@ -1084,10 +1074,9 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             }
 
             if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData){
-                const vodDuration = vodProgressManagerRef.current?.duration || 0;
                 props.events.onChangeCommonData({
                     time: e.currentTime,
-                    duration: vodDuration,
+                    duration: e.seekableDuration,
                 });
             }
         }

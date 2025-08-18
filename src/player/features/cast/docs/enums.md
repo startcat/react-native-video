@@ -110,9 +110,9 @@ Enum que define los tipos de stream compatibles con Google Cast SDK.
 
 | Valor | String | Descripción |
 |-------|--------|-------------|
-| `BUFFERED` | `'BUFFERED'` | Stream con buffer - contenido VOD |
-| `LIVE` | `'LIVE'` | Stream en vivo |
-| `NONE` | `'NONE'` | Sin tipo específico |
+| `BUFFERED` | `'buffered'` | Stream con buffer - contenido VOD |
+| `LIVE` | `'live'` | Stream en vivo |
+| `NONE` | `'none'` | Sin tipo específico |
 
 ---
 
