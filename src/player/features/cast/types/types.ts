@@ -32,7 +32,7 @@ export interface CastMediaInfo {
     isIdle: boolean;
     currentTime: number;
     duration: number | null;
-    progress: number; // ✅ Valor original sin clamp - puede ser cualquier valor para DVR
+    progress: number; // Valor original sin clamp - puede ser cualquier valor para DVR
     seekableRange: { start: number; end: number } | null;
     playbackRate: number;
     audioTrack: CastTrackInfo | null;
@@ -62,7 +62,7 @@ export interface CastState {
     lastUpdate: number;
 }
 
-// ✅ Tipos para el reducer
+// Tipos para el reducer
 export interface InternalCastState {
     castState: CastState;
     lastValidPosition: number;
@@ -98,7 +98,7 @@ export type CastAction =
         type: 'CLEAR_ERROR';
     };
 
-// ✅ Interfaces para el manager (compatibles con CastMessageBuilder)
+// Interfaces para el manager (compatibles con CastMessageBuilder)
 export interface CastContentInfo {
     // Información de la fuente
     source: {
