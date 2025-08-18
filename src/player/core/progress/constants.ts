@@ -10,4 +10,4 @@ export const LOG_TYPE_LEVELS = {
 };
 export const PROGRESS_SIGNIFICANT_CHANGE = 5; // segundos
 export const EPG_RETRY_DELAYS = [2000, 5000]; // ms para reintentos
-export const LIVE_EDGE_TOLERANCE = 30; // segundos para considerar "en vivo"
+export const LIVE_EDGE_TOLERANCE = 15; // segundos para considerar "en vivo"
