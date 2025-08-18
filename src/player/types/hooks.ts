@@ -20,6 +20,7 @@ import {
 export interface IPlayerHooks {
     watchingProgressInterval?: number;
     addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
+    getBestManifest?: (manifests: Array<IManifest>, isCasting?: boolean) => IManifest | undefined;
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumManifest?: () => IManifest | null | undefined;

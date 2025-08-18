@@ -157,6 +157,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     manifests: props.manifests,
                     startPosition: props.playerProgress?.currentTime || 0,
                     headers: props.headers,
+                    getBestManifest: props.hooks?.getBestManifest,
                     getSourceUri: props.hooks?.getSourceUri,
                     onSourceChanged: onSourceChanged
                 });
@@ -223,6 +224,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     manifests: props.manifests,
                     startPosition: props.playerProgress?.currentTime || 0,
                     headers: props.headers,
+                    getBestManifest: props.hooks?.getBestManifest,
                     getSourceUri: props.hooks?.getSourceUri,
                     onSourceChanged: onSourceChanged
                 });

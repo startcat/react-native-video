@@ -43,6 +43,7 @@ export interface SourceClassProps {
     headers?: Headers;
 
     // Callbacks
+    getBestManifest?: (manifests: Array<IManifest>, isCasting?: boolean) => IManifest | undefined;
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     onSourceChanged?: (data:onSourceChangedProps) => void;
 }
@@ -70,11 +71,18 @@ export class SourceClass {
     private _isBinary:boolean = false;
     private _isFakeVOD:boolean = false;
 
+    private _getBestManifest: (manifests: Array<IManifest>, isCasting?: boolean) => IManifest | undefined;
     private _getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
 
 	constructor(props:SourceClassProps) {
 
         this._getSourceUri = props.getSourceUri;
+
+        if (props.getBestManifest && typeof props.getBestManifest === 'function'){
+            this._getBestManifest = props.getBestManifest;
+        } else {
+            this._getBestManifest = getBestManifest;
+        }
 
         if (props.manifests && props.manifests.length > 0){
             this.changeSource(props);
@@ -111,7 +119,7 @@ export class SourceClass {
         }
 
         // Cogemos el manifest adecuado
-        this._currentManifest = getBestManifest(props.manifests);
+        this._currentManifest = this._getBestManifest(props.manifests);
 
         if (!this._currentManifest){
             this.clearCurrentSource();

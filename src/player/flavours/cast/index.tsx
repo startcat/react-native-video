@@ -406,6 +406,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 manifests: props.manifests,
                 startPosition: props.playerProgress?.currentTime || 0,
                 headers: props.headers,
+                getBestManifest: props.hooks?.getBestManifest,
                 getSourceUri: props.hooks?.getSourceUri,
                 onSourceChanged: onSourceChanged
             });
@@ -467,6 +468,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 manifests: props.manifests,
                 startPosition: props.playerProgress?.currentTime || 0,
                 headers: props.headers,
+                getBestManifest: props.hooks?.getBestManifest,
                 getSourceUri: props.hooks?.getSourceUri,
                 onSourceChanged: onSourceChanged
             });
