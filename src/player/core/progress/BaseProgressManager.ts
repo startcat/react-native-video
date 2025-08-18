@@ -102,7 +102,7 @@ export abstract class BaseProgressManager {
     // Métodos de seeking comunes
     skipForward(seconds: number): void {
         if (!this._isValidState()) {
-            this.log('skipForward: Invalid state - operation queued until ready', 'warn');
+            this.log('skipForward: Invalid state - operation queued until ready', 'debug');
             return;
         }
         
@@ -112,7 +112,7 @@ export abstract class BaseProgressManager {
 
     skipBackward(seconds: number): void {
         if (!this._isValidState()) {
-            this.log('skipBackward: Invalid state - operation queued until ready', 'warn');
+            this.log('skipBackward: Invalid state - operation queued until ready', 'debug');
             return;
         }
         
@@ -122,7 +122,7 @@ export abstract class BaseProgressManager {
 
     seekToProgress(progress: number): void {
         if (!this._isValidState()) {
-            this.log('seekToProgress: Invalid state - operation queued until ready', 'warn');
+            this.log('seekToProgress: Invalid state - operation queued until ready', 'debug');
             return;
         }
 
@@ -135,7 +135,7 @@ export abstract class BaseProgressManager {
 
     seekToTime(time: number): void {
         if (!this._isValidState()) {
-            this.log('seekToTime: Invalid state - operation queued until ready', 'warn');
+            this.log('seekToTime: Invalid state - operation queued until ready', 'debug');
             return;
         }
 
@@ -214,7 +214,7 @@ export abstract class BaseProgressManager {
     protected _validatePlayerData(data: BaseUpdatePlayerData): BaseUpdatePlayerData {
         // Validación básica con corrección automática
         if (typeof data.currentTime !== 'number' || data.currentTime < 0) {
-            this.log('Invalid currentTime, correcting to 0', 'warn');
+            this.log('Invalid currentTime, correcting to 0', 'debug');
             data.currentTime = 0;
         }
 
@@ -225,7 +225,7 @@ export abstract class BaseProgressManager {
             typeof data.seekableRange.end !== 'number' ||
             data.seekableRange.start > data.seekableRange.end) {
             
-            this.log('Invalid seekableRange, correcting', 'warn');
+            this.log('Invalid seekableRange, correcting', 'debug');
             data.seekableRange = { start: 0, end: Math.max(data.currentTime, 1) };
         }
 
@@ -235,7 +235,7 @@ export abstract class BaseProgressManager {
         }
 
         if (data.duration !== undefined && (typeof data.duration !== 'number' || data.duration < 0)) {
-            this.log('Invalid duration, correcting', 'warn');
+            this.log('Invalid duration, correcting', 'debug');
             data.duration = undefined;
         }
 
