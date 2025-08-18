@@ -152,7 +152,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         });
 
         if (!this._isValidState()) {
-            this.log('getSliderValues: Invalid state', 'warn');
+            this.log('getSliderValues: Invalid state', 'debug');
             return {
                 minimumValue: 0,
                 maximumValue: 1,
@@ -248,7 +248,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
     setDVRWindowSeconds(seconds: number): void {
         if (seconds <= 0) {
-            this.log('setDVRWindowSeconds: Invalid window size', 'warn');
+            this.log('setDVRWindowSeconds: Invalid window size', 'debug');
             return;
         }
 
@@ -329,7 +329,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
     goToProgramStart(): void {
         if (!this._isValidState() || !this._currentProgram) {
-            this.log('goToProgramStart: Invalid state or no program', 'warn');
+            this.log('goToProgramStart: Invalid state or no program', 'debug');
             return;
         }
 
@@ -348,7 +348,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
     goToLive(): void {
         if (!this._isValidState()) {
-            this.log('goToLive: Invalid state', 'warn');
+            this.log('goToLive: Invalid state', 'debug');
             return;
         }
 
@@ -367,7 +367,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
     seekToTime(time: number): void {
         if (!this._isValidState()) {
-            this.log('seekToTime: Invalid state - operation queued until ready', 'warn');
+            this.log('seekToTime: Invalid state - operation queued until ready', 'debug');
             return;
         }
 
@@ -557,12 +557,12 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
         // Validar consistencia durante pausas
         if ((this._isPaused || this._isBuffering) && !this._validatePauseConsistency()) {
-            this.log('_emitProgressUpdate: Pause values inconsistent, recalculating', 'warn');
+            this.log('_emitProgressUpdate: Pause values inconsistent, recalculating', 'debug');
             this._recalculatePauseValues();
         }
 
         if (!this._isValidState()) {
-            this.log('_emitProgressUpdate: Invalid state, emitting fallback data', 'warn');
+            this.log('_emitProgressUpdate: Invalid state, emitting fallback data', 'debug');
             this._emitFallbackProgressUpdate();
             return;
         }
@@ -636,7 +636,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         const isValid = expectedOffset >= 0;
         
         if (!isValid) {
-            this.log(`Pause consistency failed: offset=${expectedOffset}s`, 'warn');
+            this.log(`Pause consistency failed: offset=${expectedOffset}s`, 'debug');
         }
         
         return isValid;
@@ -800,10 +800,10 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         const maxAvailableTimestamp = Math.min(endDate, liveEdge);
         
         if (timestamp < startDate) {
-            this.log(`Seek target before program start, clamping: ${timestamp} → ${startDate}`, 'warn');
+            this.log(`Seek target before program start, clamping: ${timestamp} → ${startDate}`, 'debug');
             timestamp = startDate;
         } else if (timestamp > maxAvailableTimestamp) {
-            this.log(`Seek target beyond available content, clamping: ${timestamp} → ${maxAvailableTimestamp}`, 'warn');
+            this.log(`Seek target beyond available content, clamping: ${timestamp} → ${maxAvailableTimestamp}`, 'debug');
             timestamp = maxAvailableTimestamp;
         }
 

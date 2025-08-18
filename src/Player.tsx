@@ -61,6 +61,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>(typeof(props.subtitleIndex) === 'number' ? props.subtitleIndex : -1);
 
     const [hasRotated, setHasRotated] = useState<boolean>(!!props.avoidRotation || DeviceInfo.isTablet());
+    const [hasCorrectCastState, setCorrectCastState] = useState<boolean>(false);
 
     const castState = useCastState();
 
@@ -71,7 +72,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         };
     }
 
-    useOrientationChange((o) => {
+    useOrientationChange((o: OrientationType) => {
         // Pequeño apaño para el lock de rotación (fallback para dispositivos viejos)
         if (!hasRotated){
             setTimeout(() => {
@@ -151,6 +152,15 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
     }, []);
 
+    React.useEffect(() => {
+        if (!!castState){
+            setTimeout(() => {
+                setCorrectCastState(true);
+
+            }, 200);
+        }
+    }, [castState]);
+
     /*
      *  Función para guardar los cambios en el estado entre flavours
      * 
@@ -211,7 +221,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         
     }
 
-    if (hasRotated && (castState === CastState.CONNECTING || castState === CastState.CONNECTED)){
+    if (hasRotated && hasCorrectCastState && (castState === CastState.CONNECTING || castState === CastState.CONNECTED)){
         console.log(`[Player] Mounting CastFlavour...`);
         isCasting.current = true;
         return (
@@ -256,7 +266,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             </Suspense>
         );
 
-    } else if (hasRotated){
+    } else if (hasRotated && hasCorrectCastState && (castState === CastState.DISCONNECTED || castState === CastState.NO_DEVICES_AVAILABLE)){
         console.log(`[Player] Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
