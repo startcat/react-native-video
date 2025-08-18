@@ -120,7 +120,7 @@ export const DEFAULT_MESSAGE_CONFIG = {
 export const SUPPORTED_MIME_TYPES = {
     HLS: 'application/x-mpegurl',
     DASH: 'application/dash+xml',
-    MP3: 'audio/mpeg',
+    MP3: 'audio/mp3',
     MP4: 'video/mp4',
     WEBM: 'video/webm',
 } as const;

@@ -1,5 +1,5 @@
 // Constantes
-export const LOG_KEY = '[DVRProgressManager]';
+export const LOG_KEY = '[ProgressManager]';
 export const LOG_ENABLED = true;
 export const LOG_LEVEL = 'debug';
 export const LOG_TYPE_LEVELS = {
