@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { CastContext, CastState, CastButton as NativeCastButton, useCastState } from 'react-native-google-cast';
+import { CastContext, CastButton as NativeCastButton, CastState as NativeCastState, useCastState as useNativeCastState } from 'react-native-google-cast';
 import {
     type AirplayCastButtonProps,
     BUTTON_SIZE,
@@ -14,7 +14,7 @@ const CastButton = ({
 }: AirplayCastButtonProps): React.ReactElement | null => {
     
     const id = useMemo(() => CONTROL_ACTION.CAST, []);
-    const castState = useCastState();
+    const nativeCastState = useNativeCastState();
 
     const handlePress = useCallback(() => {
         // Enfoque más seguro para manejar la función de la prop
@@ -30,8 +30,8 @@ const CastButton = ({
     }, [id, propOnPress]);
 
     const shouldRenderButton = useMemo(() => 
-        castState !== CastState.NO_DEVICES_AVAILABLE, 
-    [castState]);
+        nativeCastState !== NativeCastState.NO_DEVICES_AVAILABLE, 
+    [nativeCastState]);
 
     const castButtonStyle = useMemo(() => ({
         width: 22, 

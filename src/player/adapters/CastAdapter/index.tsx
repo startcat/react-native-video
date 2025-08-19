@@ -107,7 +107,6 @@ export const CastAdapter = forwardRef<CastAdapterRef, CastAdapterProps>(
             if (castConnected && castProgress.currentTime >= 0) {
                 props.onProgress?.({
                     currentTime: castProgress.currentTime,
-                    playableDuration: castProgress.duration || 0,
                     seekableDuration: castProgress.duration || 0
                 });
             }

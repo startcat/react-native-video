@@ -6,8 +6,8 @@ export function useCastError(): CastErrorInfo {
     const castState = useCastState();
     
     return useMemo(() => castState.error, [
-        castState.error.code,
-        castState.error.message,
-        castState.error.lastUpdate
+        castState.error.errorCode,
+        castState.error.errorMessage,
+        castState.error.lastErrorTime
     ]);
 }

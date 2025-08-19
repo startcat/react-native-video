@@ -322,7 +322,6 @@ export const ReactNativeVideoAdapter = forwardRef<ReactNativeVideoAdapterRef, Re
             
             props.onProgress?.({
                 currentTime: e.currentTime,
-                playableDuration: e.playableDuration,
                 seekableDuration: e.seekableDuration,
                 currentBitrate: e.currentBitrate
             });

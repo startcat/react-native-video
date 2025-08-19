@@ -1,9 +1,9 @@
 import { CastSession } from "react-native-google-cast";
-import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastState, CastTrackInfo, InternalCastState } from "../types/types";
-
+import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastStateCustom, CastTrackInfo, InternalCastState } from "../types/types";
+import { validateHookStateChange } from "./validations";
 
 // Estado inicial
-export function createInitialCastState(): CastState {
+export function createInitialCastState(): CastStateCustom {
     return {
         connection: {
             status: 'notConnected',
@@ -27,13 +27,12 @@ export function createInitialCastState(): CastState {
             audioTrack: null,
             textTrack: null,
             availableAudioTracks: [],
-            availableTextTracks: []
+            availableTextTracks: [],
+            mediaTracks: []
         },
         volume: {
             level: 0.5,
-            isMuted: false,
-            canControl: false,
-            stepInterval: 0.05
+            isMuted: false
         },
         error: {
             hasError: false,
@@ -165,14 +164,19 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
             //     }
             // });
 
-            if (nativeMediaStatus) {
-                console.log(`[CastReducer] FULL nativeMediaStatus: ${JSON.stringify(nativeMediaStatus)}`);
-            }
+            // if (nativeMediaStatus) {
+            //     console.log(`[CastReducer] FULL nativeMediaStatus: ${JSON.stringify(nativeMediaStatus)}`);
+            // }
 
             // Procesar conexión
             const connection: CastConnectionInfo = (() => {
                 const castStateStr = String(nativeCastState || 'NOT_CONNECTED').toUpperCase();
                 
+                // console.log(`[CastReducer] nativeCastState RAW: ${JSON.stringify(nativeCastState)}`);
+                // console.log(`[CastReducer] castStateStr: ${castStateStr}`);
+                // console.log(`[CastReducer] nativeSession: ${!!nativeSession}`);
+                // console.log(`[CastReducer] nativeClient: ${!!nativeClient}`);
+
                 switch (castStateStr) {
                     case 'CONNECTED':
                         return {
@@ -222,10 +226,15 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                     };
                 }
 
+                // console.log(`[CastReducer] nativeMediaStatus RAW: ${JSON.stringify(nativeMediaStatus)}`);
+
                 const playerState = nativeMediaStatus.playerState;
                 const mediaInfo = nativeMediaStatus.mediaInfo;
                 const metadata = extractMediaMetadata(mediaInfo);
                 const tracksInfo = extractTracksInfo(nativeMediaStatus);
+                
+                // Debug logging para streamDuration
+                // console.log(`[CastReducer] VOD Debug - playerState: ${playerState}, streamDuration: ${mediaInfo?.streamDuration}, contentType: ${mediaInfo?.contentType}, streamType: ${mediaInfo?.streamType}`);
                 
                 // Normalizar playerState a mayúsculas para comparación
                 const normalizedPlayerState = String(playerState || '').toUpperCase();
@@ -249,10 +258,33 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 }
                 
                 const duration = mediaInfo?.streamDuration || null;
-                // Progress sin alteraciones - preserva valores originales para DVR
-                const progress = duration && duration > 0 ? currentTime / duration : 0;
+                
+                // Para Live DVR, usar seekableRange.end como duración si streamDuration es inválida
+                const effectiveDuration = (() => {
+                    // Si tenemos una duración válida del stream, usarla
+                    if (duration && duration > 0) {
+                        return duration;
+                    }
+                    
+                    // Para Live DVR, usar el endTime del seekableRange como duración
+                    const seekableEnd = nativeMediaStatus.liveSeekableRange?.endTime;
+                    if (seekableEnd && seekableEnd > 0) {
+                        return seekableEnd;
+                    }
+                    
+                    // Preservar duración previa si existe y es válida
+                    const prevDuration = state.castState.media?.duration;
+                    if (prevDuration && prevDuration > 0) {
+                        return prevDuration;
+                    }
+                    
+                    return null;
+                })();
 
-                return {
+                // Progress sin alteraciones - preserva valores originales para DVR
+                const progress = effectiveDuration && effectiveDuration > 0 ? currentTime / effectiveDuration : 0;
+
+                const result = {
                     url: mediaInfo?.contentId || null,
                     title: metadata.title,
                     subtitle: metadata.subtitle,
@@ -262,7 +294,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                     isBuffering: isBufferingState,
                     isIdle: normalizedPlayerState === 'IDLE',
                     currentTime,
-                    duration,
+                    duration: effectiveDuration,
                     seekableRange: {
                         start: nativeMediaStatus.liveSeekableRange?.startTime || 0,
                         end: nativeMediaStatus.liveSeekableRange?.endTime || 0
@@ -275,6 +307,10 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                     availableTextTracks: tracksInfo.availableTextTracks,
                     mediaTracks: tracksInfo.mediaTracks
                 };
+
+                // console.log(`[CastReducer] Debug result - seekableRange: ${JSON.stringify(result.seekableRange)}, currentTime: ${result.currentTime}, duration: ${result.duration}`);
+
+                return result;
             })();
 
             // Procesar errores del MediaStatus
@@ -298,18 +334,27 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 !media.isBuffering && 
                 media.isPlaying
             ) ? media.currentTime : state.lastValidPosition;
+
+            const connectionHasChanged = validateHookStateChange('castState - connection', state.castState.connection, connection);
+            const mediaHasChanged = validateHookStateChange('castState - media', state.castState.media, media);
+            const errorHasChanged = validateHookStateChange('castState - error', state.castState.error, error);
             
-            return {
-                castState: {
-                    ...state.castState,
-                    connection,
-                    media,
-                    error,
-                    lastUpdate: Date.now()
-                },
-                lastValidPosition: newLastValidPosition,
-                updateSequence: state.updateSequence + 1,
-            };
+            if (connectionHasChanged || mediaHasChanged || errorHasChanged) {
+                return {
+                    castState: {
+                        ...state.castState,
+                        connection,
+                        media,
+                        error,
+                        lastUpdate: Date.now()
+                    },
+                    lastValidPosition: newLastValidPosition,
+                    updateSequence: state.updateSequence + 1,
+                };
+            } else {
+                return state;
+
+            }
         }
 
         case 'UPDATE_VOLUME': {
