@@ -196,7 +196,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             setHasTriedLoading(false);
         },
         onDisconnect: () => {
-            console.log(`[Player] (Audio Cast Flavour) Cast disconnected`);
+            console.log(`[Player] (Audio Cast Flavour) Cast notConnected`);
             setIsContentLoaded(false);
             setIsLoadingContent(false);
             setHasTriedLoading(false);

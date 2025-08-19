@@ -116,7 +116,7 @@ function CastStatusIndicator() {
     const { isConnected, statusText } = useCastConnectivity();
     
     return (
-        <div className={`cast-status ${isConnected ? 'connected' : 'disconnected'}`}>
+        <div className={`cast-status ${isConnected ? 'connected' : 'notConnected'}`}>
             {statusText}
         </div>
     );
@@ -288,7 +288,7 @@ function CastVolumeControl() {
 
 Los hooks utilizan el enum `CastManagerState` con los siguientes valores:
 
-- `DISCONNECTED` - Cast desconectado
+- `NOT_CONNECTED` - Cast desconectado
 - `CONNECTING` - Cast conectando
 - `CONNECTED` - Cast conectado
 - `LOADING` - Cargando contenido

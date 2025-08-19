@@ -122,8 +122,8 @@ Mapeo de estados de Cast nativo a estados del manager.
 
 | Estado Nativo         | Estado Manager                        | Descripción                          |
 |-----------------------|---------------------------------------|--------------------------------------|
-| `'NOT_CONNECTED'`     | `CastManagerState.DISCONNECTED`      | No conectado                         |
-| `'NO_DEVICES_AVAILABLE'`| `CastManagerState.DISCONNECTED`    | Sin dispositivos disponibles        |
+| `'NOT_CONNECTED'`     | `CastManagerState.NOT_CONNECTED`      | No conectado                         |
+| `'NO_DEVICES_AVAILABLE'`| `CastManagerState.NOT_CONNECTED`    | Sin dispositivos disponibles        |
 | `'CONNECTING'`        | `CastManagerState.CONNECTING`        | Conectando                           |
 | `'CONNECTED'`         | `CastManagerState.CONNECTED`         | Conectado                            |
 

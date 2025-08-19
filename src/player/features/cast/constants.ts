@@ -9,8 +9,9 @@ export const DEFAULT_CAST_CONFIG = {
     retryAttempts: 3,
     retryDelay: 2000,
     loadTimeout: 10000,
-    debugMode: false,
-    streamPositionInterval: 1
+    debugMode: true,
+    streamPositionInterval: 1,
+    initializationDelay: 200
 } as const;
 
 /*
@@ -42,8 +43,8 @@ export const CONTENT_COMPARISON_TOLERANCE = {
  */
 
 export const CAST_STATE_MAPPING: Record<string, CastManagerState> = {
-    'NOT_CONNECTED': CastManagerState.DISCONNECTED,
-    'NO_DEVICES_AVAILABLE': CastManagerState.DISCONNECTED,
+    'NOT_CONNECTED': CastManagerState.NOT_CONNECTED,
+    'NO_DEVICES_AVAILABLE': CastManagerState.NOT_CONNECTED,
     'CONNECTING': CastManagerState.CONNECTING,
     'CONNECTED': CastManagerState.CONNECTED,
 };

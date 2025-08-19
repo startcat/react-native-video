@@ -6,7 +6,7 @@ import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastState
 export function createInitialCastState(): CastState {
     return {
         connection: {
-            status: 'disconnected',
+            status: 'notConnected',
             deviceName: null,
             statusText: 'Desconectado'
         },
@@ -188,7 +188,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                         };
                     default:
                         return {
-                            status: 'disconnected',
+                            status: 'notConnected',
                             deviceName: null,
                             statusText: 'Desconectado'
                         };

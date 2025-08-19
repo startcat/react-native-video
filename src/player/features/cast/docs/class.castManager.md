@@ -473,7 +473,7 @@ castManager.on(CastManagerEvent.TIME_UPDATE, (eventData) => {
 
 | Estado          | Descripción                                    |
 |-----------------|------------------------------------------------|
-| `DISCONNECTED`  | Cast desconectado                              |
+| `NOT_CONNECTED`  | Cast desconectado                              |
 | `CONNECTING`    | Conectando a Cast                              |
 | `CONNECTED`     | Conectado pero sin contenido                   |
 | `LOADING`       | Cargando contenido                             |

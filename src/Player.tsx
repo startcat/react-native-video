@@ -38,6 +38,8 @@ import {
     type PlayerProps
 } from './player/types';
 
+import { DEFAULT_CAST_CONFIG } from './player/features/cast/constants';
+
 
 
 /*
@@ -121,6 +123,11 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         }
 
+        const baseTimer = setTimeout(() => {
+            setCorrectCastState(true);
+
+        }, DEFAULT_CAST_CONFIG.initializationDelay);
+
         console.log(`[Player] Manifests ${JSON.stringify(props.manifests)}`);
     
         return () => {
@@ -148,18 +155,11 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                 SystemNavigationBar.fullScreen(false);
             }
 
+            clearTimeout(baseTimer);
+
         };
 
     }, []);
-
-    React.useEffect(() => {
-        if (!!castState){
-            setTimeout(() => {
-                setCorrectCastState(true);
-
-            }, 200);
-        }
-    }, [castState]);
 
     /*
      *  Función para guardar los cambios en el estado entre flavours
@@ -266,7 +266,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             </Suspense>
         );
 
-    } else if (hasRotated && hasCorrectCastState && (castState === CastState.DISCONNECTED || castState === CastState.NO_DEVICES_AVAILABLE)){
+    } else if (hasRotated && hasCorrectCastState && (castState === CastState.NOT_CONNECTED || castState === CastState.NO_DEVICES_AVAILABLE)){
         console.log(`[Player] Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
@@ -316,6 +316,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         );
 
     } else {
+        console.log(`[Player] castState: ${castState}`);
         return null;
         
     }

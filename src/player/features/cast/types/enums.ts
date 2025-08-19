@@ -4,7 +4,7 @@
  */
 
 export enum CastManagerState {
-    DISCONNECTED = 'disconnected',
+    NOT_CONNECTED = 'notConnected',
     CONNECTING = 'connecting',
     CONNECTED = 'connected',
     LOADING = 'loading',
