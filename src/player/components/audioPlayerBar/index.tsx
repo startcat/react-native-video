@@ -3,7 +3,7 @@ import React, { createElement, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import BackgroundTimer from 'react-native-background-timer';
 import { EventRegister } from 'react-native-event-listeners';
-import { CastState, useCastState } from 'react-native-google-cast';
+import { CastState as NativeCastState, useCastState as useNativeCastState } from 'react-native-google-cast';
 import Animated, { useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { AudioCastFlavour, AudioFlavour } from '../../flavours';
 import { styles } from './styles';
@@ -40,7 +40,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
     const watchingProgressIntervalObj = useRef<ReturnType<typeof setTimeout>>();
 
-    const castState = useCastState();
+    const nativeCastState = useNativeCastState();
 
     useEffect(() => {
 
@@ -273,7 +273,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }
 
             {
-                contentId?.current && dpoData && (castState !== CastState.CONNECTING && castState !== CastState.CONNECTED)?
+                contentId?.current && dpoData && (nativeCastState !== NativeCastState.CONNECTING && nativeCastState !== NativeCastState.CONNECTED)?
                     <AudioFlavour
                         manifests={dpoData.manifests}
                         headers={dpoData.headers}
@@ -318,7 +318,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             }
 
             {
-                contentId?.current && dpoData && (castState === CastState.CONNECTING || castState === CastState.CONNECTED)?
+                contentId?.current && dpoData && (nativeCastState === NativeCastState.CONNECTING || nativeCastState === NativeCastState.CONNECTED)?
                     <AudioCastFlavour
                         manifests={dpoData.manifests}
                         headers={dpoData.headers}

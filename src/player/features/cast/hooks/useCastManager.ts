@@ -56,7 +56,7 @@ export function useCastManager(
         }
         
         return canPerform;
-    }, [castState.connection.status, castState.lastUpdate, nativeSession, nativeClient]);
+    }, [castState.connection.status, nativeSession, nativeClient]);
     
     // Función helper para manejar errores
     const handleActionError = useCallback((action: string, error: any): boolean => {
@@ -102,12 +102,12 @@ export function useCastManager(
         }
         
         // Evitar recargar el mismo contenido
-        if (lastLoadedContentRef.current === content.source.uri && 
-            castState.media.url === content.source.uri && 
-            !castState.media.isIdle) {
-            console.log('[CastManager] Content already loaded, skipping:', content.source.uri);
-            return true;
-        }
+        // if (lastLoadedContentRef.current === content.source.uri && 
+        //     castState.media.url === content.source.uri && 
+        //     !castState.media.isIdle) {
+        //     console.log('[CastManager] Content already loaded, skipping:', content.source.uri);
+        //     return true;
+        // }
         
         startAction('loadContent');
         
@@ -148,7 +148,7 @@ export function useCastManager(
             );
             return handleActionError('loadContent', error);
         }
-    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media]);
+    }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
     // Acción: Limpiar contenido
     const clearContent = useCallback(async (): Promise<boolean> => {
@@ -430,7 +430,7 @@ export function useCastManager(
         const { media } = castState;
         const callbacks = callbacksRef.current;
 
-        console.log(`[CastManager] (useEffect) Cast State Media - isPlaying: ${media.isPlaying}, isIdle: ${media.isIdle}, url: ${media.url}, ref: ${lastLoadedContentRef.current}`);
+        // console.log(`[CastManager] (useEffect) Cast State Media - isPlaying: ${media.isPlaying}, isIdle: ${media.isIdle}, url: ${media.url}, ref: ${lastLoadedContentRef.current}`);
         
         // Detectar inicio de reproducción -> Primera reproducción de un nuevo contenido
         if (media.isPlaying && !media.isIdle && callbacks.onPlaybackStarted && (!lastLoadedContentRef.current || lastLoadedContentRef.current !== media.url)) {

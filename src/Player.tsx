@@ -3,10 +3,11 @@ import React, { Suspense, lazy, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import BackgroundTimer from 'react-native-background-timer';
 import DeviceInfo from 'react-native-device-info';
-import { CastState, useCastState } from 'react-native-google-cast';
+import { CastState as NativeCastState, useCastState as useNativeCastState } from 'react-native-google-cast';
 import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { default as Downloads } from './Downloads';
+import { DEFAULT_CAST_CONFIG } from './player/features/cast/constants';
 import { IPlayerProgress } from './player/types';
 
 // Declaraciones globales para TypeScript
@@ -38,7 +39,6 @@ import {
     type PlayerProps
 } from './player/types';
 
-import { DEFAULT_CAST_CONFIG } from './player/features/cast/constants';
 
 
 
@@ -65,7 +65,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const [hasRotated, setHasRotated] = useState<boolean>(!!props.avoidRotation || DeviceInfo.isTablet());
     const [hasCorrectCastState, setCorrectCastState] = useState<boolean>(false);
 
-    const castState = useCastState();
+    const nativeCastState = useNativeCastState();
 
     if (!playerProgress.current){
         playerProgress.current = {
@@ -221,7 +221,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         
     }
 
-    if (hasRotated && hasCorrectCastState && (castState === CastState.CONNECTING || castState === CastState.CONNECTED)){
+    if (hasRotated && hasCorrectCastState && (nativeCastState === NativeCastState.CONNECTING || nativeCastState === NativeCastState.CONNECTED)){
         console.log(`[Player] Mounting CastFlavour...`);
         isCasting.current = true;
         return (
@@ -266,7 +266,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             </Suspense>
         );
 
-    } else if (hasRotated && hasCorrectCastState && (castState === CastState.NOT_CONNECTED || castState === CastState.NO_DEVICES_AVAILABLE)){
+    } else if (hasRotated && hasCorrectCastState && (nativeCastState !== NativeCastState.CONNECTING && nativeCastState !== NativeCastState.CONNECTED)){
         console.log(`[Player] Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
@@ -316,7 +316,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         );
 
     } else {
-        console.log(`[Player] castState: ${castState}`);
+        console.log(`[Player] nativeCastState: ${nativeCastState} // hasRotated: ${hasRotated} // hasCorrectCastState: ${hasCorrectCastState}`);
         return null;
         
     }

@@ -1,7 +1,7 @@
 import {
     CastSession,
-    CastState,
     MediaStatus,
+    CastState as NativeCastState,
     RemoteMediaClient,
     type MediaTrack
 } from 'react-native-google-cast';
@@ -54,7 +54,7 @@ export interface CastErrorInfo {
     lastErrorTime: number | null;
 }
 
-export interface CastState {
+export interface CastStateCustom {
     connection: CastConnectionInfo;
     media: CastMediaInfo;
     volume: CastVolumeInfo;
@@ -64,7 +64,7 @@ export interface CastState {
 
 // Tipos para el reducer
 export interface InternalCastState {
-    castState: CastState;
+    castState: CastStateCustom;
     lastValidPosition: number;
     updateSequence: number;
 }
@@ -73,7 +73,7 @@ export type CastAction =
     | {
         type: 'SYNC_UPDATE';
         payload: {
-            nativeCastState?: CastState;
+            nativeCastState?: NativeCastState;
             nativeSession?: CastSession;
             nativeClient?: RemoteMediaClient;
             nativeMediaStatus?: MediaStatus;

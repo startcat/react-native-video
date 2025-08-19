@@ -1,6 +1,5 @@
 import { useEffect, useReducer, useRef } from 'react';
 import {
-    CastState,
     useCastSession,
     useMediaStatus,
     useCastState as useNativeCastState,
@@ -8,7 +7,7 @@ import {
     useStreamPosition
 } from 'react-native-google-cast';
 
-import { CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastTrackInfo } from '../types/types';
+import { CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastStateCustom, CastTrackInfo } from '../types/types';
 import { castReducer, createInitialCastState, getVolume } from '../utils/castUtils';
 
 // Hook principal que maneja toda la sincronización
@@ -19,9 +18,9 @@ export function useCastState(options: {
     onError?: (error: CastErrorInfo) => void;
     onAudioTrackChange?: (track: CastTrackInfo | null) => void;
     onTextTrackChange?: (track: CastTrackInfo | null) => void;
-} = {}): CastState {
+} = {}): CastStateCustom {
     const { 
-        debugMode = false, 
+        debugMode = true, 
         onConnectionChange, 
         onMediaChange, 
         onError,
@@ -77,7 +76,7 @@ export function useCastState(options: {
             dispatch({ type: 'UPDATE_VOLUME', payload: volume });
         };
         updateVolume();
-    }, [nativeSession, nativeStreamPosition]);
+    }, [nativeSession]);
     
     useEffect(() => {
         const currentState = state.castState;

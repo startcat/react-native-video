@@ -110,7 +110,7 @@ export const DEFAULT_MESSAGE_CONFIG = {
     enableYoubora: true,
     enableAds: true,
     defaultStartPosition: 0,
-    debugMode: false,
+    debugMode: true,
 } as const;
 
 /*
@@ -189,9 +189,9 @@ export const METADATA_CONFIG = {
  */
 
 export const DEBUG_CONFIG = {
-    VERBOSE_LOGGING: false,
-    LOG_EVENTS: false,
-    LOG_STATE_CHANGES: false,
-    LOG_CONTENT_CHANGES: false,
-    LOG_ERRORS: false,
+    VERBOSE_LOGGING: true,
+    LOG_EVENTS: true,
+    LOG_STATE_CHANGES: true,
+    LOG_CONTENT_CHANGES: true,
+    LOG_ERRORS: true,
 } as const;

@@ -871,7 +871,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const handleOnProgress = (e: OnProgressData) => {
         
-        console.log(`[Player] (Audio Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, duration: ${e.playableDuration}, seekableDuration: ${e.seekableDuration}`);
+        console.log(`[Player] (Audio Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`);
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             // Trigger para el cambio de estado
@@ -896,7 +896,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 // Para DVR, usar la duración del evento onProgress
                 dvrProgressManagerRef.current?.updatePlayerData({
                     currentTime: e.currentTime,
-                    duration: e.playableDuration,
+                    duration: e.seekableDuration,
                     seekableRange: { start: 0, end: e.seekableDuration },
                     isBuffering: isBuffering,
                     isPaused: paused
@@ -912,7 +912,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             }
 
         } else {
-            console.log(`[Player] (Audio Flavour) handleOnProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.playableDuration}`);
+            console.log(`[Player] (Audio Flavour) handleOnProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`);
         }
 
     }

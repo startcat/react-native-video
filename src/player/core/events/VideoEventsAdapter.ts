@@ -93,7 +93,7 @@ export class VideoEventsAdapter {
 
     onProgress = (data: OnProgressData) => {
         const positionMs = data.currentTime * 1000;
-        const durationMs = data.playableDuration * 1000;
+        const durationMs = data.seekableDuration * 1000;
         
         this.playbackHandler.handleProgress(data, positionMs, durationMs);
         

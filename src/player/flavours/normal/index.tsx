@@ -914,7 +914,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const handleOnProgress = (e: OnProgressData) => {
 
-        console.log(`[Player] (Video Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, duration: ${e.playableDuration}, seekableDuration: ${e.seekableDuration}`);
+        console.log(`[Player] (Video Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`);
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             // Trigger para el cambio de estado
@@ -938,7 +938,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             if (sourceRef.current?.isDVR){
                 dvrProgressManagerRef.current?.updatePlayerData({
                     currentTime: e.currentTime,
-                    duration: e.playableDuration,
+                    duration: e.seekableDuration,
                     seekableRange: { start: 0, end: e.seekableDuration },
                     isBuffering: isBuffering,
                     isPaused: paused
@@ -954,7 +954,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
         } else {
-            console.log(`[Player] (Video Flavour) onProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.playableDuration}`);
+            console.log(`[Player] (Video Flavour) onProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`);
         }
     };
 

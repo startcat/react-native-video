@@ -1051,7 +1051,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
         const e = {
             currentTime: castProgress.currentTime,
-            playableDuration: castProgress.duration || 0,
             seekableDuration: castProgress.duration || 0
         };
 

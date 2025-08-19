@@ -208,7 +208,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     useCastMonitor({
         onConnect: () => {
             console.log(`[Player] (Cast Flavour) Cast connected`);
-            setHasTriedLoading(false);
+            // setHasTriedLoading(false);
         },
         onDisconnect: () => {
             console.log(`[Player] (Cast Flavour) Cast notConnected`);
@@ -228,7 +228,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         onError: (error) => {
             console.log(`[Player] (Cast Flavour) Cast error:`, error);
             setIsLoadingContent(false);
-            setHasTriedLoading(false);
+            // setHasTriedLoading(false);
             onError({ message: error.errorMessage || 'Cast error' });
         },
         onAudioTrackChange: (track: CastTrackInfo | null) => {
@@ -340,12 +340,12 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 isFakeVOD: sourceRef.current.isFakeVOD,
                 isReady: true
             };
-            
+
             setTimeout(() => {
                 loadContentWithCastManager(sourceData);
             }, 100);
         }
-    }, [castConnected, sourceRef.current?.isReady, currentSourceType.current, isContentLoaded, isLoadingContent, hasTriedLoading]);
+    }, [castConnected, isContentLoaded, isLoadingContent, hasTriedLoading]); // sourceRef.current?.isReady, currentSourceType.current, 
 
     // Sync con Cast states
     useEffect(() => {
@@ -920,10 +920,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
         const e = {
             currentTime: castProgress.currentTime,
-            playableDuration: castProgress.duration || 0,
             seekableDuration: castProgress.duration || 0
         };
 
+        console.log(`[Player] (Cast Flavour) Simulating onProgress - castProgress: ${JSON.stringify(castProgress)}`);
         console.log(`[Player] (Cast Flavour) Simulating onProgress: ${JSON.stringify(e)}`);
 
         if (currentSourceType.current === 'content') {

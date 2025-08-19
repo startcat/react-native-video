@@ -160,7 +160,6 @@ export class MediaFlowManager {
         // OnProgressData podría no tener duration definido en el tipo
         const progressData = data as any;
         const duration = progressData.duration || 
-                    progressData.playableDuration || 
                     progressData.seekableDuration ||
                     0;
     

@@ -158,7 +158,6 @@ export interface PlayerLoadData {
 
 export interface PlayerProgressData {
     currentTime: number;
-    playableDuration: number;
     seekableDuration: number;
     bufferedDuration?: number;
     currentBitrate?: number;
