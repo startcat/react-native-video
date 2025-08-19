@@ -12,7 +12,7 @@ export function useCastMonitor(callbacks: {
     onAudioTrackChange?: (track: CastTrackInfo | null) => void;
     onTextTrackChange?: (track: CastTrackInfo | null) => void;
 }) {
-    const prevConnectionRef = useRef<CastConnectionInfo['status']>('disconnected');
+    const prevConnectionRef = useRef<CastConnectionInfo['status']>('notConnected');
     const prevPlayingRef = useRef(false);
     const prevAudioTrackRef = useRef<number | null>(null);
     const prevTextTrackRef = useRef<number | null>(null);
@@ -26,7 +26,7 @@ export function useCastMonitor(callbacks: {
         if (connection.status !== prevConnectionRef.current) {
             if (connection.status === 'connected' && callbacks.onConnect) {
                 callbacks.onConnect();
-            } else if (connection.status === 'disconnected' && callbacks.onDisconnect) {
+            } else if (connection.status === 'notConnected' && callbacks.onDisconnect) {
                 callbacks.onDisconnect();
             }
             prevConnectionRef.current = connection.status;

@@ -9,7 +9,7 @@ import {
 import { IDrm, IMappedYoubora, IVideoSource } from '../../../types';
 
 export interface CastConnectionInfo {
-    status: 'connected' | 'connecting' | 'disconnected';
+    status: 'connected' | 'connecting' | 'notConnected';
     deviceName: string | null;
     statusText: string;
 }

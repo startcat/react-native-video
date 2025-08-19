@@ -21,7 +21,7 @@ Enum que define los diferentes estados en los que puede encontrarse el Cast Mana
 
 | Valor | String | Descripción |
 |-------|--------|-------------|
-| `DISCONNECTED` | `'disconnected'` | Cast está desconectado, no hay sesión activa |
+| `NOT_CONNECTED` | `'notConnected'` | Cast está desconectado, no hay sesión activa |
 | `CONNECTING` | `'connecting'` | Cast está en proceso de conexión |
 | `CONNECTED` | `'connected'` | Cast está conectado y listo para operaciones |
 | `LOADING` | `'loading'` | Cast está cargando contenido |

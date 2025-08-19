@@ -211,7 +211,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             setHasTriedLoading(false);
         },
         onDisconnect: () => {
-            console.log(`[Player] (Cast Flavour) Cast disconnected`);
+            console.log(`[Player] (Cast Flavour) Cast notConnected`);
             setIsContentLoaded(false);
             setIsLoadingContent(false);
             setHasTriedLoading(false);
