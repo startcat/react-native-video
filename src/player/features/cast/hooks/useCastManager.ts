@@ -4,7 +4,7 @@ import {
     CastSession,
     RemoteMediaClient,
     useCastSession,
-    useRemoteMediaClient,
+    useRemoteMediaClient
 } from 'react-native-google-cast';
 
 import { CastMessageBuilder } from '../CastMessageBuilder';
@@ -100,14 +100,25 @@ export function useCastManager(
             handleActionError('loadContent', 'No Cast connection available');
             return false;
         }
+
+        const currentMedia = await nativeClient.getMediaStatus();
+
+        if (currentMedia && currentMedia.mediaInfo && currentMedia.mediaInfo.contentId !== lastLoadedContentRef.current) {
+            console.log(`[CastManager] loadContent() - Guardamos el contentId del media que esta reproduciendose en cast: ${JSON.stringify(currentMedia.mediaInfo.contentId)}`);
+            lastLoadedContentRef.current = currentMedia.mediaInfo.contentId;
+        }
+
+        // console.log(`[CastManager] loadContent() - lastLoadedContentRef: ${JSON.stringify(lastLoadedContentRef.current)}`);
+        // console.log(`[CastManager] loadContent() - content.source.uri: ${JSON.stringify(content.source.uri)}`);
+        // console.log(`[CastManager] loadContent() - isIdle: ${JSON.stringify(currentMedia?.playerState)}`);
         
         // Evitar recargar el mismo contenido
-        // if (lastLoadedContentRef.current === content.source.uri && 
-        //     castState.media.url === content.source.uri && 
-        //     !castState.media.isIdle) {
-        //     console.log('[CastManager] Content already loaded, skipping:', content.source.uri);
-        //     return true;
-        // }
+        if (lastLoadedContentRef.current === content.source.uri && 
+            currentMedia?.playerState !== "idle") {
+            console.log('[CastManager] Content already loaded, skipping:', content.source.uri);
+            callbacksRef.current.onContentLoaded?.(content);
+            return true;
+        }
         
         startAction('loadContent');
         
