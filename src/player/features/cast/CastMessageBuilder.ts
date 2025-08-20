@@ -64,10 +64,11 @@ export class CastMessageBuilder {
                 config.source.uri,
                 config.manifest,
                 config.drm,
-                config.youbora,
+                this.config.enableYoubora ? config.youbora : undefined,
                 {
                     ...metadata,
-                    startPosition
+                    startPosition,
+                    adTagUrl: this.config.enableAds ? config.metadata.adTagUrl : ''
                 }
             );
 

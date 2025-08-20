@@ -19,93 +19,92 @@ Hook principal para gestionar todas las operaciones Cast. Proporciona control co
 ### Sintaxis
 
 ```typescript
-const manager = useCastManager(config?: UseCastManagerConfig): CastManagerHookResult
+const manager = useCastManager(callbacks?: CastManagerCallbacks, messageBuilderConfig?: MessageBuilderConfig): CastManager
 ```
 
 ### Parámetros
 
 | Parámetro | Tipo | Requerido | Descripción |
 |-----------|------|-----------|-------------|
-| `config` | `UseCastManagerConfig` | ❌ | Configuración opcional del hook |
+| `callbacks` | `CastManagerCallbacks` | ❌ | Callbacks para eventos del manager |
+| `messageBuilderConfig` | `MessageBuilderConfig` | ❌ | Configuración del constructor de mensajes |
 
-#### UseCastManagerConfig
+#### MessageBuilderConfig
 
 | Propiedad | Tipo | Requerido | Descripción |
 |-----------|------|-----------|-------------|
-| `callbacks` | `CastManagerCallbacks` | ❌ | Callbacks para eventos del manager |
-| `retryAttempts` | `number` | ❌ | Intentos de reintento en operaciones |
-| `retryDelay` | `number` | ❌ | Delay entre reintentos en ms |
-| `loadTimeout` | `number` | ❌ | Timeout para carga de contenido |
+| `enableYoubora` | `boolean` | ❌ | Habilita integración con Youbora |
+| `enableAds` | `boolean` | ❌ | Habilita soporte para anuncios |
+| `defaultStartPosition` | `number` | ❌ | Posición inicial por defecto |
 | `debugMode` | `boolean` | ❌ | Habilita logs detallados |
 
-**Nota:** Los parámetros `enableAutoUpdate` y `autoUpdateInterval` han sido eliminados para optimizar el rendimiento y evitar loops infinitos. El hook ahora se actualiza automáticamente basándose en eventos nativos del Cast.
+**Nota:** El hook se actualiza automáticamente basándose en eventos nativos del Cast, eliminando la necesidad de polling manual.
 
 #### CastManagerCallbacks
 
 | Callback | Tipo | Descripción |
 |----------|------|-------------|
-| `onStateChange` | `(state, previousState) => void` | Cambio de estado del manager |
-| `onContentLoaded` | `(content) => void` | Contenido cargado exitosamente |
-| `onContentLoadError` | `(error, content?) => void` | Error al cargar contenido |
+| `onContentLoaded` | `(contentInfo: CastContentInfo) => void` | Contenido cargado exitosamente |
+| `onContentLoadError` | `(error: string, contentInfo: CastContentInfo) => void` | Error al cargar contenido |
 | `onPlaybackStarted` | `() => void` | Reproducción iniciada |
 | `onPlaybackEnded` | `() => void` | Reproducción finalizada |
-| `onPlaybackError` | `(error) => void` | Error durante reproducción |
-| `onBufferingChange` | `(isBuffering) => void` | Cambio en estado de buffering |
-| `onTimeUpdate` | `(currentTime, duration) => void` | Actualización de tiempo |
+| `onSeekCompleted` | `(newPosition: number) => void` | Seek completado |
+| `onVolumeChanged` | `(level: number, isMuted: boolean) => void` | Volumen cambiado |
 
 ### Valor de Retorno
 
-El hook retorna un objeto `CastManagerHookResult` con las siguientes propiedades:
+El hook retorna un objeto `CastManager` con las siguientes propiedades:
 
 #### Estado
 
 | Propiedad | Tipo | Descripción |
 |-----------|------|-------------|
-| `status` | `CastManagerStatus` | Estado actual del Cast Manager |
-| `currentContent` | `CastContentInfo?` | Información del contenido actual |
-| `progressInfo` | `CastProgressInfo?` | Información de progreso de reproducción |
+| `state` | `CastManagerState` | Estado interno del manager |
+| `state.isLoading` | `boolean` | Indica si está cargando contenido |
+| `state.lastError` | `string \| null` | Último error ocurrido |
+| `state.lastAction` | `string \| null` | Última acción ejecutada |
+| `state.canControl` | `boolean` | Indica si se pueden ejecutar controles |
 
 #### Acciones Principales
 
 | Método | Tipo | Descripción |
 |--------|------|-------------|
-| `loadContent` | `(config) => Promise<CastOperationResult>` | Cargar contenido para Cast |
-| `clearContent` | `() => void` | Limpiar contenido actual |
+| `loadContent` | `(content: CastContentInfo) => Promise<boolean>` | Cargar contenido para Cast |
+| `clearContent` | `() => Promise<boolean>` | Limpiar contenido actual |
 
 #### Controles de Reproducción
 
 | Método | Tipo | Descripción |
 |--------|------|-------------|
-| `play` | `() => Promise<CastOperationResult>` | Iniciar reproducción |
-| `pause` | `() => Promise<CastOperationResult>` | Pausar reproducción |
-| `seek` | `(time: number) => Promise<CastOperationResult>` | Buscar posición específica |
-| `skipForward` | `(seconds: number) => Promise<CastOperationResult>` | Saltar hacia adelante |
-| `skipBackward` | `(seconds: number) => Promise<CastOperationResult>` | Saltar hacia atrás |
+| `play` | `() => Promise<boolean>` | Iniciar reproducción |
+| `pause` | `() => Promise<boolean>` | Pausar reproducción |
+| `seek` | `(position: number) => Promise<boolean>` | Buscar posición específica |
+| `skipForward` | `(seconds?: number) => Promise<boolean>` | Saltar hacia adelante |
+| `skipBackward` | `(seconds?: number) => Promise<boolean>` | Saltar hacia atrás |
+| `stop` | `() => Promise<boolean>` | Detener reproducción |
 
 #### Controles de Audio
 
 | Método | Tipo | Descripción |
 |--------|------|-------------|
-| `mute` | `() => Promise<CastOperationResult>` | Silenciar audio |
-| `unmute` | `() => Promise<CastOperationResult>` | Activar audio |
-| `setVolume` | `(volume: number) => Promise<CastOperationResult>` | Establecer volumen (0-1) |
+| `mute` | `() => Promise<boolean>` | Silenciar audio |
+| `unmute` | `() => Promise<boolean>` | Activar audio |
+| `setVolume` | `(level: number) => Promise<boolean>` | Establecer volumen (0-1) |
 
 #### Controles de Pistas
 
 | Método | Tipo | Descripción |
 |--------|------|-------------|
-| `setAudioTrack` | `(trackIndex: number) => Promise<CastOperationResult>` | Cambiar pista de audio |
-| `setSubtitleTrack` | `(trackIndex: number) => Promise<CastOperationResult>` | Cambiar pista de subtítulos |
-| `disableSubtitles` | `() => Promise<CastOperationResult>` | Desactivar todos los subtítulos |
+| `setAudioTrack` | `(trackId: number) => Promise<boolean>` | Cambiar pista de audio |
+| `setSubtitleTrack` | `(trackId: number) => Promise<boolean>` | Cambiar pista de subtítulos |
+| `setActiveTrackIds` | `(trackIds: number[]) => Promise<boolean>` | Establecer pistas activas |
+| `disableSubtitles` | `() => Promise<boolean>` | Desactivar todos los subtítulos |
 
 #### Utilidades
 
 | Método | Tipo | Descripción |
 |--------|------|-------------|
-| `isSameContent` | `(config) => boolean` | Verificar si es el mismo contenido |
-| `isContentLoaded` | `() => boolean` | Verificar si hay contenido cargado |
-| `isReady` | `() => boolean` | Verificar si Cast está listo |
-| `manager` | `CastManager` | Instancia del CastManager |
+| `updateMessageBuilderConfig` | `(newConfig: any) => void` | Actualizar configuración del constructor de mensajes |
 
 ### Ejemplo de Uso
 
@@ -113,78 +112,60 @@ El hook retorna un objeto `CastManagerHookResult` con las siguientes propiedades
 import { useCastManager } from '@/features/cast';
 
 const CastPlayer = () => {
-    const {
-        status,
-        currentContent,
-        progressInfo,
-        loadContent,
-        clearContent,
-        play,
-        pause,
-        seek,
-        stop,
-        mute,
-        unmute,
-        setVolume,
-        setAudioTrack,
-        setSubtitleTrack,
-        disableSubtitles,
-        isReady
-    } = useCastManager({
-        debugMode: true,
-        callbacks: {
-            onStateChange: (state, previousState) => {
-                console.log(`Estado: ${previousState} -> ${state}`);
-            },
-            onContentLoaded: (content) => {
-                console.log('Contenido cargado:', content.title);
-            },
-            onTimeUpdate: (currentTime, duration) => {
-                console.log(`Progreso: ${currentTime}/${duration}s`);
-            }
+    const castManager = useCastManager({
+        onContentLoaded: (content) => {
+            console.log('Contenido cargado:', content.metadata.title);
+        },
+        onPlaybackStarted: () => {
+            console.log('Reproducción iniciada');
+        },
+        onSeekCompleted: (newPosition) => {
+            console.log(`Seek completado: ${newPosition}s`);
         }
+    }, {
+        debugMode: true,
+        enableYoubora: true
     });
 
     const handleLoadContent = async () => {
-        const config = {
-            source: { uri: 'video-url' },
+        const content = {
+            source: { uri: 'https://example.com/video.m3u8' },
             manifest: {},
             metadata: {
+                id: 'video-123',
                 title: 'Mi Video',
-                subtitle: 'Descripción'
+                subtitle: 'Descripción del video'
             }
         };
 
-        const result = await loadContent(config);
-        if (result === CastOperationResult.SUCCESS) {
-            await play();
+        const success = await castManager.loadContent(content);
+        if (success) {
+            await castManager.play();
         }
     };
 
     const handleSetAudioTrack = async () => {
-        await setAudioTrack(1);
+        await castManager.setAudioTrack(1);
     };
 
     const handleSetSubtitleTrack = async () => {
-        await setSubtitleTrack(0);
+        await castManager.setSubtitleTrack(0);
     };
 
     const handleDisableSubtitles = async () => {
-        await disableSubtitles();
+        await castManager.disableSubtitles();
     };
 
     return (
         <View>
-            <Text>Estado: {castManager.status.state}</Text>
-            <Text>Conectado: {castManager.status.isConnected ? 'Sí' : 'No'}</Text>
-            
-            {castManager.currentContent && (
-                <Text>Reproduciendo: {castManager.currentContent.title}</Text>
-            )}
+            <Text>Cargando: {castManager.state.isLoading ? 'Sí' : 'No'}</Text>
+            <Text>Último error: {castManager.state.lastError || 'Ninguno'}</Text>
             
             <Button title="Cargar Contenido" onPress={handleLoadContent} />
             <Button title="Play" onPress={castManager.play} />
             <Button title="Pause" onPress={castManager.pause} />
+            <Button title="Cambiar Audio" onPress={handleSetAudioTrack} />
+            <Button title="Desactivar Subtítulos" onPress={handleDisableSubtitles} />
         </View>
     );
 };
@@ -192,85 +173,53 @@ const CastPlayer = () => {
 
 ---
 
-## useSimpleCastManager
+## CastContentInfo Interface
 
-Hook simplificado para casos básicos donde solo necesitas funcionalidad esencial.
+Interface principal para definir el contenido a cargar en Cast.
 
-### Sintaxis
-
-```typescript
-const simple = useSimpleCastManager(): SimpleCastManager
-```
-
-### Valor de Retorno
-
-| Propiedad | Tipo | Descripción |
-|-----------|------|-------------|
-| `isConnected` | `boolean` | Si Cast está conectado |
-| `isLoading` | `boolean` | Si está cargando contenido |
-| `currentContent` | `CastContentInfo?` | Contenido actual |
-| `loadContent` | `(config) => Promise<CastOperationResult>` | Cargar contenido |
-| `play` | `() => Promise<CastOperationResult>` | Reproducir |
-| `pause` | `() => Promise<CastOperationResult>` | Pausar |
-
-### Ejemplo
+### Estructura
 
 ```typescript
-const simple = useSimpleCastManager();
-
-if (simple.isConnected) {
-    await simple.loadContent(config);
-    await simple.play();
+interface CastContentInfo {
+    source: {
+        uri: string;
+    };
+    manifest: any;
+    drm?: any;
+    youbora?: any;
+    metadata: {
+        id: string;
+        title?: string;
+        subtitle?: string;
+        description?: string;
+        poster?: string;
+        squaredPoster?: string;
+        liveStartDate?: string;
+        adTagUrl?: string;
+        hasNext?: boolean;
+        isLive?: boolean;
+        isDVR?: boolean;
+        startPosition?: number;
+    };
 }
 ```
 
----
+### Propiedades
 
-## useCastManagerStatus
-
-Hook para obtener solo el estado del Cast Manager sin funcionalidad adicional.
-
-### Sintaxis
-
-```typescript
-const status = useCastManagerStatus(): CastManagerStatus
-```
-
-### CastManagerStatus
-
-| Propiedad | Tipo | Descripción |
-|-----------|------|-------------|
-| `state` | `CastManagerState` | Estado actual del manager |
-| `isConnected` | `boolean` | Si está conectado |
-| `isLoading` | `boolean` | Si está cargando |
-| `isContentLoaded` | `boolean` | Si hay contenido cargado |
-| `hasSession` | `boolean` | Si hay sesión activa |
-| `hasClient` | `boolean` | Si hay cliente conectado |
-| `error` | `string?` | Error actual si existe |
-
----
-
-## useCastManagerProgress
-
-Hook para obtener solo información de progreso de reproducción.
-
-### Sintaxis
-
-```typescript
-const progress = useCastManagerProgress(): CastProgressInfo | undefined
-```
-
-### CastProgressInfo
-
-| Propiedad | Tipo | Descripción |
-|-----------|------|-------------|
-| `currentTime` | `number` | Tiempo actual en segundos |
-| `duration` | `number` | Duración total en segundos |
-| `isBuffering` | `boolean` | Si está bufferizando |
-| `isPaused` | `boolean` | Si está pausado |
-| `isMuted` | `boolean` | Si está silenciado |
-| `playbackRate` | `number` | Velocidad de reproducción |
-| `position` | `number` | Posición normalizada (0-1) |
+| Propiedad | Tipo | Requerido | Descripción |
+|-----------|------|-----------|-------------|
+| `source.uri` | `string` | ✅ | URL del contenido multimedia |
+| `manifest` | `any` | ✅ | Datos del manifest |
+| `drm` | `any` | ❌ | Configuración DRM |
+| `youbora` | `any` | ❌ | Configuración Youbora |
+| `metadata.id` | `string` | ✅ | Identificador único del contenido |
+| `metadata.title` | `string` | ❌ | Título del contenido |
+| `metadata.subtitle` | `string` | ❌ | Subtítulo o descripción corta |
+| `metadata.description` | `string` | ❌ | Descripción detallada |
+| `metadata.poster` | `string` | ❌ | URL de la imagen de portada |
+| `metadata.isLive` | `boolean` | ❌ | Indica si es contenido en vivo |
+| `metadata.isDVR` | `boolean` | ❌ | Indica si soporta DVR |
+| `metadata.startPosition` | `number` | ❌ | Posición inicial en segundos |
 
 ---
 
@@ -358,8 +307,8 @@ const CastEnabledPlayer = () => {
             return;
         }
 
-        const result = await cast.loadContent(videoConfig);
-        if (result === CastOperationResult.SUCCESS) {
+        const success = await cast.loadContent(videoConfig);
+        if (success) {
             await cast.play();
         }
     };
@@ -373,40 +322,46 @@ const CastEnabledPlayer = () => {
 };
 ```
 
-## Optimizaciones y Arquitectura
+## Arquitectura y Optimizaciones
 
-### Cambios Recientes
+### Diseño del Hook
 
-**Eliminación de Polling Redundante:**
-- Se removieron `enableAutoUpdate` y `autoUpdateInterval` para evitar loops infinitos
-- El sistema ahora depende exclusivamente de eventos nativos del Cast Manager
-- Mejor rendimiento y eliminación de condiciones de carrera
+**Integración Nativa:**
+- Utiliza hooks nativos de `react-native-google-cast` (`useCastState`, `useCastSession`, `useRemoteMediaClient`)
+- Actualización automática basada en eventos nativos del Cast
+- Sin polling manual ni intervalos innecesarios
 
-**Callbacks Optimizados:**
-- Uso de `useRef` para callbacks para evitar dependencias circulares
-- Memoización mejorada de configuraciones para prevenir re-renders innecesarios
-- Detección de cambios simplificada con hash de estado
+**Gestión de Estado:**
+- Estado interno reactivo con `useState`
+- Referencias estables con `useRef` para callbacks y configuraciones
+- Validación automática de disponibilidad de Cast antes de operaciones
 
-**Gestión de Estado Mejorada:**
-- Callbacks ahora incluyen tanto el estado actual como el anterior para mejor trazabilidad
-- Manejo robusto de transiciones de estado (LOADING → PLAYING)
-- Corrección de bugs relacionados con `streamPosition` vs `currentTime`
+**CastMessageBuilder Integrado:**
+- Constructor de mensajes automático para contenido Cast
+- Configuración personalizable para Youbora, anuncios y debug
+- Reutilización de instancia para mejor rendimiento
 
-### Debug y Troubleshooting
+### Manejo de Errores
 
-Cuando `debugMode` está habilitado, el hook emite logs detallados que incluyen:
-- Cambios de estado del manager
-- Eventos de carga de contenido
-- Actualizaciones de progreso
-- Resultados de operaciones
-- Transiciones de estado internas
+**Validación de Estado:**
+- Verificación automática de conexión Cast antes de operaciones
+- Logging detallado de errores con contexto
+- Estado de error accesible en `state.lastError`
 
-### Performance
+**Callbacks de Error:**
+- `onContentLoadError` para errores de carga
+- Información detallada del error y contenido afectado
 
-El hook está altamente optimizado para evitar re-renders innecesarios:
-- Usa `useMemo` para callbacks memoizados
-- Los estados se actualizan solo cuando hay cambios reales detectados
-- Las referencias al manager son estables
-- Sin polling innecesario que compita con eventos nativos
+### Performance y Estabilidad
 
-Los hooks `useCastManager` proporcionan una interfaz completa y fácil de usar para todas las operaciones Cast, desde control básico hasta funcionalidad avanzada con monitoreo detallado.
+**Referencias Estables:**
+- Callbacks memoizados con `useRef` para evitar re-renders
+- Instancia única de `CastMessageBuilder` reutilizada
+- Estado interno optimizado para cambios mínimos
+
+**Operaciones Asíncronas:**
+- Todas las operaciones retornan `Promise<boolean>`
+- Gestión de estado de carga automática
+- Prevención de operaciones concurrentes
+
+El hook `useCastManager` proporciona una interfaz completa y optimizada para todas las operaciones Cast, con integración nativa y manejo robusto de errores.

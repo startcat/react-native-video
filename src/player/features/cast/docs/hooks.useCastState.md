@@ -14,45 +14,81 @@ Este documento describe el funcionamiento y uso de los hooks relacionados con el
 
 ## useCastState
 
-Hook principal para gestionar el estado de Cast de forma reactiva, proporcionando información completa sobre el estado actual del Cast Manager.
+Hook principal para gestionar el estado de Cast de forma reactiva, proporcionando información completa sobre el estado actual del Cast.
 
 ### Sintaxis
 
 ```typescript
-const castStateInfo = useCastState(config);
+const castState = useCastState(options?);
 ```
 
 ### Parámetros
 
-El hook acepta un objeto de configuración `UseCastStateConfig`:
+El hook acepta un objeto de configuración opcional:
 
 | Propiedad | Tipo | Obligatorio | Por Defecto | Descripción |
 |-----------|------|-------------|-------------|-------------|
-| `streamPositionInterval` | `number` | ❌ | `1` | Intervalo en segundos para actualizar posición del stream |
-| `debugMode` | `boolean` | ❌ | `false` | Activa logs de debug en consola |
-| `onStateChange` | `(state: CastStateInfo, prev: CastStateInfo) => void` | ❌ | `undefined` | Callback cuando cambia el estado |
-| `onConnectionChange` | `(isConnected: boolean, prev: boolean) => void` | ❌ | `undefined` | Callback cuando cambia la conexión |
+| `debugMode` | `boolean` | ❌ | `true` | Activa logs de debug en consola |
+| `onConnectionChange` | `(status: CastConnectionInfo['status']) => void` | ❌ | `undefined` | Callback cuando cambia el estado de conexión |
+| `onMediaChange` | `(media: CastMediaInfo) => void` | ❌ | `undefined` | Callback cuando cambia el estado del media |
+| `onError` | `(error: CastErrorInfo) => void` | ❌ | `undefined` | Callback cuando ocurre un error |
+| `onAudioTrackChange` | `(track: CastTrackInfo \| null) => void` | ❌ | `undefined` | Callback cuando cambia la pista de audio |
+| `onTextTrackChange` | `(track: CastTrackInfo \| null) => void` | ❌ | `undefined` | Callback cuando cambia la pista de subtítulos |
 
 ### Valor de Retorno
 
-Retorna un objeto `CastStateInfo` con las siguientes propiedades:
+Retorna un objeto `CastStateCustom` con las siguientes propiedades:
+
+#### Información de Conexión
 
 | Propiedad | Tipo | Descripción |
 |-----------|------|-------------|
-| `castState` | `CastState \| undefined` | Estado nativo de Cast desde react-native-google-cast |
-| `castSession` | `any \| undefined` | Sesión activa de Cast |
-| `castClient` | `any \| undefined` | Cliente remoto de Cast |
-| `castMediaStatus` | `any \| undefined` | Estado del media actual |
-| `castStreamPosition` | `number \| undefined` | Posición actual del stream |
-| `managerState` | `CastManagerState` | Estado mapeado del Cast Manager |
-| `isConnected` | `boolean` | Indica si Cast está conectado |
-| `isConnecting` | `boolean` | Indica si Cast está conectando |
-| `isDisconnected` | `boolean` | Indica si Cast está desconectado |
-| `hasSession` | `boolean` | Indica si hay una sesión activa |
-| `hasClient` | `boolean` | Indica si hay un cliente disponible |
-| `hasMediaStatus` | `boolean` | Indica si hay estado de media |
-| `connectivityInfo` | `object` | Información detallada de conectividad |
-| `lastStateChange` | `number` | Timestamp del último cambio de estado |
+| `connection.status` | `'connected' \| 'connecting' \| 'notConnected'` | Estado de la conexión Cast |
+| `connection.deviceName` | `string \| null` | Nombre del dispositivo Cast |
+| `connection.statusText` | `string` | Texto descriptivo del estado |
+
+#### Información de Media
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `media.url` | `string \| null` | URL del contenido actual |
+| `media.title` | `string \| null` | Título del contenido |
+| `media.subtitle` | `string \| null` | Subtítulo del contenido |
+| `media.imageUrl` | `string \| null` | URL de la imagen |
+| `media.isPlaying` | `boolean` | Indica si está reproduciendo |
+| `media.isPaused` | `boolean` | Indica si está pausado |
+| `media.isBuffering` | `boolean` | Indica si está bufferizando |
+| `media.isIdle` | `boolean` | Indica si está inactivo |
+| `media.currentTime` | `number` | Tiempo actual en segundos |
+| `media.duration` | `number \| null` | Duración total en segundos |
+| `media.progress` | `number` | Progreso de reproducción |
+| `media.seekableRange` | `{ start: number; end: number } \| null` | Rango navegable |
+| `media.playbackRate` | `number` | Velocidad de reproducción |
+| `media.audioTrack` | `CastTrackInfo \| null` | Pista de audio activa |
+| `media.textTrack` | `CastTrackInfo \| null` | Pista de texto activa |
+| `media.availableAudioTracks` | `CastTrackInfo[]` | Pistas de audio disponibles |
+| `media.availableTextTracks` | `CastTrackInfo[]` | Pistas de texto disponibles |
+
+#### Información de Volumen
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `volume.level` | `number` | Nivel de volumen (0-1) |
+| `volume.isMuted` | `boolean` | Indica si está silenciado |
+
+#### Información de Error
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `error.hasError` | `boolean` | Indica si hay un error |
+| `error.errorCode` | `string \| null` | Código del error |
+| `error.errorMessage` | `string \| null` | Mensaje del error |
+| `error.lastErrorTime` | `number \| null` | Timestamp del último error |
+
+#### Metadatos
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
 | `lastUpdate` | `number` | Timestamp de la última actualización |
 
 ### Ejemplo de Uso
@@ -61,22 +97,26 @@ Retorna un objeto `CastStateInfo` con las siguientes propiedades:
 import { useCastState } from '@/features/cast';
 
 function MyCastComponent() {
-    const castInfo = useCastState({
-        streamPositionInterval: 1,
+    const castState = useCastState({
         debugMode: true,
-        onStateChange: (newState, prevState) => {
-            console.log('Cast state changed:', newState.managerState);
+        onConnectionChange: (status) => {
+            console.log('Cast connection changed:', status);
         },
-        onConnectionChange: (isConnected, prevConnected) => {
-            console.log('Cast connection changed:', isConnected ? 'Connected' : 'Disconnected');
+        onMediaChange: (media) => {
+            console.log('Media changed:', media.title);
+        },
+        onAudioTrackChange: (track) => {
+            console.log('Audio track changed:', track?.name);
         }
     });
 
     return (
         <div>
-            <p>Estado: {castInfo.managerState}</p>
-            <p>Conectado: {castInfo.isConnected ? 'Sí' : 'No'}</p>
-            <p>Posición: {castInfo.castStreamPosition || 0}s</p>
+            <p>Estado: {castState.connection.status}</p>
+            <p>Dispositivo: {castState.connection.deviceName || 'Ninguno'}</p>
+            <p>Reproduciendo: {castState.media.title || 'Sin contenido'}</p>
+            <p>Tiempo: {castState.media.currentTime}s / {castState.media.duration}s</p>
+            <p>Volumen: {Math.round(castState.volume.level * 100)}%</p>
         </div>
     );
 }
@@ -84,199 +124,148 @@ function MyCastComponent() {
 
 ---
 
-## useCastConnectivity
+## CastTrackInfo Interface
 
-Hook simplificado que retorna únicamente información de conectividad Cast.
+Interface que describe la información de pistas de audio y subtítulos.
 
-### Sintaxis
+### Estructura
 
 ```typescript
-const connectivity = useCastConnectivity();
+interface CastTrackInfo {
+    id: number;
+    name: string | null;
+    language: string | null;
+    type: 'AUDIO' | 'TEXT' | 'VIDEO';
+}
 ```
 
-### Parámetros
-
-Este hook no acepta parámetros.
-
-### Valor de Retorno
+### Propiedades
 
 | Propiedad | Tipo | Descripción |
 |-----------|------|-------------|
-| `isConnected` | `boolean` | Cast está conectado |
-| `isConnecting` | `boolean` | Cast está conectando |
-| `isDisconnected` | `boolean` | Cast está desconectado |
-| `statusText` | `string` | Texto descriptivo del estado |
+| `id` | `number` | Identificador único de la pista |
+| `name` | `string \| null` | Nombre descriptivo de la pista |
+| `language` | `string \| null` | Código de idioma (ej: 'es', 'en') |
+| `type` | `'AUDIO' \| 'TEXT' \| 'VIDEO'` | Tipo de pista |
 
-### Ejemplo de Uso
+---
+
+## Arquitectura del Hook
+
+### Integración con Hooks Nativos
+
+El hook `useCastState` utiliza múltiples hooks nativos de `react-native-google-cast`:
+
+| Hook Nativo | Propósito |
+|-------------|----------|
+| `useNativeCastState` | Estado general de Cast |
+| `useCastSession` | Información de la sesión activa |
+| `useRemoteMediaClient` | Cliente para controles de media |
+| `useMediaStatus` | Estado del contenido multimedia |
+| `useStreamPosition` | Posición actual del stream (actualizada cada segundo) |
+
+### Sistema de Reducer
+
+Utiliza un reducer (`castReducer`) para sincronizar todos los estados nativos en un estado unificado:
 
 ```typescript
-import { useCastConnectivity } from '@/features/cast';
-
-function CastStatusIndicator() {
-    const { isConnected, statusText } = useCastConnectivity();
-    
-    return (
-        <div className={`cast-status ${isConnected ? 'connected' : 'notConnected'}`}>
-            {statusText}
-        </div>
-    );
-}
+type CastAction = 
+    | { type: 'SYNC_UPDATE'; payload: { /* datos nativos */ } }
+    | { type: 'UPDATE_VOLUME'; payload: { level: number; isMuted: boolean } }
+    | { type: 'SET_ERROR'; payload: { errorCode: string; errorMessage: string } }
+    | { type: 'CLEAR_ERROR' };
 ```
 
 ---
 
-## useCastReady
+## Callbacks Disponibles
 
-Hook que retorna un boolean indicando si Cast está listo para operaciones.
+### onConnectionChange
 
-### Sintaxis
+Se ejecuta cuando cambia el estado de conexión Cast.
 
 ```typescript
-const isReady = useCastReady();
+onConnectionChange: (status: 'connected' | 'connecting' | 'notConnected') => void
 ```
 
-### Parámetros
+### onMediaChange
 
-Este hook no acepta parámetros.
-
-### Valor de Retorno
-
-| Tipo | Descripción |
-|------|-------------|
-| `boolean` | `true` si Cast está conectado y tiene sesión y cliente disponibles |
-
-### Ejemplo de Uso
+Se ejecuta cuando cambia el estado del contenido multimedia.
 
 ```typescript
-import { useCastReady } from '@/features/cast';
-
-function CastControls() {
-    const isReady = useCastReady();
-    
-    return (
-        <button disabled={!isReady} onClick={handlePlay}>
-            {isReady ? 'Reproducir en Cast' : 'Cast no disponible'}
-        </button>
-    );
-}
+onMediaChange: (media: CastMediaInfo) => void
 ```
 
----
+**Triggers:**
+- Cambio de URL del contenido
+- Cambio de estado de reproducción (play/pause)
+- Cambio de título o metadatos
 
-## useCastProgress
+### onAudioTrackChange
 
-Hook para obtener información de progreso de reproducción Cast.
-
-### Sintaxis
+Se ejecuta cuando cambia la pista de audio activa.
 
 ```typescript
-const progress = useCastProgress(enabled);
+onAudioTrackChange: (track: CastTrackInfo | null) => void
 ```
 
-### Parámetros
+### onTextTrackChange
 
-| Parámetro | Tipo | Obligatorio | Por Defecto | Descripción |
-|-----------|------|-------------|-------------|-------------|
-| `enabled` | `boolean` | ❌ | `true` | Habilita el seguimiento de progreso |
-
-### Valor de Retorno
-
-| Propiedad | Tipo | Descripción |
-|-----------|------|-------------|
-| `currentTime` | `number` | Tiempo actual de reproducción en segundos |
-| `duration` | `number` | Duración total del contenido en segundos |
-| `progress` | `number` | Progreso como porcentaje (0-1) |
-| `isBuffering` | `boolean` | Indica si está cargando/bufferizando |
-| `isPaused` | `boolean` | Indica si está pausado |
-| `position` | `number` | Alias de `currentTime` |
-
-### Ejemplo de Uso
+Se ejecuta cuando cambia la pista de subtítulos activa.
 
 ```typescript
-import { useCastProgress } from '@/features/cast';
+onTextTrackChange: (track: CastTrackInfo | null) => void
+```
 
-function CastProgressBar() {
-    const { currentTime, duration, progress, isBuffering } = useCastProgress();
-    
-    const formatTime = (seconds: number) => {
-        const mins = Math.floor(seconds / 60);
-        const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
-    };
-    
-    return (
-        <div className="progress-container">
-            <div className="progress-bar">
-                <div 
-                    className="progress-fill" 
-                    style={{ width: `${progress * 100}%` }}
-                />
-            </div>
-            <div className="time-display">
-                {formatTime(currentTime)} / {formatTime(duration)}
-                {isBuffering && <span> (Cargando...)</span>}
-            </div>
-        </div>
-    );
-}
+### onError
+
+Se ejecuta cuando ocurre un error en Cast.
+
+```typescript
+onError: (error: CastErrorInfo) => void
 ```
 
 ---
 
-## useCastVolume
+## Optimizaciones y Performance
 
-Hook para obtener y gestionar información de volumen Cast.
+### Sincronización Unificada
 
-### Sintaxis
+**Un Solo useEffect:**
+Todos los hooks nativos se sincronizan en un único `useEffect` para evitar múltiples renders:
 
 ```typescript
-const volumeInfo = useCastVolume();
+useEffect(() => {
+    dispatch({
+        type: 'SYNC_UPDATE',
+        payload: {
+            nativeCastState,
+            nativeSession,
+            nativeClient,
+            nativeMediaStatus,
+            nativeStreamPosition
+        }
+    });
+}, [nativeCastState, nativeSession, nativeClient, nativeMediaStatus, nativeStreamPosition]);
 ```
 
-### Parámetros
+### Referencias Estables
 
-Este hook no acepta parámetros.
-
-### Valor de Retorno
-
-Retorna un objeto `CastVolumeInfo`:
-
-| Propiedad | Tipo | Descripción |
-|-----------|------|-------------|
-| `level` | `number` | Nivel de volumen (0.0 - 1.0) |
-| `muted` | `boolean` | Indica si está silenciado |
-| `stepInterval` | `number` | Intervalo para ajustes de volumen |
-| `controlType` | `string` | Tipo de control ('master', 'none') |
-
-### Ejemplo de Uso
+**Callbacks con useRef:**
+Los callbacks se mantienen en referencias para evitar dependencias circulares:
 
 ```typescript
-import { useCastVolume } from '@/features/cast';
+const callbacksRef = useRef({ onConnectionChange, onMediaChange, onError });
+```
 
-function CastVolumeControl() {
-    const { level, muted, controlType } = useCastVolume();
-    const canControl = controlType === 'master';
-    
-    return (
-        <div className="volume-control">
-            <button 
-                disabled={!canControl}
-                onClick={handleMuteToggle}
-            >
-                {muted ? '🔇' : '🔊'}
-            </button>
-            <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={level}
-                disabled={!canControl || muted}
-                onChange={handleVolumeChange}
-            />
-            <span>{Math.round(level * 100)}%</span>
-        </div>
-    );
+### Detección de Cambios Inteligente
+
+Solo ejecuta callbacks cuando hay cambios reales en las propiedades relevantes:
+
+```typescript
+// Solo callback si cambió la conexión
+if (currentState.connection.status !== prevState.connection.status) {
+    callbacks.onConnectionChange(currentState.connection.status);
 }
 ```
 
@@ -297,21 +286,48 @@ Los hooks utilizan el enum `CastManagerState` con los siguientes valores:
 - `BUFFERING` - Bufferizando
 - `ERROR` - Error
 
-### Optimización de Rendimiento
+### Debug y Troubleshooting
 
-- Los hooks implementan optimizaciones para evitar re-renders innecesarios
-- Usan `useCallback` y `useRef` para mantener estabilidad de referencias
-- **Refs de Callbacks**: Los callbacks (`onStateChange`, `onConnectionChange`) se capturan en refs para evitar dependencias circulares
-- **Comparación Optimizada**: Solo actualiza el estado cuando hay cambios significativos detectados
-- **Logging Condicional**: Los logs de debug se optimizan usando refs para evitar recreaciones innecesarias
-- **Estado Memoizado**: El estado interno se actualiza de forma eficiente comparando propiedades específicas
-
-### Debugging
-
-Activa el modo debug en `useCastState` para obtener información detallada en consola:
+**Modo Debug:**
+Cuando `debugMode: true`, el hook emite logs detallados:
 
 ```typescript
-const castInfo = useCastState({ debugMode: true });
+const castState = useCastState({ debugMode: true });
+```
+
+**Información de Debug:**
+- Cambios de estado de conexión
+- Actualizaciones de media y progreso
+- Cambios de pistas de audio/subtítulos
+- Errores y su contexto
+- Timestamps de actualizaciones
+
+### Cleanup y Memory Management
+
+**Cleanup Automático:**
+```typescript
+useEffect(() => {
+    return () => { isMountedRef.current = false; };
+}, []);
+```
+
+**Prevención de Memory Leaks:**
+- Referencias limpiadas automáticamente al desmontar
+- Callbacks protegidos contra componentes desmontados
+- Estado interno optimizado para garbage collection
+
+### Integración con useCastManager
+
+El hook `useCastState` es utilizado internamente por `useCastManager` para proporcionar estado reactivo:
+
+```typescript
+// En useCastManager
+const castState = useCastState();
+
+// Acceso a propiedades específicas
+const isConnected = castState.connection.status === 'connected';
+const currentMedia = castState.media;
+const volumeLevel = castState.volume.level;
 ```
 
 ### Cambios Recientes y Arquitectura

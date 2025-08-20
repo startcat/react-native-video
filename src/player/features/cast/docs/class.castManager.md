@@ -1,6 +1,8 @@
-# CastManager - CastManager.ts
+# Hook useCastManager - useCastManager.ts
 
-Este documento describe la clase `CastManager`, el núcleo del sistema Cast que gestiona el estado, contenido y operaciones de reproducción en dispositivos Chromecast.
+Este documento describe el hook principal `useCastManager`, el núcleo del sistema Cast que gestiona el estado, contenido y operaciones de reproducción en dispositivos Chromecast.
+
+**Nota:** El sistema Cast ahora utiliza un hook en lugar de una clase para mejor integración con React.
 
 ## Índice
 
@@ -25,50 +27,52 @@ Este documento describe la clase `CastManager`, el núcleo del sistema Cast que 
 ### Importación
 
 ```typescript
-import { CastManager } from './CastManager';
+import { useCastManager } from './hooks/useCastManager';
 import type { 
-    CastManagerConfig,
-    CastMessageConfig,
-    CastControlParams,
-    CastManagerStatus,
-    CastOperationResult
+    CastManager,
+    CastManagerCallbacks,
+    CastContentInfo,
+    CastManagerState,
+    MessageBuilderConfig
 } from './types';
 ```
 
 ---
 
-## Constructor
+## Hook useCastManager
 
-### `new CastManager(config?: CastManagerConfig)`
+### `useCastManager(callbacks?, messageBuilderConfig?): CastManager`
 
-Crea una nueva instancia del gestor de Cast.
+Hook principal para gestionar todas las operaciones Cast.
 
 **Parámetros:**
 | Parámetro | Tipo                | Obligatorio | Descripción                                    |
 |-----------|---------------------|-------------|------------------------------------------------|
-| `config`  | `CastManagerConfig` | ❌          | Configuración inicial del manager              |
+| `callbacks`  | `CastManagerCallbacks` | ❌          | Callbacks para eventos del manager              |
+| `messageBuilderConfig`  | `MessageBuilderConfig` | ❌          | Configuración del constructor de mensajes              |
 
 **Características:**
-- 🔧 **Configuración por defecto** combinada con configuración personalizada
-- 📝 **Logging** de inicialización con configuración
-- 🏗️ **CastMessageBuilder** integrado para construcción de mensajes
+- ⚡ **Hook reactivo** que se actualiza automáticamente con el estado Cast
+- 🔧 **CastMessageBuilder** integrado para construcción de mensajes
 - 🎯 **Callbacks** opcionales para eventos
+- 📱 **Integración nativa** con react-native-google-cast
 
 **Ejemplo:**
 ```typescript
-// Constructor básico
-const castManager = new CastManager();
+// Hook básico
+const castManager = useCastManager();
 
-// Constructor con configuración personalizada
-const configuredManager = new CastManager({
-    debugMode: true,
-    loadTimeout: 10000,
-    retryAttempts: 3,
-    callbacks: {
-        onStateChange: (newState, oldState) => {
-            console.log(`Estado cambió de ${oldState} a ${newState}`);
-        }
+// Hook con configuración personalizada
+const configuredManager = useCastManager({
+    onContentLoaded: (content) => {
+        console.log(`Contenido cargado: ${content.metadata.title}`);
+    },
+    onPlaybackStarted: () => {
+        console.log('Reproducción iniciada');
     }
+}, {
+    debugMode: true,
+    enableYoubora: true
 });
 ```
 
@@ -98,11 +102,11 @@ const configuredManager = new CastManager({
 
 | Propiedad           | Tipo                      | Descripción                                    |
 |---------------------|---------------------------|------------------------------------------------|
-| `currentContent`    | `CastContentInfo`         | Información del contenido actual               |
+| `state`             | `CastManagerState`        | Estado interno del manager                     |
 | `isLoading`         | `boolean`                 | Indica si está cargando contenido              |
-| `isContentLoaded`   | `boolean`                 | Indica si hay contenido cargado                |
-| `pendingOperations` | `PendingCastOperation[]`  | Cola de operaciones pendientes                 |
-| `retryAttempts`     | `number`                  | Número de intentos de reintento                |
+| `lastError`         | `string \| null`          | Último error ocurrido                          |
+| `lastAction`        | `string \| null`          | Última acción ejecutada                        |
+| `canControl`        | `boolean`                 | Indica si se pueden ejecutar controles         |
 
 ### Propiedades de Control
 
@@ -116,56 +120,26 @@ const configuredManager = new CastManager({
 
 ## Métodos Públicos
 
-### `updateCastState(castState?, castSession?, castClient?, castMediaStatus?): void`
-
-Actualiza el estado de Cast desde hooks externos.
-
-**Parámetros:**
-| Parámetro         | Tipo                | Obligatorio | Descripción                                    |
-|-------------------|---------------------|-------------|------------------------------------------------|
-| `castState`       | `CastState`         | ❌          | Estado de Cast nativo                          |
-| `castSession`     | `CastSession`       | ❌          | Sesión de Cast activa                          |
-| `castClient`      | `RemoteMediaClient` | ❌          | Cliente de media remoto                        |
-| `castMediaStatus` | `any`               | ❌          | Estado del media Cast                          |
-
-**Características:**
-- 🔄 **Actualización de estado** interno basado en estado nativo
-- ⚡ **Procesamiento automático** de operaciones pendientes
-- 🎯 **Gestión de listeners** de eventos Cast
-- 📡 **Emisión de eventos** de cambio de estado
-
-**Ejemplo:**
-```typescript
-// Actualización desde hook de Cast
-castManager.updateCastState(
-    castState,
-    castSession,
-    remoteMediaClient,
-    mediaStatus
-);
-```
-
-### `loadContent(config: CastMessageConfig): Promise<CastOperationResult>`
+### `loadContent(content: CastContentInfo): Promise<boolean>`
 
 Carga contenido en Cast.
 
 **Parámetros:**
 | Parámetro | Tipo                | Obligatorio | Descripción                                    |
 |-----------|---------------------|-------------|------------------------------------------------|
-| `config`  | `CastMessageConfig` | ✅          | Configuración del contenido a cargar           |
+| `content`  | `CastContentInfo` | ✅          | Información del contenido a cargar           |
 
-**Retorna:** `Promise<CastOperationResult>` - Resultado de la operación
+**Retorna:** `Promise<boolean>` - `true` si la operación fue exitosa
 
 **Características:**
 - ✅ **Validación previa** de disponibilidad de Cast
 - 🔄 **Detección de contenido duplicado** para evitar recargas
-- ⏰ **Timeout configurable** para operaciones
-- 🔄 **Sistema de reintentos** automático
-- 📋 **Cola de operaciones** cuando Cast no está listo
+- 🏗️ **CastMessageBuilder** integrado para construcción de mensajes
+- 📋 **Gestión automática** de estado de carga
 
 **Ejemplo:**
 ```typescript
-const result = await castManager.loadContent({
+const success = await castManager.loadContent({
     source: { uri: 'https://example.com/video.m3u8' },
     manifest: manifestData,
     drm: drmConfig,
@@ -177,49 +151,47 @@ const result = await castManager.loadContent({
     }
 });
 
-if (result === CastOperationResult.SUCCESS) {
+if (success) {
     console.log('Contenido cargado exitosamente');
 }
 ```
 
-### `executeControl(params: CastControlParams): Promise<CastOperationResult>`
 
-Ejecuta comandos de control de reproducción.
+### Controles de Reproducción
 
-**Parámetros:**
-| Parámetro | Tipo                | Obligatorio | Descripción                                    |
-|-----------|---------------------|-------------|------------------------------------------------|
-| `params`  | `CastControlParams` | ✅          | Parámetros del comando de control              |
+El hook proporciona métodos directos para controlar la reproducción:
 
-**Retorna:** `Promise<CastOperationResult>` - Resultado de la operación
-
-**Comandos soportados:**
-- ▶️ **PLAY** - Iniciar reproducción
-- ⏸️ **PAUSE** - Pausar reproducción
-- ⏩ **SEEK** - Buscar posición específica (requiere `seekTime`)
-- 🔇 **MUTE** - Silenciar audio
-- 🔊 **UNMUTE** - Restaurar audio
-- 🔊 **VOLUME** - Cambiar volumen (requiere `volumeLevel`)
-- ⏹️ **STOP** - Detener reproducción
+| Método | Tipo | Descripción |
+|--------|------|-------------|
+| `play()` | `Promise<boolean>` | Iniciar reproducción |
+| `pause()` | `Promise<boolean>` | Pausar reproducción |
+| `seek(position: number)` | `Promise<boolean>` | Buscar posición específica |
+| `skipForward(seconds?: number)` | `Promise<boolean>` | Saltar hacia adelante |
+| `skipBackward(seconds?: number)` | `Promise<boolean>` | Saltar hacia atrás |
+| `stop()` | `Promise<boolean>` | Detener reproducción |
+| `mute()` | `Promise<boolean>` | Silenciar audio |
+| `unmute()` | `Promise<boolean>` | Restaurar audio |
+| `setVolume(level: number)` | `Promise<boolean>` | Cambiar volumen (0-1) |
+| `setAudioTrack(trackId: number)` | `Promise<boolean>` | Cambiar pista de audio |
+| `setSubtitleTrack(trackId: number)` | `Promise<boolean>` | Cambiar pista de subtítulos |
+| `disableSubtitles()` | `Promise<boolean>` | Desactivar subtítulos |
 
 **Ejemplo:**
 ```typescript
 // Reproducir contenido
-await castManager.executeControl({
-    command: CastControlCommand.PLAY
-});
+await castManager.play();
 
 // Buscar posición específica
-await castManager.executeControl({
-    command: CastControlCommand.SEEK,
-    seekTime: 120 // 2 minutos
-});
+await castManager.seek(120); // 2 minutos
 
 // Cambiar volumen
-await castManager.executeControl({
-    command: CastControlCommand.VOLUME,
-    volumeLevel: 0.8 // 80%
-});
+await castManager.setVolume(0.8); // 80%
+
+// Cambiar pista de audio
+await castManager.setAudioTrack(1);
+
+// Desactivar subtítulos
+await castManager.disableSubtitles();
 ```
 
 ### `getStatus(): CastManagerStatus`

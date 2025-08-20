@@ -6,7 +6,7 @@ import {
     DRM_TYPE
 } from '../types';
 
-import { type CastMessage } from '../features/cast/types';
+import { type CastMessage } from '../features/cast/types/types';
 
 import { getAbsoluteUri } from './siteUrl';
 
@@ -64,7 +64,7 @@ export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: I
             streamStart: 0,
             isLive: !!metadata?.isLive,
             youbora: youbora,
-            //vmapUrl: metadata?.adTagUrl,
+            vmapUrl: metadata?.adTagUrl,
             sourceDescription: {
                 metadata: messageMetadata
             }
