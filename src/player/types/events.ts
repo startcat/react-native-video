@@ -23,8 +23,6 @@ export interface IPlayerEvents {
     onChangeAudioIndex?: (index: number, label?: string) => void;
     onChangeSubtitleIndex?: (index: number, label?: string) => void;
     
-    // onDVRChange?: (value: number, offset?: number, date?: Date) => void;
-    // onSeekOverEpg?: () => number | null;
     onLiveStartProgram?: () => number | null;
 
     onEnd?: () => void;
