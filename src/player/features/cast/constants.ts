@@ -1,4 +1,3 @@
-import { CastContentType, CastManagerState } from './types/enums';
 
 /*
  *  Configuración por defecto del Cast Manager
@@ -12,53 +11,6 @@ export const DEFAULT_CAST_CONFIG = {
     debugMode: true,
     streamPositionInterval: 1,
     initializationDelay: 200
-} as const;
-
-/*
- *  Timeouts para operaciones Cast
- *
- */
-
-export const CAST_TIMEOUTS = {
-    LOAD_MEDIA: 10000,
-    CONNECT: 5000,
-    CONTROL_ACTION: 3000,
-    STATE_CHANGE: 2000,
-    RETRY_DELAY: 2000,
-} as const;
-
-/*
- *  Tolerancias para comparación de contenido
- *
- */
-
-export const CONTENT_COMPARISON_TOLERANCE = {
-    TIME_DIFFERENCE: 5, // segundos
-    POSITION_DIFFERENCE: 0.1, // porcentaje
-} as const;
-
-/*
- *  Mapeo de estados de Cast nativo a estados del manager
- *
- */
-
-export const CAST_STATE_MAPPING: Record<string, CastManagerState> = {
-    'NOT_CONNECTED': CastManagerState.NOT_CONNECTED,
-    'NO_DEVICES_AVAILABLE': CastManagerState.NOT_CONNECTED,
-    'CONNECTING': CastManagerState.CONNECTING,
-    'CONNECTED': CastManagerState.CONNECTED,
-};
-
-/*
- *  Mapeo de tipos de contenido
- *
- */
-
-export const CONTENT_TYPE_MAPPING = {
-    vod: CastContentType.VOD,
-    live: CastContentType.LIVE,
-    dvr: CastContentType.DVR,
-    tudum: CastContentType.TUDUM,
 } as const;
 
 /*
@@ -127,51 +79,6 @@ export const SUPPORTED_MIME_TYPES = {
 } as const;
 
 /*
- *  Configuración de reintentos
- *
- */
-
-export const RETRY_CONFIG = {
-    MAX_ATTEMPTS: 3,
-    INITIAL_DELAY: 1000,
-    EXPONENTIAL_BASE: 2,
-    MAX_DELAY: 10000,
-} as const;
-
-/*
- *  Configuración de buffer
- *
- */
-
-export const BUFFER_CONFIG = {
-    MIN_BUFFER_TIME: 2,
-    MAX_BUFFER_TIME: 10,
-    BUFFER_TOLERANCE: 0.5,
-} as const;
-
-/*
- *  Configuración de posición y seek
- *
- */
-
-export const POSITION_CONFIG = {
-    SEEK_TOLERANCE: 1, // segundos
-    LIVE_EDGE_TOLERANCE: 30, // segundos
-    DVR_WINDOW_DEFAULT: 3600, // segundos
-} as const;
-
-/*
- *  Configuración de eventos
- *
- */
-
-export const EVENT_CONFIG = {
-    DEBOUNCE_TIME: 100, // ms
-    THROTTLE_TIME: 500, // ms
-    MAX_EVENT_QUEUE: 100,
-} as const;
-
-/*
  *  Configuración de metadata
  *
  */
@@ -180,18 +87,4 @@ export const METADATA_CONFIG = {
     MAX_TITLE_LENGTH: 200,
     MAX_DESCRIPTION_LENGTH: 500,
     DEFAULT_POSTER: '',
-    IMAGE_TIMEOUT: 5000,
-} as const;
-
-/*
- *  Configuración de desarrollo
- *
- */
-
-export const DEBUG_CONFIG = {
-    VERBOSE_LOGGING: true,
-    LOG_EVENTS: true,
-    LOG_STATE_CHANGES: true,
-    LOG_CONTENT_CHANGES: true,
-    LOG_ERRORS: true,
 } as const;

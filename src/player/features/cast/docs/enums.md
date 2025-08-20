@@ -1,124 +1,210 @@
-# Enums de Cast - Documentación
+# Cast Enums
 
-Este documento describe todos los enums disponibles en el sistema Cast, definidos en `types/enums.ts`. Estos enums proporcionan constantes tipadas para los diferentes estados, tipos y operaciones del sistema Cast.
+Documentación de todos los enums utilizados en el sistema Cast del reproductor.
 
 ## Índice
 
 1. [CastManagerState](#castmanagerstate) - Estados del Cast Manager
-2. [CastContentType](#castcontenttype) - Tipos de contenido
-3. [CastOperationResult](#castoperationresult) - Resultados de operaciones
-4. [CastControlCommand](#castcontrolcommand) - Comandos de control
-5. [CastManagerEvent](#castmanagerevent) - Eventos del Cast Manager
-6. [CastStreamType](#caststreamtype) - Tipos de stream
+2. [CastContentType](#castcontenttype) - Tipos de contenido Cast
+3. [CastEvent](#castevent) - Eventos del sistema Cast
+4. [CastStreamType](#caststreamtype) - Tipos de stream Cast
+5. [TrackType](#tracktype) - Tipos de pistas multimedia
 
 ---
 
 ## CastManagerState
 
-Enum que define los diferentes estados en los que puede encontrarse el Cast Manager durante su ciclo de vida.
+Enum que define los diferentes estados posibles del Cast Manager.
 
 ### Valores
 
-| Valor | String | Descripción |
-|-------|--------|-------------|
-| `NOT_CONNECTED` | `'notConnected'` | Cast está desconectado, no hay sesión activa |
-| `CONNECTING` | `'connecting'` | Cast está en proceso de conexión |
-| `CONNECTED` | `'connected'` | Cast está conectado y listo para operaciones |
-| `LOADING` | `'loading'` | Cast está cargando contenido |
-| `PLAYING` | `'playing'` | Cast está reproduciendo contenido |
-| `PAUSED` | `'paused'` | Cast está pausado |
-| `BUFFERING` | `'buffering'` | Cast está bufferizando contenido |
-| `ERROR` | `'error'` | Cast ha encontrado un error |
+| Valor | Descripción |
+|-------|-------------|
+| `NOT_CONNECTED` | Cast no está conectado |
+| `CONNECTING` | Cast está intentando conectar |
+| `CONNECTED` | Cast conectado pero sin contenido |
+| `LOADING` | Cargando contenido en Cast |
+| `PLAYING` | Reproduciendo contenido |
+| `PAUSED` | Contenido pausado |
+| `BUFFERING` | Bufferizando contenido |
+| `ERROR` | Error en Cast Manager |
+| `IDLE` | Cast inactivo después de reproducción |
+
+### Uso
+
+```typescript
+import { CastManagerState } from '@/features/cast/types';
+
+// Con useCastManager
+const castManager = useCastManager();
+if (castManager.state === CastManagerState.PLAYING) {
+    console.log('Cast está reproduciendo');
+}
+
+// Con useCastState
+const castState = useCastState();
+if (castState.connection.status === 'connected') {
+    console.log('Cast conectado');
+}
+```
 
 ---
 
 ## CastContentType
 
-Enum que define los diferentes tipos de contenido que pueden ser reproducidos vía Cast.
+Enum para especificar el tipo de contenido que se va a reproducir en Cast.
 
 ### Valores
 
-| Valor | String | Descripción |
-|-------|--------|-------------|
-| `VOD` | `'vod'` | Video on Demand - Contenido pregrabado |
-| `LIVE` | `'live'` | Contenido en vivo sin capacidad de DVR |
-| `DVR` | `'dvr'` | Contenido en vivo con capacidad de DVR |
-| `TUDUM` | `'tudum'` | Contenido de tipo Tudum (intro/apresentación) |
+| Valor | Descripción | MIME Type |
+|-------|-------------|----------|
+| `VIDEO_MP4` | Video MP4 | `video/mp4` |
+| `VIDEO_WEBM` | Video WebM | `video/webm` |
+| `VIDEO_MOV` | Video MOV | `video/quicktime` |
+| `VIDEO_AVI` | Video AVI | `video/x-msvideo` |
+| `AUDIO_MP3` | Audio MP3 | `audio/mpeg` |
+| `AUDIO_AAC` | Audio AAC | `audio/aac` |
+| `AUDIO_WAV` | Audio WAV | `audio/wav` |
+| `AUDIO_OGG` | Audio OGG | `audio/ogg` |
+| `STREAM_HLS` | Stream HLS | `application/x-mpegURL` |
+| `STREAM_DASH` | Stream DASH | `application/dash+xml` |
+| `STREAM_SMOOTH` | Smooth Streaming | `application/vnd.ms-sstr+xml` |
+
+### Uso
+
+```typescript
+import { CastContentType } from '@/features/cast/types';
+
+const castManager = useCastManager();
+
+const contentInfo = {
+    url: 'https://example.com/video.mp4',
+    contentType: CastContentType.VIDEO_MP4,
+    title: 'Mi Video'
+};
+
+await castManager.loadContent(contentInfo);
+```
 
 ---
 
-## CastOperationResult
+## CastEvent
 
-Enum que define los posibles resultados de las operaciones Cast asíncronas.
-
-### Valores
-
-| Valor | String | Descripción |
-|-------|--------|-------------|
-| `SUCCESS` | `'success'` | Operación completada exitosamente |
-| `FAILED` | `'failed'` | Operación falló debido a un error |
-| `PENDING` | `'pending'` | Operación está en progreso |
-| `CANCELLED` | `'cancelled'` | Operación fue cancelada |
-
----
-
-## CastControlCommand
-
-Enum que define los comandos de control disponibles para el Cast.
+Enum de eventos que puede emitir el sistema Cast.
 
 ### Valores
 
-| Valor | String | Descripción |
-|-------|--------|-------------|
-| `PLAY` | `'play'` | Iniciar reproducción |
-| `PAUSE` | `'pause'` | Pausar reproducción |
-| `SEEK` | `'seek'` | Buscar posición específica |
-| `MUTE` | `'mute'` | Silenciar audio |
-| `UNMUTE` | `'unmute'` | Activar audio |
-| `VOLUME` | `'volume'` | Ajustar volumen |
-| `SKIP_FORWARD` | `'skip_forward'` | Saltar hacia adelante |
-| `SKIP_BACKWARD` | `'skip_backward'` | Saltar hacia atrás |
-| `STOP` | `'stop'` | Detener reproducción |
+| Valor | Descripción |
+|-------|-------------|
+| `CONNECTION_CHANGED` | Cambió el estado de conexión |
+| `SESSION_STARTED` | Sesión Cast iniciada |
+| `SESSION_ENDED` | Sesión Cast terminada |
+| `MEDIA_LOADED` | Contenido cargado exitosamente |
+| `MEDIA_LOAD_FAILED` | Error al cargar contenido |
+| `PLAYBACK_STARTED` | Reproducción iniciada |
+| `PLAYBACK_PAUSED` | Reproducción pausada |
+| `PLAYBACK_STOPPED` | Reproducción detenida |
+| `PLAYBACK_ENDED` | Reproducción terminada |
+| `POSITION_CHANGED` | Cambió la posición de reproducción |
+| `VOLUME_CHANGED` | Cambió el volumen |
+| `MUTE_CHANGED` | Cambió el estado de silencio |
+| `SUBTITLE_CHANGED` | Cambió la pista de subtítulos |
+| `AUDIO_TRACK_CHANGED` | Cambió la pista de audio |
+| `BUFFERING_STARTED` | Inició buffering |
+| `BUFFERING_ENDED` | Terminó buffering |
+| `ERROR_OCCURRED` | Ocurrió un error |
 
----
+### Uso con Callbacks
 
-## CastManagerEvent
+```typescript
+import { CastEvent } from '@/features/cast/types';
 
-Enum que define los eventos que puede emitir el Cast Manager.
-
-### Valores
-
-| Valor | String | Descripción |
-|-------|--------|-------------|
-| `STATE_CHANGED` | `'state_changed'` | El estado del Cast Manager ha cambiado |
-| `CONTENT_LOADED` | `'content_loaded'` | Contenido cargado exitosamente |
-| `CONTENT_LOAD_ERROR` | `'content_load_error'` | Error al cargar contenido |
-| `PLAYBACK_STARTED` | `'playback_started'` | Reproducción iniciada |
-| `PLAYBACK_ENDED` | `'playback_ended'` | Reproducción finalizada |
-| `PLAYBACK_ERROR` | `'playback_error'` | Error durante reproducción |
-| `BUFFERING_CHANGED` | `'buffering_changed'` | Estado de buffering cambió |
-| `TIME_UPDATE` | `'time_update'` | Actualización de tiempo de reproducción |
-| `CONNECTION_CHANGED` | `'connection_changed'` | Estado de conexión cambió |
+const castManager = useCastManager({
+    onPlaybackStarted: () => {
+        console.log('Reproducción iniciada en Cast');
+    },
+    onError: (error) => {
+        console.error('Error en Cast:', error);
+    },
+    onVolumeChanged: (volume) => {
+        console.log('Volumen cambiado:', volume);
+    }
+});
+```
 
 ---
 
 ## CastStreamType
 
-Enum que define los tipos de stream compatibles con Google Cast SDK.
+Enum para los diferentes tipos de stream soportados.
 
 ### Valores
 
-| Valor | String | Descripción |
-|-------|--------|-------------|
-| `BUFFERED` | `'buffered'` | Stream con buffer - contenido VOD |
-| `LIVE` | `'live'` | Stream en vivo |
-| `NONE` | `'none'` | Sin tipo específico |
+| Valor | Descripción |
+|-------|-------------|
+| `NONE` | Sin stream |
+| `BUFFERED` | Stream con buffer |
+| `LIVE` | Stream en vivo |
+| `OTHER` | Otro tipo de stream |
+
+### Uso
+
+```typescript
+import { CastStreamType } from '@/features/cast/types';
+
+const castManager = useCastManager();
+
+const mediaInfo = {
+    url: 'https://example.com/live-stream.m3u8',
+    streamType: CastStreamType.LIVE,
+    title: 'Transmisión en Vivo'
+};
+
+await castManager.loadContent(mediaInfo);
+```
 
 ---
 
-## Notas de Implementación
+## TrackType
 
-### Consistencia con Google Cast SDK
+Enum para los tipos de pistas multimedia disponibles.
+
+### Valores
+
+| Valor | Descripción |
+|-------|-------------|
+| `AUDIO` | Pista de audio |
+| `TEXT` | Pista de subtítulos/texto |
+| `VIDEO` | Pista de video |
+
+### Uso
+
+```typescript
+import { TrackType } from '@/features/cast/types';
+
+const castManager = useCastManager();
+const castState = useCastState();
+
+// Obtener pistas de audio disponibles
+const audioTracks = castState.media.availableAudioTracks.filter(
+    track => track.type === TrackType.AUDIO
+);
+
+// Cambiar pista de subtítulos
+const textTracks = castState.media.availableTextTracks.filter(
+    track => track.type === TrackType.TEXT
+);
+
+if (textTracks.length > 0) {
+    await castManager.setActiveTrackIds([textTracks[0].id]);
+}
+```
+
+---
+
+### Notas de Implementación
+
+#### Consistencia con Google Cast SDK
 
 Los enums `CastStreamType` están diseñados para ser compatibles con el Google Cast SDK:
 
@@ -127,7 +213,7 @@ Los enums `CastStreamType` están diseñados para ser compatibles con el Google 
 const castStreamType = isLive ? CastStreamType.LIVE : CastStreamType.BUFFERED;
 ```
 
-### Uso en Interfaces
+#### Uso en Interfaces
 
 Estos enums se utilizan en las interfaces consolidadas:
 
@@ -143,26 +229,28 @@ interface CastMediaInfo {
 }
 ```
 
-### Type Safety
+#### Type Safety
 
 Los enums proporcionan type safety y autocompletado:
 
 ```typescript
-// ✅ Correcto
+// Correcto
 const state = CastManagerState.CONNECTED;
 
-// ❌ Error de TypeScript
+// Error de TypeScript
 const state = 'connected'; // No es type-safe
 ```
 
-### Debugging
+#### Debugging
 
-Para debugging, puedes usar los valores string directamente:
+Para debugging, puedes usar el modo debug en los hooks:
 
 ```typescript
-console.log(`Estado actual: ${CastManagerState.PLAYING}`); // "playing"
-```
+const castManager = useCastManager(callbacks, { debugMode: true });
+const castState = useCastState({ debugMode: true });
 
----
-
-Los enums proporcionan una base sólida y type-safe para toda la funcionalidad Cast, asegurando consistencia y facilitando el mantenimiento del código.
+// Los logs mostrarán información detallada sobre:
+// - Cambios de estado (CastManagerState)
+// - Eventos de Cast (CastEvent)
+// - Tipos de contenido cargado (CastContentType)
+// - Cambios de pistas (TrackType)

@@ -10,6 +10,8 @@ import {
 import { CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastStateCustom, CastTrackInfo } from '../types/types';
 import { castReducer, createInitialCastState, getVolume } from '../utils/castUtils';
 
+import { DEFAULT_CAST_CONFIG } from '../constants';
+
 // Hook principal que maneja toda la sincronización
 export function useCastState(options: { 
     debugMode?: boolean;
@@ -20,7 +22,7 @@ export function useCastState(options: {
     onTextTrackChange?: (track: CastTrackInfo | null) => void;
 } = {}): CastStateCustom {
     const { 
-        debugMode = true, 
+        debugMode = DEFAULT_CAST_CONFIG.debugMode, 
         onConnectionChange, 
         onMediaChange, 
         onError,
@@ -33,7 +35,7 @@ export function useCastState(options: {
     const nativeSession = useCastSession();
     const nativeClient = useRemoteMediaClient();
     const nativeMediaStatus = useMediaStatus();
-    const nativeStreamPosition = useStreamPosition(1); // Cada 1 segundo
+    const nativeStreamPosition = useStreamPosition(DEFAULT_CAST_CONFIG.streamPositionInterval);
     
     // Reducer para sincronización
     const [state, dispatch] = useReducer(castReducer, {

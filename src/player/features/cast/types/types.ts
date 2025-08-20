@@ -3,6 +3,8 @@ import {
     MediaStatus,
     CastState as NativeCastState,
     RemoteMediaClient,
+    type MediaInfo,
+    type MediaQueueData,
     type MediaTrack
 } from 'react-native-google-cast';
 
@@ -192,4 +194,15 @@ export interface CastMessageConfig {
     drm?: IDrm;
     youbora?: IMappedYoubora;
     metadata: CastContentMetadata;
+}
+
+export interface CastMessage {
+    mediaInfo?: MediaInfo;
+    customData?: object;
+    autoplay?: boolean | null;
+    startTime?: number;
+    credentials?: string;
+    credentialsType?: string;
+    playbackRate?: number;
+    queueData?: MediaQueueData;
 }
