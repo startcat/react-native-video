@@ -15,6 +15,7 @@ import {
     type AudioPlayerProps,
     type IAudioPlayerContent,
     type ICommonData,
+    type IPreferencesCommonData,
     CONTROL_ACTION
 } from '../../types';
 
@@ -208,14 +209,14 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
     }
 
-
-
     /*
      *  Función para guardar los cambios en el estado entre flavours
      * 
      */
 
     const changeCommonData = (data: ICommonData) => {
+
+        let preferencesData: IPreferencesCommonData = {};
 
         if (data?.time && dpoData?.playerProgress){
             dpoData.playerProgress.currentTime = data.time;
@@ -246,10 +247,16 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         if (data?.muted !== undefined){
             dpoData.playerProgress.isMuted = !!data.muted;
+            preferencesData.muted = !!data.muted;
         }
 
         if (typeof(data?.volume) === 'number'){
             dpoData.playerProgress.volume = data.volume;
+            preferencesData.volume = data.volume;
+        }
+
+        if (dpoData?.events?.onChangePreferences && typeof(dpoData.events?.onChangePreferences) === 'function' && Object.keys(preferencesData).length > 0){
+            dpoData.events?.onChangePreferences(preferencesData);
         }
         
     }

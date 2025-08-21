@@ -6,7 +6,8 @@
 import * as Enums from './enums';
 
 import {
-    type ICommonData
+    type ICommonData,
+    type IPreferencesCommonData
 } from './types';
 
 export interface IPlayerEvents {
@@ -22,6 +23,7 @@ export interface IPlayerEvents {
     
     onChangeAudioIndex?: (index: number, label?: string) => void;
     onChangeSubtitleIndex?: (index: number, label?: string) => void;
+    onChangePreferences?: (data: IPreferencesCommonData) => void;
     
     onLiveStartProgram?: () => number | null;
 
