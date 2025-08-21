@@ -8,7 +8,7 @@ import Orientation, { useOrientationChange } from 'react-native-orientation-lock
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { default as Downloads } from './Downloads';
 import { DEFAULT_CAST_CONFIG } from './player/features/cast/constants';
-import { IPlayerProgress } from './player/types';
+import { type IPlayerProgress, type IPreferencesCommonData } from './player/types';
 
 // Declaraciones globales para TypeScript
 declare var __DEV__: boolean;
@@ -168,6 +168,10 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
     const changeCommonData = (data: ICommonData) => {
 
+        let preferencesData: IPreferencesCommonData = {};
+
+        console.log(`[Player] changeCommonData ${JSON.stringify(data)}`);
+
         if (data?.time !== undefined){
             playerProgress.current.currentTime = data.time;
         }
@@ -197,14 +201,18 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         if (data?.muted !== undefined){
             playerProgress.current.isMuted = !!data.muted;
+            preferencesData.muted = !!data.muted;
         }
 
         if (typeof(data?.volume) === 'number'){
             playerProgress.current.volume = data.volume;
+            preferencesData.volume = data.volume;
         }
 
         if (typeof(data?.audioIndex) === 'number'){
             setCurrentAudioIndex(data.audioIndex);
+            preferencesData.audioIndex = data.audioIndex;
+            preferencesData.audioLabel = data.audioLabel;
 
             if (props.events?.onChangeAudioIndex){
                 props.events.onChangeAudioIndex(data?.audioIndex, data?.audioLabel);
@@ -213,10 +221,16 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         if (typeof(data?.subtitleIndex) === 'number'){
             setCurrentSubtitleIndex(data.subtitleIndex);
+            preferencesData.subtitleIndex = data.subtitleIndex;
+            preferencesData.subtitleLabel = data.subtitleLabel;
 
             if (props.events?.onChangeSubtitleIndex){
                 props.events.onChangeSubtitleIndex(data?.subtitleIndex, data?.subtitleLabel);
             }
+        }
+
+        if (props?.events?.onChangePreferences && typeof(props.events?.onChangePreferences) === 'function' && Object.keys(preferencesData).length > 0){
+            props.events?.onChangePreferences(preferencesData);
         }
         
     }
