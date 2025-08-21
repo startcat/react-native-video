@@ -96,3 +96,5 @@ export enum DVR_PLAYBACK_TYPE {
     PROGRAM = 'program',
     PLAYLIST = 'playlist'
 }
+
+export { LogLevel } from '../features/logger/types';

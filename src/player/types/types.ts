@@ -4,21 +4,16 @@ import { type SubtitleStyle } from '../../types';
 import * as Enums from './enums';
 
 import {
+    type ICommonFlavourProps,
     type ICommonPlayerProps,
-    type IPlayerFeatures,
-    type IPlayerInitialState,
     type IPlayerProgress,
     type IPlayerTimeMarkers
 } from './newTypes';
 
 import {
-    type IInnerPlayerEvents,
-    type IPlayerEvents
+    type IInnerPlayerEvents
 } from './events';
 
-import {
-    type IPlayerHooks,
-} from './hooks';
 
 import {
     type IPlayerCustomAudioComponents,
@@ -52,6 +47,17 @@ export interface ICommonData {
     subtitleIndex?: number;
     audioLabel?: string;
     subtitleLabel?: string;
+    playbackRate?: number;
+}
+
+export interface IPreferencesCommonData {
+    volume?: number;
+    muted?: boolean;
+    audioIndex?: number;
+    subtitleIndex?: number;
+    audioLabel?: string;
+    subtitleLabel?: string;
+    playbackRate?: number;
 }
 
 export interface IThumbnailMetadata {
@@ -518,7 +524,7 @@ export interface OverlayProps extends ICommonPlayerProps {
     events: IInnerPlayerEvents;
 }
 
-export interface AudioFlavourProps extends ICommonPlayerProps {
+export interface AudioFlavourProps extends ICommonPlayerProps, ICommonFlavourProps {
     isAutoNext?: boolean;
     liveStartDate?:string;
     manifests?:Array<IManifest>,
@@ -534,23 +540,11 @@ export interface AudioFlavourProps extends ICommonPlayerProps {
     backgroundColor?: string;
     topDividerColor?: string;
 
-    // Initial State
-    initialState?: IPlayerInitialState;
-
     // Components
     controls?: FunctionComponent<AudioControlsProps>;
-
-    // Hooks
-    hooks?: IPlayerHooks;
-
-    // Events
-    events: IInnerPlayerEvents;
-
-    // Player Features
-    features?: IPlayerFeatures;
 }
 
-export interface AudioCastFlavourProps extends ICommonPlayerProps {
+export interface AudioCastFlavourProps extends ICommonPlayerProps, ICommonFlavourProps {
     isAutoNext?: boolean;
     liveStartDate?:string;
     manifests?:Array<IManifest>,
@@ -567,23 +561,11 @@ export interface AudioCastFlavourProps extends ICommonPlayerProps {
     backgroundColor?: string;
     topDividerColor?: string;
 
-    // Initial State
-    initialState?: IPlayerInitialState;
-
     // Components
     controls?: FunctionComponent<AudioControlsProps>;
-
-    // Hooks
-    hooks?: IPlayerHooks;
-
-    // Events
-    events: IInnerPlayerEvents;
-
-    // Player Features
-    features?: IPlayerFeatures;
 }
 
-export interface NormalFlavourProps extends ICommonPlayerProps {
+export interface NormalFlavourProps extends ICommonPlayerProps, ICommonFlavourProps {
     isAutoNext?: boolean;
     liveStartDate?:string;
     manifests?:Array<IManifest>,
@@ -599,23 +581,11 @@ export interface NormalFlavourProps extends ICommonPlayerProps {
     timeMarkers?: Array<ITimeMarkers>;
     avoidTimelineThumbnails?: boolean;
 
-    // Initial State
-    initialState?: IPlayerInitialState;
-
     // Custom Components
     components?: IPlayerCustomVideoComponents;
-
-    // Hooks
-    hooks?: IPlayerHooks;
-
-    // Events
-    events: IInnerPlayerEvents;
-
-    // Player Features
-    features?: IPlayerFeatures;
 }
 
-export interface CastFlavourProps extends ICommonPlayerProps {
+export interface CastFlavourProps extends ICommonPlayerProps, ICommonFlavourProps {
     isAutoNext?: boolean;
     liveStartDate?:string;
     manifests?:Array<IManifest>,
@@ -630,23 +600,11 @@ export interface CastFlavourProps extends ICommonPlayerProps {
     timeMarkers?: Array<ITimeMarkers>;
     avoidTimelineThumbnails?: boolean;
 
-    // Initial State
-    initialState?: IPlayerInitialState;
-
     // Custom Components
     components?: IPlayerCustomVideoComponents;
-
-    // Hooks
-    hooks?: IPlayerHooks;
-
-    // Events
-    events: IInnerPlayerEvents;
-
-    // Player Features
-    features?: IPlayerFeatures;
 }
 
-export interface PlayerProps extends ICommonPlayerProps {
+export interface PlayerProps extends ICommonPlayerProps, ICommonFlavourProps {
     manifests?:Array<IManifest>,
     showExternalTudum?:boolean;
     headers?: Headers;
@@ -664,23 +622,11 @@ export interface PlayerProps extends ICommonPlayerProps {
     avoidRotation?: boolean;
     avoidDownloadsManagement?: boolean;
 
-    // Initial State
-    initialState?: IPlayerInitialState;
-
     // Custom Components
     components?: IPlayerCustomVideoComponents;
-
-    // Hooks
-    hooks?: IPlayerHooks;
-
-    // Events
-    events: IPlayerEvents;
-
-    // Player Features
-    features?: IPlayerFeatures;
 }
 
-export interface AudioPlayerContentsDpo extends ICommonPlayerProps {
+export interface AudioPlayerContentsDpo extends ICommonPlayerProps, ICommonFlavourProps {
     collection: Enums.COLLECTION;
     showExternalTudum?: boolean;
     playOffline?: boolean;
@@ -689,20 +635,8 @@ export interface AudioPlayerContentsDpo extends ICommonPlayerProps {
     extraData?: any;
     isAutoNext?: boolean;
 
-    // Initial State
-    initialState?: IPlayerInitialState;
-
     // Custom Components
     components?: IPlayerCustomAudioComponents;
-
-    // Hooks
-    hooks?: IPlayerHooks;
-
-    // Events
-    events?: IPlayerEvents;
-
-    // Player Features
-    features?: IPlayerFeatures;
 }
 
 export interface AudioPlayerProps {
