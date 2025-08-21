@@ -3,11 +3,15 @@
  *
  */
 
+import { PlayerContext } from '../core/context';
 import { type PlayerAnalyticsPlugin } from '../features/analytics/types';
+import { type LoggerConfigBasic } from '../features/logger/types';
 import * as Enums from './enums';
 
 import {
     type IBasicProgram,
+    type IInnerPlayerEvents,
+    type IPlayerHooks,
     type ITimeMarkers,
     type IYoubora,
     type SliderValues
@@ -73,6 +77,7 @@ export interface IPlayerTimeMarkers {
 }
 
 export interface ICommonPlayerProps {
+    playerContext?: PlayerContext;
     playerMetadata?: IPlayerMetadata;
     playerProgress?: IPlayerProgress;
     playerAnalytics?: IPlayerAnalytics;
@@ -82,4 +87,32 @@ export interface ICommonPlayerProps {
 
 export interface IPlayerFeatures {
     analyticsConfig?: PlayerAnalyticsPlugin[];
+}
+
+export interface IPlayerLogger {
+    core?: LoggerConfigBasic;
+    progressManager?: LoggerConfigBasic;
+    cast?: LoggerConfigBasic;
+    ads?: LoggerConfigBasic;
+    analytics?: LoggerConfigBasic;
+    offline?: LoggerConfigBasic;
+    timeMarkers?: LoggerConfigBasic;
+    tudum?: LoggerConfigBasic;
+}
+
+export interface ICommonFlavourProps {
+    // Initial State
+    initialState?: IPlayerInitialState;
+
+    // Hooks
+    hooks?: IPlayerHooks;
+
+    // Events
+    events: IInnerPlayerEvents;
+
+    // Player Features
+    features?: IPlayerFeatures;
+
+    // Player Logger
+    logger?: IPlayerLogger;
 }

@@ -320,6 +320,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         // Player Features
                         features={dpoData.features}
+
+                        // Player Logger
+                        logger={dpoData.logger}
                     />
                 : null
             }
@@ -363,6 +366,9 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
                         // Player Features
                         features={dpoData.features}
+
+                        // Player Logger
+                        logger={dpoData.logger}
                     />
                 : null
             }

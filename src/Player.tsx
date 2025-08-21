@@ -7,7 +7,9 @@ import { CastState as NativeCastState, useCastState as useNativeCastState } from
 import Orientation, { useOrientationChange } from 'react-native-orientation-locker';
 import SystemNavigationBar from 'react-native-system-navigation-bar';
 import { default as Downloads } from './Downloads';
+import { PlayerContext } from './player/core/context';
 import { DEFAULT_CAST_CONFIG } from './player/features/cast/constants';
+import { ComponentLogger, Logger, LoggerFactory } from './player/features/logger';
 import { type IPlayerProgress, type IPreferencesCommonData } from './player/types';
 
 // Declaraciones globales para TypeScript
@@ -53,6 +55,9 @@ import {
 
 export function Player (props: PlayerProps): React.ReactElement | null {
 
+    const playerContext = useRef<PlayerContext | null>(null);
+    const playerLogger = useRef<Logger | null>(null);
+    const playerVideoLogger = useRef<ComponentLogger | null>(null);
     const playerProgress = useRef<IPlayerProgress | null>(null);
 
     const isCasting = useRef<boolean>(false);
@@ -66,6 +71,15 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const [hasCorrectCastState, setCorrectCastState] = useState<boolean>(false);
 
     const nativeCastState = useNativeCastState();
+
+    if (!playerLogger.current){
+        playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
+        playerVideoLogger.current = playerLogger.current?.forComponent('Video Player Component', props.logger?.core?.enabled, props.logger?.core?.level);
+    }
+
+    if (!playerContext.current){
+        playerContext.current = new PlayerContext(playerLogger.current!);
+    }
 
     if (!playerProgress.current){
         playerProgress.current = {
@@ -128,7 +142,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         }, DEFAULT_CAST_CONFIG.initializationDelay);
 
-        console.log(`[Player] Manifests ${JSON.stringify(props.manifests)}`);
+        playerVideoLogger.current?.debug(`Received manifests ${JSON.stringify(props.manifests)}`);
     
         return () => {
 
@@ -166,11 +180,11 @@ export function Player (props: PlayerProps): React.ReactElement | null {
      * 
      */
 
-    const changeCommonData = (data: ICommonData) => {
+    const handleChangeCommonData = (data: ICommonData) => {
 
         let preferencesData: IPreferencesCommonData = {};
 
-        console.log(`[Player] changeCommonData ${JSON.stringify(data)}`);
+        playerVideoLogger.current?.info(`handleChangeCommonData ${JSON.stringify(data)}`);
 
         if (data?.time !== undefined){
             playerProgress.current.currentTime = data.time;
@@ -230,17 +244,19 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         }
 
         if (props?.events?.onChangePreferences && typeof(props.events?.onChangePreferences) === 'function' && Object.keys(preferencesData).length > 0){
+            playerVideoLogger.current?.info(`Calling onChangePreferences with ${JSON.stringify(preferencesData)}`);
             props.events?.onChangePreferences(preferencesData);
         }
         
     }
 
     if (hasRotated && hasCorrectCastState && (nativeCastState === NativeCastState.CONNECTING || nativeCastState === NativeCastState.CONNECTED)){
-        console.log(`[Player] Mounting CastFlavour...`);
+        playerVideoLogger.current?.debug(`Mounting CastFlavour...`);
         isCasting.current = true;
         return (
             <Suspense fallback={props.components?.suspenseLoader}>
                 <CastFlavour
+                    playerContext={playerContext.current}
                     manifests={props.manifests}
                     headers={props.headers}
                     languagesMapping={props.languagesMapping}
@@ -271,21 +287,25 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     // Events
                     events={{
                         ...props.events,
-                        onChangeCommonData: changeCommonData,
+                        onChangeCommonData: handleChangeCommonData,
                     }}
 
                     // Player Features
                     features={props.features}
+
+                    // Player Logger
+                    logger={props.logger}
                 />
             </Suspense>
         );
 
     } else if (hasRotated && hasCorrectCastState && (nativeCastState !== NativeCastState.CONNECTING && nativeCastState !== NativeCastState.CONNECTED)){
-        console.log(`[Player] Mounting NormalFlavour...`);
+        playerVideoLogger.current?.debug(`Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
             <Suspense fallback={props.components?.suspenseLoader}>
                 <NormalFlavour
+                    playerContext={playerContext.current}
                     manifests={props.manifests}
                     headers={props.headers}
                     languagesMapping={props.languagesMapping}
@@ -320,17 +340,19 @@ export function Player (props: PlayerProps): React.ReactElement | null {
                     // Events
                     events={{
                         ...props.events,
-                        onChangeCommonData: changeCommonData,
+                        onChangeCommonData: handleChangeCommonData,
                     }}
 
                     // Features
                     features={props.features}
+
+                    // Player Logger
+                    logger={props.logger}
                 />
             </Suspense>
         );
 
     } else {
-        console.log(`[Player] nativeCastState: ${nativeCastState} // hasRotated: ${hasRotated} // hasCorrectCastState: ${hasCorrectCastState}`);
         return null;
         
     }
