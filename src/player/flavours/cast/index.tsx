@@ -31,6 +31,8 @@ import {
     type ProgramChangeData
 } from '../../core/progress';
 
+import { ComponentLogger } from '../../features/logger';
+
 import { getTrackId, mergeCastMenuData } from '../../utils';
 
 import { useIsBuffering } from '../../core/buffering';
@@ -51,6 +53,9 @@ import {
 import { type CastContentInfo, type CastTrackInfo } from '../../features/cast/types/types';
 
 export function CastFlavour(props: CastFlavourProps): React.ReactElement {
+
+    const currentLogger = useRef<ComponentLogger | null>(null);
+
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
     const [isLoadingContent, setIsLoadingContent] = useState<boolean>(false);
     const [hasTriedLoading, setHasTriedLoading] = useState<boolean>(false);
@@ -69,6 +74,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     const playerProgressRef = useRef<IPlayerProgress>();
     const youboraForVideo = useRef<IMappedYoubora>();
     const drm = useRef<IDrm>();
+
+    // Logger
+    if (!currentLogger.current && props.playerContext?.logger){
+        currentLogger.current = props.playerContext?.logger?.forComponent('Cast Flavour', props.logger?.core?.enabled, props.logger?.core?.level);
+    }
 
     // Source
     const sourceRef = useRef<SourceClass | null>(null);

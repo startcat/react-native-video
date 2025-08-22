@@ -5,6 +5,8 @@ import BackgroundTimer from 'react-native-background-timer';
 import { EventRegister } from 'react-native-event-listeners';
 import { CastState as NativeCastState, useCastState as useNativeCastState } from 'react-native-google-cast';
 import Animated, { useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { PlayerContext } from '../../core/context';
+import { ComponentLogger, Logger, LoggerFactory } from '../../features/logger';
 import { AudioCastFlavour, AudioFlavour } from '../../flavours';
 import { styles } from './styles';
 
@@ -19,6 +21,9 @@ import {
     CONTROL_ACTION
 } from '../../types';
 
+// Declaraciones globales para TypeScript
+declare var __DEV__: boolean;
+
 const PLAYER_MAX_HEIGHT = 80;
 
 
@@ -31,6 +36,10 @@ const PLAYER_MAX_HEIGHT = 80;
 
 export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null {
 
+    const playerContext = useRef<PlayerContext | null>(null);
+    const playerLogger = useRef<Logger | null>(null);
+    const currentLogger = useRef<ComponentLogger | null>(null);
+
     const playerMaxHeight = useRef<number | string>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
     const audioPlayerHeight = useSharedValue(0);
 
@@ -41,11 +50,17 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
     const watchingProgressIntervalObj = useRef<ReturnType<typeof setTimeout>>();
 
+    if (!playerLogger.current){
+        playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
+    }
+
+    if (!playerContext.current){
+        playerContext.current = new PlayerContext(playerLogger.current!);
+    }
+
     const nativeCastState = useNativeCastState();
 
     useEffect(() => {
-
-        console.log(`[Audio Player Bar] Mounted`);
 
         const changesAudioPlayerListener = EventRegister.addEventListener('audioPlayer', (data: AudioPlayerEventProps) => {
 
@@ -117,6 +132,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
                     }
 
                     setDpoData(dpo);
+                    currentLogger.current = playerLogger.current?.forComponent('Audio Player Bar Component', dpo?.logger?.core?.enabled, dpo?.logger?.core?.level) || null;
 
                 } catch(err){
 
@@ -147,6 +163,8 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         console.log(`[Audio Player Bar] dpoData?.playerMetadata?.id ${dpoData?.playerMetadata?.id}`);
 
+        currentLogger.current?.debug(`New DPO Metadata ID ${dpoData?.playerMetadata?.id}`);
+
         // Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
         if (typeof(dpoData?.hooks?.watchingProgressInterval) === 'number' && dpoData?.hooks?.watchingProgressInterval > 0 && dpoData?.hooks?.addContentProgress){
             watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
@@ -175,6 +193,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
 
         hasBeenLoaded.current = false;
         setDpoData(null);
+        currentLogger.current = null;
 
     }
 
@@ -282,6 +301,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             {
                 contentId?.current && dpoData && (nativeCastState !== NativeCastState.CONNECTING && nativeCastState !== NativeCastState.CONNECTED)?
                     <AudioFlavour
+                        playerContext={playerContext.current}
                         manifests={dpoData.manifests}
                         headers={dpoData.headers}
                         playOffline={dpoData.playOffline}
@@ -330,6 +350,7 @@ export function AudioPlayer (props: AudioPlayerProps): React.ReactElement | null
             {
                 contentId?.current && dpoData && (nativeCastState === NativeCastState.CONNECTING || nativeCastState === NativeCastState.CONNECTED)?
                     <AudioCastFlavour
+                        playerContext={playerContext.current}
                         manifests={dpoData.manifests}
                         headers={dpoData.headers}
 
