@@ -101,8 +101,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
     const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
 
+    // Logger
     if (!currentLogger.current && props.playerContext?.logger){
-        currentLogger.current = props.playerContext?.logger?.forComponent('Video Flavour');
+        currentLogger.current = props.playerContext?.logger?.forComponent('Video Flavour', props.logger?.core?.enabled, props.logger?.core?.level);
     }
 
     // Player Progress
@@ -524,7 +525,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
-            currentLogger.current?.info(`setPlayerSource - Setting content source:`, data.source);
+            currentLogger.current?.info(`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`);
             setVideoSource(data.source!);
         } else if (sourceRef.current?.isReady) {
             currentLogger.current?.debug(`setPlayerSource - Using sourceRef`);
@@ -536,7 +537,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
-            currentLogger.current?.info(`setPlayerSource - Setting sourceRef content:`, sourceRef.current.playerSource);
+            currentLogger.current?.info(`setPlayerSource - Setting sourceRef content: ${JSON.stringify(sourceRef.current.playerSource)}`);
             setVideoSource(sourceRef.current.playerSource!);
         } else {
             currentLogger.current?.error(`setPlayerSource - No valid source available`);
@@ -862,8 +863,8 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
      */
 
     const handleOnLoad = (e: OnLoadData) => {
+
         currentLogger.current?.info(`handleOnLoad (${sourceRef.current?.playerSource?.uri})`);
-        
         // currentLogger.current?.temp(`handleOnLoad currentSourceType: ${currentSourceType.current}`);
         // currentLogger.current?.temp(`handleOnLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
         // currentLogger.current?.temp(`handleOnLoad isContentLoaded ${isContentLoaded}`);

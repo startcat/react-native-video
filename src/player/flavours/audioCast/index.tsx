@@ -39,6 +39,8 @@ import {
     VODProgressManagerClass,
 } from '../../core/progress';
 
+import { ComponentLogger } from '../../features/logger';
+
 import { styles } from '../styles';
 
 import {
@@ -53,6 +55,8 @@ import {
 } from '../../types';
 
 export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
+
+    const currentLogger = useRef<ComponentLogger | null>(null);
 
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
     const [isLoadingContent, setIsLoadingContent] = useState<boolean>(false);
@@ -69,6 +73,11 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     const castPlaying = useCastPlaying();
     const castProgress = useCastProgress();
     const castVolume = useCastVolume();
+
+    // Logger
+    if (!currentLogger.current && props.playerContext?.logger){
+        currentLogger.current = props.playerContext?.logger?.forComponent('Audio Cast Flavour', props.logger?.core?.enabled, props.logger?.core?.level);
+    }
 
     const onContentLoadedCallback = useCallback((content: CastContentInfo) => {
         console.log(`[Player] (Audio Cast Flavour) Cast Manager - Content loaded:`, content.source.uri);

@@ -34,6 +34,8 @@ import {
     VODProgressManagerClass,
 } from '../../core/progress';
 
+import { ComponentLogger } from '../../features/logger';
+
 import { useVideoAnalytics } from '../../core/events/hooks/useVideoAnalytics';
 
 import { styles } from '../styles';
@@ -50,6 +52,8 @@ import {
 } from '../../types';
 
 export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
+
+    const currentLogger = useRef<ComponentLogger | null>(null);
 
     const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
     const audioPlayerHeight = useSharedValue(0);
@@ -69,6 +73,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const refVideoPlayer = useRef<VideoRef>(null);
     const sleepTimerObj = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
+
+    // Logger
+    if (!currentLogger.current && props.playerContext?.logger){
+        currentLogger.current = props.playerContext?.logger?.forComponent('Audio Flavour', props.logger?.core?.enabled, props.logger?.core?.level);
+    }
 
     // Player Progress
     const playerProgressRef = useRef<IPlayerProgress>();
@@ -105,7 +114,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     });
 
     useEffect(() => {
-        console.log(`[Player] (Audio Flavour) useEffect videoSource ${JSON.stringify(videoSource)}`);
+        currentLogger.current?.info(`useEffect videoSource ${JSON.stringify(videoSource)}`);
 
     }, [videoSource?.uri]);
 
@@ -127,23 +136,22 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }, []);
 
     useEffect(() => {
-        console.log(`[Player] (Audio Flavour) 🔄 useEffect manifests TRIGGERED`);
-        console.log(`[Player] (Audio Flavour) useEffect manifests - isAutoNext: ${props.isAutoNext}`);
-        console.log(`[Player] (Audio Flavour) useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
-        console.log(`[Player] (Audio Flavour) useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
-        console.log(`[Player] (Audio Flavour) useEffect manifests - isContentLoaded: ${isContentLoaded}, isChangingSource: ${isChangingSource.current}`);
+        // currentLogger.current?.temp(`useEffect manifests - isAutoNext: ${props.isAutoNext}`);
+        // currentLogger.current?.temp(`useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
+        // currentLogger.current?.temp(`useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
 
         // Verificar si es contenido live/DVR vs VOD
         const isLiveContent = !!props.playerProgress?.isLive;
 
         if (isLiveContent) {
-            // Para contenido live, si ya está cargado y no estamos cambiando source, no hacer nada
-            if (isContentLoaded && !isChangingSource.current) {
-                console.log(`[Player] (Audio Flavour) useEffect manifests - ✅ Live content already loaded, skipping`);
-                return;
+            // COMPORTAMIENTO ORIGINAL PARA LIVE/DVR - Sin tudum, sin resets complicados
+            if (!tudumRef.current){
+                tudumRef.current = new TudumClass({
+                    enabled: false, // Nunca tudum para live
+                    getTudumSource: props.hooks?.getTudumSource,
+                    getTudumManifest: props.hooks?.getTudumManifest,
+                });
             }
-            // LÓGICA PARA LIVE/DVR - cargar contenido directamente sin tudum
-            console.log(`[Player] (Audio Flavour) useEffect manifests - Live content detected, skipping tudum`);
             
             // Crear sourceRef si no existe
             if (!sourceRef.current) {
@@ -166,11 +174,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             }
 
             // Para live, cargar contenido directamente
-            console.log(`[Player] (Audio Flavour) useEffect manifests - Setting currentSourceType to 'content' and isChangingSource to true`);
             currentSourceType.current = 'content';
             isChangingSource.current = true;
             
-            console.log(`[Player] (Audio Flavour) useEffect manifests - Calling changeSource with manifests`);
             sourceRef.current.changeSource({
                 id: props.playerMetadata?.id,
                 title: props.playerMetadata?.title,
@@ -184,8 +190,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 isCast: false,
                 headers: props.headers,
             });
-            
-            console.log(`[Player] (Audio Flavour) useEffect manifests - changeSource called, waiting for onLoad...`);
 
         } else {
             // LÓGICA DEL TUDUM SOLO PARA VOD
@@ -202,7 +206,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             // Determinar si debe reproducir tudum (solo para VOD)
             const shouldPlayTudum = !!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
-            console.log(`[Player] (Audio Flavour) shouldPlayTudum: ${shouldPlayTudum}`);
+            currentLogger.current?.info(`shouldPlayTudum: ${shouldPlayTudum}`);
 
             if (!tudumRef.current){
                 tudumRef.current = new TudumClass({
@@ -237,11 +241,11 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             // Establecer currentSourceType basado en si vamos a reproducir tudum
             if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
-                console.log(`[Player] (Audio Flavour) Will play tudum first, then content`);
+                currentLogger.current?.debug(`Will play tudum first, then content`);
                 currentSourceType.current = 'tudum';
                 loadTudumSource();
             } else {
-                console.log(`[Player] (Audio Flavour) Skipping tudum - loading content directly`);
+                currentLogger.current?.debug(`Skipping tudum - loading content directly`);
                 currentSourceType.current = 'content';
                 loadContentSource();
             }
@@ -249,29 +253,23 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     }, [props.manifests, props.isAutoNext]);
 
-    // Debug useEffect para monitorear cambios en isContentLoaded
-    useEffect(() => {
-        console.log(`[Player] (Audio Flavour) 🔍 isContentLoaded changed to: ${isContentLoaded}`);
-        console.log(`[Player] (Audio Flavour) 🔍 isChangingSource current value: ${isChangingSource.current}`);
-    }, [isContentLoaded]);
-
     // Función para cargar source del tudum
     const loadTudumSource = () => {
-        console.log(`[Player] (Audio Flavour) loadTudumSource`);
+        currentLogger.current?.debug(`loadTudumSource`);
         
         if (tudumRef.current?.source) {
             currentSourceType.current = 'tudum';
             tudumRef.current.isPlaying = true;
             drm.current = tudumRef.current?.drm;
             
-            console.log(`[Player] (Audio Flavour) Setting tudum source:`, tudumRef.current.source);
+            currentLogger.current?.debug(`Setting tudum source: ${JSON.stringify(tudumRef.current.source)}`);
             setVideoSource(tudumRef.current.source);
         }
     };
 
     // Función para cargar source del contenido
     const loadContentSource = () => {
-        console.log(`[Player] (Audio Flavour) loadContentSource`);
+        currentLogger.current?.debug(`loadContentSource`);
         
         isChangingSource.current = true;
         currentSourceType.current = 'content';
@@ -294,7 +292,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             // Si el source ya está listo inmediatamente, forzar la carga
             setTimeout(() => {
                 if (sourceRef.current?.isReady && currentSourceType.current === 'content') {
-                    console.log(`[Player] (Audio Flavour) Forcing content load - sourceRef is ready`);
+                    currentLogger.current?.debug(`Forcing content load - sourceRef is ready`);
                     setPlayerSource();
                 }
             }, 100);
@@ -303,7 +301,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // Función para cambiar de tudum a contenido
     const switchFromTudumToContent = () => {
-        console.log(`[Player] (Audio Flavour) switchFromTudumToContent`);
+        currentLogger.current?.debug(`switchFromTudumToContent`);
         
         // Limpiar completamente el source del tudum
         currentSourceType.current = null;
@@ -319,17 +317,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         
         // Pequeño delay para asegurar que se limpia el source
         setTimeout(() => {
-            console.log(`[Player] (Audio Flavour) switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`)
+            currentLogger.current?.debug(`switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`)
 
             // Si hay un source de contenido pendiente, usarlo directamente
             if (pendingContentSource.current && pendingContentSource.current.isReady) {
-                console.log(`[Player] (Audio Flavour) Loading pending content source directly`);
+                currentLogger.current?.debug(`switchFromTudumToContent - Loading pending content source directly`);
                 currentSourceType.current = 'content';
                 setPlayerSource(pendingContentSource.current);
                 pendingContentSource.current = null;
             } else {
                 // Cargar el contenido principal
-                console.log(`[Player] (Audio Flavour) Loading main content source`);
+                currentLogger.current?.debug(`switchFromTudumToContent - Loading main content source`);
                 currentSourceType.current = 'content';
                 loadContentSource();
             }
@@ -348,17 +346,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     // Source Cooking
     const onSourceChanged = (data: onSourceChangedProps) => {
-        console.log(`[Player] (Audio Flavour) onSourceChanged - currentSourceType: ${currentSourceType.current}`);
-        console.log(`[Player] (Audio Flavour) onSourceChanged - tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-        console.log(`[Player] (Audio Flavour) onSourceChanged - data isReady: ${data.isReady}`);
-        console.log(`[Player] (Audio Flavour) onSourceChanged - data ${JSON.stringify(data)}`);
+        // currentLogger.current?.temp(`onSourceChanged - currentSourceType: ${currentSourceType.current}`);
+        // currentLogger.current?.temp(`onSourceChanged - tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
+        // currentLogger.current?.temp(`onSourceChanged - data isReady: ${data.isReady}`);
+        // currentLogger.current?.temp(`onSourceChanged - data ${JSON.stringify(data)}`);
         
         if (!sourceRef.current?.isLive && !sourceRef.current?.isDownloaded && currentSourceType.current === 'tudum') {
             // Si estamos reproduciendo tudum, guardar el source del contenido para después
-            console.log(`[Player] (Audio Flavour) onSourceChanged - Saving content source for later (tudum is playing)`);
+            currentLogger.current?.debug(`onSourceChanged - Saving content source for later (tudum is playing)`);
             pendingContentSource.current = data;
 
-            console.log(`[Player] (Audio Flavour) onSourceChanged - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`);
+            currentLogger.current?.debug(`onSourceChanged - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`);
             
             // También preparar el progress
             if (data.isReady) {
@@ -374,13 +372,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                         sliderValues: sliderValues,
                     };
                 } catch (ex: any) {
-                    console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
+                    currentLogger.current?.error(`onSourceChanged - error ${ex?.message}`);
                 }
             }
             
         } else if (currentSourceType.current === 'content') {
             // Si ya estamos en modo contenido, procesar normalmente
-            console.log(`[Player] (Audio Flavour) onSourceChanged - Processing content source normally`);
+            currentLogger.current?.debug(`onSourceChanged - Processing content source normally`);
             
             try {
                 playerProgressRef.current = {
@@ -394,19 +392,19 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     sliderValues: sliderValues,
                 };
             } catch (ex: any) {
-                console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
+                currentLogger.current?.error(`onSourceChanged - error ${ex?.message}`);
             }
             
             setPlayerSource(data);
             
         } else {
             // Estado inicial o indefinido
-            console.log(`[Player] (Audio Flavour) onSourceChanged - Initial state, processing source`);
+            currentLogger.current?.debug(`onSourceChanged - Initial state, processing source`);
             
             // Si no tenemos tipo definido, debe ser contenido
             if (!currentSourceType.current) {
                 currentSourceType.current = 'content';
-                console.log(`[Player] (Audio Flavour) onSourceChanged - Setting currentSourceType to content`);
+                currentLogger.current?.info(`onSourceChanged - Setting currentSourceType to content`);
             }
             
             try {
@@ -421,7 +419,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     sliderValues: sliderValues,
                 };
             } catch (ex: any) {
-                console.log(`[Player] (Audio Flavour) onSourceChanged - error ${ex?.message}`);
+                currentLogger.current?.error(`onSourceChanged - error ${ex?.message}`);
             }
             
             setPlayerSource(data);
@@ -434,13 +432,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     };
 
     const setPlayerSource = (data?: onSourceChangedProps) => {
-        console.log(`[Player] (Audio Flavour) setPlayerSource (data isReady ${!!data?.isReady})`);
-        console.log(`[Player] (Audio Flavour) setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
-        console.log(`[Player] (Audio Flavour) setPlayerSource (currentSourceType ${currentSourceType.current})`);
-        console.log(`[Player] (Audio Flavour) setPlayerSource (data ${JSON.stringify(data)})`);
+        currentLogger.current?.temp(`setPlayerSource (data isReady ${!!data?.isReady})`);
+        currentLogger.current?.temp(`setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
+        currentLogger.current?.temp(`setPlayerSource (currentSourceType ${currentSourceType.current})`);
+        currentLogger.current?.temp(`setPlayerSource (data ${JSON.stringify(data)})`);
 
         if (data && data?.isReady) {
-            console.log(`[Player] (Audio Flavour) setPlayerSource - Using provided data`);
+            currentLogger.current?.debug(`setPlayerSource - Using provided data`);
             setBuffering(true);
             drm.current = data.drm;
 
@@ -449,10 +447,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
-            console.log(`[Player] (Audio Flavour) setPlayerSource - Setting content source:`, data.source);
+            currentLogger.current?.info(`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`);
             setVideoSource(data.source!);
         } else if (sourceRef.current?.isReady) {
-            console.log(`[Player] (Audio Flavour) setPlayerSource - Using sourceRef`);
+            currentLogger.current?.debug(`setPlayerSource - Using sourceRef`);
             setBuffering(true);
             drm.current = sourceRef.current.playerSourceDrm;
 
@@ -461,10 +459,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
-            console.log(`[Player] (Audio Flavour) setPlayerSource - Setting sourceRef content:`, sourceRef.current.playerSource);
+            currentLogger.current?.info(`setPlayerSource - Setting sourceRef content: ${JSON.stringify(sourceRef.current.playerSource)}`);
             setVideoSource(sourceRef.current.playerSource!);
         } else {
-            console.log(`[Player] (Audio Flavour) setPlayerSource - No valid source available`);
+            currentLogger.current?.error(`setPlayerSource - No valid source available`);
         }
     }
 
@@ -474,7 +472,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
      */
 
     const handleOnProgressUpdate = useCallback((data: ProgressUpdateData) => {
-        console.log(`[Player] (Audio Flavour) handleOnProgressUpdate ${JSON.stringify(data)}`);
+        currentLogger.current?.debug(`handleOnProgressUpdate ${JSON.stringify(data)}`);
         
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
@@ -506,22 +504,22 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     currentProgram: data.currentProgram,
                 };
             } catch (ex: any) {
-                console.log(`[Player] (Audio Flavour) handleOnProgressUpdate - error ${ex?.message}`);
+                currentLogger.current?.error(`handleOnProgressUpdate - error ${ex?.message}`);
             }
         }
     }, [currentTime, paused, muted, isContentLoaded, props.playerProgress]);
 
     const handleOnSeekRequest = useCallback((playerTime: number) => {
-        console.log(`[Player] (Audio Flavour) handleOnSeekRequest: ${playerTime}`);
+        currentLogger.current?.debug(`handleOnSeekRequest: ${playerTime}`);
         refVideoPlayer.current?.seek(playerTime);
     }, []);
 
     const handleOnDVRModeChange = useCallback((data: ModeChangeData) => {
-        console.log(`[Player] (Audio Flavour) handleOnDVRModeChange: ${JSON.stringify(data)}`);
+        currentLogger.current?.debug(`handleOnDVRModeChange: ${JSON.stringify(data)}`);
     }, []);
 
     const handleOnDVRProgramChange = useCallback((data: ProgramChangeData) => {
-        console.log(`[Player] (Audio Flavour) handleOnDVRProgramChange: ${JSON.stringify(data)}`);
+        currentLogger.current?.debug(`handleOnDVRProgramChange: ${JSON.stringify(data)}`);
     }, []);
 
     /*
@@ -536,7 +534,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 onProgressUpdate: handleOnProgressUpdate,
                 onSeekRequest: handleOnSeekRequest
             });
-            console.log('[Player] VOD Progress Manager initialized');
+            currentLogger.current?.info('VOD Progress Manager initialized');
         }
 
         // Initialize DVR Progress Manager  
@@ -549,7 +547,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 onProgressUpdate: handleOnProgressUpdate,
                 onSeekRequest: handleOnSeekRequest
             });
-            console.log('[Player] DVR Progress Manager initialized');
+            currentLogger.current?.info('DVR Progress Manager initialized');
         }
     }, [handleOnProgressUpdate, handleOnSeekRequest, handleOnDVRModeChange, handleOnDVRProgramChange]);
 
@@ -569,7 +567,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         
         if (isLiveContent && sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
             const dvrWindow = sourceRef.current.dvrWindowSeconds || 3600; // 1 hora por defecto
-            console.log(`[Player] Setting DVR window: ${dvrWindow}s`);
+            currentLogger.current?.debug(`Setting DVR window: ${dvrWindow}s`);
             dvrProgressManagerRef.current.setDVRWindowSeconds(dvrWindow);
         }
     }, [props.playerProgress?.isLive, sourceRef.current?.isDVR, sourceRef.current?.dvrWindowSeconds]);
@@ -580,8 +578,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
      */
 
     const cancelSleepTimer = () => {
-        const now = new Date();
-        console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] Cancel sleep timer`);
+        currentLogger.current?.info(`Cancel sleep timer`);
 
         if (sleepTimerObj.current){
             BackgroundTimer.clearTimeout(sleepTimerObj.current);
@@ -591,8 +588,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }
 
     const refreshSleepTimer = (value: number) => {
-        const now = new Date();
-        console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] Creating sleep timer for ${value} seconds`);
+        currentLogger.current?.info(`Creating sleep timer for ${value} seconds`);
 
         if (sleepTimerObj.current){
             BackgroundTimer.clearTimeout(sleepTimerObj.current);
@@ -600,17 +596,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         sleepTimerObj.current = BackgroundTimer.setTimeout(() => {
-            const now = new Date();
-            console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] onSleepTimer Done...`);
+            currentLogger.current?.debug(`onSleepTimer Done...`);
             
             if (refVideoPlayer.current){
-                console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] onSleepTimer Done... calling pause`);
+                currentLogger.current?.debug(`onSleepTimer Done... calling pause`);
                 refVideoPlayer.current?.pause();
                 cancelSleepTimer();
                 setPaused(true);
 
             } else {
-                console.log(`[Player] (Audio Flavour) [${now.toLocaleDateString()} ${now.toLocaleTimeString()}] onSleepTimer Done... cant acces refVideoPlayer`);
+                currentLogger.current?.debug(`onSleepTimer Done... cant acces refVideoPlayer`);
                 refreshSleepTimer(2000);
 
             }
@@ -626,9 +621,9 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const handleOnControlsPress = useCallback(async (id: CONTROL_ACTION, value?: number | boolean) => {
 
-        const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause'];
+        const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'speedRate'];
 
-        console.log(`[Player] (Audio Flavour) handleOnControlsPress: ${id} (${value})`);
+        currentLogger.current?.info(`handleOnControlsPress: ${id} (${value})`);
 
         if (id === CONTROL_ACTION.PAUSE){
             const newPausedState = !!value;
@@ -660,7 +655,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
         
         if (id === CONTROL_ACTION.NEXT && props.events?.onNext){            
-            console.log(`[Player] (Audio Flavour) CONTROL_ACTION.NEXT - Resetting isContentLoaded to false`);
             setIsContentLoaded(false);
             props.events.onNext();
 
@@ -669,7 +663,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious){
-            console.log(`[Player] (Audio Flavour) CONTROL_ACTION.PREVIOUS - Resetting isContentLoaded to false`);
             setIsContentLoaded(false);
             props.events.onPrevious();
 
@@ -741,6 +734,10 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             } else if (id === CONTROL_ACTION.PAUSE){
                 data.paused = !!value;
 
+            } else if (id === CONTROL_ACTION.SPEED_RATE){
+
+                // data.playbackRate = value;
+
             } else if (typeof(value) === 'number'){
                 data.volume = (id === CONTROL_ACTION.VOLUME) ? value : undefined;
                 
@@ -753,7 +750,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }, [currentTime, isBuffering]);
 
     const handleOnSlidingStart = (value: number) => {
-        console.log(`[Player] (Audio Flavour) handleOnSlidingStart: ${value}`);
+        currentLogger.current?.debug(`handleOnSlidingStart: ${value}`);
         
         // Activar manual seeking en el progress manager correspondiente
         if (sourceRef.current?.isDVR) {
@@ -762,7 +759,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     };
 
     const handleOnSlidingComplete = (value: number) => {
-        console.log(`[Player] (Audio Flavour) handleOnSlidingComplete: ${value}`);
+        currentLogger.current?.debug(`handleOnSlidingComplete: ${value}`);
 
         // Desactivar manual seeking y hacer el seek
         if (sourceRef.current?.isDVR) {
@@ -812,20 +809,20 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const handleOnLoad = async (e: OnLoadData) => {
 
-        console.log(`[Player] (Audio Flavour) handleOnLoad ENTRY - URI: ${sourceRef.current?.playerSource?.uri}`);
-        console.log(`[Player] (Audio Flavour) handleOnLoad ENTRY - currentSourceType: ${currentSourceType.current}`);
-        console.log(`[Player] (Audio Flavour) handleOnLoad ENTRY - isContentLoaded: ${isContentLoaded}`);
-        console.log(`[Player] (Audio Flavour) handleOnLoad ENTRY - isChangingSource: ${isChangingSource.current}`);
-        console.log(`[Player] (Audio Flavour) handleOnLoad ENTRY - duration: ${e.duration}, currentTime: ${e.currentTime}`);
-        console.log(`[Player] (Audio Flavour) handleOnLoad ENTRY - isDVR: ${sourceRef.current?.isDVR}, dvrWindowSeconds: ${sourceRef.current?.dvrWindowSeconds}`);
+        currentLogger.current?.info(`handleOnLoad (${sourceRef.current?.playerSource?.uri})`);
+        // currentLogger.current?.temp(`handleOnLoad - currentSourceType: ${currentSourceType.current}`);
+        // currentLogger.current?.temp(`handleOnLoad - isContentLoaded: ${isContentLoaded}`);
+        // currentLogger.current?.temp(`handleOnLoad - isChangingSource: ${isChangingSource.current}`);
+        // currentLogger.current?.temp(`handleOnLoad - duration: ${e.duration}, currentTime: ${e.currentTime}`);
+        // currentLogger.current?.temp(`handleOnLoad - isDVR: ${sourceRef.current?.isDVR}, dvrWindowSeconds: ${sourceRef.current?.dvrWindowSeconds}`);
 
         // Solo procesar onLoad para contenido principal, no para tudum
         if (currentSourceType.current === 'content' && !isContentLoaded) {
-            console.log(`[Player] (Audio Flavour) handleOnLoad - ✅ CONDITIONS MET - Processing content load`);
+            currentLogger.current?.debug(`handleOnLoad - Processing content load`);
 
             // Para VOD, establecer la duración desde el evento onLoad
             if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
-                console.log(`[Player] (Audio Flavour) handleOnLoad - Setting VOD duration from load event: ${e.duration}s`);
+                currentLogger.current?.info(`handleOnLoad - Setting VOD duration from load event: ${e.duration}s`);
                 vodProgressManagerRef.current?.updatePlayerData({
                     currentTime: e.currentTime || 0,
                     seekableRange: { start: 0, end: e.duration },
@@ -835,30 +832,22 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 });
             }
 
-            console.log(`[Player] (Audio Flavour) handleOnLoad - 🔄 Setting isChangingSource to false and isContentLoaded to true`);
             isChangingSource.current = false;
             setIsContentLoaded(true);
-            console.log(`[Player] (Audio Flavour) handleOnLoad - ✅ setIsContentLoaded(true) called`);
 
             if (props.events?.onStart) {
-                console.log(`[Player] (Audio Flavour) handleOnLoad - 🎬 Calling onStart event`);
                 props.events.onStart();
             }
 
             // Seek inicial al cargar un live con DVR
             if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-                console.log(`[Player] (Audio Flavour) handleOnLoad - 🎯 Checking initial seek for DVR`);
                 dvrProgressManagerRef.current.checkInitialSeek('player');
             }
-
         } else if (currentSourceType.current === 'tudum') {
-            console.log(`[Player] (Audio Flavour) handleOnLoad - 🎵 Tudum loaded, duration: ${e.duration}`);
+            currentLogger.current?.info(`handleOnLoad - Tudum loaded, duration: ${e.duration}`);
         } else {
-            console.log(`[Player] (Audio Flavour) handleOnLoad - ❌ CONDITIONS NOT MET - Ignoring load event`);
-            console.log(`[Player] (Audio Flavour) handleOnLoad - ❌ Reason: sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded}`);
+            currentLogger.current?.debug(`handleOnLoad - Ignoring load event (sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded})`);
         }
-        
-        console.log(`[Player] (Audio Flavour) handleOnLoad EXIT - Final isContentLoaded will be: ${!isContentLoaded ? 'true (if conditions met)' : 'unchanged (already true)'}`);
     }
 
     const handleOnBuffer = (e: OnBufferData) => {
@@ -871,7 +860,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
     const handleOnProgress = (e: OnProgressData) => {
         
-        console.log(`[Player] (Audio Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`);
+        currentLogger.current?.debug(`handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`);
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             // Trigger para el cambio de estado
@@ -912,25 +901,23 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             }
 
         } else {
-            console.log(`[Player] (Audio Flavour) handleOnProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`);
+            currentLogger.current?.debug(`handleOnProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`);
         }
 
     }
 
     const handleOnEnd = () => {
-        console.log(`[Player] (Audio Flavour) handleOnEnd ENTRY: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`);
-        console.log(`[Player] (Audio Flavour) handleOnEnd ENTRY: isLive: ${sourceRef.current?.isLive}, isDVR: ${sourceRef.current?.isDVR}`);
-        console.log(`[Player] (Audio Flavour) handleOnEnd ENTRY: ⚠️ WARNING - onEnd called for live content, this might be unexpected`);
+        currentLogger.current?.debug(`handleOnEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`);
         
         if (currentSourceType.current === 'tudum') {
             // Acaba la reproducción del Tudum externo
-            console.log(`[Player] (Audio Flavour) handleOnEnd: Tudum finished, switching to main content`);
+            currentLogger.current?.debug(`handleOnEnd: Tudum finished, switching to main content`);
             isChangingSource.current = true;
             switchFromTudumToContent();
 
         } else if (currentSourceType.current === 'content' && props.events?.onEnd) {
             // Termina el contenido principal
-            console.log(`[Player] (Audio Flavour) handleOnEnd: Content finished, preparing for possible auto next`);
+            currentLogger.current?.debug(`handleOnEnd: Content finished, preparing for possible auto next`);
             
             // Preparar tudum para salto automático antes de notificar
             if (tudumRef.current) {
@@ -939,12 +926,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             
             props.events.onEnd();
         } else {
-            console.log(`[Player] (Audio Flavour) handleOnEnd: Unknown state - currentSourceType: ${currentSourceType.current}, hasOnEnd: ${!!props.events?.onEnd}`);
+            currentLogger.current?.warn(`handleOnEnd: Unknown state - currentSourceType: ${currentSourceType.current}, hasOnEnd: ${!!props.events?.onEnd}`);
         }
     }
 
     const handleOnError = (e: OnVideoErrorData) => {
-        console.log(`[Player] (Audio Flavour) handleOnError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
+        currentLogger.current?.error(`handleOnError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
     }
 
     /*
