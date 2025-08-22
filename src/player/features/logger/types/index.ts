@@ -19,6 +19,7 @@ export interface LoggerConfigBasic {
 
 export interface LoggerConfig extends LoggerConfigBasic {
     prefix?: string;
+    includeLevelName?: boolean;
     includeTimestamp?: boolean;
     includeInstanceId?: boolean;
     useColors?: boolean;

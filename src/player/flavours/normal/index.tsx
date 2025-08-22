@@ -430,10 +430,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         
         if (!sourceRef.current?.isLive && !sourceRef.current?.isDownloaded && currentSourceType.current === 'tudum') {
             // Si estamos reproduciendo tudum, guardar el source del contenido para después
-            currentLogger.current?.temp(`onSourceChanged - Saving content source for later (tudum is playing)`);
+            currentLogger.current?.debug(`onSourceChanged - Saving content source for later (tudum is playing)`);
             pendingContentSource.current = data;
 
-            console.log(`[Player] (Video Flavour) onSourceChanged - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`);
+            currentLogger.current?.debug(`onSourceChanged - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`);
             
             // También preparar el progress
             if (data.isReady) {
@@ -449,7 +449,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                         sliderValues: sliderValues,
                     };
                 } catch (ex: any) {
-                    console.log(`[Player] (Video Flavour) onSourceChanged - error ${ex?.message}`);
+                    currentLogger.current?.error(`onSourceChanged - error ${ex?.message}`);
                 }
             }
             
@@ -509,13 +509,13 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     };
     
     const setPlayerSource = (data?:onSourceChangedProps) => {
-        console.log(`[Player] (Video Flavour) setPlayerSource (data isReady ${!!data?.isReady})`);
-        console.log(`[Player] (Video Flavour) setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
-        console.log(`[Player] (Video Flavour) setPlayerSource (currentSourceType ${currentSourceType.current})`);
-        console.log(`[Player] (Video Flavour) setPlayerSource (data ${JSON.stringify(data)})`);
+        currentLogger.current?.temp(`setPlayerSource (data isReady ${!!data?.isReady})`);
+        currentLogger.current?.temp(`setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`);
+        currentLogger.current?.temp(`setPlayerSource (currentSourceType ${currentSourceType.current})`);
+        currentLogger.current?.temp(`setPlayerSource (data ${JSON.stringify(data)})`);
 
         if (data && data?.isReady) {
-            console.log(`[Player] (Video Flavour) setPlayerSource - Using provided data`);
+            currentLogger.current?.debug(`setPlayerSource - Using provided data`);
             setBuffering(true);
             drm.current = data.drm;
 
@@ -524,10 +524,10 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
-            console.log(`[Player] (Video Flavour) setPlayerSource - Setting content source:`, data.source);
+            currentLogger.current?.info(`setPlayerSource - Setting content source:`, data.source);
             setVideoSource(data.source!);
         } else if (sourceRef.current?.isReady) {
-            console.log(`[Player] (Video Flavour) setPlayerSource - Using sourceRef`);
+            currentLogger.current?.debug(`setPlayerSource - Using sourceRef`);
             setBuffering(true);
             drm.current = sourceRef.current.playerSourceDrm;
 
@@ -536,7 +536,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 youboraForVideo.current = props.hooks.getYouboraOptions(props.playerAnalytics?.youbora!, YOUBORA_FORMAT.MOBILE);
             }
 
-            console.log(`[Player] (Video Flavour) setPlayerSource - Setting sourceRef content:`, sourceRef.current.playerSource);
+            currentLogger.current?.info(`setPlayerSource - Setting sourceRef content:`, sourceRef.current.playerSource);
             setVideoSource(sourceRef.current.playerSource!);
         } else {
             currentLogger.current?.error(`setPlayerSource - No valid source available`);
@@ -549,7 +549,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
      */
 
     const handleOnProgressUpdate = useCallback((data: ProgressUpdateData) => {
-        console.log(`[Player] (Video Flavour) handleOnProgressUpdate ${JSON.stringify(data)}`);
+        currentLogger.current?.debug(`handleOnProgressUpdate ${JSON.stringify(data)}`);
         
         // Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
         if (currentSourceType.current === 'content') {
@@ -587,16 +587,16 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }, [currentTime, paused, muted, isContentLoaded, props.playerProgress]);
 
     const handleOnSeekRequest = useCallback((playerTime: number) => {
-        console.log(`[Player] (Video Flavour) handleOnSeekRequest: ${playerTime}`);
+        currentLogger.current?.debug(`handleOnSeekRequest: ${playerTime}`);
         refVideoPlayer.current?.seek(playerTime);
     }, []);
 
     const handleOnDVRModeChange = useCallback((data: ModeChangeData) => {
-        console.log(`[Player] (Video Flavour) handleOnDVRModeChange: ${JSON.stringify(data)}`);
+        currentLogger.current?.debug(`handleOnDVRModeChange: ${JSON.stringify(data)}`);
     }, []);
 
     const handleOnDVRProgramChange = useCallback((data: ProgramChangeData) => {
-        console.log(`[Player] (Video Flavour) handleOnDVRProgramChange: ${JSON.stringify(data)}`);
+        currentLogger.current?.debug(`handleOnDVRProgramChange: ${JSON.stringify(data)}`);
     }, []);
 
     /*
@@ -611,7 +611,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 onProgressUpdate: handleOnProgressUpdate,
                 onSeekRequest: handleOnSeekRequest
             });
-            console.log('[Player] VOD Progress Manager initialized');
+            currentLogger.current?.info('VOD Progress Manager initialized');
         }
 
         // Initialize DVR Progress Manager  
@@ -624,7 +624,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
                 onProgressUpdate: handleOnProgressUpdate,
                 onSeekRequest: handleOnSeekRequest
             });
-            console.log('[Player] DVR Progress Manager initialized');
+            currentLogger.current?.info('DVR Progress Manager initialized');
         }
     }, [handleOnProgressUpdate, handleOnSeekRequest, handleOnDVRModeChange, handleOnDVRProgramChange]);
 
@@ -644,7 +644,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         
         if (isLiveContent && sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
             const dvrWindow = sourceRef.current.dvrWindowSeconds || 3600; // 1 hora por defecto
-            console.log(`[Player] Setting DVR window: ${dvrWindow}s`);
+            currentLogger.current?.debug(`Setting DVR window: ${dvrWindow}s`);
             dvrProgressManagerRef.current.setDVRWindowSeconds(dvrWindow);
         }
     }, [props.playerProgress?.isLive, sourceRef.current?.isDVR, sourceRef.current?.dvrWindowSeconds]);
@@ -658,7 +658,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         const COMMON_DATA_FIELDS = ['time', 'volume', 'mute', 'pause', 'audioIndex', 'subtitleIndex'];
 
-        console.log(`[Player] (Video Flavour) handleOnControlsPress: ${id} (${value})`);
+        currentLogger.current?.info(`handleOnControlsPress: ${id} (${value})`);
 
         if (id === CONTROL_ACTION.PAUSE){
             const newPausedState = !!value;
@@ -724,7 +724,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR){
             
             const timestamp = props.events?.onLiveStartProgram?.();
-            console.log(`[Player] (Video Flavour) handleOnControlsPress: ${id} (${value}) - timestamp: ${timestamp}`);
+            currentLogger.current?.temp(`handleOnControlsPress: ${id} (${value}) - timestamp: ${timestamp}`);
             
             if (typeof(timestamp) === 'number'){
                 isChangingSource.current = true;
@@ -837,7 +837,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     }
 
     const handleOnSlidingStart = (value: number) => {
-        console.log(`[Player] (Video Flavour) handleOnSlidingStart: ${value}`);
+        currentLogger.current?.temp(`handleOnSlidingStart: ${value}`);
         
         // Activar manual seeking en el progress manager correspondiente
         if (sourceRef.current?.isDVR) {
@@ -846,7 +846,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
     };
 
     const handleOnSlidingComplete = (value: number) => {
-        console.log(`[Player] (Video Flavour) handleOnSlidingComplete: ${value}`);
+        currentLogger.current?.temp(`handleOnSlidingComplete: ${value}`);
 
         // Desactivar manual seeking y hacer el seek
         if (sourceRef.current?.isDVR) {
@@ -862,20 +862,20 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
      */
 
     const handleOnLoad = (e: OnLoadData) => {
-        console.log(`[Player] (Video Flavour) onLoad (${sourceRef.current?.playerSource?.uri})`);
+        currentLogger.current?.info(`handleOnLoad (${sourceRef.current?.playerSource?.uri})`);
         
-        // console.log(`[Player] (Video Flavour) onLoad currentSourceType: ${currentSourceType.current}`);
-        // console.log(`[Player] (Video Flavour) onLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-        // console.log(`[Player] (Video Flavour) onLoad isContentLoaded ${isContentLoaded}`);
-        // console.log(`[Player] (Video Flavour) onLoad duration: ${e.duration}, currentTime: ${e.currentTime}`);
+        // currentLogger.current?.temp(`handleOnLoad currentSourceType: ${currentSourceType.current}`);
+        // currentLogger.current?.temp(`handleOnLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
+        // currentLogger.current?.temp(`handleOnLoad isContentLoaded ${isContentLoaded}`);
+        // currentLogger.current?.temp(`handleOnLoad duration: ${e.duration}, currentTime: ${e.currentTime}`);
 
         // Solo procesar onLoad para contenido principal, no para tudum
         if (currentSourceType.current === 'content' && !isContentLoaded) {
-            console.log(`[Player] (Video Flavour) onLoad - Processing content load`);
+            currentLogger.current?.debug(`handleOnLoad - Processing content load`);
 
             // Para VOD, establecer la duración desde el evento onLoad
             if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
-                console.log(`[Player] (Video Flavour) onLoad - Setting VOD duration from load event: ${e.duration}s`);
+                currentLogger.current?.info(`handleOnLoad - Setting VOD duration from load event: ${e.duration}s`);
                 vodProgressManagerRef.current?.updatePlayerData({
                     currentTime: e.currentTime || 0,
                     seekableRange: { start: 0, end: e.duration },
@@ -906,9 +906,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
         } else if (currentSourceType.current === 'tudum') {
-            console.log(`[Player] (Video Flavour) onLoad - Tudum loaded, duration: ${e.duration}`);
+            currentLogger.current?.info(`handleOnLoad - Tudum loaded, duration: ${e.duration}`);
         } else {
-            console.log(`[Player] (Video Flavour) onLoad - Ignoring load event (sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded})`);
+            currentLogger.current?.debug(`handleOnLoad - Ignoring load event (sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded})`);
         }
     };
 
@@ -922,7 +922,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const handleOnProgress = (e: OnProgressData) => {
 
-        console.log(`[Player] (Video Flavour) handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`);
+        currentLogger.current?.debug(`handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`);
 
         if (typeof(e.currentTime) === 'number' && currentTime !== e.currentTime){
             // Trigger para el cambio de estado
@@ -962,7 +962,7 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
             }
 
         } else {
-            console.log(`[Player] (Video Flavour) onProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`);
+            currentLogger.current?.debug(`handleOnProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`);
         }
     };
 

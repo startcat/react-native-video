@@ -18,6 +18,7 @@ export class LoggerFactory {
             enabled: true,
             level: LogLevel.DEBUG,
             useColors: true,
+            includeLevelName: false,
             includeTimestamp: true,
             includeInstanceId: true,
         }, instanceId);
@@ -33,6 +34,7 @@ export class LoggerFactory {
             enabled: false, // Deshabilitado por defecto en producción
             level: LogLevel.ERROR,
             useColors: false,
+            includeLevelName: false,
             includeTimestamp: false,
             includeInstanceId: true,
         }, instanceId);
@@ -60,6 +62,7 @@ export class LoggerFactory {
             prefix,
             level: LogLevel.ERROR,
             useColors: true,
+            includeLevelName: false,
             includeTimestamp: true,
             includeInstanceId: true,
         }, instanceId);

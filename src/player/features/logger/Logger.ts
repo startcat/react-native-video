@@ -13,6 +13,8 @@ import {
     LogLevel
 } from './types';
 
+import { ANSI_COLORS } from './constants/colors';
+import { CONSOLE_ICONS } from './constants/icons';
 import { DefaultComponentLogger } from './DefaultComponentLogger';
 
 export class Logger implements ILogger {
@@ -20,14 +22,19 @@ export class Logger implements ILogger {
     private config: Required<LoggerConfig>;
     private instanceId?: number;
 
-    // Colores para consola (solo en desarrollo)
+    // Colores para consola
     private static readonly COLORS = {
-        DEBUG: '\x1b[36m', // Cyan
-        INFO: '\x1b[32m', // Green
-        WARN: '\x1b[33m', // Yellow
-        ERROR: '\x1b[31m', // Red
-        RESET: '\x1b[0m', // Reset
-        TEMP: '\x1b[35m', // Magenta
+        DEBUG: ANSI_COLORS.CYAN,
+        INFO: ANSI_COLORS.GREEN,
+        WARN: ANSI_COLORS.YELLOW,
+        ERROR: ANSI_COLORS.RED,
+        TEMP: ANSI_COLORS.MAGENTA,
+        RESET: ANSI_COLORS.RESET,
+        PREFIX: ANSI_COLORS.BRIGHT_YELLOW,
+        TIMESTAMP: ANSI_COLORS.BRIGHT_WHITE,
+        INSTANCE_ID: ANSI_COLORS.YELLOW,
+        LEVEL: ANSI_COLORS.CYAN,
+        COMPONENT: ANSI_COLORS.BRIGHT_YELLOW,
     };
 
     private static readonly LEVEL_NAMES = {
@@ -39,11 +46,21 @@ export class Logger implements ILogger {
         [LogLevel.TEMP]: 'TEMP',
     };
 
+    private static readonly COLOR_MAP = {
+        [LogLevel.DEBUG]: Logger.COLORS.DEBUG,
+        [LogLevel.INFO]: Logger.COLORS.INFO,
+        [LogLevel.WARN]: Logger.COLORS.WARN,
+        [LogLevel.ERROR]: Logger.COLORS.ERROR,
+        [LogLevel.TEMP]: Logger.COLORS.TEMP,
+        [LogLevel.NONE]: '', // No color for NONE level
+    };
+
     constructor(config: LoggerConfig = {}, instanceId?: number) {
         this.config = {
             enabled: __DEV__ ? !!config.enabled : false, // Solo funciona en desarrollo
             level: config.level ?? LogLevel.INFO,
-            prefix: config.prefix ?? '[OTTPlayer]',
+            prefix: config.prefix ?? `${CONSOLE_ICONS.VIDEO} OTTPlayer`,
+            includeLevelName: config.includeLevelName ?? true,
             includeTimestamp: config.includeTimestamp ?? true,
             includeInstanceId: config.includeInstanceId ?? true,
             useColors: config.useColors ?? true,
@@ -87,16 +104,11 @@ export class Logger implements ILogger {
         const logMessage = this.buildLogMessage(level, component, message);
         const logMethod = this.getLogMethod(level);
 
-        // Aplicar colores si está habilitado
-        const finalMessage = this.config.useColors
-            ? this.applyColors(level, logMessage)
-            : logMessage;
-
         // Hacer el log
         if (args.length > 0) {
-            logMethod(finalMessage, ...args);
+            logMethod(logMessage, ...args);
         } else {
-            logMethod(finalMessage);
+            logMethod(logMessage);
         }
     }
 
@@ -127,27 +139,29 @@ export class Logger implements ILogger {
     ): string {
         const parts: string[] = [];
 
-        // Prefijo principal
-        parts.push(this.config.prefix);
-
-        // Timestamp
-        if (this.config.includeTimestamp) {
-            parts.push(this.formatTimestamp());
+        // Nivel de log
+        if (this.config.includeLevelName) {
+            parts.push(this.applyPartColor('MESSAGE', level, `[${Logger.LEVEL_NAMES[level]}]`));
         }
+
+        // Prefijo principal
+        parts.push(this.applyPartColor('PREFIX', level, this.config.prefix));
 
         // Instance ID
         if (this.config.includeInstanceId && this.instanceId !== undefined) {
-            parts.push(`#${this.instanceId}`);
+            parts.push(this.applyPartColor('INSTANCE_ID', level, `#${this.instanceId}`));
         }
 
-        // Nivel de log
-        parts.push(`[${Logger.LEVEL_NAMES[level]}]`);
+        // Timestamp
+        if (this.config.includeTimestamp) {
+            parts.push(this.applyPartColor('TIMESTAMP', level, this.formatTimestamp()));
+        }
 
         // Componente
-        parts.push(`[${component}]`);
+        parts.push(this.applyPartColor('COMPONENT', level, `[${component}]`));
 
         // Mensaje
-        parts.push(message);
+        parts.push(this.applyPartColor('MESSAGE', level, message));
 
         return parts.join(' ');
     }
@@ -161,18 +175,21 @@ export class Logger implements ILogger {
         return `${hours}:${minutes}:${seconds}.${ms}`;
     }
 
-    private applyColors(level: LogLevel, message: string): string {
-        const colorMap = {
-            [LogLevel.DEBUG]: Logger.COLORS.DEBUG,
-            [LogLevel.INFO]: Logger.COLORS.INFO,
-            [LogLevel.WARN]: Logger.COLORS.WARN,
-            [LogLevel.ERROR]: Logger.COLORS.ERROR,
-            [LogLevel.TEMP]: Logger.COLORS.TEMP,
-            [LogLevel.NONE]: '', // No color for NONE level
-        };
+    private applyPartColor(part: 'PREFIX' | 'TIMESTAMP' | 'INSTANCE_ID' | 'LEVEL' | 'COMPONENT' | 'MESSAGE', level: LogLevel, message: string): string {
 
-        const color = colorMap[level];
-        return color ? `${color}${message}${Logger.COLORS.RESET}` : message;
+        let color: string | undefined;
+
+        if (part === 'MESSAGE') {
+            color = Logger.COLOR_MAP[level];
+        } else {
+            color = Logger.COLORS[part];
+        }
+        
+        if (!this.config.useColors || !color) {
+            return message;
+        }
+        
+        return `${color}${message}${Logger.COLORS.RESET}`;
     }
 
     private getLogMethod(level: LogLevel): (...args: any[]) => void {
