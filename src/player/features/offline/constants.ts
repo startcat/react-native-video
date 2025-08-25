@@ -1,0 +1,13 @@
+export const DOWNLOAD_CONFIG = {
+    MAX_CONCURRENT_DOWNLOADS: 3,
+    MAX_RETRY_ATTEMPTS: 3,
+    RETRY_DELAY_MS: 5000,
+    PROGRESS_UPDATE_INTERVAL_MS: 500,
+    CHUNK_SIZE_BYTES: 1024 * 1024, // 1MB
+    STORAGE_WARNING_THRESHOLD: 0.9, // 90% full
+    MIN_FREE_SPACE_MB: 100,
+    DOWNLOAD_DIRECTORY: 'Downloads',
+    TEMP_DIRECTORY: 'TempDownloads',
+    DB_NAME: 'downloads_db',
+    STORAGE_KEY: '@downloads_state',
+};
