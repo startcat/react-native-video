@@ -38,7 +38,7 @@ export type ReadDirItem = {
 }
 
 export type DownloadItem = {
-    media?: any;
+    media?: any; // Metadatos del video, que dependen de proyecto
     offlineData: {
         session_ids:Array<string>;
         source: {
