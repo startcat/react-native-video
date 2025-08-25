@@ -363,15 +363,14 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     useEffect(() => {
         // Montamos el selector de pista de Subtítulo
-        if (typeof(props.audioIndex) === 'number' && props.audioIndex > -1){
+        if (typeof(props.subtitleIndex) === 'number' && props.subtitleIndex > -1){
             setSelectedTextTrack({
                 value:props.subtitleIndex,
                 type:SelectedTrackType.INDEX
             });
 
-        } else if (typeof(props.audioIndex) === 'number' && props.audioIndex === -1){
+        } else if (typeof(props.subtitleIndex) === 'number' && props.subtitleIndex === -1){
             setSelectedTextTrack({
-                //value:props.subtitleIndex,
                 type:SelectedTrackType.DISABLED
             });
 
