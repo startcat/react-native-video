@@ -63,6 +63,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     const isCasting = useRef<boolean>(false);
     const watchingProgressIntervalObj = useRef<number>();
     const hasBeenLoaded = useRef<boolean>(false);
+    const hasBeenLoadedAudio = useRef<boolean>(false);
 
     const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(typeof(props.audioIndex) === 'number' ? props.audioIndex : -1);
     const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>(typeof(props.subtitleIndex) === 'number' ? props.subtitleIndex : -1);
@@ -102,6 +103,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     React.useEffect(() => {
 
         // Al montar el Player, preparamos la sesión de Audio, el apagado de pantalla y la orientación
+        console.log(`Player mounted - subtitleIndex: ${props.subtitleIndex}`);
 
         if (Platform.OS === 'android'){
             SystemNavigationBar.fullScreen(true);
@@ -184,7 +186,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         let preferencesData: IPreferencesCommonData = {};
 
-        playerVideoLogger.current?.info(`handleChangeCommonData ${JSON.stringify(data)}`);
+        playerVideoLogger.current?.debug(`handleChangeCommonData ${JSON.stringify(data)}`);
 
         if (data?.time !== undefined){
             playerProgress.current.currentTime = data.time;
@@ -243,9 +245,13 @@ export function Player (props: PlayerProps): React.ReactElement | null {
             }
         }
 
-        if (props?.events?.onChangePreferences && typeof(props.events?.onChangePreferences) === 'function' && Object.keys(preferencesData).length > 0){
+        if (hasBeenLoadedAudio.current && props?.events?.onChangePreferences && typeof(props.events?.onChangePreferences) === 'function' && Object.keys(preferencesData).length > 0){
             playerVideoLogger.current?.info(`Calling onChangePreferences with ${JSON.stringify(preferencesData)}`);
             props.events?.onChangePreferences(preferencesData);
+        }
+
+        if (!hasBeenLoadedAudio.current && (typeof(data?.audioIndex) === 'number' || typeof(data?.subtitleIndex) === 'number')){
+            hasBeenLoadedAudio.current = true;
         }
         
     }
