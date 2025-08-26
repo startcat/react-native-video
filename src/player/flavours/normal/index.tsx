@@ -1007,6 +1007,9 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
     const handleOnError = (e: OnVideoErrorData) => {
         currentLogger.current?.error(`handleOnError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
+        if (props.events?.onError && typeof(props.events.onError) === 'function'){
+            props.events.onError(e);
+        }
     };
 
     /*

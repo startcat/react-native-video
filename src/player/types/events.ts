@@ -6,8 +6,11 @@
 import * as Enums from './enums';
 
 import {
+    type OnVideoErrorData
+} from '../../types';
+import {
     type ICommonData,
-    type IPreferencesCommonData
+    type IPreferencesCommonData,
 } from './types';
 
 export interface IPlayerEvents {
@@ -29,7 +32,7 @@ export interface IPlayerEvents {
 
     onEnd?: () => void;
     onExit?: () => void;
-    onError?: () => void;
+    onError?: (e: OnVideoErrorData) => void;
 }
 
 export interface IInnerPlayerEvents extends IPlayerEvents {

@@ -57,7 +57,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
     const playerContext = useRef<PlayerContext | null>(null);
     const playerLogger = useRef<Logger | null>(null);
-    const playerVideoLogger = useRef<ComponentLogger | null>(null);
+    const currentLogger = useRef<ComponentLogger | null>(null);
     const playerProgress = useRef<IPlayerProgress | null>(null);
 
     const isCasting = useRef<boolean>(false);
@@ -75,7 +75,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
     if (!playerLogger.current){
         playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
-        playerVideoLogger.current = playerLogger.current?.forComponent('Video Player Component', props.logger?.core?.enabled, props.logger?.core?.level);
+        currentLogger.current = playerLogger.current?.forComponent('Video Player Component', props.logger?.core?.enabled, props.logger?.core?.level);
     }
 
     if (!playerContext.current){
@@ -101,10 +101,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     });
 
     React.useEffect(() => {
-
         // Al montar el Player, preparamos la sesión de Audio, el apagado de pantalla y la orientación
-        console.log(`Player mounted - subtitleIndex: ${props.subtitleIndex}`);
-
         if (Platform.OS === 'android'){
             SystemNavigationBar.fullScreen(true);
         }
@@ -144,7 +141,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         }, DEFAULT_CAST_CONFIG.initializationDelay);
 
-        playerVideoLogger.current?.debug(`Received manifests ${JSON.stringify(props.manifests)}`);
+        currentLogger.current?.debug(`Received manifests ${JSON.stringify(props.manifests)}`);
     
         return () => {
 
@@ -186,7 +183,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
 
         let preferencesData: IPreferencesCommonData = {};
 
-        playerVideoLogger.current?.debug(`handleChangeCommonData ${JSON.stringify(data)}`);
+        currentLogger.current?.debug(`handleChangeCommonData ${JSON.stringify(data)}`);
 
         if (data?.time !== undefined){
             playerProgress.current.currentTime = data.time;
@@ -246,7 +243,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         }
 
         if (hasBeenLoadedAudio.current && props?.events?.onChangePreferences && typeof(props.events?.onChangePreferences) === 'function' && Object.keys(preferencesData).length > 0){
-            playerVideoLogger.current?.info(`Calling onChangePreferences with ${JSON.stringify(preferencesData)}`);
+            currentLogger.current?.info(`Calling onChangePreferences with ${JSON.stringify(preferencesData)}`);
             props.events?.onChangePreferences(preferencesData);
         }
 
@@ -257,7 +254,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
     }
 
     if (hasRotated && hasCorrectCastState && (nativeCastState === NativeCastState.CONNECTING || nativeCastState === NativeCastState.CONNECTED)){
-        playerVideoLogger.current?.debug(`Mounting CastFlavour...`);
+        currentLogger.current?.debug(`Mounting CastFlavour...`);
         isCasting.current = true;
         return (
             <Suspense fallback={props.components?.suspenseLoader}>
@@ -306,7 +303,7 @@ export function Player (props: PlayerProps): React.ReactElement | null {
         );
 
     } else if (hasRotated && hasCorrectCastState && (nativeCastState !== NativeCastState.CONNECTING && nativeCastState !== NativeCastState.CONNECTED)){
-        playerVideoLogger.current?.debug(`Mounting NormalFlavour...`);
+        currentLogger.current?.debug(`Mounting NormalFlavour...`);
         isCasting.current = false;
         return (
             <Suspense fallback={props.components?.suspenseLoader}>
