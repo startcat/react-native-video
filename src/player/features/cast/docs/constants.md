@@ -105,15 +105,51 @@ Eventos de logging para trazabilidad.
 
 **Estado:** ❌ **No utilizado actualmente** - Disponible para uso futuro en sistema de logging.
 
+### `LOGGER_CONFIG`
+
+Configuración del Logger integrado para el sistema Cast.
+
+| Propiedad | Tipo | Valor | Descripción |
+|-----------|------|-------|-------------|
+| `prefix` | `string` | `'📡 Cast Feature'` | Prefijo identificativo con emoji para logs Cast |
+| `enabled` | `boolean` | `true` | Habilita/deshabilita logging por defecto |
+| `level` | `LogLevel` | `LogLevel.DEBUG` | Nivel de logging usando enum LogLevel |
+
+**Estado:** ✅ **Utilizado activamente** en `CastMessageBuilder.ts` y `useCastManager.ts`
+
+**Características del Logger integrado:**
+- ✅ **Prefijo visual:** Emoji 📡 para identificar logs Cast
+- ✅ **Niveles tipados:** Usa enum LogLevel en lugar de strings
+- ✅ **Timestamps automáticos:** Incluye timestamp en cada log
+- ✅ **Instance ID:** Soporte para múltiples instancias
+- ✅ **Colores en consola:** Mejora la legibilidad
+
+**Ejemplo:**
+```typescript
+import { LOGGER_CONFIG } from './constants';
+import { Logger, LogLevel } from '../../logger';
+
+// En CastMessageBuilder
+this.playerLogger = new Logger({
+    enabled: config.enabled ?? LOGGER_CONFIG.enabled,
+    prefix: LOGGER_CONFIG.prefix,
+    level: config.level ?? LOGGER_CONFIG.level,
+    useColors: true,
+    includeLevelName: false,
+    includeTimestamp: true,
+    includeInstanceId: true,
+}, this.instanceId);
+```
+
 ### `LOG_PREFIX`
 
-Prefijo para logs del sistema Cast.
+Prefijo para logs del sistema Cast (legacy).
 
 | Constante    | Valor               | Descripción                              |
 |--------------|---------------------|------------------------------------------|
-| `LOG_PREFIX` | `'[Cast Manager]'`  | Prefijo para identificar logs Cast       |
+| `LOG_PREFIX` | `'[Cast Manager]'`  | Prefijo para identificar logs Cast (legacy) |
 
-**Estado:** ✅ **Utilizado activamente** en `CastMessageBuilder.ts`
+**Estado:** ⚠️ **Deprecado** - Reemplazado por LOGGER_CONFIG.prefix
 
 **Ejemplo:**
 ```typescript

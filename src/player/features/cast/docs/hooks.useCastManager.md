@@ -1,14 +1,13 @@
 # Hook useCastManager - Documentación
 
-Este documento describe el funcionamiento del hook principal `useCastManager` del sistema Cast, ubicado en `hooks/useCastManager.ts`.
+Este documento describe el funcionamiento del hook principal `useCastManager` del sistema Cast, ubicado en `hooks/useCastManager.ts`. **Ahora integrado con el sistema Logger del player.**
 
 ## Índice
 
 1. [useCastManager](#usecastmanager) - Hook principal
-2. [useSimpleCastManager](#usesimplecastmanager) - Hook simplificado
-3. [useCastManagerStatus](#usecastmanagerstatus) - Solo estado
-4. [useCastManagerProgress](#usecastmanagerprogress) - Solo progreso
-5. [Ejemplos de uso](#ejemplos-de-uso)
+2. [Sistema de Logging](#sistema-de-logging) - Configuración del Logger
+3. [Parámetros y Configuración](#parámetros-y-configuración) - Configuración detallada
+4. [Ejemplos de uso](#ejemplos-de-uso)
 
 ---
 
@@ -16,29 +15,100 @@ Este documento describe el funcionamiento del hook principal `useCastManager` de
 
 Hook principal para gestionar todas las operaciones Cast. Proporciona control completo sobre la conexión, carga de contenido, reproducción y monitoreo.
 
+**✨ Nueva integración con Logger:** El hook ahora utiliza el sistema Logger centralizado del player para logging consistente y configurable.
+
 ### Sintaxis
 
 ```typescript
-const manager = useCastManager(callbacks?: CastManagerCallbacks, messageBuilderConfig?: MessageBuilderConfig): CastManager
+const manager = useCastManager(
+    config: LoggerConfigBasic & MessageBuilderConfig, 
+    callbacks: CastManagerCallbacks
+): CastManager
 ```
 
 ### Parámetros
 
 | Parámetro | Tipo | Requerido | Descripción |
 |-----------|------|-----------|-------------|
+| `config` | `LoggerConfigBasic & MessageBuilderConfig` | ❌ | Configuración del logger y builder |
 | `callbacks` | `CastManagerCallbacks` | ❌ | Callbacks para eventos del manager |
-| `messageBuilderConfig` | `MessageBuilderConfig` | ❌ | Configuración del constructor de mensajes |
 
-#### MessageBuilderConfig
+#### Configuración Unificada (LoggerConfigBasic & MessageBuilderConfig)
 
 | Propiedad | Tipo | Requerido | Descripción |
 |-----------|------|-----------|-------------|
+| **Logger Config** |
+| `enabled` | `boolean` | ❌ | Habilita/deshabilita logging (default: true) |
+| `level` | `LogLevel` | ❌ | Nivel de logging (default: LogLevel.INFO) |
+| `instanceId` | `string \| number` | ❌ | ID único de la instancia |
+| **MessageBuilder Config** |
 | `enableYoubora` | `boolean` | ❌ | Habilita integración con Youbora |
 | `enableAds` | `boolean` | ❌ | Habilita soporte para anuncios |
 | `defaultStartPosition` | `number` | ❌ | Posición inicial por defecto |
-| `debugMode` | `boolean` | ❌ | Habilita logs detallados |
 
 **Nota:** El hook se actualiza automáticamente basándose en eventos nativos del Cast, eliminando la necesidad de polling manual.
+
+---
+
+## Sistema de Logging
+
+### Configuración del Logger
+
+El hook integra el sistema Logger centralizado del player con las siguientes características:
+
+**Configuración automática:**
+```typescript
+{
+    enabled: true,                    // Logger habilitado por defecto
+    prefix: '📡 Cast Feature',        // Prefijo identificativo
+    level: LogLevel.INFO,             // Nivel de logging por defecto
+    useColors: true,                  // Colores en consola
+    includeLevelName: false,          // Sin nombre de nivel
+    includeTimestamp: true,           // Con timestamp
+    includeInstanceId: true           // Con ID de instancia
+}
+```
+
+**Niveles de logging disponibles:**
+- `LogLevel.ERROR` - Solo errores críticos
+- `LogLevel.WARN` - Advertencias y errores
+- `LogLevel.INFO` - Información general (por defecto)
+- `LogLevel.DEBUG` - Información detallada
+
+### Ejemplo con Logger personalizado
+
+```typescript
+import { useCastManager, LogLevel } from '../features/cast';
+
+const castManager = useCastManager({
+    // Logger configuration
+    enabled: true,
+    level: LogLevel.DEBUG,
+    instanceId: 'main-cast-manager',
+    
+    // MessageBuilder configuration
+    enableYoubora: true,
+    enableAds: false,
+    defaultStartPosition: 0
+}, {
+    onContentLoaded: (content) => {
+        console.log('Content loaded:', content);
+    }
+});
+```
+
+### Logs Típicos
+
+```
+[2024-01-15 10:30:45] 📡 Cast Feature [Cast Manager#1] Cast Manager initialized
+[2024-01-15 10:30:46] 📡 Cast Feature [Cast Manager#1] Loading content: "Mi Video"
+[2024-01-15 10:30:47] 📡 Cast Feature [Cast Manager#1] Content loaded successfully
+[2024-01-15 10:30:48] 📡 Cast Feature [Cast Manager#1] Playback started
+```
+
+---
+
+## Parámetros y Configuración
 
 #### CastManagerCallbacks
 
