@@ -4,6 +4,12 @@
 
 Sistema modular y desacoplado para gestionar Cast en el reproductor de audio/video. Proporciona una API simple y consistente para cargar contenido, controlar reproducción y manejar estado de Cast.
 
+**✨ Nuevas características:**
+- **Logger integrado:** Sistema de logging centralizado y configurable
+- **Parámetros unificados:** Configuración consolidada para Logger y MessageBuilder
+- **Múltiples instancias:** Soporte para identificación única de instancias
+- **Logs mejorados:** Timestamps, colores y prefijos visuales
+
 ## Estructura del Sistema
 
 ```
@@ -94,21 +100,28 @@ Cada componente del sistema Cast tiene su documentación completa en castellano:
 
 ## Instalación y Uso
 
-### 1. Uso Básico con Hook
+### 1. Uso Básico con Hook y Logger
 
 ```typescript
-import { useCastManager, CastMessageConfig } from '../features/cast';
+import { useCastManager, CastMessageConfig, LogLevel } from '../features/cast';
 
 function MyComponent() {
     const castManager = useCastManager({
-        debugMode: true,
-        callbacks: {
-            onStateChange: (state, previousState) => {
-                console.log(`Cast state: ${previousState} -> ${state}`);
-            },
-            onContentLoaded: (content) => {
-                console.log('Content loaded:', content);
-            }
+        // Logger configuration
+        enabled: true,
+        level: LogLevel.INFO,
+        instanceId: 'my-cast-manager',
+        
+        // MessageBuilder configuration
+        enableYoubora: true,
+        enableAds: true,
+        defaultStartPosition: 0
+    }, {
+        onStateChange: (state, previousState) => {
+            console.log(`Cast state: ${previousState} -> ${state}`);
+        },
+        onContentLoaded: (content) => {
+            console.log('Content loaded:', content);
         }
     });
 
@@ -148,26 +161,33 @@ function MyComponent() {
 ### 2. Integración con AudioCastFlavour
 
 ```typescript
-import { useCastManager, CastMessageConfig } from '../features/cast';
+import { useCastManager, CastMessageConfig, LogLevel } from '../features/cast';
 
 export function AudioCastFlavour(props: AudioCastFlavourProps) {
     const castManager = useCastManager({
-        debugMode: true,
-        callbacks: {
-            onStateChange: (state, previousState) => {
-                // Actualizar estados locales
-                if (state === CastManagerState.LOADING) {
-                    setIsLoadingContent(true);
-                } else if (state === CastManagerState.PLAYING) {
-                    setIsContentLoaded(true);
-                    setIsLoadingContent(false);
-                }
-            },
-            onTimeUpdate: (currentTime, duration) => {
-                setCurrentTime(currentTime);
-                // Actualizar progress managers
-                updateProgressManagers(currentTime, duration);
+        // Logger configuration
+        enabled: true,
+        level: LogLevel.DEBUG,
+        instanceId: `audio-cast-${props.playerMetadata?.id}`,
+        
+        // MessageBuilder configuration
+        enableYoubora: true,
+        enableAds: false,
+        defaultStartPosition: 0
+    }, {
+        onStateChange: (state, previousState) => {
+            // Actualizar estados locales
+            if (state === CastManagerState.LOADING) {
+                setIsLoadingContent(true);
+            } else if (state === CastManagerState.PLAYING) {
+                setIsContentLoaded(true);
+                setIsLoadingContent(false);
             }
+        },
+        onTimeUpdate: (currentTime, duration) => {
+            setCurrentTime(currentTime);
+            // Actualizar progress managers
+            updateProgressManagers(currentTime, duration);
         }
     });
 
@@ -193,32 +213,40 @@ export function AudioCastFlavour(props: AudioCastFlavourProps) {
 }
 ```
 
-### 3. Configuración Avanzada
+### 3. Configuración Avanzada con Logger
 
 ```typescript
 const castManager = useCastManager({
-    debugMode: true,
-    retryAttempts: 3,
-    retryDelay: 2000,
-    loadTimeout: 10000,
-    enableAutoUpdate: true,
-    autoUpdateInterval: 1000,
-    callbacks: {
-        onStateChange: (state, previousState) => {
-            // Manejar cambios de estado
-        },
-        onContentLoaded: (content) => {
-            // Contenido cargado exitosamente
-        },
-        onContentLoadError: (error, content) => {
-            // Error al cargar contenido
-        },
-        onPlaybackError: (error) => {
-            // Error durante reproducción
-        },
-        onTimeUpdate: (currentTime, duration) => {
-            // Actualización de progreso
-        }
+    // Logger configuration
+    enabled: true,
+    level: LogLevel.DEBUG,
+    instanceId: 'advanced-cast-manager',
+    
+    // MessageBuilder configuration
+    enableYoubora: true,
+    enableAds: true,
+    defaultStartPosition: 0
+}, {
+    onStateChange: (state, previousState) => {
+        // Manejar cambios de estado
+    },
+    onContentLoaded: (content) => {
+        // Contenido cargado exitosamente
+    },
+    onContentLoadError: (error, content) => {
+        // Error al cargar contenido
+    },
+    onPlaybackStarted: () => {
+        // Reproducción iniciada
+    },
+    onPlaybackEnded: () => {
+        // Reproducción finalizada
+    },
+    onSeekCompleted: (newPosition) => {
+        // Seek completado
+    },
+    onVolumeChanged: (level, isMuted) => {
+        // Volumen cambiado
     }
 });
 ```
@@ -255,11 +283,14 @@ isSameContent(config: CastMessageConfig): boolean
 ### Hooks Disponibles
 
 ```typescript
-// Hook principal
-useCastManager(config?: UseCastManagerConfig): CastManagerHookResult
+// Hook principal con Logger integrado
+useCastManager(
+    config: LoggerConfigBasic & MessageBuilderConfig, 
+    callbacks: CastManagerCallbacks
+): CastManager
 
-// Hook de estado
-useCastState(config?: UseCastStateConfig): CastStateInfo
+// Hook de estado con Logger
+useCastState(config: LoggerConfigBasic): CastStateInfo
 
 // Hooks específicos
 useCastConnectivity(): ConnectivityInfo
@@ -400,25 +431,53 @@ const castManager = useCastManager({
 
 ## Debugging y Logging
 
-### Habilitar Debug Mode
+### Sistema Logger Integrado
+
+El sistema Cast ahora utiliza el Logger centralizado del player con configuración avanzada:
+
 ```typescript
+import { useCastManager, LogLevel } from '../features/cast';
+
 const castManager = useCastManager({
-    debugMode: true, // Habilita logs detallados
-    callbacks: {
-        onStateChange: (state, previousState) => {
-            console.log(`[DEBUG] State: ${previousState} -> ${state}`);
-        }
+    // Configuración del Logger
+    enabled: true,
+    level: LogLevel.DEBUG,
+    instanceId: 'debug-cast-manager'
+}, {
+    onStateChange: (state, previousState) => {
+        console.log(`[DEBUG] State: ${previousState} -> ${state}`);
     }
 });
 ```
 
+### Niveles de Logging
+
+| Nivel | Descripción | Uso recomendado |
+|-------|-------------|-----------------|
+| `LogLevel.ERROR` | Solo errores críticos | Producción |
+| `LogLevel.WARN` | Advertencias y errores | Producción |
+| `LogLevel.INFO` | Información general | Desarrollo |
+| `LogLevel.DEBUG` | Información detallada | Debug/Testing |
+
 ### Logs Automáticos
+
 El sistema incluye logging automático para:
-- Cambios de estado
-- Carga de contenido
-- Errores y reintentos
-- Comparaciones de contenido
-- Timeouts y timeouts
+- ✅ **Inicialización:** Configuración y setup de componentes
+- ✅ **Cambios de estado:** Transiciones de conexión Cast
+- ✅ **Carga de contenido:** Proceso completo de loading
+- ✅ **Controles:** Acciones de play, pause, seek, volume
+- ✅ **Errores:** Fallos detallados con contexto
+- ✅ **Performance:** Tiempos de operación y métricas
+
+### Ejemplo de Logs
+
+```
+[2024-08-27 19:14:05] 📡 Cast Feature [CastMessageBuilder#1] CastMessageBuilder initialized: {"enableYoubora":true,"enabled":true,"level":"DEBUG"}
+[2024-08-27 19:14:06] 📡 Cast Feature [Cast Manager#1] Cast Manager initialized with config
+[2024-08-27 19:14:07] 📡 Cast Feature [Cast Manager#1] Loading content: "Mi Video Live Stream"
+[2024-08-27 19:14:08] 📡 Cast Feature [CastMessageBuilder#1] Building Cast message for LIVE content
+[2024-08-27 19:14:09] 📡 Cast Feature [Cast Manager#1] Content loaded successfully, starting playback
+```
 
 ## Mejores Prácticas
 
@@ -483,12 +542,14 @@ if (!castManager.isSameContent(config)) {
 
 ### Debug Checklist
 
-- [ ] `debugMode: true` habilitado
-- [ ] Logs de estado de Cast en consola
-- [ ] Verificar que hooks nativos funcionen
-- [ ] Comprobar configuración de red
-- [ ] Validar URLs de contenido
-- [ ] Revisar timeouts y reintentos
+- [ ] **Logger habilitado:** `enabled: true` en configuración
+- [ ] **Nivel apropiado:** `level: LogLevel.DEBUG` para debugging
+- [ ] **Instance ID único:** Para identificar logs específicos
+- [ ] **Logs de estado Cast:** Verificar transiciones en consola
+- [ ] **Hooks nativos funcionando:** Comprobar conexión Cast nativa
+- [ ] **Configuración de red:** Dispositivos en misma red
+- [ ] **URLs válidas:** Contenido accesible desde Cast device
+- [ ] **Prefijo visual:** Buscar logs con 📡 Cast Feature
 
 ## 📖 Índice de Documentación Completa
 

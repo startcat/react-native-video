@@ -1,6 +1,6 @@
-# CastMessageBuilder - CastMessageBuilder.ts
+# Clase CastMessageBuilder - CastMessageBuilder.ts
 
-Este documento describe la clase `CastMessageBuilder`, responsable de construir mensajes Cast de forma consistente y confiable.
+Este documento describe la clase `CastMessageBuilder`, responsable de construir mensajes Cast de forma consistente y validada para su uso con Google Cast SDK. **Ahora integrada con el sistema Logger del player.**
 
 ## Índice
 
@@ -9,6 +9,7 @@ Este documento describe la clase `CastMessageBuilder`, responsable de construir 
 - [Propiedades](#propiedades)
 - [Métodos Públicos](#métodos-públicos)
 - [Métodos Privados](#métodos-privados)
+- [Sistema de Logging](#sistema-de-logging)
 - [Tipos y Interfaces](#tipos-y-interfaces)
 - [Ejemplos de Uso](#ejemplos-de-uso)
 - [Casos de Uso](#casos-de-uso)
@@ -18,42 +19,60 @@ Este documento describe la clase `CastMessageBuilder`, responsable de construir 
 
 ## Descripción General
 
-`CastMessageBuilder` es una clase especializada que construye mensajes Cast completos y válidos a partir de configuraciones parciales. Proporciona validación, generación de IDs únicos, procesamiento de metadata y manejo de errores integrado.
+`CastMessageBuilder` es una clase utilitaria que construye mensajes Cast válidos y consistentes. Maneja la validación de configuración, generación de IDs únicos, procesamiento de metadata y construcción del mensaje final compatible con Google Cast SDK.
+
+**✨ Nueva integración con Logger:** La clase ahora utiliza el sistema Logger centralizado del player para logging consistente y configurable.
 
 ### Importación
 
 ```typescript
 import { CastMessageBuilder } from './CastMessageBuilder';
 import type { 
-    MessageBuilderConfig, 
     CastMessageConfig,
-    CastContentMetadata 
+    MessageBuilderConfig,
+    CastContentMetadata
 } from './types';
+import { LoggerConfigBasic, LogLevel } from '../../logger';
 ```
 
 ---
 
 ## Constructor
 
-### `new CastMessageBuilder(config?: MessageBuilderConfig)`
+### `new CastMessageBuilder(config?)`
 
-Crea una nueva instancia del constructor de mensajes Cast.
+Crea una nueva instancia del constructor de mensajes Cast con Logger integrado.
 
 **Parámetros:**
-| Parámetro | Tipo                     | Obligatorio | Descripción                                    |
-|-----------|--------------------------|-------------|------------------------------------------------|
-| `config`  | `MessageBuilderConfig`   | ❌          | Configuración inicial del builder              |
+| Parámetro | Tipo                | Obligatorio | Descripción                                    |
+|-----------|---------------------|-------------|------------------------------------------------|
+| `config`  | `MessageBuilderConfig & LoggerConfigBasic` | ❌ | Configuración del builder y logger |
 
-**Ejemplo:**
+**Configuración por defecto:**
 ```typescript
-// Constructor básico
-const builder = new CastMessageBuilder();
-
-// Constructor con configuración personalizada
-const builderWithConfig = new CastMessageBuilder({
+{
+    // MessageBuilder config
+    enableYoubora: true,
+    enableAds: true,
+    defaultStartPosition: 0,
     debugMode: true,
-    defaultStartPosition: 30,
-    enableValidation: true
+    
+    // Logger config
+    enabled: true,
+    level: LogLevel.DEBUG,
+    prefix: '📡 Cast Feature'
+}
+```
+
+**Ejemplo con Logger:**
+```typescript
+const builder = new CastMessageBuilder({
+    enableYoubora: true,
+    debugMode: true,
+    // Logger configuration
+    enabled: true,
+    level: LogLevel.INFO,
+    instanceId: 'cast-builder-1'
 });
 ```
 
@@ -62,6 +81,61 @@ const builderWithConfig = new CastMessageBuilder({
 ## Propiedades
 
 ### Propiedades Privadas
+
+| Propiedad    | Tipo                     | Descripción                               |
+|--------------|--------------------------|-------------------------------------------|
+| `config`     | `MessageBuilderConfig & LoggerConfigBasic` | Configuración del builder y logger |
+| `instanceId` | `number`                 | ID único de la instancia para logging    |
+| `playerLogger` | `Logger`               | Instancia del Logger principal            |
+| `currentLogger` | `ComponentLogger`      | Logger específico del componente          |
+
+---
+
+## Sistema de Logging
+
+### Configuración del Logger
+
+La clase integra el sistema Logger centralizado del player con las siguientes características:
+
+**Configuración automática:**
+```typescript
+{
+    enabled: true,                    // Logger habilitado por defecto
+    prefix: '📡 Cast Feature',        // Prefijo identificativo
+    level: LogLevel.DEBUG,            // Nivel de logging por defecto
+    useColors: true,                  // Colores en consola
+    includeLevelName: false,          // Sin nombre de nivel
+    includeTimestamp: true,           // Con timestamp
+    includeInstanceId: true           // Con ID de instancia
+}
+```
+
+**Niveles de logging disponibles:**
+- `LogLevel.ERROR` - Solo errores críticos
+- `LogLevel.WARN` - Advertencias y errores
+- `LogLevel.INFO` - Información general
+- `LogLevel.DEBUG` - Información detallada (por defecto)
+
+### Métodos de Logging
+
+| Método | Descripción | Ejemplo |
+|--------|-------------|---------|
+| `currentLogger.info()` | Información general | `CastMessageBuilder initialized` |
+| `currentLogger.debug()` | Información detallada | `Building Cast message for VOD content` |
+| `currentLogger.warn()` | Advertencias | `Missing poster URL, using default` |
+| `currentLogger.error()` | Errores | `Invalid source URI provided` |
+
+### Ejemplo de Logs
+
+```
+[2024-01-15 10:30:45] 📡 Cast Feature [CastMessageBuilder#1] CastMessageBuilder initialized: {"enableYoubora":true,"debugMode":true}
+[2024-01-15 10:30:46] 📡 Cast Feature [CastMessageBuilder#1] Building Cast message for content: "Mi Video"
+[2024-01-15 10:30:46] 📡 Cast Feature [CastMessageBuilder#1] Generated content ID: "content_123_1642248646"
+```
+
+---
+
+## Propiedades (Continuación)
 
 | Propiedad    | Tipo                     | Descripción                               |
 |--------------|--------------------------|-------------------------------------------|
