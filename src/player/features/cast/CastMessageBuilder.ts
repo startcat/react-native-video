@@ -1,7 +1,9 @@
+import { ComponentLogger, Logger } from '../../features/logger';
 import { getSourceMessageForCast } from '../../utils';
+import { LoggerConfigBasic } from '../logger/types';
 import {
     DEFAULT_MESSAGE_CONFIG,
-    LOG_PREFIX,
+    LOGGER_CONFIG,
     METADATA_CONFIG,
     SUPPORTED_MIME_TYPES
 } from './constants';
@@ -11,10 +13,10 @@ import {
 import {
     CastContentMetadata,
     CastMessageConfig,
-    MessageBuilderConfig
+    MessageBuilderConfig,
 } from './types/types';
 
-const LOG_KEY = '(CastMessageBuilder)';
+const LOG_KEY = 'CastMessageBuilder';
 
 /*
  *  Clase para construir mensajes Cast de forma consistente
@@ -22,14 +24,32 @@ const LOG_KEY = '(CastMessageBuilder)';
  */
 
 export class CastMessageBuilder {
-    private config: MessageBuilderConfig;
-    private debugMode: boolean;
 
-    constructor(config: MessageBuilderConfig = {}) {
+    private static instanceCounter = 0;
+
+    private config: MessageBuilderConfig | LoggerConfigBasic;
+    private instanceId?: number;
+
+    private playerLogger: Logger;
+    private currentLogger: ComponentLogger;
+
+    constructor(config: Partial<MessageBuilderConfig & LoggerConfigBasic> = {}) {
+        this.instanceId = ++CastMessageBuilder.instanceCounter;
         this.config = { ...DEFAULT_MESSAGE_CONFIG, ...config };
-        this.debugMode = this.config.debugMode || false;
+
+        this.playerLogger = new Logger({
+            enabled: config.enabled ?? LOGGER_CONFIG.enabled,
+            prefix: LOGGER_CONFIG.prefix,
+            level: config.level ?? LOGGER_CONFIG.level,
+            useColors: true,
+            includeLevelName: false,
+            includeTimestamp: true,
+            includeInstanceId: true,
+        }, this.instanceId);
+
+        this.currentLogger = this.playerLogger.forComponent(LOG_KEY, config.enabled ?? LOGGER_CONFIG.enabled, config.level ?? LOGGER_CONFIG.level);
         
-        this.log('CastMessageBuilder initialized', { config: this.config });
+        this.currentLogger.info(`Initialized: ${JSON.stringify(this.config)}`);
     }
 
     /*
@@ -38,11 +58,11 @@ export class CastMessageBuilder {
      */
     
     buildCastMessage(config: CastMessageConfig): any {
-        this.log('Building cast message', { 
+        this.currentLogger?.debug(`Building cast message ${JSON.stringify({ 
             sourceUri: config.source.uri,
             contentId: config.metadata.id,
             isLive: config.metadata.isLive 
-        });
+        })}`);
 
         try {
             // Validar configuración
@@ -92,22 +112,12 @@ export class CastMessageBuilder {
                 };
             }
 
-            this.log('Cast message built successfully', { 
-                contentId,
-                messageInfo: message?.mediaInfo ? {
-                    contentId: message.mediaInfo.contentId,
-                    contentType: message.mediaInfo.contentType,
-                    streamType: message.mediaInfo.streamType,
-                    startPosition
-                } : null
-            });
-
-            console.log(`[DANI] message: ${JSON.stringify(message)}`);
+            this.currentLogger?.debug(`Cast message built successfully ${JSON.stringify(message)}`);
 
             return message;
 
         } catch (error) {
-            this.logError('Error building cast message', error);
+            this.currentLogger?.error(`Error building cast message: ${JSON.stringify(error)}`);
             throw error;
         }
     }
@@ -120,7 +130,7 @@ export class CastMessageBuilder {
     updateConfig(newConfig: Partial<MessageBuilderConfig>): void {
         this.config = { ...this.config, ...newConfig };
         this.debugMode = this.config.debugMode || false;
-        this.log('Configuration updated', { config: this.config });
+        this.currentLogger?.debug(`Configuration updated ${JSON.stringify(this.config)}`);
     }
 
     /*
@@ -281,26 +291,6 @@ export class CastMessageBuilder {
     }
 
     /*
-     *  Log interno
-     *
-     */
-
-    private log(message: string, data?: any): void {
-        if (this.debugMode) {
-            console.log(`${LOG_PREFIX} ${LOG_KEY} ${message} ${data ? `:: ${JSON.stringify(data)}` : ''}`);
-        }
-    }
-
-    /*
-     *  Log de errores
-     *
-     */
-    
-    private logError(message: string, error: any): void {
-        console.error(`${LOG_PREFIX} ${LOG_KEY} ${message} ${error ? `:: ${JSON.stringify(error)}` : ''}`);
-    }
-
-    /*
      *  Obtiene la configuración actual
      *
      */
@@ -317,6 +307,6 @@ export class CastMessageBuilder {
     resetConfig(): void {
         this.config = { ...DEFAULT_MESSAGE_CONFIG };
         this.debugMode = this.config.debugMode || false;
-        this.log('Configuration reset to defaults');
+        this.currentLogger?.debug('Configuration reset to defaults');
     }
 }

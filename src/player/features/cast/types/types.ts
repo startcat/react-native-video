@@ -8,7 +8,7 @@ import {
     type MediaTrack
 } from 'react-native-google-cast';
 
-import { IDrm, IMappedYoubora, IVideoSource } from '../../../types';
+import { ComponentLogger, IDrm, IMappedYoubora, IVideoSource } from '../../../types';
 
 export interface CastConnectionInfo {
     status: 'connected' | 'connecting' | 'notConnected';
@@ -69,6 +69,7 @@ export interface InternalCastState {
     castState: CastStateCustom;
     lastValidPosition: number;
     updateSequence: number;
+    logger?: ComponentLogger | null;
 }
 
 export type CastAction = 
@@ -98,6 +99,13 @@ export type CastAction =
     }
     | {
         type: 'CLEAR_ERROR';
+        
+    }
+    | {
+        type: 'UPDATE_LOGGER';
+        payload: {
+            logger: ComponentLogger;
+        };
     };
 
 // Interfaces para el manager (compatibles con CastMessageBuilder)
@@ -170,7 +178,6 @@ export interface MessageBuilderConfig {
     enableYoubora?: boolean;
     enableAds?: boolean;
     defaultStartPosition?: number;
-    debugMode?: boolean;
 }
 
 export interface CastContentMetadata {

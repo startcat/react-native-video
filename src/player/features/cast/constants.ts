@@ -1,3 +1,4 @@
+import { LogLevel } from "../../features/logger";
 
 /*
  *  Configuración por defecto del Cast Manager
@@ -51,7 +52,11 @@ export const CAST_LOG_EVENTS = {
  *
  */
 
-export const LOG_PREFIX = '[Cast Manager]' as const;
+export const LOGGER_CONFIG = {
+    prefix: '📡 Cast Feature',
+    enabled: true,
+    level: LogLevel.DEBUG,
+};
 
 /*
  *  Configuración de mensaje Cast por defecto

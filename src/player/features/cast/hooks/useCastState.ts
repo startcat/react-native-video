@@ -10,11 +10,11 @@ import {
 import { CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastStateCustom, CastTrackInfo } from '../types/types';
 import { castReducer, createInitialCastState, getVolume } from '../utils/castUtils';
 
-import { DEFAULT_CAST_CONFIG } from '../constants';
+import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from '../../logger';
+import { DEFAULT_CAST_CONFIG, LOGGER_CONFIG } from '../constants';
 
 // Hook principal que maneja toda la sincronización
-export function useCastState(options: { 
-    debugMode?: boolean;
+export function useCastState(config: LoggerConfigBasic = {}, callbacks:{ 
     onConnectionChange?: (status: CastConnectionInfo['status']) => void;
     onMediaChange?: (media: CastMediaInfo) => void;
     onError?: (error: CastErrorInfo) => void;
@@ -22,13 +22,36 @@ export function useCastState(options: {
     onTextTrackChange?: (track: CastTrackInfo | null) => void;
 } = {}): CastStateCustom {
     const { 
-        debugMode = DEFAULT_CAST_CONFIG.debugMode, 
         onConnectionChange, 
         onMediaChange, 
         onError,
         onAudioTrackChange,
         onTextTrackChange 
-    } = options;
+    } = callbacks;
+
+    const playerLogger = useRef<Logger | null>(null);
+    const currentLogger = useRef<ComponentLogger | null>(null);
+
+    const castLoggerConfig: LoggerConfigBasic = {
+        enabled: config?.enabled ?? true,
+        level: config?.level ?? LogLevel.INFO,
+        instanceId: config?.instanceId || undefined,
+    };
+
+    if (!playerLogger.current){
+        playerLogger.current = new Logger({
+            enabled: castLoggerConfig.enabled,
+            prefix: LOGGER_CONFIG.prefix,
+            level: castLoggerConfig.level,
+            useColors: true,
+            includeLevelName: false,
+            includeTimestamp: true,
+            includeInstanceId: true,
+        }, castLoggerConfig.instanceId);
+
+        currentLogger.current = playerLogger.current?.forComponent('Cast State with Reducer', castLoggerConfig.enabled, castLoggerConfig.level);
+        currentLogger.current?.info('Initialicing');
+    }
     
     // Hooks nativos - se ejecutan de forma independiente
     const nativeCastState = useNativeCastState();
@@ -41,8 +64,19 @@ export function useCastState(options: {
     const [state, dispatch] = useReducer(castReducer, {
         castState: createInitialCastState(),
         lastValidPosition: 0,
-        updateSequence: 0
+        updateSequence: 0,
+        logger: currentLogger.current
     });
+
+    // Actualizar logger en el reducer si no está disponible
+    useEffect(() => {
+        if (currentLogger.current && !state.logger) {
+            dispatch({
+                type: 'UPDATE_LOGGER',
+                payload: { logger: currentLogger.current }
+            });
+        }
+    }, [currentLogger.current, state.logger]);
     
     const isMountedRef = useRef(true);
     const callbacksRef = useRef({ onConnectionChange, onMediaChange, onError, onAudioTrackChange, onTextTrackChange });
@@ -70,7 +104,7 @@ export function useCastState(options: {
             }
         });
         
-    }, [nativeCastState, nativeSession, nativeClient, nativeMediaStatus, nativeStreamPosition, debugMode]);
+    }, [nativeCastState, nativeSession, nativeClient, nativeMediaStatus, nativeStreamPosition]);
 
     useEffect(() => {
         const updateVolume = async () => {

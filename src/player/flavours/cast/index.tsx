@@ -9,13 +9,15 @@ import { styles } from '../styles';
 import {
     CONTROL_ACTION,
     DVR_PLAYBACK_TYPE,
+    LogLevel,
     PLAYER_MENU_DATA_TYPE,
     YOUBORA_FORMAT,
     type CastFlavourProps,
     type ICommonData,
     type IDrm,
     type IMappedYoubora,
-    type IPlayerMenuData
+    type IPlayerMenuData,
+    type LoggerConfigBasic
 } from '../../types';
 
 import {
@@ -75,9 +77,15 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     const youboraForVideo = useRef<IMappedYoubora>();
     const drm = useRef<IDrm>();
 
+    const castLoggerConfig: LoggerConfigBasic = {
+        enabled: props.logger?.cast?.enabled ?? true,
+        level: props.logger?.cast?.level ?? LogLevel.INFO,
+        instanceId: props.playerContext?.getInstanceId() || undefined,
+    };
+
     // Logger
     if (!currentLogger.current && props.playerContext?.logger){
-        currentLogger.current = props.playerContext?.logger?.forComponent('Cast Flavour', props.logger?.core?.enabled, props.logger?.core?.level);
+        currentLogger.current = props.playerContext?.logger?.forComponent('Cast Flavour', castLoggerConfig.enabled, castLoggerConfig.level);
     }
 
     // Source
@@ -97,11 +105,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     const pendingContentSource = useRef<onSourceChangedProps | null>(null);
 
     // USAR HOOKS INDIVIDUALES DE CAST como en AudioCastFlavour
-    const castConnected = useCastConnected();
-    const castMedia = useCastMedia();
-    const castPlaying = useCastPlaying();
-    const castProgress = useCastProgress();
-    const castVolume = useCastVolume();
+    const castConnected = useCastConnected(castLoggerConfig);
+    const castMedia = useCastMedia(castLoggerConfig);
+    const castPlaying = useCastPlaying(castLoggerConfig);
+    const castProgress = useCastProgress(castLoggerConfig);
+    const castVolume = useCastVolume(castLoggerConfig);
 
     // CREATE REFS FOR MAIN CALLBACKS to avoid circular dependencies
     const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
@@ -167,7 +175,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         enableYoubora: true,
         enableAds: true,
         defaultStartPosition: 0,
-        debugMode: true
     }), []);
 
     // MEMORIZAR CALLBACKS OBJECT
@@ -188,7 +195,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     ]);
 
     // USAR CAST MANAGER para todas las acciones
-    const castManager = useCastManager(castManagerCallbacks, castManagerConfig);
+    const castManager = useCastManager({
+        ...castLoggerConfig,
+        ...castManagerConfig
+    }, castManagerCallbacks);
 
     // Refs para evitar dependencias en useCallbacks
     const castManagerRef = useRef(castManager);
@@ -205,7 +215,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     });
 
     // MONITOR DE CAST como en AudioCastFlavour
-    useCastMonitor({
+    useCastMonitor(castLoggerConfig, {
         onConnect: () => {
             currentLogger.current?.info(`Cast Monitor onConnect`);
         },
@@ -422,20 +432,33 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
         currentSourceType.current = 'content';
         isChangingSource.current = true;
-        
-        sourceRef.current.changeSource({
-            id: props.playerMetadata?.id,
-            title: props.playerMetadata?.title,
-            subtitle: props.playerMetadata?.subtitle,
-            description: props.playerMetadata?.description,
-            poster: props.playerMetadata?.poster,
-            squaredPoster: props.playerMetadata?.squaredPoster,
-            manifests: props.manifests,
-            startPosition: props.playerProgress?.currentTime || 0,
-            isLive: true,
-            isCast: true,
-            headers: props.headers,
-        });
+
+        try {
+            sourceRef.current.changeSource({
+                id: props.playerMetadata?.id,
+                title: props.playerMetadata?.title,
+                subtitle: props.playerMetadata?.subtitle,
+                description: props.playerMetadata?.description,
+                poster: props.playerMetadata?.poster,
+                squaredPoster: props.playerMetadata?.squaredPoster,
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime || 0,
+                isLive: true,
+                isCast: true,
+                headers: props.headers,
+            });
+            
+        } catch (error: any) {
+            currentLogger.current?.error(`changeSource failed: ${error?.message}`);
+            handleOnError({ 
+                error: { 
+                    code: 'SOURCE_ERROR', 
+                    error: error?.message || 'Failed to change source',
+                    errorString: error?.message || 'Failed to change source',
+                } 
+            });
+            return;
+        }
     };
 
     const handleVODContent = () => {
@@ -545,6 +568,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             }
             
             currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
+            handleOnError({ 
+                error: { 
+                    code: 'CAST_TUDUM_ERROR', 
+                    error: error?.message || 'Failed to load tudum to Cast',
+                    errorString: error?.message || 'Failed to load tudum to Cast',
+                } 
+            });
+
             currentLogger.current?.debug(`Tudum failed, loading content directly`);
             currentSourceType.current = 'content';
             loadContentSource();
@@ -1040,7 +1071,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
                 if (dvrProgressManagerRef.current){
                     dvrProgressManagerRef.current?.reset();
-                    dvrProgressManagerRef.current.setPlaybackType(DVR_PLAYBACK_TYPE.PROGRAM);
+                    dvrProgressManagerRef.current?.setPlaybackType(DVR_PLAYBACK_TYPE.PROGRAM);
                 }
 
                 const sourceData: onSourceChangedProps = {

@@ -176,20 +176,33 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             // Para live, cargar contenido directamente
             currentSourceType.current = 'content';
             isChangingSource.current = true;
-            
-            sourceRef.current.changeSource({
-                id: props.playerMetadata?.id,
-                title: props.playerMetadata?.title,
-                subtitle: props.playerMetadata?.subtitle,
-                description: props.playerMetadata?.description,
-                poster: props.playerMetadata?.poster,
-                squaredPoster: props.playerMetadata?.squaredPoster,
-                manifests: props.manifests,
-                startPosition: props.playerProgress?.currentTime || 0,
-                isLive: true,
-                isCast: false,
-                headers: props.headers,
-            });
+
+            try {
+                sourceRef.current.changeSource({
+                    id: props.playerMetadata?.id,
+                    title: props.playerMetadata?.title,
+                    subtitle: props.playerMetadata?.subtitle,
+                    description: props.playerMetadata?.description,
+                    poster: props.playerMetadata?.poster,
+                    squaredPoster: props.playerMetadata?.squaredPoster,
+                    manifests: props.manifests,
+                    startPosition: props.playerProgress?.currentTime || 0,
+                    isLive: true,
+                    isCast: false,
+                    headers: props.headers,
+                });
+
+            } catch (error: any) {
+                currentLogger.current?.error(`changeSource failed: ${error?.message}`);
+                handleOnError({ 
+                    error: { 
+                        code: 'SOURCE_ERROR', 
+                        error: error?.message || 'Failed to change source',
+                        errorString: error?.message || 'Failed to change source',
+                    } 
+                });
+                return;
+            }
 
         } else {
             // LÓGICA DEL TUDUM SOLO PARA VOD

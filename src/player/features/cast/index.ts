@@ -1,5 +1,3 @@
-// Imports para uso interno
-
 // Exportar tipos principales
 export * from './types/types';
 
