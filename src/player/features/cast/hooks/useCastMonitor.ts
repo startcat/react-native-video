@@ -51,10 +51,10 @@ export function useCastMonitor(config: LoggerConfigBasic = {}, callbacks: {
         // Monitor conexión
         if (connection.status !== prevConnectionRef.current) {
             if (connection.status === 'connected' && callbacks.onConnect) {
-                currentLogger.current?.debug('Connection status: connected');
+                currentLogger.current?.info('Connection status: connected');
                 callbacks.onConnect();
             } else if (connection.status === 'notConnected' && callbacks.onDisconnect) {
-                currentLogger.current?.debug('Connection status: notConnected');
+                currentLogger.current?.info('Connection status: notConnected');
                 callbacks.onDisconnect();
             }
             prevConnectionRef.current = connection.status;
@@ -63,10 +63,10 @@ export function useCastMonitor(config: LoggerConfigBasic = {}, callbacks: {
         // Monitor reproducción
         if (media.isPlaying !== prevPlayingRef.current) {
             if (media.isPlaying && callbacks.onPlay) {
-                currentLogger.current?.debug('Media status: playing');
+                currentLogger.current?.info('Media status: playing');
                 callbacks.onPlay();
             } else if (!media.isPlaying && media.isPaused && callbacks.onPause) {
-                currentLogger.current?.debug('Media status: paused');
+                currentLogger.current?.info('Media status: paused');
                 callbacks.onPause();
             }
             prevPlayingRef.current = media.isPlaying;
@@ -96,7 +96,7 @@ export function useCastMonitor(config: LoggerConfigBasic = {}, callbacks: {
         
         // Monitor errores
         if (error.hasError && callbacks.onError) {
-            currentLogger.current?.debug(`Media error: ${JSON.stringify(error)}`);
+            currentLogger.current?.warn(`Media error: ${JSON.stringify(error)}`);
             callbacks.onError(error);
         }
         
