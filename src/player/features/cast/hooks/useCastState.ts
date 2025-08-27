@@ -50,7 +50,6 @@ export function useCastState(config: LoggerConfigBasic = {}, callbacks:{
         }, castLoggerConfig.instanceId);
 
         currentLogger.current = playerLogger.current?.forComponent('Cast State with Reducer', castLoggerConfig.enabled, castLoggerConfig.level);
-        currentLogger.current?.info('Initialicing');
     }
     
     // Hooks nativos - se ejecutan de forma independiente
