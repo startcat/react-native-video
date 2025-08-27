@@ -49,9 +49,11 @@ import {
     type ICommonData,
     type IDrm,
     type IMappedYoubora,
+    type LoggerConfigBasic,
     CONTROL_ACTION,
+    LogLevel,
     ProgressUpdateData,
-    YOUBORA_FORMAT,
+    YOUBORA_FORMAT
 } from '../../types';
 
 export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
@@ -67,16 +69,22 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     const drm = useRef<IDrm>();
     const isChangingSource = useRef<boolean>(true);
 
+    const castLoggerConfig: LoggerConfigBasic = {
+        enabled: props.logger?.cast?.enabled ?? true,
+        level: props.logger?.cast?.level ?? LogLevel.INFO,
+        instanceId: props.playerContext?.getInstanceId() || undefined,
+    };
+
     // USAR HOOKS PERSONALIZADOS en lugar de los nativos
-    const castConnected = useCastConnected();
-    const castMedia = useCastMedia();
-    const castPlaying = useCastPlaying();
-    const castProgress = useCastProgress();
-    const castVolume = useCastVolume();
+    const castConnected = useCastConnected(castLoggerConfig);
+    const castMedia = useCastMedia(castLoggerConfig);
+    const castPlaying = useCastPlaying(castLoggerConfig);
+    const castProgress = useCastProgress(castLoggerConfig);
+    const castVolume = useCastVolume(castLoggerConfig);
 
     // Logger
     if (!currentLogger.current && props.playerContext?.logger){
-        currentLogger.current = props.playerContext?.logger?.forComponent('Audio Cast Flavour', props.logger?.core?.enabled, props.logger?.core?.level);
+        currentLogger.current = props.playerContext?.logger?.forComponent('Audio Cast Flavour', castLoggerConfig.enabled, castLoggerConfig.level);
     }
 
     const onContentLoadedCallback = useCallback((content: CastContentInfo) => {
@@ -136,7 +144,8 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         enableYoubora: true,
         enableAds: true,
         defaultStartPosition: 0,
-        debugMode: true
+        debugMode: true,
+        level: LogLevel.DEBUG
     }), []);
 
     // MEMORIZAR CALLBACKS OBJECT
@@ -157,7 +166,10 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     ]);
 
     // USAR CAST MANAGER para todas las acciones
-    const castManager = useCastManager(castManagerCallbacks, castManagerConfig);
+    const castManager = useCastManager({
+        ...castLoggerConfig,
+        ...castManagerConfig
+    }, castManagerCallbacks);
 
     // Refs para evitar dependencias en useCallbacks
     const castManagerRef = useRef(castManager);
@@ -204,7 +216,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         onBufferingChange: props.events?.onBuffering
     });
 
-    useCastMonitor({
+    useCastMonitor(castLoggerConfig, {
         onConnect: () => {
             currentLogger.current?.info(`Cast Monitor onConnect`);
         },
@@ -356,20 +368,33 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
         currentSourceType.current = 'content';
         isChangingSource.current = true;
-        
-        sourceRef.current.changeSource({
-            id: props.playerMetadata?.id,
-            title: props.playerMetadata?.title,
-            subtitle: props.playerMetadata?.subtitle,
-            description: props.playerMetadata?.description,
-            poster: props.playerMetadata?.poster,
-            squaredPoster: props.playerMetadata?.squaredPoster,
-            manifests: props.manifests,
-            startPosition: props.playerProgress?.currentTime || 0,
-            isLive: true,
-            isCast: true,
-            headers: props.headers,
-        });
+
+        try {
+            sourceRef.current.changeSource({
+                id: props.playerMetadata?.id,
+                title: props.playerMetadata?.title,
+                subtitle: props.playerMetadata?.subtitle,
+                description: props.playerMetadata?.description,
+                poster: props.playerMetadata?.poster,
+                squaredPoster: props.playerMetadata?.squaredPoster,
+                manifests: props.manifests,
+                startPosition: props.playerProgress?.currentTime || 0,
+                isLive: true,
+                isCast: true,
+                headers: props.headers,
+            });
+
+        } catch (error: any) {
+            currentLogger.current?.error(`changeSource failed: ${error?.message}`);
+            handleOnError({ 
+                error: { 
+                    code: 'SOURCE_ERROR', 
+                    error: error?.message || 'Failed to change source',
+                    errorString: error?.message || 'Failed to change source',
+                } 
+            });
+            return;
+        }
     };
 
     const handleVODContent = () => {
@@ -566,6 +591,14 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             }
             
             currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
+            handleOnError({ 
+                error: { 
+                    code: 'CAST_TUDUM_ERROR', 
+                    error: error?.message || 'Failed to load tudum to Cast',
+                    errorString: error?.message || 'Failed to load tudum to Cast',
+                } 
+            });
+
             currentLogger.current?.debug(`Tudum failed, loading content directly`);
             currentSourceType.current = 'content';
             loadContentSource();

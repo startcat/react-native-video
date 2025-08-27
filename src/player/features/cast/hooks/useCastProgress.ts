@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
+import { LoggerConfigBasic } from '../../logger/types';
 import { useCastMedia } from './useCastMedia';
 
-export function useCastProgress(): { currentTime: number; duration: number | null; progress: number } {
-    const media = useCastMedia();
+export function useCastProgress(config: LoggerConfigBasic = {}): { currentTime: number; duration: number | null; progress: number } {
+    const media = useCastMedia(config);
     
     return useMemo(() => ({
         currentTime: media.currentTime,

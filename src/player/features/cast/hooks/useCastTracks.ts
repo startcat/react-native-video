@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
+import { LoggerConfigBasic } from '../../logger/types';
 import { CastTrackInfo } from '../types/types';
 import { useCastMedia } from './useCastMedia';
 
-export function useCastTracks(): {
+export function useCastTracks(config: LoggerConfigBasic = {}): {
     audioTrack: CastTrackInfo | null;
     textTrack: CastTrackInfo | null;
     availableAudioTracks: CastTrackInfo[];
     availableTextTracks: CastTrackInfo[];
 } {
-    const media = useCastMedia();
+    const media = useCastMedia(config);
     
     return useMemo(() => ({
         audioTrack: media.audioTrack,

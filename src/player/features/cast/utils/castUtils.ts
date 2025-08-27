@@ -1,4 +1,5 @@
 import { CastSession } from "react-native-google-cast";
+import { ComponentLogger } from '../../logger';
 import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastStateCustom, CastTrackInfo, InternalCastState } from "../types/types";
 import { validateHookStateChange } from "./validations";
 
@@ -138,6 +139,7 @@ export async function getVolume(session: CastSession): Promise<{ level: number; 
 
 // Reducer que procesa toda la data nativa de forma síncrona
 export function castReducer(state: InternalCastState, action: CastAction): InternalCastState {
+    const currentLogger: ComponentLogger | null | undefined = state.logger;
     switch (action.type) {
         case 'SYNC_UPDATE': {
             const { payload } = action;
@@ -149,33 +151,13 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 nativeStreamPosition
             } = payload;
 
-            // ✅ DEBUGGING
-            // console.log('[CastReducer] SYNC_UPDATE:', {
-            //     nativeMediaStatus: nativeMediaStatus ? {
-            //         isPlaying: !!nativeMediaStatus.isPlaying,
-            //         isPaused: !!nativeMediaStatus.isPaused,
-            //         isIdle: !!nativeMediaStatus.isIdle,
-            //         playerState: nativeMediaStatus.playerState,
-            //     } : null,
-            //     currentMediaState: {
-            //         isPlaying: !!state.castState.media.isPlaying,
-            //         isPaused: !!state.castState.media.isPaused,
-            //         isIdle: !!state.castState.media.isIdle
-            //     }
-            // });
-
             // if (nativeMediaStatus) {
-            //     console.log(`[CastReducer] FULL nativeMediaStatus: ${JSON.stringify(nativeMediaStatus)}`);
+            //     currentLogger?.temp(`FULL nativeMediaStatus: ${JSON.stringify(nativeMediaStatus)}`);
             // }
 
             // Procesar conexión
             const connection: CastConnectionInfo = (() => {
                 const castStateStr = String(nativeCastState || 'NOT_CONNECTED').toUpperCase();
-                
-                // console.log(`[CastReducer] nativeCastState RAW: ${JSON.stringify(nativeCastState)}`);
-                // console.log(`[CastReducer] castStateStr: ${castStateStr}`);
-                // console.log(`[CastReducer] nativeSession: ${!!nativeSession}`);
-                // console.log(`[CastReducer] nativeClient: ${!!nativeClient}`);
 
                 switch (castStateStr) {
                     case 'CONNECTED':
@@ -226,15 +208,10 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                     };
                 }
 
-                // console.log(`[CastReducer] nativeMediaStatus RAW: ${JSON.stringify(nativeMediaStatus)}`);
-
                 const playerState = nativeMediaStatus.playerState;
                 const mediaInfo = nativeMediaStatus.mediaInfo;
                 const metadata = extractMediaMetadata(mediaInfo);
                 const tracksInfo = extractTracksInfo(nativeMediaStatus);
-                
-                // Debug logging para streamDuration
-                // console.log(`[CastReducer] VOD Debug - playerState: ${playerState}, streamDuration: ${mediaInfo?.streamDuration}, contentType: ${mediaInfo?.contentType}, streamType: ${mediaInfo?.streamType}`);
                 
                 // Normalizar playerState a mayúsculas para comparación
                 const normalizedPlayerState = String(playerState || '').toUpperCase();
@@ -308,7 +285,8 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                     mediaTracks: tracksInfo.mediaTracks
                 };
 
-                // console.log(`[CastReducer] Debug result - seekableRange: ${JSON.stringify(result.seekableRange)}, currentTime: ${result.currentTime}, duration: ${result.duration}`);
+                currentLogger?.debug(`Media result - seekableRange: ${JSON.stringify(result.seekableRange)}, currentTime: ${result.currentTime}, duration: ${result.duration}`);
+                currentLogger?.debug(`Media result: ${JSON.stringify(result)}`);
 
                 return result;
             })();
@@ -400,6 +378,13 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                     },
                     lastUpdate: Date.now()
                 }
+            };
+        }
+
+        case 'UPDATE_LOGGER': {
+            return {
+                ...state,
+                logger: action.payload.logger
             };
         }
 

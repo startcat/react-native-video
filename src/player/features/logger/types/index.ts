@@ -15,6 +15,7 @@ export enum LogLevel {
 export interface LoggerConfigBasic {
     enabled?: boolean;
     level?: LogLevel;
+    instanceId?: number;
 }
 
 export interface LoggerConfig extends LoggerConfigBasic {

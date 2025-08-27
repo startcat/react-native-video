@@ -7,17 +7,45 @@ import {
     useRemoteMediaClient
 } from 'react-native-google-cast';
 
+import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from '../../logger';
 import { CastMessageBuilder } from '../CastMessageBuilder';
+import { LOGGER_CONFIG } from '../constants';
 import { CastContentInfo, CastManager, CastManagerCallbacks, CastManagerState, MessageBuilderConfig } from '../types/types';
 import { useCastState } from './useCastState';
 
 // Hook principal del Cast Manager
 export function useCastManager(
+    config: LoggerConfigBasic & MessageBuilderConfig = {},
     callbacks: CastManagerCallbacks = {},
-    messageBuilderConfig?: MessageBuilderConfig
 ): CastManager {
+
+    const playerLogger = useRef<Logger | null>(null);
+    const currentLogger = useRef<ComponentLogger | null>(null);
+
+    const castLoggerConfig: LoggerConfigBasic = {
+        enabled: config?.enabled ?? true,
+        level: config?.level ?? LogLevel.INFO,
+        instanceId: config?.instanceId || undefined,
+    };
+
+    if (!playerLogger.current){
+        playerLogger.current = new Logger({
+            enabled: castLoggerConfig.enabled,
+            prefix: LOGGER_CONFIG.prefix,
+            level: castLoggerConfig.level,
+            useColors: true,
+            includeLevelName: false,
+            includeTimestamp: true,
+            includeInstanceId: true,
+        }, castLoggerConfig.instanceId);
+
+        currentLogger.current = playerLogger.current?.forComponent('Cast Manager', castLoggerConfig.enabled, castLoggerConfig.level);
+    }
+    
+    // this.currentLogger.info(`Initialized: ${JSON.stringify(this.config)}`);
+
     // Usar hooks existentes
-    const castState = useCastState();
+    const castState = useCastState(castLoggerConfig);
     const nativeSession: CastSession = useCastSession();
     const nativeClient: RemoteMediaClient = useRemoteMediaClient();
     
@@ -36,7 +64,7 @@ export function useCastManager(
     const playbackStartedForUrlRef = useRef<string | null>(null);
 
     if (!messageBuilderRef.current) {
-        messageBuilderRef.current = new CastMessageBuilder(messageBuilderConfig);
+        messageBuilderRef.current = new CastMessageBuilder(config);
     }
     
     // Actualizar callbacks
@@ -52,7 +80,7 @@ export function useCastManager(
         const canPerform = connectionOk && sessionOk && clientOk;
         
         if (!canPerform){
-            console.log(`[CastManager] canPerformAction() - connectionStatus: '${castState.connection.status}' (${connectionOk}), hasSession: ${sessionOk}, hasClient: ${clientOk} => ${canPerform}`);
+            currentLogger.current?.debug(`canPerformAction - connectionStatus: '${castState.connection.status}' (${connectionOk}), hasSession: ${sessionOk}, hasClient: ${clientOk} => ${canPerform}`);
         }
         
         return canPerform;
@@ -104,18 +132,18 @@ export function useCastManager(
         const currentMedia = await nativeClient.getMediaStatus();
 
         if (currentMedia && currentMedia.mediaInfo && currentMedia.mediaInfo.contentId !== lastLoadedContentRef.current) {
-            console.log(`[CastManager] loadContent() - Guardamos el contentId del media que esta reproduciendose en cast: ${JSON.stringify(currentMedia.mediaInfo.contentId)}`);
+            currentLogger.current?.debug(`loadContent - Guardamos el contentId del media que esta reproduciendose en cast: ${JSON.stringify(currentMedia.mediaInfo.contentId)}`);
             lastLoadedContentRef.current = currentMedia.mediaInfo.contentId;
         }
 
-        // console.log(`[CastManager] loadContent() - lastLoadedContentRef: ${JSON.stringify(lastLoadedContentRef.current)}`);
-        // console.log(`[CastManager] loadContent() - content.source.uri: ${JSON.stringify(content.source.uri)}`);
-        // console.log(`[CastManager] loadContent() - isIdle: ${JSON.stringify(currentMedia?.playerState)}`);
+        // currentLogger.current?.temp(`loadContent - lastLoadedContentRef: ${JSON.stringify(lastLoadedContentRef.current)}`);
+        // currentLogger.current?.temp(`loadContent - content.source.uri: ${JSON.stringify(content.source.uri)}`);
+        // currentLogger.current?.temp(`loadContent - isIdle: ${JSON.stringify(currentMedia?.playerState)}`);
         
         // Evitar recargar el mismo contenido
         if (lastLoadedContentRef.current === content.source.uri && 
             currentMedia?.playerState !== "idle") {
-            console.log('[CastManager] Content already loaded, skipping:', content.source.uri);
+            currentLogger.current?.debug(`Content already loaded, skipping: ${content.source.uri}`);
             callbacksRef.current.onContentLoaded?.(content);
             return true;
         }
@@ -136,7 +164,7 @@ export function useCastManager(
                 throw new Error('Failed to build cast message');
             }
             
-            console.log(`[CastManager] loadContent() - castMessage: ${JSON.stringify(castMessage)}`);
+            currentLogger.current?.debug(`loadContent - castMessage: ${JSON.stringify(castMessage)}`);
             
             await nativeClient.loadMedia(castMessage);
             
@@ -192,7 +220,7 @@ export function useCastManager(
             completeAction('play');
             return true;
         } catch (error) {
-            console.log(`[CastManager] play() - ERROR:`, error);
+            currentLogger.current?.error(`Action Play - Error: ${JSON.stringify(error)}`);
             return handleActionError('play', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -210,7 +238,7 @@ export function useCastManager(
             completeAction('pause');
             return true;
         } catch (error) {
-            console.log(`[CastManager] pause() - ERROR:`, error);
+            currentLogger.current?.error(`Action Pause - Error: ${JSON.stringify(error)}`);
             return handleActionError('pause', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -234,7 +262,7 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            console.log(`[CastManager] seek() - ERROR:`, error);
+            currentLogger.current?.error(`Action Seek - Error: ${JSON.stringify(error)}`);
             return handleActionError('seek', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -265,7 +293,7 @@ export function useCastManager(
             completeAction('stop');
             return true;
         } catch (error) {
-            console.log(`[CastManager] stop() - ERROR:`, error);
+            currentLogger.current?.error(`Action Stop - Error: ${JSON.stringify(error)}`);
             return handleActionError('stop', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -289,7 +317,7 @@ export function useCastManager(
 
             return true;
         } catch (error) {
-            console.log(`[CastManager] mute() - ERROR:`, error);
+            currentLogger.current?.error(`Action Mute - Error: ${JSON.stringify(error)}`);
             return handleActionError('mute', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
@@ -312,14 +340,14 @@ export function useCastManager(
                     const currentVolume = await nativeSession.getVolume();
                     callbacksRef.current.onVolumeChanged?.(currentVolume, false);
                 } catch (error) {
-                    console.log(`[CastManager] unmute() - Failed to get volume:`, error);
+                    currentLogger.current?.error(`Action Unmute - Error: ${JSON.stringify(error)}`);
                     callbacksRef.current.onVolumeChanged?.(0.5, false); // Fallback volume
                 }
             }, 100);
             
             return true;
         } catch (error) {
-            console.log(`[CastManager] unmute() - ERROR:`, error);
+            currentLogger.current?.error(`Action Unmute - Error: ${JSON.stringify(error)}`);
             return handleActionError('unmute', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
@@ -344,7 +372,7 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            console.log(`[CastManager] setVolume() - ERROR:`, error);
+            currentLogger.current?.error(`Action SetVolume - Error: ${JSON.stringify(error)}`);
             return handleActionError('setVolume', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession, castState.volume.isMuted]);
@@ -362,7 +390,7 @@ export function useCastManager(
             completeAction('setAudioTrack');
             return true;
         } catch (error) {
-            console.log(`[CastManager] setAudioTrack() - ERROR:`, error);
+            currentLogger.current?.error(`Action SetAudioTrack - Error: ${JSON.stringify(error)}`);
             return handleActionError('setAudioTrack', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -384,7 +412,7 @@ export function useCastManager(
             completeAction('setSubtitleTrack');
             return true;
         } catch (error) {
-            console.log(`[CastManager] setSubtitleTrack() - ERROR:`, error);
+            currentLogger.current?.error(`Action SetSubtitleTrack - Error: ${JSON.stringify(error)}`);
             return handleActionError('setSubtitleTrack', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media.audioTrack]);
@@ -401,7 +429,7 @@ export function useCastManager(
             completeAction('setActiveTrackIds');
             return true;
         } catch (error) {
-            console.log(`[CastManager] setActiveTrackIds() - ERROR:`, error);
+            currentLogger.current?.error(`Action SetActiveTrackIds - Error: ${JSON.stringify(error)}`);
             return handleActionError('setActiveTrackIds', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -423,7 +451,7 @@ export function useCastManager(
             completeAction('disableSubtitles');
             return true;
         } catch (error) {
-            console.log(`[CastManager] disableSubtitles() - ERROR:`, error);
+            currentLogger.current?.error(`Action DisableSubtitles - Error: ${JSON.stringify(error)}`);
             return handleActionError('disableSubtitles', error);
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media.audioTrack]);
@@ -441,11 +469,11 @@ export function useCastManager(
         const { media } = castState;
         const callbacks = callbacksRef.current;
 
-        // console.log(`[CastManager] (useEffect) Cast State Media - isPlaying: ${media.isPlaying}, isIdle: ${media.isIdle}, url: ${media.url}, ref: ${lastLoadedContentRef.current}`);
+        // currentLogger.current?.temp(`(useEffect) Cast State Media - isPlaying: ${media.isPlaying}, isIdle: ${media.isIdle}, url: ${media.url}, ref: ${lastLoadedContentRef.current}`);
         
         // Detectar inicio de reproducción -> Primera reproducción de un nuevo contenido
         if (media.isPlaying && !media.isIdle && callbacks.onPlaybackStarted && (!lastLoadedContentRef.current || lastLoadedContentRef.current !== media.url)) {
-            console.log(`[CastManager] 🔥 FIRING onPlaybackStarted callback - media.isPlaying: ${media.isPlaying}, media.isIdle: ${media.isIdle}`);
+            currentLogger.current?.info(`Firing onPlaybackStarted callback - media.isPlaying: ${media.isPlaying}, media.isIdle: ${media.isIdle}`);
             lastLoadedContentRef.current = media.url;
             callbacks.onPlaybackStarted();
         }
