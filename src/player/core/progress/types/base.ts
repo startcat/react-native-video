@@ -1,4 +1,4 @@
-import { Logger } from '../../../features/logger';
+import { Logger, LogLevel } from '../../../features/logger';
 
 export interface SeekableRange {
     start: number;
@@ -27,4 +27,6 @@ export interface BaseProgressManagerOptions {
 
     // Logger
     logger?: Logger;
+    loggerEnabled?: boolean;
+    loggerLevel?: LogLevel;
 }

@@ -1,7 +1,6 @@
 import { ComponentLogger } from '../../features/logger';
 import { type SliderValues } from '../../types/types';
 import { formatTimestamp } from '../../utils/time';
-import { LOG_ENABLED, LOG_KEY, LOG_LEVEL, LOG_TYPE_LEVELS } from './constants';
 import {
     type BaseProgressManagerOptions,
     type BaseUpdatePlayerData,
@@ -371,20 +370,6 @@ export abstract class BaseProgressManager {
         this._currentLogger?.warn(`Validation error: ${error}`);
         if (this._options.onValidationError) {
             this._options.onValidationError(error);
-        }
-    }
-
-    /*
-     *  Sistema de logs
-     *
-     */
-
-    protected log(message: string, type: 'debug' | 'info' | 'warn' | 'error' = 'info', data?: any): void {
-        const logLevel = LOG_TYPE_LEVELS[type];
-        const minLogLevel = LOG_TYPE_LEVELS[LOG_LEVEL];
-
-        if (LOG_ENABLED && minLogLevel <= logLevel) {
-            console[type](`${LOG_KEY} ${message}${data ? ` :: ${JSON.stringify(data)}` : ''}`);
         }
     }
 

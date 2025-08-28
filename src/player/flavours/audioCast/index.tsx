@@ -761,6 +761,8 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             currentLogger.current?.debug(`Initializing VOD Progress Manager`);
             vodProgressManagerRef.current = new VODProgressManagerClass({
                 logger: props.playerContext?.logger,
+                loggerEnabled: props.logger?.progressManager?.enabled,
+                loggerLevel: props.logger?.progressManager?.level,
                 onProgressUpdate: onProgressUpdate,
                 onSeekRequest: onSeekRequest
             });
@@ -771,6 +773,8 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             currentLogger.current?.debug(`Initializing DVR Progress Manager`);
             dvrProgressManagerRef.current = new DVRProgressManagerClass({
                 logger: props.playerContext?.logger,
+                loggerEnabled: props.logger?.progressManager?.enabled,
+                loggerLevel: props.logger?.progressManager?.level,
                 playbackType: props.playerProgress?.liveValues?.playbackType,
                 getEPGProgramAt: props.hooks?.getEPGProgramAt,
                 onModeChange: onDVRModeChange,
