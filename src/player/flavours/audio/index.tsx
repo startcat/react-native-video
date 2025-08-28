@@ -544,6 +544,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         // Initialize VOD Progress Manager
         if (!vodProgressManagerRef.current) {
             vodProgressManagerRef.current = new VODProgressManagerClass({
+                logger: props.playerContext?.logger,
                 onProgressUpdate: handleOnProgressUpdate,
                 onSeekRequest: handleOnSeekRequest
             });
@@ -553,6 +554,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         // Initialize DVR Progress Manager  
         if (!dvrProgressManagerRef.current) {
             dvrProgressManagerRef.current = new DVRProgressManagerClass({
+                logger: props.playerContext?.logger,
                 playbackType: props.playerProgress?.liveValues?.playbackType,
                 getEPGProgramAt: props.hooks?.getEPGProgramAt,
                 onModeChange: handleOnDVRModeChange,

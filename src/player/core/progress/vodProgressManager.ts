@@ -1,6 +1,7 @@
-import { BaseProgressManager } from './BaseProgressManager';
-import { type VODProgressManagerOptions, type VODProgressUpdateData, type VODUpdatePlayerData } from './types/vod';
 import { type SliderValues } from '../../types/types';
+import { BaseProgressManager } from './BaseProgressManager';
+import { LOGGER_CONFIG } from './constants';
+import { type VODProgressManagerOptions, type VODProgressUpdateData, type VODUpdatePlayerData } from './types/vod';
 
 export class VODProgressManagerClass extends BaseProgressManager {
     
@@ -19,8 +20,11 @@ export class VODProgressManagerClass extends BaseProgressManager {
         if (this._duration) {
             this._seekableRange = { start: 0, end: this._duration };
         }
-        
-        this.log(`VOD Progress Manager initialized - Duration: ${this._duration}`, 'info');
+
+        if (options.logger) {
+            this._currentLogger = options.logger.forComponent(`VOD ${LOGGER_CONFIG.prefix}`, LOGGER_CONFIG.enabled, LOGGER_CONFIG.level);
+            this._currentLogger?.info(`Constructor initialized - Duration: ${this._duration}`);
+        }
     }
 
     /*
