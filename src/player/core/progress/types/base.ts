@@ -1,3 +1,5 @@
+import { Logger } from '../../../features/logger';
+
 export interface SeekableRange {
     start: number;
     end: number;
@@ -22,4 +24,7 @@ export interface BaseProgressManagerOptions {
     duration?: number;
     isPaused?: boolean;
     isBuffering?: boolean;
+
+    // Logger
+    logger?: Logger;
 }

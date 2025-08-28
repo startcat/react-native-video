@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { type SliderValues } from '../../types/types';
 import { BaseProgressManager } from './BaseProgressManager';
-import { EPG_RETRY_DELAYS, LIVE_EDGE_TOLERANCE, PROGRESS_SIGNIFICANT_CHANGE } from './constants';
+import { EPG_RETRY_DELAYS, LIVE_EDGE_TOLERANCE, LOGGER_CONFIG, PROGRESS_SIGNIFICANT_CHANGE } from './constants';
 import { type DVRProgressManagerOptions, type DVRProgressUpdateData, type DVRUpdatePlayerData, type EPGErrorData, type ModeChangeData, type ProgramChangeData } from './types/dvr';
 import { DVR_PLAYBACK_TYPE } from './types/enums';
 
@@ -55,7 +55,11 @@ export class DVRProgressManagerClass extends BaseProgressManager {
             onEPGError: options.onEPGError
         };
 
-        this.log(`DVR initialized - waiting for seekableRange data from player`, 'info');
+        if (options.logger) {
+            this._currentLogger = options.logger.forComponent(`DVR ${LOGGER_CONFIG.prefix}`, LOGGER_CONFIG.enabled, LOGGER_CONFIG.level);
+            this._currentLogger.info(`Constructor initialized - Waiting for seekableRange data from player`);
+        }
+
     }
 
     /*
