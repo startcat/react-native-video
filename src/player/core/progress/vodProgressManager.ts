@@ -22,7 +22,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
         }
 
         if (options.logger) {
-            this._currentLogger = options.logger.forComponent(`VOD ${LOGGER_CONFIG.prefix}`, LOGGER_CONFIG.enabled, LOGGER_CONFIG.level);
+            this._currentLogger = options.logger.forComponent(`VOD ${LOGGER_CONFIG.prefix}`, options.loggerEnabled ?? LOGGER_CONFIG.enabled, options.loggerLevel ?? LOGGER_CONFIG.level);
             this._currentLogger?.info(`Constructor initialized - Duration: ${this._duration}`);
         }
     }
@@ -33,11 +33,11 @@ export class VODProgressManagerClass extends BaseProgressManager {
      */
 
     updatePlayerData(data: VODUpdatePlayerData): void {
-        this.log('updatePlayerData', 'debug', { 
+        this._currentLogger?.debug(`updatePlayerData: ${JSON.stringify({ 
             currentTime: data.currentTime, 
             duration: data.duration,
             seekableRange: data.seekableRange 
-        });
+        })}`);
 
         // Usar la validación y actualización base
         this._updateBasicPlayerData(data);
@@ -54,7 +54,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
 
     getSliderValues(): SliderValues {
         if (!this._isValidState()) {
-            this.log('getSliderValues: Invalid state', 'warn');
+            this._currentLogger?.warn('getSliderValues: Invalid state');
             return {
                 minimumValue: 0,
                 maximumValue: 1,
@@ -84,7 +84,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
     }
 
     reset(): void {
-        this.log('Resetting VOD progress manager', 'info');
+        this._currentLogger?.info('Resetting VOD progress manager');
         
         // Reset del estado base
         super.reset();
@@ -111,7 +111,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
             remainingTime: this._getRemainingTime()
         };
 
-        this.log('getStats', 'debug', vodStats);
+        this._currentLogger?.debug(`getStats: ${JSON.stringify(vodStats)}`);
         return vodStats;
     }
 
@@ -122,34 +122,34 @@ export class VODProgressManagerClass extends BaseProgressManager {
 
     setAutoSeekToEnd(enabled: boolean): void {
         this._autoSeekToEnd = enabled;
-        this.log(`Auto seek to end: ${enabled}`, 'info');
+        this._currentLogger?.info(`Set auto seek to end: ${enabled}`);
     }
 
     setLooping(enabled: boolean): void {
         this._enableLooping = enabled;
-        this.log(`Looping: ${enabled}`, 'info');
+        this._currentLogger?.info(`Set looping: ${enabled}`);
     }
 
     goToStart(): void {
-        this.log('Going to start', 'info');
+        this._currentLogger?.info('Going to start');
         this._seekTo(this._seekableRange.start);
     }
 
     goToEnd(): void {
-        this.log('Going to end', 'info');
+        this._currentLogger?.info('Going to end');
         this._seekTo(this._seekableRange.end);
     }
 
     jumpToPercentage(percentage: number): void {
         if (percentage < 0 || percentage > 1) {
-            this.log(`Invalid percentage: ${percentage}`, 'warn');
+            this._currentLogger?.warn(`Invalid percentage: ${percentage}`);
             return;
         }
 
         const range = this._seekableRange.end - this._seekableRange.start;
         const targetTime = this._seekableRange.start + (range * percentage);
         
-        this.log(`Jumping to ${(percentage * 100).toFixed(1)}%`, 'info');
+        this._currentLogger?.debug(`Jumping to ${(percentage * 100).toFixed(1)}%`);
         this._seekTo(targetTime);
     }
 
@@ -171,7 +171,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
      */
 
     protected _handleSeekTo(playerTime: number): void {
-        this.log(`VOD seeking to: ${playerTime}`, 'debug');
+        this._currentLogger?.debug(`VOD seeking to: ${playerTime}`);
         
         // Actualizar currentTime para reflejar el seek inmediatamente
         this._currentTime = playerTime;
@@ -206,7 +206,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
         // Actualizar seekableRange si tenemos nueva duración
         if (data.duration && data.duration !== this._duration) {
             this._seekableRange.end = data.duration;
-            this.log(`Updated seekableRange end to: ${data.duration}`, 'debug');
+            this._currentLogger?.debug(`Updated seekableRange end to: ${data.duration}`);
         }
     }
 
@@ -216,13 +216,13 @@ export class VODProgressManagerClass extends BaseProgressManager {
         const isAtEnd = this._currentTime >= this._duration - 1; // 1 segundo de tolerancia
         
         if (isAtEnd) {
-            this.log('Reached end of content', 'info');
+            this._currentLogger?.info('Reached end of content');
             
             if (this._enableLooping) {
-                this.log('Looping enabled, going to start', 'info');
+                this._currentLogger?.info('Looping enabled, going to start');
                 setTimeout(() => this.goToStart(), 100);
             } else if (this._autoSeekToEnd) {
-                this.log('Auto seek to end enabled', 'info');
+                this._currentLogger?.info('Auto seek to end enabled');
                 this.goToEnd();
             }
         }
@@ -249,7 +249,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
         const vodValid = this._duration !== null && this._duration > 0;
         
         if (!vodValid) {
-            this.log('VOD invalid state: no duration', 'debug');
+            this._currentLogger?.warn('VOD invalid state: no duration');
         }
         
         return baseValid && vodValid;
@@ -261,7 +261,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
      */
 
     destroy(): void {
-        this.log('Destroying VOD progress manager', 'info');
+        this._currentLogger?.info('Destroying VOD progress manager');
         super.destroy();
         
         this._autoSeekToEnd = false;
