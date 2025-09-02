@@ -27,7 +27,7 @@ export class CastMessageBuilder {
 
     private static instanceCounter = 0;
 
-    private config: MessageBuilderConfig | LoggerConfigBasic;
+    private config: MessageBuilderConfig & LoggerConfigBasic;
     private instanceId?: number;
 
     private playerLogger: Logger;
@@ -129,7 +129,10 @@ export class CastMessageBuilder {
 
     updateConfig(newConfig: Partial<MessageBuilderConfig>): void {
         this.config = { ...this.config, ...newConfig };
-        this.debugMode = this.config.debugMode || false;
+        this.playerLogger?.updateConfig({
+            enabled: this.config.enabled ?? LOGGER_CONFIG.enabled,
+            level: this.config.level ?? LOGGER_CONFIG.level,
+        });
         this.currentLogger?.debug(`Configuration updated ${JSON.stringify(this.config)}`);
     }
 
@@ -306,7 +309,10 @@ export class CastMessageBuilder {
 
     resetConfig(): void {
         this.config = { ...DEFAULT_MESSAGE_CONFIG };
-        this.debugMode = this.config.debugMode || false;
+        this.playerLogger?.updateConfig({
+            enabled: this.config.enabled ?? LOGGER_CONFIG.enabled,
+            level: this.config.level ?? LOGGER_CONFIG.level,
+        });
         this.currentLogger?.debug('Configuration reset to defaults');
     }
 }
