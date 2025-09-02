@@ -52,6 +52,7 @@ import {
     useCastVolume
 } from '../../features/cast/hooks';
 
+import { PlayerError } from "../../core/errors";
 import { type CastContentInfo, type CastTrackInfo } from '../../features/cast/types/types';
 
 export function CastFlavour(props: CastFlavourProps): React.ReactElement {
@@ -137,7 +138,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
         }, 100);
     }, [castProgress.duration]);
 
-    const onContentLoadErrorCallback = useCallback((error: string, content: CastContentInfo) => {
+    const onErrorCallback = useCallback((error: PlayerError, content: CastContentInfo) => {
         currentLogger.current?.error(`Cast Manager - Content load error: ${error}`);
         setIsLoadingContent(false);
         onErrorRef.current?.({ message: error });
@@ -180,14 +181,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
     // MEMORIZAR CALLBACKS OBJECT
     const castManagerCallbacks = useMemo(() => ({
         onContentLoaded: onContentLoadedCallback,
-        onContentLoadError: onContentLoadErrorCallback,
+        onError: onErrorCallback,
         onPlaybackStarted: onPlaybackStartedCallback,
         onPlaybackEnded: onPlaybackEndedCallback,
         onSeekCompleted: onSeekCompletedCallback,
         onVolumeChanged: onVolumeChangedCallback
     }), [
         onContentLoadedCallback,
-        onContentLoadErrorCallback,
+        onErrorCallback,
         onPlaybackStartedCallback,
         onPlaybackEndedCallback,
         onSeekCompletedCallback,

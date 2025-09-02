@@ -31,7 +31,7 @@ El hook acepta un objeto de configuración opcional:
 | `debugMode` | `boolean` | ❌ | `true` | Activa logs de debug en consola |
 | `onConnectionChange` | `(status: CastConnectionInfo['status']) => void` | ❌ | `undefined` | Callback cuando cambia el estado de conexión |
 | `onMediaChange` | `(media: CastMediaInfo) => void` | ❌ | `undefined` | Callback cuando cambia el estado del media |
-| `onError` | `(error: CastErrorInfo) => void` | ❌ | `undefined` | Callback cuando ocurre un error |
+| `onError` | `(error: PlayerError) => void` | ❌ | `undefined` | Callback cuando ocurre un error |
 | `onAudioTrackChange` | `(track: CastTrackInfo \| null) => void` | ❌ | `undefined` | Callback cuando cambia la pista de audio |
 | `onTextTrackChange` | `(track: CastTrackInfo \| null) => void` | ❌ | `undefined` | Callback cuando cambia la pista de subtítulos |
 
@@ -80,10 +80,11 @@ Retorna un objeto `CastStateCustom` con las siguientes propiedades:
 
 | Propiedad | Tipo | Descripción |
 |-----------|------|-------------|
-| `error.hasError` | `boolean` | Indica si hay un error |
-| `error.errorCode` | `string \| null` | Código del error |
-| `error.errorMessage` | `string \| null` | Mensaje del error |
-| `error.lastErrorTime` | `number \| null` | Timestamp del último error |
+| `error` | `PlayerError \| null` | Error actual del Cast, null si no hay error |
+| `error.code` | `string` | Código específico del error (ej: 'CAST_NOT_READY') |
+| `error.message` | `string` | Mensaje descriptivo del error |
+| `error.category` | `string` | Categoría del error ('CAST') |
+| `error.details` | `object` | Información adicional del error |
 
 #### Metadatos
 
@@ -172,7 +173,7 @@ Utiliza un reducer (`castReducer`) para sincronizar todos los estados nativos en
 type CastAction = 
     | { type: 'SYNC_UPDATE'; payload: { /* datos nativos */ } }
     | { type: 'UPDATE_VOLUME'; payload: { level: number; isMuted: boolean } }
-    | { type: 'SET_ERROR'; payload: { errorCode: string; errorMessage: string } }
+    | { type: 'SET_ERROR'; payload: PlayerError }
     | { type: 'CLEAR_ERROR' };
 ```
 
@@ -222,7 +223,7 @@ onTextTrackChange: (track: CastTrackInfo | null) => void
 Se ejecuta cuando ocurre un error en Cast.
 
 ```typescript
-onError: (error: CastErrorInfo) => void
+onError: (error: PlayerError) => void
 ```
 
 ---

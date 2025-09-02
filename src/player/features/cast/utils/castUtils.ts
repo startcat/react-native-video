@@ -1,6 +1,7 @@
 import { CastSession } from "react-native-google-cast";
+import { PlayerError } from "../../../core/errors";
 import { ComponentLogger } from '../../logger';
-import { CastAction, CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastStateCustom, CastTrackInfo, InternalCastState } from "../types/types";
+import { CastAction, CastConnectionInfo, CastMediaInfo, CastStateCustom, CastTrackInfo, InternalCastState } from "../types/types";
 import { validateHookStateChange } from "./validations";
 
 // Estado inicial
@@ -35,12 +36,7 @@ export function createInitialCastState(): CastStateCustom {
             level: 0.5,
             isMuted: false
         },
-        error: {
-            hasError: false,
-            errorCode: null,
-            errorMessage: null,
-            lastErrorTime: null
-        },
+        error: null,
         lastUpdate: Date.now()
     };
 }
@@ -292,14 +288,11 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
             })();
 
             // Procesar errores del MediaStatus
-            const error: CastErrorInfo = (() => {
+            const error: PlayerError | null = (() => {
                 if (nativeMediaStatus?.idleReason === 'ERROR') {
-                    return {
-                        hasError: true,
-                        errorCode: 'MEDIA_ERROR',
-                        errorMessage: 'Error en la reproducción del media',
-                        lastErrorTime: Date.now()
-                    };
+                    return new PlayerError("CAST_PLAYBACK_INTERRUPTED", {
+                        idleReason: nativeMediaStatus.idleReason
+                    });
                 }
                 
                 // Mantener error previo si no hay nuevo estado
@@ -354,12 +347,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 ...state,
                 castState: {
                     ...state.castState,
-                    error: {
-                        hasError: true,
-                        errorCode: action.payload.errorCode,
-                        errorMessage: action.payload.errorMessage,
-                        lastErrorTime: Date.now()
-                    },
+                    error: action.payload,
                     lastUpdate: Date.now()
                 }
             };
@@ -370,12 +358,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
                 ...state,
                 castState: {
                     ...state.castState,
-                    error: {
-                        hasError: false,
-                        errorCode: null,
-                        errorMessage: null,
-                        lastErrorTime: null
-                    },
+                    error: null,
                     lastUpdate: Date.now()
                 }
             };

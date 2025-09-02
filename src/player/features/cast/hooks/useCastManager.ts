@@ -7,10 +7,11 @@ import {
     useRemoteMediaClient
 } from 'react-native-google-cast';
 
+import { PlayerError } from '../../../core/errors';
 import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from '../../logger';
 import { CastMessageBuilder } from '../CastMessageBuilder';
 import { LOGGER_CONFIG } from '../constants';
-import { CastContentInfo, CastManager, CastManagerCallbacks, CastManagerState, MessageBuilderConfig } from '../types/types';
+import { type CastContentInfo, type CastErrorContext, type CastManager, type CastManagerCallbacks, type CastManagerState, type MessageBuilderConfig } from '../types/types';
 import { useCastState } from './useCastState';
 
 // Hook principal del Cast Manager
@@ -87,14 +88,25 @@ export function useCastManager(
     }, [castState.connection.status, nativeSession, nativeClient]);
     
     // Función helper para manejar errores
-    const handleActionError = useCallback((action: string, error: any): boolean => {
-        const errorMessage = error?.message || error?.toString() || 'Unknown error';
+    const handleActionError = useCallback((action: string, error: any, context?: Partial<CastErrorContext>): boolean => {
+        const playerError = error instanceof PlayerError ? error : new PlayerError("CAST_CONNECTION_FAILED", { action, originalError: error });
+    
+        // Log del error
+        currentLogger.current?.error(`Action ${action} - Error: ${JSON.stringify(error)}`);
+
         setManagerState((prev: CastManagerState) => ({
             ...prev,
             isLoading: false,
-            lastError: `${action}: ${errorMessage}`,
+            lastError: playerError,
             lastAction: action
         }));
+
+        // Invocar callback genérico con contexto
+        callbacksRef.current.onError?.(playerError, {
+            action,
+            ...context
+        });
+        
         return false;
     }, []);
     
@@ -125,8 +137,7 @@ export function useCastManager(
     // Acción: Cargar contenido (usando CastMessageBuilder)
     const loadContent = useCallback(async (content: CastContentInfo): Promise<boolean> => {
         if (!canPerformAction()) {
-            handleActionError('loadContent', 'No Cast connection available');
-            return false;
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'loadContent' });
         }
 
         const currentMedia = await nativeClient.getMediaStatus();
@@ -161,7 +172,7 @@ export function useCastManager(
             });
             
             if (!castMessage || !castMessage.mediaInfo) {
-                throw new Error('Failed to build cast message');
+                throw new PlayerError("CAST_MESSAGE_BUILD_FAILED");
             }
             
             currentLogger.current?.debug(`loadContent - castMessage: ${JSON.stringify(castMessage)}`);
@@ -181,18 +192,14 @@ export function useCastManager(
         } catch (error: any) {
             lastLoadedContentRef.current = null;
             playbackStartedForUrlRef.current = null;
-            callbacksRef.current.onContentLoadError?.(
-                error?.message || 'Failed to load content', 
-                content
-            );
-            return handleActionError('loadContent', error);
+            return handleActionError('loadContent', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'loadContent', content });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
     // Acción: Limpiar contenido
     const clearContent = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('clearContent', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'clearContent' });
         }
         
         startAction('clearContent');
@@ -203,14 +210,14 @@ export function useCastManager(
             completeAction('clearContent');
             return true;
         } catch (error) {
-            return handleActionError('clearContent', error);
+            return handleActionError('clearContent', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'clearContent' });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
     // Acción: Play
     const play = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('play', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'play' });
         }
         
         startAction('play');
@@ -220,15 +227,14 @@ export function useCastManager(
             completeAction('play');
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action Play - Error: ${JSON.stringify(error)}`);
-            return handleActionError('play', error);
+            return handleActionError('play', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'play' });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
     // Acción: Pause
     const pause = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('pause', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'pause' });
         }
 
         startAction('pause');
@@ -238,15 +244,14 @@ export function useCastManager(
             completeAction('pause');
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action Pause - Error: ${JSON.stringify(error)}`);
-            return handleActionError('pause', error);
+            return handleActionError('pause', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'pause' });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
     // Acción: Seek
     const seek = useCallback(async (position: number): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('seek', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'seek', position });
         }
         
         startAction('seek');
@@ -262,8 +267,7 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action Seek - Error: ${JSON.stringify(error)}`);
-            return handleActionError('seek', error);
+            return handleActionError('seek', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'seek', position });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
@@ -282,7 +286,7 @@ export function useCastManager(
     // Acción: Stop
     const stop = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('stop', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'stop' });
         }
         
         startAction('stop');
@@ -293,15 +297,14 @@ export function useCastManager(
             completeAction('stop');
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action Stop - Error: ${JSON.stringify(error)}`);
-            return handleActionError('stop', error);
+            return handleActionError('stop', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'stop' });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
     // Acción: Mute
     const mute = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('mute', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'mute' });
         }
         
         startAction('mute');
@@ -317,15 +320,14 @@ export function useCastManager(
 
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action Mute - Error: ${JSON.stringify(error)}`);
-            return handleActionError('mute', error);
+            return handleActionError('mute', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'mute' });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
     
     // Acción: Unmute
     const unmute = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('unmute', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'unmute' });
         }
         
         startAction('unmute');
@@ -347,15 +349,14 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action Unmute - Error: ${JSON.stringify(error)}`);
-            return handleActionError('unmute', error);
+            return handleActionError('unmute', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'unmute' });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession]);
     
     // Acción: Set Volume
     const setVolume = useCallback(async (level: number): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('setVolume', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'setVolume', level });
         }
         
         const clampedLevel = Math.max(0, Math.min(1, level));
@@ -372,15 +373,14 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action SetVolume - Error: ${JSON.stringify(error)}`);
-            return handleActionError('setVolume', error);
+            return handleActionError('setVolume', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'setVolume', level });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession, castState.volume.isMuted]);
     
     // Acción: Set Audio Track
     const setAudioTrack = useCallback(async (trackId: number): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('setAudioTrack', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'setAudioTrack', trackId });
         }
         
         startAction('setAudioTrack');
@@ -390,15 +390,14 @@ export function useCastManager(
             completeAction('setAudioTrack');
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action SetAudioTrack - Error: ${JSON.stringify(error)}`);
-            return handleActionError('setAudioTrack', error);
+            return handleActionError('setAudioTrack', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'setAudioTrack', trackId });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
     // Acción: Set Subtitle Track
     const setSubtitleTrack = useCallback(async (trackId: number): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('setSubtitleTrack', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'setSubtitleTrack', trackId });
         }
         
         startAction('setSubtitleTrack');
@@ -412,14 +411,13 @@ export function useCastManager(
             completeAction('setSubtitleTrack');
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action SetSubtitleTrack - Error: ${JSON.stringify(error)}`);
-            return handleActionError('setSubtitleTrack', error);
+            return handleActionError('setSubtitleTrack', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'setSubtitleTrack', trackId });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media.audioTrack]);
 
     const setActiveTrackIds = useCallback(async (trackIds: number[]): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('setActiveTrackIds', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'setActiveTrackIds', trackIds });
         }
         
         startAction('setActiveTrackIds');
@@ -429,15 +427,14 @@ export function useCastManager(
             completeAction('setActiveTrackIds');
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action SetActiveTrackIds - Error: ${JSON.stringify(error)}`);
-            return handleActionError('setActiveTrackIds', error);
+            return handleActionError('setActiveTrackIds', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'setActiveTrackIds', trackIds });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     
     // Acción: Disable Subtitles
     const disableSubtitles = useCallback(async (): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('disableSubtitles', 'No Cast connection available');
+            return handleActionError('action', new PlayerError("CAST_NOT_READY"), { action: 'disableSubtitles' });
         }
         
         startAction('disableSubtitles');
@@ -451,8 +448,7 @@ export function useCastManager(
             completeAction('disableSubtitles');
             return true;
         } catch (error) {
-            currentLogger.current?.error(`Action DisableSubtitles - Error: ${JSON.stringify(error)}`);
-            return handleActionError('disableSubtitles', error);
+            return handleActionError('disableSubtitles', error instanceof PlayerError ? error : new PlayerError("CAST_OPERATION_FAILED"), { action: 'disableSubtitles' });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient, castState.media.audioTrack]);
     

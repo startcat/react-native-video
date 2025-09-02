@@ -400,9 +400,16 @@ Sistema de logging interno condicionado por modo debug.
 | `message` | `string` | ✅          | Mensaje a loggear                              |
 | `data`    | `any`    | ❌          | Datos adicionales opcionales                   |
 
-### `logError(message: string, error: any): void`
+### Logging con ComponentLogger
 
-Sistema de logging de errores (siempre activo).
+El `CastMessageBuilder` utiliza el sistema de logging centralizado a través de `ComponentLogger`:
+
+```typescript
+this.currentLogger?.error(`Error building cast message: ${JSON.stringify(error)}`);
+this.currentLogger?.debug(`Building Cast message for VOD content`);
+this.currentLogger?.warn(`Missing poster URL, using default`);
+this.currentLogger?.info(`CastMessageBuilder initialized`);
+```
 
 **Parámetros:**
 | Parámetro | Tipo     | Obligatorio | Descripción                                    |

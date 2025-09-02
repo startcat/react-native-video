@@ -15,22 +15,6 @@ export const DEFAULT_CAST_CONFIG = {
 } as const;
 
 /*
- *  Mensajes de error estándar
- *
- */
-
-export const CAST_ERROR_MESSAGES = {
-    NO_CONNECTION: 'No hay conexión Cast disponible',
-    LOAD_FAILED: 'Error al cargar el contenido en Cast',
-    INVALID_SOURCE: 'Fuente de contenido no válida',
-    TIMEOUT: 'Tiempo de espera agotado',
-    DEVICE_NOT_READY: 'Dispositivo Cast no está listo',
-    UNSUPPORTED_CONTENT: 'Tipo de contenido no soportado',
-    NETWORK_ERROR: 'Error de red',
-    UNKNOWN_ERROR: 'Error desconocido',
-} as const;
-
-/*
  *  Eventos de logging
  *
  */

@@ -1,14 +1,12 @@
 import { useMemo } from 'react';
+import { PlayerError } from '../../../core/errors';
 import { LoggerConfigBasic } from "../../logger";
-import { CastErrorInfo } from '../types/types';
 import { useCastState } from './useCastState';
 
-export function useCastError(config: LoggerConfigBasic = {}): CastErrorInfo {
+export function useCastError(config: LoggerConfigBasic = {}): PlayerError | null {
     const castState = useCastState(config);
     
     return useMemo(() => castState.error, [
-        castState.error.errorCode,
-        castState.error.errorMessage,
-        castState.error.lastErrorTime
+        castState.error
     ]);
 }

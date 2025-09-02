@@ -115,7 +115,7 @@ const castManager = useCastManager({
 | Callback | Tipo | Descripción |
 |----------|------|-------------|
 | `onContentLoaded` | `(contentInfo: CastContentInfo) => void` | Contenido cargado exitosamente |
-| `onContentLoadError` | `(error: string, contentInfo: CastContentInfo) => void` | Error al cargar contenido |
+| `onError` | `(error: PlayerError, context: CastErrorContext) => void` | Error en cualquier operación Cast |
 | `onPlaybackStarted` | `() => void` | Reproducción iniciada |
 | `onPlaybackEnded` | `() => void` | Reproducción finalizada |
 | `onSeekCompleted` | `(newPosition: number) => void` | Seek completado |
@@ -131,7 +131,7 @@ El hook retorna un objeto `CastManager` con las siguientes propiedades:
 |-----------|------|-------------|
 | `state` | `CastManagerState` | Estado interno del manager |
 | `state.isLoading` | `boolean` | Indica si está cargando contenido |
-| `state.lastError` | `string \| null` | Último error ocurrido |
+| `state.lastError` | `PlayerError \| null` | Último error ocurrido |
 | `state.lastAction` | `string \| null` | Última acción ejecutada |
 | `state.canControl` | `boolean` | Indica si se pueden ejecutar controles |
 
@@ -229,7 +229,7 @@ const CastPlayer = () => {
     return (
         <View>
             <Text>Cargando: {castManager.state.isLoading ? 'Sí' : 'No'}</Text>
-            <Text>Último error: {castManager.state.lastError || 'Ninguno'}</Text>
+            <Text>Último error: {castManager.state.lastError?.message || 'Ninguno'}</Text>
             
             <Button title="Cargar Contenido" onPress={handleLoadContent} />
             <Button title="Play" onPress={castManager.play} />
@@ -365,8 +365,9 @@ const CastEnabledPlayer = () => {
                     duration: content.duration
                 });
             },
-            onPlaybackError: (error) => {
-                showErrorToast(error);
+            onError: (error, context) => {
+                showErrorToast(`${error.code}: ${error.message}`);
+                console.log(`Failed action: ${context.action}`);
             }
         }
     });
@@ -419,8 +420,9 @@ const CastEnabledPlayer = () => {
 - Estado de error accesible en `state.lastError`
 
 **Callbacks de Error:**
-- `onContentLoadError` para errores de carga
-- Información detallada del error y contenido afectado
+- `onError` para todos los tipos de errores Cast
+- Contexto detallado con acción que falló y parámetros
+- Códigos de error específicos para manejo granular
 
 ### Performance y Estabilidad
 

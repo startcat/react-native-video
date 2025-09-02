@@ -400,11 +400,16 @@ Ejecuta reintento de carga con delay configurable.
 #### `setLoadingState(loading: boolean): void`
 Establece el estado de carga y actualiza estado del manager.
 
-#### `log(message: string, data?: any): void`
-Sistema de logging condicional basado en modo debug.
+#### Logging con ComponentLogger
 
-#### `logError(message: string, error: any): void`
-Sistema de logging de errores (siempre activo).
+El `CastManager` utiliza el sistema de logging centralizado:
+
+```typescript
+this.currentLogger?.info('CastManager initialized');
+this.currentLogger?.debug('Loading content for Cast');
+this.currentLogger?.warn('Cast device not ready');
+this.currentLogger?.error('Failed to load content');
+```
 
 ---
 

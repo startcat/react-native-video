@@ -7,7 +7,8 @@ import {
     useStreamPosition
 } from 'react-native-google-cast';
 
-import { CastConnectionInfo, CastErrorInfo, CastMediaInfo, CastStateCustom, CastTrackInfo } from '../types/types';
+import { PlayerError } from '../../../core/errors';
+import { CastConnectionInfo, CastMediaInfo, CastStateCustom, CastTrackInfo } from '../types/types';
 import { castReducer, createInitialCastState, getVolume } from '../utils/castUtils';
 
 import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from '../../logger';
@@ -17,7 +18,7 @@ import { DEFAULT_CAST_CONFIG, LOGGER_CONFIG } from '../constants';
 export function useCastState(config: LoggerConfigBasic = {}, callbacks:{ 
     onConnectionChange?: (status: CastConnectionInfo['status']) => void;
     onMediaChange?: (media: CastMediaInfo) => void;
-    onError?: (error: CastErrorInfo) => void;
+    onError?: (error: PlayerError) => void;
     onAudioTrackChange?: (track: CastTrackInfo | null) => void;
     onTextTrackChange?: (track: CastTrackInfo | null) => void;
 } = {}): CastStateCustom {
