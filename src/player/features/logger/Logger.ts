@@ -17,9 +17,11 @@ import { ANSI_COLORS } from './constants/colors';
 import { CONSOLE_ICONS } from './constants/icons';
 import { DefaultComponentLogger } from './DefaultComponentLogger';
 
+type LoggerInternalConfig = Required<Omit<LoggerConfig, 'instanceId'>> & { instanceId?: number };
+
 export class Logger implements ILogger {
 
-    private config: Required<LoggerConfig>;
+    private config: LoggerInternalConfig;
     private instanceId?: number;
 
     // Colores para consola
