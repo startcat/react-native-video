@@ -70,22 +70,23 @@ const builder = new CastMessageBuilder({
 
 ## Mensajes y Logging
 
-### `CAST_ERROR_MESSAGES`
+### Sistema de Errores PlayerError
 
-Mensajes de error estándar en castellano.
+El sistema Cast utiliza errores estructurados con la clase `PlayerError` en lugar de strings genéricos.
 
-| Clave                | Valor                                        | Descripción                              |
-|----------------------|----------------------------------------------|------------------------------------------|
-| `NO_CONNECTION`      | `'No hay conexión Cast disponible'`         | Sin conexión Cast                        |
-| `LOAD_FAILED`        | `'Error al cargar el contenido en Cast'`    | Error de carga                           |
-| `INVALID_SOURCE`     | `'Fuente de contenido no válida'`           | Source inválido                          |
-| `TIMEOUT`            | `'Tiempo de espera agotado'`                | Timeout                                  |
-| `DEVICE_NOT_READY`   | `'Dispositivo Cast no está listo'`          | Dispositivo no listo                     |
-| `UNSUPPORTED_CONTENT`| `'Tipo de contenido no soportado'`          | Contenido no soportado                   |
-| `NETWORK_ERROR`      | `'Error de red'`                             | Error de conectividad                    |
-| `UNKNOWN_ERROR`      | `'Error desconocido'`                       | Error no identificado                    |
+| Código | Valor | Descripción | Cuándo se usa |
+|--------|-------|-------------|---------------|
+| `CAST_DEVICE_NOT_FOUND` (601) | No hay dispositivo Cast disponible | Al intentar conectar sin dispositivos |
+| `CAST_CONNECTION_FAILED` (602) | Falló la conexión al dispositivo Cast | Problemas de red/conexión |
+| `CAST_PLAYBACK_INTERRUPTED` (603) | Reproducción Cast interrumpida | Errores durante reproducción |
+| `CAST_INVALID_SOURCE` (604) | URI de fuente inválida o faltante | Validación de contenido |
+| `CAST_INVALID_MANIFEST` (605) | Manifest inválido o faltante | Validación de contenido |
+| `CAST_INVALID_METADATA` (606) | Metadata inválida o faltante | Validación de contenido |
+| `CAST_MESSAGE_BUILD_FAILED` (607) | Error al construir mensaje Cast | Construcción de mensaje |
+| `CAST_NOT_READY` (608) | Dispositivo no listo para operación | Validación de estado |
+| `CAST_OPERATION_FAILED` (609) | Operación Cast falló | Errores generales de operación |
 
-**Estado:** ❌ **No utilizado actualmente** - Disponible para uso futuro en manejo de errores.
+**Estado:** ✅ **Implementado y en uso** - Sistema unificado de errores con contexto detallado.
 
 ### `CAST_LOG_EVENTS`
 
@@ -155,12 +156,11 @@ Prefijo para logs del sistema Cast (legacy).
 ```typescript
 import { LOG_PREFIX } from './constants';
 
-// En CastMessageBuilder
-private log(message: string, data?: any): void {
-    if (this.debugMode) {
-        console.log(`${LOG_PREFIX} ${LOG_KEY} ${message}`);
-    }
-}
+// En CastMessageBuilder con ComponentLogger
+this.currentLogger?.debug(`Building Cast message for ${contentType}`);
+this.currentLogger?.info(`Cast message constructed successfully`);
+this.currentLogger?.warn(`Missing metadata, using defaults`);
+this.currentLogger?.error(`Failed to build Cast message: ${error}`);
 ```
 
 ---

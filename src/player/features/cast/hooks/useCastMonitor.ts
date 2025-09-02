@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { PlayerError } from '../../../core/errors';
 import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from '../../logger';
 import { LOGGER_CONFIG } from '../constants';
-import { CastConnectionInfo, CastErrorInfo, CastTrackInfo } from '../types/types';
+import { CastConnectionInfo, CastTrackInfo } from '../types/types';
 import { useCastState } from './useCastState';
 
 // Hook para monitorear cambios específicos
@@ -10,7 +11,7 @@ export function useCastMonitor(config: LoggerConfigBasic = {}, callbacks: {
     onDisconnect?: () => void;
     onPlay?: () => void;
     onPause?: () => void;
-    onError?: (error: CastErrorInfo) => void;
+    onError?: (error: PlayerError) => void;
     onAudioTrackChange?: (track: CastTrackInfo | null) => void;
     onTextTrackChange?: (track: CastTrackInfo | null) => void;
 }) {
@@ -95,7 +96,7 @@ export function useCastMonitor(config: LoggerConfigBasic = {}, callbacks: {
         }
         
         // Monitor errores
-        if (error.hasError && callbacks.onError) {
+        if (error && callbacks.onError) {
             currentLogger.current?.warn(`Media error: ${JSON.stringify(error)}`);
             callbacks.onError(error);
         }

@@ -8,6 +8,7 @@ import {
     type MediaTrack
 } from 'react-native-google-cast';
 
+import { PlayerError } from '../../../core/errors';
 import { ComponentLogger, IDrm, IMappedYoubora, IVideoSource } from '../../../types';
 
 export interface CastConnectionInfo {
@@ -49,18 +50,11 @@ export interface CastVolumeInfo {
     isMuted: boolean;
 }
 
-export interface CastErrorInfo {
-    hasError: boolean;
-    errorCode: string | null;
-    errorMessage: string | null;
-    lastErrorTime: number | null;
-}
-
 export interface CastStateCustom {
     connection: CastConnectionInfo;
     media: CastMediaInfo;
     volume: CastVolumeInfo;
-    error: CastErrorInfo;
+    error: PlayerError | null;
     lastUpdate: number;
 }
 
@@ -92,14 +86,10 @@ export type CastAction =
     }
     | {
         type: 'SET_ERROR';
-        payload: {
-            errorCode: string;
-            errorMessage: string;
-        };
+        payload: PlayerError;
     }
     | {
         type: 'CLEAR_ERROR';
-        
     }
     | {
         type: 'UPDATE_LOGGER';
@@ -137,7 +127,7 @@ export interface CastContentInfo {
 
 export interface CastManagerCallbacks {
     onContentLoaded?: (contentInfo: CastContentInfo) => void;
-    onContentLoadError?: (error: string, contentInfo: CastContentInfo) => void;
+    onError?: (error: PlayerError, contentInfo: CastContentInfo) => void;
     onPlaybackStarted?: () => void;
     onPlaybackEnded?: () => void;
     onSeekCompleted?: (newPosition: number) => void;
@@ -165,7 +155,7 @@ export interface CastManagerActions {
 
 export interface CastManagerState {
     isLoading: boolean;
-    lastError: string | null;
+    lastError: PlayerError | null;
     lastAction: string | null;
     canControl: boolean;
 }
@@ -212,4 +202,12 @@ export interface CastMessage {
     credentialsType?: string;
     playbackRate?: number;
     queueData?: MediaQueueData;
+}
+
+export interface CastErrorContext {
+    action: string;
+    content?: CastContentInfo;
+    position?: number;
+    volume?: number;
+    trackId?: number;
 }

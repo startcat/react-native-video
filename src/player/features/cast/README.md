@@ -87,10 +87,11 @@ Cada componente del sistema Cast tiene su documentación completa en castellano:
 - Evita recargas innecesarias
 - Validación de URLs y metadatos
 
-### ✅ Manejo de Errores
-- Sistema de reintentos configurable
-- Timeouts personalizables
-- Callbacks específicos para diferentes tipos de errores
+### ✅ Manejo de Errores con PlayerError
+- Sistema unificado de errores con códigos específicos
+- Callbacks centralizados con contexto detallado
+- Logging automático de errores con información estructurada
+- 7 tipos de errores Cast específicos disponibles
 
 ### ✅ Soporte Completo de Contenido
 - VOD (Video on Demand)
@@ -233,8 +234,10 @@ const castManager = useCastManager({
     onContentLoaded: (content) => {
         // Contenido cargado exitosamente
     },
-    onContentLoadError: (error, content) => {
-        // Error al cargar contenido
+    onError: (error, context) => {
+        // Error en cualquier operación Cast
+        console.log(`Error ${error.code}: ${error.message}`);
+        console.log(`Action: ${context.action}`);
     },
     onPlaybackStarted: () => {
         // Reproducción iniciada
@@ -318,7 +321,7 @@ interface CastManagerStatus {
     isLoading: boolean;
     isContentLoaded: boolean;
     currentContent?: CastContentInfo;
-    error?: string;
+    error?: PlayerError;
 }
 
 // Información de contenido
@@ -410,24 +413,44 @@ const loadLive = async () => {
 };
 ```
 
-### Manejo de Errores
+### Manejo de Errores con PlayerError
 ```typescript
 const castManager = useCastManager({
     callbacks: {
-        onContentLoadError: (error, content) => {
-            console.error('Error loading content:', error);
+        onError: (error, context) => {
+            console.error(`Cast Error [${error.code}]: ${error.message}`);
+            console.log(`Failed action: ${context.action}`);
             
-            if (error.includes('timeout')) {
-                // Reintentar con timeout mayor
-                reloadWithExtendedTimeout();
-            } else if (error.includes('network')) {
-                // Mostrar error de red
-                showNetworkError();
+            // Manejo específico por tipo de error
+            switch (error.code) {
+                case 'CAST_NOT_READY':
+                    showMessage('Dispositivo Cast no disponible');
+                    break;
+                case 'CAST_OPERATION_FAILED':
+                    retryOperation(context.action);
+                    break;
+                case 'CAST_INVALID_SOURCE':
+                    validateAndFixSource(context.content);
+                    break;
             }
         }
     }
 });
 ```
+
+## Tipos de Errores Cast
+
+| Código | Descripción | Cuándo ocurre | Contexto disponible |
+|--------|-------------|---------------|-------------------|
+| `CAST_DEVICE_NOT_FOUND` (601) | No hay dispositivo Cast disponible | Al intentar conectar | `action` |
+| `CAST_CONNECTION_FAILED` (602) | Falló la conexión al dispositivo Cast | Problemas de red/conexión | `action` |
+| `CAST_PLAYBACK_INTERRUPTED` (603) | Reproducción Cast interrumpida | Errores durante reproducción | `action` |
+| `CAST_INVALID_SOURCE` (604) | URI de fuente inválida o faltante | Validación de contenido | `action`, `content` |
+| `CAST_INVALID_MANIFEST` (605) | Manifest inválido o faltante | Validación de contenido | `action`, `content` |
+| `CAST_INVALID_METADATA` (606) | Metadata inválida o faltante | Validación de contenido | `action`, `content` |
+| `CAST_MESSAGE_BUILD_FAILED` (607) | Error al construir mensaje Cast | Construcción de mensaje | `action`, `content` |
+| `CAST_NOT_READY` (608) | Dispositivo no listo para operación | Validación de estado | `action`, parámetros específicos |
+| `CAST_OPERATION_FAILED` (609) | Operación Cast falló | Errores generales de operación | `action`, parámetros específicos |
 
 ## Debugging y Logging
 
