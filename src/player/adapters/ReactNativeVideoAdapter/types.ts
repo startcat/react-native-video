@@ -1,4 +1,5 @@
-import { type PlayerAdapter, type PlayerContentInfo, type PlayerErrorData, type PlayerLoadData, type PlayerProgressData, type TrackInfo } from '../types';
+import { PlayerError } from "../../core/errors";
+import { type PlayerAdapter, type PlayerContentInfo, type PlayerLoadData, type PlayerProgressData, type TrackInfo } from '../types';
 
 export interface ReactNativeVideoAdapterProps {
     contentInfo?: PlayerContentInfo;
@@ -19,7 +20,7 @@ export interface ReactNativeVideoAdapterProps {
     onLoad?: (data: PlayerLoadData) => void;
     onProgress?: (data: PlayerProgressData) => void;
     onEnd?: () => void;
-    onError?: (error: PlayerErrorData) => void;
+    onError?: (error: PlayerError) => void;
     onReady?: () => void;
     onBuffer?: (isBuffering: boolean) => void;
     onAudioTrackChanged?: (track: TrackInfo | null) => void;
