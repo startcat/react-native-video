@@ -151,7 +151,19 @@ export function useCastState(config: LoggerConfigBasic = {}, callbacks:{
         }
         
         // Callback de error
-        if (currentState.error.hasError !== prevState.error.hasError && callbacks.onError) {
+        const errorChanged = (() => {
+            // Si uno es null y el otro no
+            if (!currentState.error !== !prevState.error) return true;
+            
+            // Si ambos son null
+            if (!currentState.error && !prevState.error) return false;
+            
+            // Si ambos existen, comparar por código y mensaje
+            return currentState.error?.key !== prevState.error?.key ||
+                   currentState.error?.message !== prevState.error?.message;
+        })();
+
+        if (errorChanged && callbacks.onError) {
             callbacks.onError(currentState.error);
         }
         
