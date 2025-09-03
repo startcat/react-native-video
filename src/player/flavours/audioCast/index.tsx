@@ -17,6 +17,7 @@ import {
     useCastVolume
 } from '../../features/cast/hooks';
 
+import { PlayerError, handleErrorException } from "../../core/errors";
 import { type CastContentInfo } from '../../features/cast/types/types';
 
 import {
@@ -43,7 +44,6 @@ import { ComponentLogger } from '../../features/logger';
 
 import { styles } from '../styles';
 
-import { PlayerError } from "../../core/errors";
 import {
     type AudioFlavourProps,
     type AudioPlayerActionEventProps,
@@ -110,7 +110,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     const onErrorCallback = useCallback((error: PlayerError, content: CastContentInfo) => {
         currentLogger.current?.error(`Cast Manager - Content load error: ${error}`);
         setIsLoadingContent(false);
-        onErrorRef.current?.({ message: error });
+        onErrorRef.current?.(error);
     }, []);
 
     const onPlaybackStartedCallback = useCallback(() => {
@@ -208,7 +208,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     // CREATE REFS FOR MAIN CALLBACKS to avoid circular dependencies
     const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
     const onEndRef = useRef<() => void>();
-    const onErrorRef = useRef<(e: any) => void>();
+    const onErrorRef = useRef<(error: PlayerError) => void>();
 
     // Hook para el estado de buffering
     const isBuffering = useIsBuffering({
@@ -236,11 +236,11 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             currentLogger.current?.info(`Cast Monitor onPause`);
             setPaused(true);
         },
-        onError: (error) => {
+        onError: (error: PlayerError) => {
             currentLogger.current?.info(`Cast Monitor onError ${JSON.stringify(error)}`);
             setIsLoadingContent(false);
             setHasTriedLoading(false);
-            handleOnError({ message: error.errorMessage || 'Cast error', code: error.errorCode || undefined });
+            handleOnError(error);
         }
     });
 
@@ -386,14 +386,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             });
 
         } catch (error: any) {
-            currentLogger.current?.error(`changeSource failed: ${error?.message}`);
-            handleOnError({ 
-                error: { 
-                    code: 'SOURCE_ERROR', 
-                    error: error?.message || 'Failed to change source',
-                    errorString: error?.message || 'Failed to change source',
-                } 
-            });
+            handleOnError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
             return;
         }
     };
@@ -539,7 +532,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             } catch (error: any) {
                 setIsLoadingContent(false);
                 currentLogger.current?.error(`loadContentWithCastManager - Failed: ${JSON.stringify(error)}`);
-                handleOnError({ message: error?.message || 'Failed to load content to Cast' });
+                handleOnError(handleErrorException(error, 'CAST_OPERATION_FAILED'));
             }
         }
     }, [castMedia, castManager, props.hooks, props.playerAnalytics, props.playerProgress, props.playerMetadata, props.liveStartDate, props.playerAds, props.events]);
@@ -592,13 +585,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             }
             
             currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
-            handleOnError({ 
-                error: { 
-                    code: 'CAST_TUDUM_ERROR', 
-                    error: error?.message || 'Failed to load tudum to Cast',
-                    errorString: error?.message || 'Failed to load tudum to Cast',
-                } 
-            });
+            handleOnError(handleErrorException(error, 'CAST_OPERATION_FAILED'));
 
             currentLogger.current?.debug(`Tudum failed, loading content directly`);
             currentSourceType.current = 'content';
@@ -614,19 +601,24 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         currentSourceType.current = 'content';
         
         if (sourceRef.current) {
-            sourceRef.current?.changeSource({
-                id: props.playerMetadata?.id,
-                title: props.playerMetadata?.title,
-                subtitle: props.playerMetadata?.subtitle,
-                description: props.playerMetadata?.description,
-                poster: props.playerMetadata?.poster,
-                squaredPoster: props.playerMetadata?.squaredPoster,
-                manifests: props.manifests,
-                startPosition: props.playerProgress?.currentTime || 0,
-                isLive: !!props.playerProgress?.isLive,
-                isCast: true,
-                headers: props.headers,
-            });
+            try {
+                sourceRef.current?.changeSource({
+                    id: props.playerMetadata?.id,
+                    title: props.playerMetadata?.title,
+                    subtitle: props.playerMetadata?.subtitle,
+                    description: props.playerMetadata?.description,
+                    poster: props.playerMetadata?.poster,
+                    squaredPoster: props.playerMetadata?.squaredPoster,
+                    manifests: props.manifests,
+                    startPosition: props.playerProgress?.currentTime || 0,
+                    isLive: !!props.playerProgress?.isLive,
+                    isCast: true,
+                    headers: props.headers,
+                });
+            } catch (error: any) {
+                handleOnError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
+                return;
+            }
         }
     }, [props.playerMetadata, props.manifests, props.playerProgress, props.headers]);
 
@@ -697,20 +689,18 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
     }, [loadContentWithCastManager]);
 
     const updatePlayerProgressRef = useCallback(() => {
-        try {
-            playerProgressRef.current = {
-                ...props.playerProgress,
-                currentTime: currentTime,
-                duration: sliderValues.current?.duration || 0,
-                isPaused: paused,
-                isMuted: muted,
-                isContentLoaded: isContentLoaded,
-                isChangingSource: isChangingSource.current,
-                sliderValues: sliderValues.current,
-            };
-        } catch (ex: any) {
-            currentLogger.current?.error(`updatePlayerProgressRef - error ${ex?.message}`);
-        }
+
+        playerProgressRef.current = {
+            ...props.playerProgress,
+            currentTime: currentTime,
+            duration: sliderValues.current?.duration || 0,
+            isPaused: paused,
+            isMuted: muted,
+            isContentLoaded: isContentLoaded,
+            isChangingSource: isChangingSource.current,
+            sliderValues: sliderValues.current,
+        };
+
     }, [paused, muted, isContentLoaded, currentTime, props.playerProgress]);
 
     const onDVRModeChange = useCallback((data: ModeChangeData) => {
@@ -1026,18 +1016,12 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
     }, [castProgress.currentTime, castProgress.duration, castConnected, paused, isBuffering, isLoadingContent, props?.events?.onChangeCommonData]);
 
-    const handleOnError = useCallback((message: string, code?: string | number) => {
-        currentLogger.current?.error(`handleOnError: ${JSON.stringify(message)} (${code}) - currentSourceType: ${currentSourceType.current}`);
+    const handleOnError = useCallback((error: PlayerError) => {
+        currentLogger.current?.error(`handleOnError: ${JSON.stringify(error?.message)} (${error?.code}) - currentSourceType: ${currentSourceType.current}`);
         setIsLoadingContent(false);
 
         if (props.events?.onError && typeof(props.events.onError) === 'function'){
-            props.events.onError({ error: {
-                errorString: message,
-                errorException: message,
-                errorCode: code?.toString(),
-                error: message,
-                code: code
-            } });
+            props.events.onError(error);
         }
     }, [props.events?.onError]);
 

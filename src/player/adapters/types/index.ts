@@ -3,6 +3,8 @@
  *
  */
 
+import type { PlayerError } from '../../core/errors';
+
 export interface TrackInfo {
     id: number;
     name: string | null;
@@ -89,7 +91,7 @@ export interface PlayerAdapter {
     onLoad?: (data: PlayerLoadData) => void;
     onProgress?: (data: PlayerProgressData) => void;
     onEnd?: () => void;
-    onError?: (error: PlayerErrorData) => void;
+    onError?: (error: PlayerError) => void;
     onReady?: () => void;
     onBuffer?: (isBuffering: boolean) => void;
     onAudioTrackChanged?: (track: TrackInfo | null) => void;
@@ -161,11 +163,4 @@ export interface PlayerProgressData {
     seekableDuration: number;
     bufferedDuration?: number;
     currentBitrate?: number;
-}
-
-export interface PlayerErrorData {
-    code?: string | number;
-    message: string;
-    details?: any;
-    isRecoverable?: boolean;
 }

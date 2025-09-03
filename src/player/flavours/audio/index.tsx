@@ -15,6 +15,12 @@ import {
 import Video, { type VideoRef } from '../../../Video';
 
 import {
+    PlayerError,
+    handleErrorException,
+    mapVideoErrorToPlayerError
+} from '../../core/errors';
+
+import {
     useIsBuffering
 } from '../../core/buffering';
 
@@ -193,15 +199,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 });
 
             } catch (error: any) {
-                currentLogger.current?.error(`changeSource failed: ${error?.message}`);
-                handleOnError({ 
-                    error: { 
-                        code: 'SOURCE_ERROR', 
-                        error: error?.message || 'Failed to change source',
-                        errorString: error?.message || 'Failed to change source',
-                    } 
-                });
-                return;
+                return handleOnInternalError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
             }
 
         } else {
@@ -288,19 +286,24 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         currentSourceType.current = 'content';
         
         if (sourceRef.current) {
-            sourceRef.current?.changeSource({
-                id: props.playerMetadata?.id,
-                title: props.playerMetadata?.title,
-                subtitle: props.playerMetadata?.subtitle,
-                description: props.playerMetadata?.description,
-                poster: props.playerMetadata?.poster,
-                squaredPoster: props.playerMetadata?.squaredPoster,
-                manifests: props.manifests,
-                startPosition: props.playerProgress?.currentTime || 0,
-                isLive: !!props.playerProgress?.isLive,
-                isCast: false,
-                headers: props.headers,
-            });
+            try {
+                sourceRef.current?.changeSource({
+                    id: props.playerMetadata?.id,
+                    title: props.playerMetadata?.title,
+                    subtitle: props.playerMetadata?.subtitle,
+                    description: props.playerMetadata?.description,
+                    poster: props.playerMetadata?.poster,
+                    squaredPoster: props.playerMetadata?.squaredPoster,
+                    manifests: props.manifests,
+                    startPosition: props.playerProgress?.currentTime || 0,
+                    isLive: !!props.playerProgress?.isLive,
+                    isCast: false,
+                    headers: props.headers,
+                });
+            } catch (error: any) {
+                handleOnInternalError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
+                return;
+            }
 
             // Si el source ya está listo inmediatamente, forzar la carga
             setTimeout(() => {
@@ -351,9 +354,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     const combineEventHandlers = (originalHandler?: Function, analyticsHandler?: Function) => {
         return (...args: any[]) => {
             // Ejecutar handler original primero
-            originalHandler?.(...args);
-            // Luego ejecutar handler de analíticas
-            analyticsHandler?.(...args);
+            const result = originalHandler?.(...args);
+            
+            // Para eventos de error, pasar el PlayerError ya procesado en lugar del OnVideoErrorData crudo
+            if (originalHandler === handleOnVideoError && result instanceof PlayerError) {
+                analyticsHandler?.(result);
+            } else {
+                // Para otros eventos, ejecutar handler de analíticas normalmente
+                analyticsHandler?.(...args);
+            }
+
+            return result;
         };
     };
 
@@ -373,27 +384,6 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
             
             // También preparar el progress
             if (data.isReady) {
-                try {
-                    playerProgressRef.current = {
-                        ...props.playerProgress,
-                        currentTime: currentTime,
-                        duration: sliderValues?.duration || 0,
-                        isPaused: paused,
-                        isMuted: muted,
-                        isContentLoaded: isContentLoaded,
-                        isChangingSource: isChangingSource.current,
-                        sliderValues: sliderValues,
-                    };
-                } catch (ex: any) {
-                    currentLogger.current?.error(`onSourceChanged - error ${ex?.message}`);
-                }
-            }
-            
-        } else if (currentSourceType.current === 'content') {
-            // Si ya estamos en modo contenido, procesar normalmente
-            currentLogger.current?.debug(`onSourceChanged - Processing content source normally`);
-            
-            try {
                 playerProgressRef.current = {
                     ...props.playerProgress,
                     currentTime: currentTime,
@@ -404,9 +394,23 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     isChangingSource: isChangingSource.current,
                     sliderValues: sliderValues,
                 };
-            } catch (ex: any) {
-                currentLogger.current?.error(`onSourceChanged - error ${ex?.message}`);
+
             }
+            
+        } else if (currentSourceType.current === 'content') {
+            // Si ya estamos en modo contenido, procesar normalmente
+            currentLogger.current?.debug(`onSourceChanged - Processing content source normally`);
+            
+            playerProgressRef.current = {
+                ...props.playerProgress,
+                currentTime: currentTime,
+                duration: sliderValues?.duration || 0,
+                isPaused: paused,
+                isMuted: muted,
+                isContentLoaded: isContentLoaded,
+                isChangingSource: isChangingSource.current,
+                sliderValues: sliderValues,
+            };
             
             setPlayerSource(data);
             
@@ -420,20 +424,16 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 currentLogger.current?.info(`onSourceChanged - Setting currentSourceType to content`);
             }
             
-            try {
-                playerProgressRef.current = {
-                    ...props.playerProgress,
-                    currentTime: currentTime,
-                    duration: sliderValues?.duration || 0,
-                    isPaused: paused,
-                    isMuted: muted,
-                    isContentLoaded: isContentLoaded,
-                    isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues,
-                };
-            } catch (ex: any) {
-                currentLogger.current?.error(`onSourceChanged - error ${ex?.message}`);
-            }
+            playerProgressRef.current = {
+                ...props.playerProgress,
+                currentTime: currentTime,
+                duration: sliderValues?.duration || 0,
+                isPaused: paused,
+                isMuted: muted,
+                isContentLoaded: isContentLoaded,
+                isChangingSource: isChangingSource.current,
+                sliderValues: sliderValues,
+            };
             
             setPlayerSource(data);
         }
@@ -504,21 +504,17 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 isLiveEdgePosition: data.isLiveEdgePosition
             });
 
-            try {
-                playerProgressRef.current = {
-                    ...props.playerProgress,
-                    currentTime: currentTime,
-                    duration: sliderValues?.duration || 0,
-                    isPaused: paused,
-                    isMuted: muted,
-                    isContentLoaded: isContentLoaded,
-                    isChangingSource: isChangingSource.current,
-                    sliderValues: sliderValues,
-                    currentProgram: data.currentProgram,
-                };
-            } catch (ex: any) {
-                currentLogger.current?.error(`handleOnProgressUpdate - error ${ex?.message}`);
-            }
+            playerProgressRef.current = {
+                ...props.playerProgress,
+                currentTime: currentTime,
+                duration: sliderValues?.duration || 0,
+                isPaused: paused,
+                isMuted: muted,
+                isContentLoaded: isContentLoaded,
+                isChangingSource: isChangingSource.current,
+                sliderValues: sliderValues,
+                currentProgram: data.currentProgram,
+            };
         }
     }, [currentTime, paused, muted, isContentLoaded, props.playerProgress]);
 
@@ -949,12 +945,26 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
     }
 
-    const handleOnError = (e: OnVideoErrorData) => {
-        currentLogger.current?.error(`handleOnError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
+    const handleOnVideoError = (e: OnVideoErrorData) => {
+        currentLogger.current?.error(`handleOnVideoError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`);
+        const playerError = mapVideoErrorToPlayerError(e);
+
         if (props.events?.onError && typeof(props.events.onError) === 'function'){
-            props.events.onError(e);
+            props.events.onError(playerError);
         }
+
+        return playerError;
     }
+
+    const handleOnInternalError = (error: PlayerError) => {
+        currentLogger.current?.error(`handleOnInternalError: ${JSON.stringify(error)}`);
+
+        if (props.events?.onError && typeof(props.events.onError) === 'function'){
+            props.events.onError(error);
+        }
+
+        return false;
+    };
 
     /*
      *  Render
@@ -1049,7 +1059,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                         onLoad={combineEventHandlers(handleOnLoad, videoEvents.onLoad)}
                         onProgress={combineEventHandlers(handleOnProgress, videoEvents.onProgress)}
                         onEnd={combineEventHandlers(handleOnEnd, videoEvents.onEnd)}
-                        onError={combineEventHandlers(handleOnError, videoEvents.onError)}
+                        onError={combineEventHandlers(handleOnVideoError, videoEvents.onError)}
                         onReadyForDisplay={combineEventHandlers(handleOnReadyForDisplay, videoEvents.onReadyForDisplay)}
                         onReceiveAdEvent={videoEvents.onReceiveAdEvent}
                         onBuffer={combineEventHandlers(handleOnBuffer, videoEvents.onBuffer)}

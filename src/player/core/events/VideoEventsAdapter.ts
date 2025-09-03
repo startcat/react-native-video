@@ -4,6 +4,7 @@
  */
 
 import { PlayerAnalyticsEvents } from '../../features/analytics';
+import { mapVideoErrorToPlayerError, PlayerError } from '../errors';
 
 import type {
     OnAudioTracksData,
@@ -139,8 +140,18 @@ export class VideoEventsAdapter {
         this.isSessionActive = false;
     };
 
-    onError = (data: OnVideoErrorData) => {
-        this.errorHandler.handleError(data);
+    onError = (data: OnVideoErrorData | PlayerError) => {
+        let playerError: PlayerError;
+        
+        // Si ya es un PlayerError, usarlo directamente
+        if (data instanceof PlayerError) {
+            playerError = data;
+        } else {
+            // Si es OnVideoErrorData, procesarlo
+            playerError = mapVideoErrorToPlayerError(data);
+        }
+        
+        this.errorHandler.handleError(playerError);
     };
 
     onReceiveAdEvent = (data: OnReceiveAdEventData) => {

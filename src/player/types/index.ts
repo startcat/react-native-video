@@ -1,4 +1,5 @@
 export * from '../core/context';
+export * from '../core/errors';
 export * from '../features';
 export * from './components';
 export * from './enums';
