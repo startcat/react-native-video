@@ -44,6 +44,7 @@ Interfaz para configurar el comportamiento del logger:
 | `includeTimestamp` | `boolean` | `true` | Incluye timestamp en los mensajes |
 | `includeInstanceId` | `boolean` | `true` | Incluye ID de instancia en los mensajes |
 | `useColors` | `boolean` | `__DEV__` | Aplica colores en consola (solo desarrollo) |
+| `useConsoleLogForAllLevels` | `boolean` | `false` | Usa console.log para todos los niveles (evita stacktrace de React Native) |
 
 ## Logger
 
@@ -110,6 +111,35 @@ Cuando `useColors` está habilitado (por defecto en desarrollo):
 | INFO | Green | `\x1b[32m` |
 | WARN | Yellow | `\x1b[33m` |
 | ERROR | Red | `\x1b[31m` |
+
+### Configuración de Métodos de Console
+
+#### useConsoleLogForAllLevels
+
+Por defecto, el logger utiliza diferentes métodos de console según el nivel:
+- `DEBUG` e `INFO`: `console.log`
+- `WARN`: `console.warn`
+- `ERROR`: `console.error`
+
+En React Native, `console.warn` y `console.error` añaden automáticamente un stacktrace que puede ser innecesario para logs simples. La propiedad `useConsoleLogForAllLevels` permite forzar el uso de `console.log` para todos los niveles, evitando el stacktrace adicional.
+
+**Cuándo usar `useConsoleLogForAllLevels: true`:**
+- Cuando quieres logs más limpios sin stacktrace automático
+- En desarrollo de React Native donde el stacktrace puede ser molesto
+- Para mantener un formato consistente en todos los niveles de log
+
+**Ejemplo de configuración:**
+```typescript
+const logger = new Logger({
+  useConsoleLogForAllLevels: true, // Todos los logs usan console.log
+  useColors: true,
+  level: LogLevel.DEBUG
+});
+
+// Estos logs NO mostrarán stacktrace automático
+logger.warn('MyComponent', 'Advertencia simple');
+logger.error('MyComponent', 'Error controlado');
+```
 
 ## LoggerFactory
 
@@ -228,12 +258,34 @@ const logger = new Logger({
   includeTimestamp: true,
   includeInstanceId: true,
   useColors: true,
+  useConsoleLogForAllLevels: false, // Usar métodos específicos por nivel
 }, 42);
 
 // Actualizar configuración dinámicamente
 logger.updateConfig({
   level: LogLevel.DEBUG,
+  useConsoleLogForAllLevels: true, // Cambiar a console.log para todos los niveles
 });
+```
+
+### Configuración para React Native
+
+```typescript
+import { Logger, LogLevel } from './logger';
+
+// Configuración recomendada para React Native (evita stacktrace innecesario)
+const rnLogger = new Logger({
+  enabled: true,
+  level: LogLevel.DEBUG,
+  useColors: true,
+  useConsoleLogForAllLevels: true, // Evita stacktrace de console.warn/error
+  includeTimestamp: true,
+  prefix: '📱 RNVideo'
+});
+
+// Logs limpios sin stacktrace automático
+rnLogger.warn('Player', 'Configuración no encontrada');
+rnLogger.error('Player', 'Error de conexión');
 ```
 
 ### Uso con LoggerUtils

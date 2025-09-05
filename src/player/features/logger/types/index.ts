@@ -24,6 +24,7 @@ export interface LoggerConfig extends LoggerConfigBasic {
     includeTimestamp?: boolean;
     includeInstanceId?: boolean;
     useColors?: boolean;
+    useConsoleLogForAllLevels?: boolean;
 }
 
 export interface ILogger {
