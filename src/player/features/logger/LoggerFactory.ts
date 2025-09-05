@@ -21,6 +21,7 @@ export class LoggerFactory {
             includeLevelName: false,
             includeTimestamp: true,
             includeInstanceId: true,
+            useConsoleLogForAllLevels: true,
         }, instanceId);
     }
 
@@ -37,6 +38,7 @@ export class LoggerFactory {
             includeLevelName: false,
             includeTimestamp: false,
             includeInstanceId: true,
+            useConsoleLogForAllLevels: true,
         }, instanceId);
     }
 
@@ -65,6 +67,7 @@ export class LoggerFactory {
             includeLevelName: false,
             includeTimestamp: true,
             includeInstanceId: true,
+            useConsoleLogForAllLevels: true,
         }, instanceId);
     }
 

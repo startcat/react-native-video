@@ -66,6 +66,7 @@ export class Logger implements ILogger {
             includeTimestamp: config.includeTimestamp ?? true,
             includeInstanceId: config.includeInstanceId ?? true,
             useColors: config.useColors ?? true,
+            useConsoleLogForAllLevels: config.useConsoleLogForAllLevels ?? false,
         };
 
         this.instanceId = instanceId;
@@ -195,6 +196,10 @@ export class Logger implements ILogger {
     }
 
     private getLogMethod(level: LogLevel): (...args: any[]) => void {
+        if (this.config.useConsoleLogForAllLevels) {
+            return console.log;
+        }
+        
         switch (level) {
             case LogLevel.DEBUG:
             case LogLevel.INFO:
