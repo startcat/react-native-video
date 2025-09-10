@@ -35,6 +35,7 @@ import {
     type VolumeChangeParams
 } from './types';
 
+import { PlayerError } from "../../core/errors";
 import { LOG_PREFIX } from './constants';
 
 export class PlayerAnalyticsEvents {
@@ -285,6 +286,7 @@ export class PlayerAnalyticsEvents {
                 }
             } catch (ex) {
                 console.error(`${LOG_PREFIX} ${methodName} error: ${ex}`);
+                throw new PlayerError('PLAYER_ANALYTICS_PLUGIN_EXECUTION_ERROR', { pluginName: plugin.name, originalError: ex });
             }
         });
     }
@@ -316,6 +318,7 @@ export class PlayerAnalyticsEvents {
                 plugin.destroy();
             } catch (ex) {
                 console.error(`${LOG_PREFIX} destroy error in ${plugin.name}: ${ex}`);
+                throw new PlayerError('PLAYER_ANALYTICS_PLUGIN_DESTROY_ERROR', { pluginName: plugin.name, originalError: ex });
             }
         });
         this.plugins = [];

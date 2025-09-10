@@ -18,6 +18,8 @@ import {
     type PluginRegistry
 } from "./types";
 
+import { PlayerError } from "../../core/errors";
+
 export abstract class BaseAnalyticsPluginFactory {
     
     protected static registry: PluginRegistry = {};
@@ -93,7 +95,7 @@ export abstract class BaseAnalyticsPluginFactory {
             }
         } catch (error) {
             console.error(`[Analytics Factory] Error creating plugin ${pluginName}:`, error);
-            return null;
+            throw new PlayerError('PLAYER_ANALYTICS_PLUGIN_CREATION_FAILED', { pluginName, originalError: error });
         }
     }
   
