@@ -58,4 +58,15 @@ export const DOWNLOAD_ERROR_DEFINITIONS = {
 	DOWNLOAD_DRM_DECRYPTION_FAILED: {
 		message: "Failed to decrypt DRM-protected downloaded content.",
 	},
+
+	// === ERRORES DE MÓDULO Y OPERACIONES OFFLINE ===
+	DOWNLOAD_MODULE_UNAVAILABLE: {
+		message: "Downloads module is not available.",
+	},
+	DOWNLOAD_INVALID_CONTENT_ID: {
+		message: "Invalid content ID provided for download operation.",
+	},
+	DOWNLOAD_CONTENT_ACCESS_FAILED: {
+		message: "Failed to access download content data.",
+	},
 };
