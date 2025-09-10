@@ -9,6 +9,8 @@ import {
     getVideoSourceUri,
 } from '../../utils';
 
+import { PlayerError } from '../../core/errors';
+
 export interface TudumClassProps {
     enabled?: boolean;
     getTudumManifest?: () => IManifest | null | undefined;
@@ -33,27 +35,89 @@ export class TudumClass {
         this._isAutoNext = !!props.isAutoNext;
 
         if (props.getTudumSource && typeof props.getTudumSource === 'function'){
-            const tudumSource = props.getTudumSource();
-
-            if (tudumSource){
-                this._tudumSource = tudumSource;
-                // Solo habilitar si NO es salto automático
-                this._shouldPlay = !!props.enabled && !this._isAutoNext;
+            let tudumSource: IVideoSource | null | undefined;
+            
+            try {
+                tudumSource = props.getTudumSource();
+            } catch (error) {
+                throw new PlayerError('PLAYER_TUDUM_SOURCE_HOOK_FAILED', { 
+                    originalError: error 
+                });
             }
+
+            if (!tudumSource) {
+                throw new PlayerError('PLAYER_TUDUM_SOURCE_INVALID', { 
+                    returnedSource: tudumSource 
+                });
+            }
+
+            if (!tudumSource.uri) {
+                throw new PlayerError('PLAYER_TUDUM_SOURCE_INVALID', { 
+                    returnedSource: tudumSource,
+                    reason: 'Missing URI in tudum source'
+                });
+            }
+
+            this._tudumSource = tudumSource;
+            // Solo habilitar si NO es salto automático
+            this._shouldPlay = !!props.enabled && !this._isAutoNext;
 
         } else if (props.getTudumManifest && typeof props.getTudumManifest === 'function'){
-            this._tudumManifest = props.getTudumManifest();
-
-            if (this._tudumManifest){
-
-                this._tudumDrm = getDRM(this._tudumManifest!);
-                this._tudumSource = {
-                    uri: getVideoSourceUri(this._tudumManifest)
-                };
-                // Solo habilitar si NO es salto automático
-                this._shouldPlay = !!props.enabled && !this._isAutoNext;
-
+            let tudumManifest: IManifest | null | undefined;
+            
+            try {
+                tudumManifest = props.getTudumManifest();
+            } catch (error) {
+                throw new PlayerError('PLAYER_TUDUM_MANIFEST_HOOK_FAILED', { 
+                    originalError: error 
+                });
             }
+
+            if (!tudumManifest) {
+                throw new PlayerError('PLAYER_TUDUM_MANIFEST_INVALID', { 
+                    returnedManifest: tudumManifest 
+                });
+            }
+
+            this._tudumManifest = tudumManifest;
+
+            try {
+                this._tudumDrm = getDRM(tudumManifest);
+            } catch (error) {
+                throw new PlayerError('PLAYER_TUDUM_DRM_PROCESSING_FAILED', { 
+                    manifest: tudumManifest,
+                    originalError: error 
+                });
+            }
+
+            let tudumUri: string | null;
+            try {
+                tudumUri = getVideoSourceUri(tudumManifest);
+            } catch (error) {
+                throw new PlayerError('PLAYER_TUDUM_URI_GENERATION_FAILED', { 
+                    manifest: tudumManifest,
+                    originalError: error 
+                });
+            }
+
+            if (!tudumUri) {
+                throw new PlayerError('PLAYER_TUDUM_URI_GENERATION_FAILED', { 
+                    manifest: tudumManifest,
+                    generatedUri: tudumUri 
+                });
+            }
+
+            this._tudumSource = {
+                uri: tudumUri
+            };
+            // Solo habilitar si NO es salto automático
+            this._shouldPlay = !!props.enabled && !this._isAutoNext;
+
+        } else {
+            throw new PlayerError('PLAYER_TUDUM_CONFIGURATION_INVALID', { 
+                providedProps: props,
+                reason: 'No valid getTudumSource or getTudumManifest hook provided'
+            });
         }
 
         this.getStats();
