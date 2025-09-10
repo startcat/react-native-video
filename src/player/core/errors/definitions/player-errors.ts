@@ -191,6 +191,29 @@ export const PLAYER_ERROR_DEFINITIONS = {
 		message: "Invalid source configuration provided.",
 	},
 
+	// === ERRORES DE TUDUM ===
+	PLAYER_TUDUM_SOURCE_HOOK_FAILED: {
+		message: "Tudum source hook execution failed.",
+	},
+	PLAYER_TUDUM_MANIFEST_HOOK_FAILED: {
+		message: "Tudum manifest hook execution failed.",
+	},
+	PLAYER_TUDUM_SOURCE_INVALID: {
+		message: "Invalid tudum source returned from hook.",
+	},
+	PLAYER_TUDUM_MANIFEST_INVALID: {
+		message: "Invalid tudum manifest returned from hook.",
+	},
+	PLAYER_TUDUM_URI_GENERATION_FAILED: {
+		message: "Failed to generate tudum URI from manifest.",
+	},
+	PLAYER_TUDUM_DRM_PROCESSING_FAILED: {
+		message: "Failed to process DRM for tudum content.",
+	},
+	PLAYER_TUDUM_CONFIGURATION_INVALID: {
+		message: "Invalid tudum configuration provided.",
+	},
+
     // === ERROR DESCONOCIDO ===
 	PLAYER_UNKNOWN_999: {
 		message: "Unknown player error occurred.",
