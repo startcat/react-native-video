@@ -165,6 +165,32 @@ export const PLAYER_ERROR_DEFINITIONS = {
 		message: "Analytics event buffer overflow.",
 	},
 
+	// === ERRORES DE SOURCE ===
+	PLAYER_SOURCE_NO_MANIFESTS_PROVIDED: {
+		message: "No manifests provided to source.",
+	},
+	PLAYER_SOURCE_NO_MANIFEST_FOUND: {
+		message: "No suitable manifest found for current configuration.",
+	},
+	PLAYER_SOURCE_OFFLINE_CONTENT_NOT_FOUND: {
+		message: "Offline content not found for specified ID.",
+	},
+	PLAYER_SOURCE_OFFLINE_FILE_URI_INVALID: {
+		message: "Invalid file URI for offline content.",
+	},
+	PLAYER_SOURCE_URI_CALCULATION_FAILED: {
+		message: "Failed to calculate source URI.",
+	},
+	PLAYER_SOURCE_MANIFEST_URI_INVALID: {
+		message: "Invalid manifest URI provided.",
+	},
+	PLAYER_SOURCE_URL_PARSING_ERROR: {
+		message: "Error parsing source URL parameters.",
+	},
+	PLAYER_SOURCE_CONFIGURATION_INVALID: {
+		message: "Invalid source configuration provided.",
+	},
+
     // === ERROR DESCONOCIDO ===
 	PLAYER_UNKNOWN_999: {
 		message: "Unknown player error occurred.",

@@ -16,6 +16,8 @@ import {
     getVideoSourceUri,
 } from '../../utils';
 
+import { PlayerError } from '../../core/errors';
+
 export interface onSourceChangedProps {
     id?:number,
     source:IVideoSource | null;
@@ -119,7 +121,9 @@ export class SourceClass {
 
         if (!props.manifests || props.manifests.length === 0){
             this.clearCurrentSource();
-            throw new Error('No manifests provided');
+            throw new PlayerError('PLAYER_SOURCE_NO_MANIFESTS_PROVIDED', { 
+                providedManifests: props.manifests 
+            });
         }
 
         // Cogemos el manifest adecuado
@@ -127,7 +131,11 @@ export class SourceClass {
 
         if (!this._currentManifest){
             this.clearCurrentSource();
-            throw new Error('No manifest found');
+            throw new PlayerError('PLAYER_SOURCE_NO_MANIFEST_FOUND', { 
+                availableManifests: props.manifests,
+                isCast: props.isCast,
+                isLive: props.isLive
+            });
         }
 
         // Preparamos el DRM adecuado al manifest y plataforma
@@ -181,7 +189,20 @@ export class SourceClass {
             const offlineBinary = getContentById(props.id!);
             console.log(`${LOG_TAG} changeSource -> isDownloaded && isBinary`);
 
-            this._videoSource.uri = `file://${offlineBinary?.offlineData.fileUri}`;
+            if (!offlineBinary) {
+                throw new PlayerError('PLAYER_SOURCE_OFFLINE_CONTENT_NOT_FOUND', { 
+                    contentId: props.id 
+                });
+            }
+
+            if (!offlineBinary.offlineData?.fileUri) {
+                throw new PlayerError('PLAYER_SOURCE_OFFLINE_FILE_URI_INVALID', { 
+                    contentId: props.id,
+                    offlineData: offlineBinary.offlineData 
+                });
+            }
+
+            this._videoSource.uri = `file://${offlineBinary.offlineData.fileUri}`;
             console.log(`${LOG_TAG} constructed URI:`, this._videoSource.uri);
         }
 
@@ -208,9 +229,17 @@ export class SourceClass {
 
     public reloadDvrStream() {
 
+        const calculatedUri = this.calculateSourceUri();
+        if (!calculatedUri) {
+            throw new PlayerError('PLAYER_SOURCE_URI_CALCULATION_FAILED', { 
+                method: 'reloadDvrStream',
+                currentManifest: this._currentManifest 
+            });
+        }
+
         this._videoSource = {
             ...this._videoSource,
-            uri: this.calculateSourceUri()!
+            uri: calculatedUri
         };
 
         this._isReady = true;
@@ -237,15 +266,27 @@ export class SourceClass {
 
         let uri: string | null = null;
 
-        // Preparamos la uri por si necesitamos incorporar el start en el dvr
-        if (this._getSourceUri && typeof this._getSourceUri === 'function' && this._currentManifest){
-            uri = this._getSourceUri(this._currentManifest, this._currentManifest?.dvr_window_minutes, this._liveStartProgramTimestamp);
-            console.log(`${LOG_TAG} calculateSourceUri -> uri: ${uri} (from external function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`);
+        if (!this._currentManifest) {
+            throw new PlayerError('PLAYER_SOURCE_MANIFEST_URI_INVALID', { 
+                currentManifest: this._currentManifest 
+            });
+        }
 
-        } else {
-            uri = getVideoSourceUri(this._currentManifest!, this._currentManifest?.dvr_window_minutes, this._liveStartProgramTimestamp);
-            console.log(`${LOG_TAG} calculateSourceUri -> uri: ${uri} (from internal function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`);
+        try {
+            // Preparamos la uri por si necesitamos incorporar el start en el dvr
+            if (this._getSourceUri && typeof this._getSourceUri === 'function'){
+                uri = this._getSourceUri(this._currentManifest, this._currentManifest?.dvr_window_minutes, this._liveStartProgramTimestamp);
+                console.log(`${LOG_TAG} calculateSourceUri -> uri: ${uri} (from external function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`);
 
+            } else {
+                uri = getVideoSourceUri(this._currentManifest, this._currentManifest?.dvr_window_minutes, this._liveStartProgramTimestamp);
+                console.log(`${LOG_TAG} calculateSourceUri -> uri: ${uri} (from internal function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`);
+            }
+        } catch (error) {
+            throw new PlayerError('PLAYER_SOURCE_URI_CALCULATION_FAILED', { 
+                currentManifest: this._currentManifest,
+                originalError: error
+            });
         }
 
         return uri;
@@ -255,6 +296,10 @@ export class SourceClass {
     private checkFakeVOD(url: string): boolean {
         
         try {
+            if (!url || typeof url !== 'string') {
+                return false;
+            }
+
             const queryIndex = url.indexOf('?');
             if (queryIndex === -1) return false;
         
@@ -271,8 +316,11 @@ export class SourceClass {
         
             return !!start && !!end;
         
-        } catch (e) {
-            return false;
+        } catch (error) {
+            throw new PlayerError('PLAYER_SOURCE_URL_PARSING_ERROR', { 
+                url,
+                originalError: error
+            });
         }
 
     }
