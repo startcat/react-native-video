@@ -239,7 +239,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         onError: (error: PlayerError) => {
             currentLogger.current?.info(`Cast Monitor onError ${JSON.stringify(error)}`);
             setIsLoadingContent(false);
-            setHasTriedLoading(false);
+            // No resetear hasTriedLoading para evitar loops infinitos
             handleOnError(error);
         }
     });
@@ -386,7 +386,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             });
 
         } catch (error: any) {
-            handleOnError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
+            handleOnError(handleErrorException(error, 'PLAYER_MEDIA_LOAD_FAILED'));
             return;
         }
     };
@@ -526,13 +526,13 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                 });
 
                 if (!success) {
-                    throw new Error('CastManager failed to load content');
+                    throw new PlayerError("PLAYER_CAST_CONNECTION_FAILED");
                 }
 
             } catch (error: any) {
                 setIsLoadingContent(false);
                 currentLogger.current?.error(`loadContentWithCastManager - Failed: ${JSON.stringify(error)}`);
-                handleOnError(handleErrorException(error, 'CAST_OPERATION_FAILED'));
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
             }
         }
     }, [castMedia, castManager, props.hooks, props.playerAnalytics, props.playerProgress, props.playerMetadata, props.liveStartDate, props.playerAds, props.events]);
@@ -574,7 +574,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             });
 
             if (!success) {
-                throw new Error('CastManager failed to load tudum');
+                throw new PlayerError("PLAYER_CAST_CONNECTION_FAILED");
             }
             
         } catch (error: any) {
@@ -585,7 +585,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             }
             
             currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
-            handleOnError(handleErrorException(error, 'CAST_OPERATION_FAILED'));
+            handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
 
             currentLogger.current?.debug(`Tudum failed, loading content directly`);
             currentSourceType.current = 'content';
@@ -616,7 +616,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
                     headers: props.headers,
                 });
             } catch (error: any) {
-                handleOnError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
+                handleOnError(handleErrorException(error, 'PLAYER_MEDIA_LOAD_FAILED'));
                 return;
             }
         }
@@ -739,10 +739,16 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
     const onSeekRequest = useCallback((playerTime: number) => {
         if (!!castManagerRef.current){
-            currentLogger.current?.debug(`onSeekRequest: ${playerTime}`);
-            castManagerRef.current.seek(playerTime);
+            try {
+                currentLogger.current?.debug(`onSeekRequest: ${playerTime}`);
+                castManagerRef.current.seek(playerTime);
+            } catch (error: any) {
+                currentLogger.current?.error(`onSeekRequest failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
+            }
         } else {
             currentLogger.current?.warn(`onSeekRequest - castManager is not initialized`);
+            handleOnError(new PlayerError("PLAYER_CAST_NOT_READY"));
         }
     }, []);
 
@@ -809,30 +815,50 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
         currentLogger.current?.info(`onControlsPress: ${id} (${value})`);
 
         if (id === CONTROL_ACTION.PAUSE){
-            if (value) {
-                await castManagerRef.current?.pause();
-            } else {
-                await castManagerRef.current?.play();
+            try {
+                if (value) {
+                    await castManagerRef.current?.pause();
+                } else {
+                    await castManagerRef.current?.play();
+                }
+            } catch (error: any) {
+                currentLogger.current?.error(`Pause/Play operation failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
             }
         }
 
         if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER){
-            await castManagerRef.current?.stop();
-            if (props.events?.onClose){
-                props.events.onClose();
+            try {
+                await castManagerRef.current?.stop();
+                if (props.events?.onClose){
+                    props.events.onClose();
+                }
+            } catch (error: any) {
+                currentLogger.current?.error(`Stop operation failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
             }
         }
         
         if (id === CONTROL_ACTION.MUTE){
-            if (value) {
-                await castManagerRef.current?.mute();
-            } else {
-                await castManagerRef.current?.unmute();
+            try {
+                if (value) {
+                    await castManagerRef.current?.mute();
+                } else {
+                    await castManagerRef.current?.unmute();
+                }
+            } catch (error: any) {
+                currentLogger.current?.error(`Mute/Unmute operation failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
             }
         }
 
         if (id === CONTROL_ACTION.VOLUME && typeof(value) === 'number'){
-            await castManagerRef.current?.setVolume(value);
+            try {
+                await castManagerRef.current?.setVolume(value);
+            } catch (error: any) {
+                currentLogger.current?.error(`Volume operation failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
+            }
         }
         
         if (id === CONTROL_ACTION.NEXT && props.events?.onNext){            

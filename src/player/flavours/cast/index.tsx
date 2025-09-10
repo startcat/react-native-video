@@ -457,7 +457,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             });
             
         } catch (error: any) {
-            handleOnError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
+            handleOnError(handleErrorException(error, 'PLAYER_MEDIA_LOAD_FAILED'));
             return;
         }
     };
@@ -558,7 +558,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             });
 
             if (!success) {
-                throw new Error('CastManager failed to load tudum');
+                throw new PlayerError("PLAYER_CAST_CONNECTION_FAILED");
             }
             
         } catch (error: any) {
@@ -569,7 +569,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             }
             
             currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
-            handleOnError(handleErrorException(error, 'CAST_OPERATION_FAILED'));
+            handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
 
             currentLogger.current?.debug(`Tudum failed, loading content directly`);
             currentSourceType.current = 'content';
@@ -600,7 +600,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                     headers: props.headers,
                 });
             } catch (error: any) {
-                handleOnError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
+                handleOnError(handleErrorException(error, 'PLAYER_MEDIA_LOAD_FAILED'));
                 return;
             }
         }
@@ -688,13 +688,13 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
                 });
 
                 if (!success) {
-                    throw new Error('CastManager failed to load content');
+                    throw new PlayerError("PLAYER_CAST_CONNECTION_FAILED");
                 }
 
             } catch (error: any) {
                 setIsLoadingContent(false);
                 currentLogger.current?.error(`loadContentWithCastManager - Failed: ${JSON.stringify(error)}`);
-                handleOnError(handleErrorException(error, 'CAST_OPERATION_FAILED'));
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
             }
         }
     }, [castMedia, castManager, props.hooks, props.playerAnalytics, props.playerProgress, props.playerMetadata, props.liveStartDate, props.playerAds, props.events]);
@@ -809,6 +809,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
             };
         } catch (ex: any) {
             currentLogger.current?.error(`updatePlayerProgressRef - error ${ex?.message}`);
+            handleOnError(handleErrorException(ex, 'PLAYER_MEDIA_LOAD_FAILED'));
         }
     }, [paused, muted, isContentLoaded, currentTime, props.playerProgress]);
 
@@ -848,10 +849,16 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
     const onSeekRequest = useCallback((playerTime: number) => {
         if (!!castManagerRef.current){
-            currentLogger.current?.debug(`onSeekRequest: ${playerTime}`);
-            castManagerRef.current.seek(playerTime);
+            try {
+                currentLogger.current?.debug(`onSeekRequest: ${playerTime}`);
+                castManagerRef.current.seek(playerTime);
+            } catch (error: any) {
+                currentLogger.current?.error(`onSeekRequest failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
+            }
         } else {
             currentLogger.current?.warn(`onSeekRequest - castManager is not initialized`);
+            handleOnError(new PlayerError("PLAYER_CAST_NOT_READY"));
         }
     }, []);
 
@@ -1018,24 +1025,39 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
         if (id === CONTROL_ACTION.PAUSE) {
             setPaused(!!value);
-            if (value) {
-                castManagerRef.current?.pause();
-            } else {
-                castManagerRef.current?.play();
+            try {
+                if (value) {
+                    castManagerRef.current?.pause();
+                } else {
+                    castManagerRef.current?.play();
+                }
+            } catch (error: any) {
+                currentLogger.current?.error(`Pause/Play operation failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
             }
         }
 
         if (id === CONTROL_ACTION.MUTE) {
             setMuted(!!value);
-            if (value) {
-                castManagerRef.current?.mute();
-            } else {
-                castManagerRef.current?.unmute();
+            try {
+                if (value) {
+                    castManagerRef.current?.mute();
+                } else {
+                    castManagerRef.current?.unmute();
+                }
+            } catch (error: any) {
+                currentLogger.current?.error(`Mute/Unmute operation failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
             }
         }
 
         if (id === CONTROL_ACTION.VOLUME && typeof value === 'number') {
-            castManagerRef.current?.setVolume(value);
+            try {
+                castManagerRef.current?.setVolume(value);
+            } catch (error: any) {
+                currentLogger.current?.error(`Volume operation failed: ${error?.message}`);
+                handleOnError(handleErrorException(error, 'PLAYER_CAST_OPERATION_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.NEXT && props.events?.onNext) {

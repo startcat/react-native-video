@@ -199,7 +199,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                 });
 
             } catch (error: any) {
-                return handleOnInternalError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
+                return handleOnInternalError(handleErrorException(error, 'PLAYER_MEDIA_LOAD_FAILED'));
             }
 
         } else {
@@ -301,7 +301,7 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
                     headers: props.headers,
                 });
             } catch (error: any) {
-                handleOnInternalError(handleErrorException(error, 'MEDIA_NOT_FOUND'));
+                handleOnInternalError(handleErrorException(error, 'PLAYER_MEDIA_LOAD_FAILED'));
                 return;
             }
 
@@ -519,8 +519,13 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
     }, [currentTime, paused, muted, isContentLoaded, props.playerProgress]);
 
     const handleOnSeekRequest = useCallback((playerTime: number) => {
-        currentLogger.current?.debug(`handleOnSeekRequest: ${playerTime}`);
-        refVideoPlayer.current?.seek(playerTime);
+        try {
+            currentLogger.current?.debug(`handleOnSeekRequest: ${playerTime}`);
+            refVideoPlayer.current?.seek(playerTime);
+        } catch (error: any) {
+            currentLogger.current?.error(`handleOnSeekRequest failed: ${error?.message}`);
+            handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+        }
     }, []);
 
     const handleOnDVRModeChange = useCallback((data: ModeChangeData) => {
@@ -611,18 +616,23 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         sleepTimerObj.current = BackgroundTimer.setTimeout(() => {
-            currentLogger.current?.debug(`onSleepTimer Done...`);
-            
-            if (refVideoPlayer.current){
-                currentLogger.current?.debug(`onSleepTimer Done... calling pause`);
-                refVideoPlayer.current?.pause();
+            try {
+                currentLogger.current?.debug(`onSleepTimer Done...`);
+                
+                if (refVideoPlayer.current){
+                    currentLogger.current?.debug(`onSleepTimer Done... calling pause`);
+                    refVideoPlayer.current?.pause();
+                    cancelSleepTimer();
+                    setPaused(true);
+
+                } else {
+                    currentLogger.current?.debug(`onSleepTimer Done... cant acces refVideoPlayer`);
+                    refreshSleepTimer(2000);
+
+                }
+            } catch (error: any) {
+                currentLogger.current?.error(`Sleep timer execution failed: ${error?.message}`);
                 cancelSleepTimer();
-                setPaused(true);
-
-            } else {
-                currentLogger.current?.debug(`onSleepTimer Done... cant acces refVideoPlayer`);
-                refreshSleepTimer(2000);
-
             }
 
         }, value * 1000);
@@ -690,43 +700,83 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
         }
 
         if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR){
-            // Volver al directo en DVR
-            dvrProgressManagerRef.current?.goToLive();
+            try {
+                // Volver al directo en DVR
+                dvrProgressManagerRef.current?.goToLive();
+            } catch (error: any) {
+                currentLogger.current?.error(`goToLive failed: ${error?.message}`);
+                handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.SEEK_OVER_EPG && sourceRef.current?.isDVR){
-            // Volver al inicio del programa en DVR
-            dvrProgressManagerRef.current?.goToProgramStart();
+            try {
+                // Volver al inicio del programa en DVR
+                dvrProgressManagerRef.current?.goToProgramStart();
+            } catch (error: any) {
+                currentLogger.current?.error(`goToProgramStart failed: ${error?.message}`);
+                handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR){
-            // Hacer seek en DVR
-            dvrProgressManagerRef.current?.seekToTime(value);
+            try {
+                // Hacer seek en DVR
+                dvrProgressManagerRef.current?.seekToTime(value);
+            } catch (error: any) {
+                currentLogger.current?.error(`DVR seekToTime failed: ${error?.message}`);
+                handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR){
-            // Hacer seek en DVR
-            dvrProgressManagerRef.current?.skipForward(value);
+            try {
+                // Hacer seek en DVR
+                dvrProgressManagerRef.current?.skipForward(value);
+            } catch (error: any) {
+                currentLogger.current?.error(`DVR skipForward failed: ${error?.message}`);
+                handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR){
-            // Hacer seek en DVR
-            dvrProgressManagerRef.current?.skipBackward(value);
+            try {
+                // Hacer seek en DVR
+                dvrProgressManagerRef.current?.skipBackward(value);
+            } catch (error: any) {
+                currentLogger.current?.error(`DVR skipBackward failed: ${error?.message}`);
+                handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.SEEK && !sourceRef.current?.isLive){
-            // Hacer seek en DVR
-            vodProgressManagerRef.current?.seekToTime(value);
+            try {
+                // Hacer seek en VOD
+                vodProgressManagerRef.current?.seekToTime(value);
+            } catch (error: any) {
+                currentLogger.current?.error(`VOD seekToTime failed: ${error?.message}`);
+                handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.FORWARD && !sourceRef.current?.isLive){
-            // Hacer seek en DVR
-            vodProgressManagerRef.current?.skipForward(value);
+            try {
+                // Hacer seek en VOD
+                vodProgressManagerRef.current?.skipForward(value);
+            } catch (error: any) {
+                currentLogger.current?.error(`VOD skipForward failed: ${error?.message}`);
+                handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.BACKWARD && !sourceRef.current?.isLive){
-            // Hacer seek en DVR
-            vodProgressManagerRef.current?.skipBackward(value);
+            try {
+                // Hacer seek en VOD
+                vodProgressManagerRef.current?.skipBackward(value);
+            } catch (error: any) {
+                currentLogger.current?.error(`VOD skipBackward failed: ${error?.message}`);
+                handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+            }
         }
 
         if (id === CONTROL_ACTION.SLEEP && (value === 0 || !value)){
@@ -856,7 +906,12 @@ export function AudioFlavour (props: AudioFlavourProps): React.ReactElement {
 
             // Seek inicial al cargar un live con DVR
             if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-                dvrProgressManagerRef.current.checkInitialSeek('player');
+                try {
+                    dvrProgressManagerRef.current.checkInitialSeek('player');
+                } catch (error: any) {
+                    currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
+                    handleOnInternalError(handleErrorException(error, 'PLAYER_SEEK_FAILED'));
+                }
             }
         } else if (currentSourceType.current === 'tudum') {
             currentLogger.current?.info(`handleOnLoad - Tudum loaded, duration: ${e.duration}`);
