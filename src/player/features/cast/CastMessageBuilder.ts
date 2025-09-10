@@ -123,7 +123,7 @@ export class CastMessageBuilder {
             if (error instanceof PlayerError) {
                 throw error;
             } else {
-                throw new PlayerError("CAST_MESSAGE_BUILD_FAILED");
+                throw new PlayerError("PLAYER_CAST_MESSAGE_BUILD_FAILED");
             }
         }
     }
@@ -149,20 +149,20 @@ export class CastMessageBuilder {
 
     private validateConfig(config: CastMessageConfig): void {
         if (!config.source || !config.source.uri) {
-            throw new PlayerError("CAST_INVALID_SOURCE", { url: config.source?.uri });
+            throw new PlayerError("PLAYER_CAST_INVALID_SOURCE", { url: config.source?.uri });
         }
 
         if (!config.manifest) {
-            throw new PlayerError("CAST_INVALID_MANIFEST");
+            throw new PlayerError("PLAYER_CAST_INVALID_MANIFEST");
         }
 
         if (!config.metadata) {
-            throw new PlayerError("CAST_INVALID_METADATA");
+            throw new PlayerError("PLAYER_CAST_INVALID_METADATA");
         }
 
         // Validar URL
         if (!this.isValidUrl(config.source.uri)) {
-            throw new PlayerError("CAST_INVALID_SOURCE", { url: config.source.uri });
+            throw new PlayerError("PLAYER_CAST_INVALID_SOURCE", { url: config.source.uri });
         }
     }
 

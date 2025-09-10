@@ -517,7 +517,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         const dvrValid = this._seekableRange.end > this._seekableRange.start;
         
         if (!baseValid) {
-            this._currentLogger?.warn('DVR validation failed: base state invalid');
+            this._currentLogger?.debug('DVR validation failed: base state invalid');
         } else if (!dvrValid) {
             this._currentLogger?.warn('DVR validation failed: invalid seekableRange');
         }

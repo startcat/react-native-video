@@ -290,7 +290,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
             // Procesar errores del MediaStatus
             const error: PlayerError | null = (() => {
                 if (nativeMediaStatus?.idleReason === 'ERROR') {
-                    return new PlayerError("CAST_PLAYBACK_INTERRUPTED", {
+                    return new PlayerError("PLAYER_CAST_PLAYBACK_INTERRUPTED", {
                         idleReason: nativeMediaStatus.idleReason
                     });
                 }
