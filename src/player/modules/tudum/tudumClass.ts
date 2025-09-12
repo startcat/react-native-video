@@ -114,6 +114,12 @@ export class TudumClass {
             this._shouldPlay = !!props.enabled && !this._isAutoNext;
 
         } else {
+            // Si tudum está deshabilitado o no hay hooks, no es un error
+            if (props.enabled === false) {
+                console.log(`[Player] (TudumClass) Tudum disabled, skipping initialization`);
+                return;
+            }
+            
             throw new PlayerError('PLAYER_TUDUM_CONFIGURATION_INVALID', { 
                 providedProps: props,
                 reason: 'No valid getTudumSource or getTudumManifest hook provided'
