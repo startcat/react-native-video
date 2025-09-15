@@ -3,6 +3,7 @@
  *
  */
 
+import { PlayerError } from '../../core/errors';
 import { PlayerAnalyticsEvents } from '../../features/analytics';
 
 import type {
@@ -55,15 +56,26 @@ export class VideoEventsAdapter {
     private isSessionActive = false;
 
     constructor(analyticsEvents: PlayerAnalyticsEvents) {
+
+        if (!analyticsEvents) {
+            throw new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED');
+        }
+
         this.analyticsEvents = analyticsEvents;
         
-        // Inicializar handlers
-        this.playbackHandler = new PlaybackEventsHandler(analyticsEvents);
-        this.adHandler = new AdEventsHandler(analyticsEvents);
-        this.qualityHandler = new QualityEventsHandler(analyticsEvents);
-        this.errorHandler = new ErrorEventsHandler(analyticsEvents);
-        this.trackHandler = new TrackEventsHandler(analyticsEvents);
-        this.metadataHandler = new MetadataEventsHandler(analyticsEvents);
+        try {
+            // Inicializar handlers
+            this.playbackHandler = new PlaybackEventsHandler(analyticsEvents);
+            this.adHandler = new AdEventsHandler(analyticsEvents);
+            this.qualityHandler = new QualityEventsHandler(analyticsEvents);
+            this.errorHandler = new ErrorEventsHandler(analyticsEvents);
+            this.trackHandler = new TrackEventsHandler(analyticsEvents);
+            this.metadataHandler = new MetadataEventsHandler(analyticsEvents);
+
+        } catch(error) {
+            throw new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED', { originalError: error});
+        }
+
     }
 
     /*

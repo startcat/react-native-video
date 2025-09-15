@@ -214,6 +214,132 @@ export const PLAYER_ERROR_DEFINITIONS = {
 		message: "Invalid tudum configuration provided.",
 	},
 
+    // === ERRORES DE GESTIÓN DE EVENTOS ===
+    PLAYER_EVENT_ANALYTICS_DISPATCH_FAILED: {
+        message: "Failed to dispatch analytics event.",
+    },
+    PLAYER_EVENT_CALLBACK_EXECUTION_ERROR: {
+        message: "Error executing event callback.",
+    },
+    PLAYER_EVENT_STATE_SYNCHRONIZATION_ERROR: {
+        message: "Event state synchronization failed.",
+    },
+    PLAYER_ERROR_PROCESSING_ERROR: {
+        message: "Error processing error event.",
+    },
+
+    // === ERRORES DE EVENT HANDLERS ===
+    PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED: {
+        message: "Failed to initialize video event handler.",
+    },
+    PLAYER_EVENT_HANDLER_LOAD_START_FAILED: {
+        message: "Error handling load start event.",
+    },
+    PLAYER_EVENT_HANDLER_LOAD_FAILED: {
+        message: "Error handling load event.",
+    },
+    PLAYER_EVENT_HANDLER_PROGRESS_FAILED: {
+        message: "Error handling progress event.",
+    },
+    PLAYER_EVENT_HANDLER_PLAYBACK_STATE_CHANGED_FAILED: {
+        message: "Error handling playback state change event.",
+    },
+    PLAYER_EVENT_HANDLER_BUFFER_FAILED: {
+        message: "Error handling buffer event.",
+    },
+    PLAYER_EVENT_HANDLER_SEEK_FAILED: {
+        message: "Error handling seek event.",
+    },
+    PLAYER_EVENT_HANDLER_PLAYBACK_RATE_CHANGE_FAILED: {
+        message: "Error handling playback rate change event.",
+    },
+    PLAYER_EVENT_HANDLER_VOLUME_CHANGE_FAILED: {
+        message: "Error handling volume change event.",
+    },
+    PLAYER_EVENT_HANDLER_END_FAILED: {
+        message: "Error handling end event.",
+    },
+    PLAYER_EVENT_HANDLER_ERROR_FAILED: {
+        message: "Error handling error event.",
+    },
+    PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED: {
+        message: "Error handling ad event.",
+    },
+    PLAYER_EVENT_HANDLER_AUDIO_TRACKS_FAILED: {
+        message: "Error handling audio tracks event.",
+    },
+    PLAYER_EVENT_HANDLER_TEXT_TRACKS_FAILED: {
+        message: "Error handling text tracks event.",
+    },
+    PLAYER_EVENT_HANDLER_VIDEO_TRACKS_FAILED: {
+        message: "Error handling video tracks event.",
+    },
+    PLAYER_EVENT_HANDLER_BANDWIDTH_UPDATE_FAILED: {
+        message: "Error handling bandwidth update event.",
+    },
+    PLAYER_EVENT_HANDLER_ASPECT_RATIO_FAILED: {
+        message: "Error handling aspect ratio event.",
+    },
+    PLAYER_EVENT_HANDLER_TIMED_METADATA_FAILED: {
+        message: "Error handling timed metadata event.",
+    },
+    PLAYER_EVENT_HANDLER_READY_FOR_DISPLAY_FAILED: {
+        message: "Error handling ready for display event.",
+    },
+    PLAYER_EVENT_HANDLER_AUDIO_BECOMING_NOISY_FAILED: {
+        message: "Error handling audio becoming noisy event.",
+    },
+    PLAYER_EVENT_HANDLER_IDLE_FAILED: {
+        message: "Error handling idle event.",
+    },
+
+    // === ERRORES DE TRACKING DE PROGRESO ===
+    PLAYER_PROGRESS_TRACKING_FAILED: {
+        message: "Failed to track playback progress.",
+    },
+    PLAYER_SEEK_TRACKING_ERROR: {
+        message: "Error tracking seek operation.",
+    },
+    PLAYER_SEEK_TRACKING_TIMEOUT: {
+        message: "Seek operation tracking timeout.",
+    },
+    PLAYER_POSITION_CALCULATION_ERROR: {
+        message: "Error calculating playback position.",
+    },
+
+    // === ERRORES DE METADATA Y PISTAS ===
+    PLAYER_TRACK_ENUMERATION_FAILED: {
+        message: "Failed to enumerate available tracks.",
+    },
+    PLAYER_TRACK_METADATA_EXTRACTION_ERROR: {
+        message: "Error extracting track metadata.",
+    },
+    PLAYER_TIMED_METADATA_PARSE_ERROR: {
+        message: "Failed to parse timed metadata.",
+    },
+
+    // === ERRORES DE ANUNCIOS (ADS) ===
+    PLAYER_AD_EVENT_PROCESSING_ERROR: {
+        message: "Error processing ad event.",
+    },
+    PLAYER_AD_BREAK_TRACKING_FAILED: {
+        message: "Failed to track ad break progression.",
+    },
+    PLAYER_AD_METADATA_INVALID: {
+        message: "Invalid or missing ad metadata.",
+    },
+
+    // === ERRORES DE CALIDAD Y BITRATE ===
+    PLAYER_QUALITY_DETECTION_FAILED: {
+        message: "Failed to detect video quality changes.",
+    },
+    PLAYER_BITRATE_CALCULATION_ERROR: {
+        message: "Error calculating current bitrate.",
+    },
+    PLAYER_ADAPTIVE_STREAMING_ERROR: {
+        message: "Adaptive streaming quality adjustment failed.",
+    },
+
     // === ERROR DESCONOCIDO ===
 	PLAYER_UNKNOWN_999: {
 		message: "Unknown player error occurred.",

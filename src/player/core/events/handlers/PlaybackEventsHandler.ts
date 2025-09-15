@@ -3,6 +3,7 @@
  *
  */
 
+import { PlayerError } from '../../../core/errors';
 import { PlayerAnalyticsEvents } from '../../../features/analytics';
 
 import type {
@@ -76,39 +77,52 @@ export class PlaybackEventsHandler {
     };
 
     handleSeek = (data: OnSeekData, fromPositionMs: number) => {
-        const toPositionMs = data.currentTime * 1000;
-        
-        // Iniciar el seek
-        if (!this.isSeekInProgress) {
-            this.analyticsEvents.onSeekStart();
-            this.isSeekInProgress = true;
-            this.seekFromPosition = fromPositionMs;
-            this.seekToPosition = toPositionMs;
+
+        try {
+            const toPositionMs = data.currentTime * 1000;
             
-            console.log(`[PlaybackEventsHandler] Seek started: ${fromPositionMs}ms -> ${toPositionMs}ms`);
+            // Iniciar el seek
+            if (!this.isSeekInProgress) {
+                this.analyticsEvents.onSeekStart();
+                this.isSeekInProgress = true;
+                this.seekFromPosition = fromPositionMs;
+                this.seekToPosition = toPositionMs;
+                
+                console.log(`[PlaybackEventsHandler] Seek started: ${fromPositionMs}ms -> ${toPositionMs}ms`);
+            }
+            
+            // No disparamos onSeekEnd aquí - esperamos a que onProgress o onBuffer nos confirmen
+            
+        } catch(error) {
+            throw new PlayerError('PLAYER_SEEK_TRACKING_ERROR', { originalError: error });
         }
-        
-        // No disparamos onSeekEnd aquí - esperamos a que onProgress o onBuffer nos confirmen
+
     };
 
     private finishSeek = (currentPositionMs: number) => {
-        if (this.isSeekInProgress) {
-            this.analyticsEvents.onSeekEnd({
-                position: currentPositionMs,
-                fromPosition: this.seekFromPosition
-            });
-            
-            this.analyticsEvents.onPositionChange({
-                position: currentPositionMs,
-                playbackRate: 1.0 // Esto debería venir del estado del reproductor
-            });
-            
-            console.log(`[PlaybackEventsHandler] Seek finished at: ${currentPositionMs}ms`);
-            
-            // Limpiar estado del seek
-            this.isSeekInProgress = false;
-            this.seekFromPosition = undefined;
-            this.seekToPosition = undefined;
+
+        try {
+            if (this.isSeekInProgress) {
+                this.analyticsEvents.onSeekEnd({
+                    position: currentPositionMs,
+                    fromPosition: this.seekFromPosition
+                });
+                
+                this.analyticsEvents.onPositionChange({
+                    position: currentPositionMs,
+                    playbackRate: 1.0 // Esto debería venir del estado del reproductor
+                });
+                
+                console.log(`[PlaybackEventsHandler] Seek finished at: ${currentPositionMs}ms`);
+                
+                // Limpiar estado del seek
+                this.isSeekInProgress = false;
+                this.seekFromPosition = undefined;
+                this.seekToPosition = undefined;
+            }
+
+        } catch(error) {
+            throw new PlayerError('PLAYER_SEEK_TRACKING_ERROR', { originalError: error });
         }
     };
 
