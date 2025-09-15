@@ -144,14 +144,6 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
         onBufferingChange: props.events?.onBuffering
     });
 
-    // Hook para los plugins de analíticas
-    const {
-        videoEvents,
-        analyticsEvents,
-    } = useVideoAnalytics({
-        plugins: props.features?.analyticsConfig || [],
-    });
-
     useEffect(() => {
         currentLogger.current?.info(`useEffect videoSource ${JSON.stringify(videoSource)}`);
 
@@ -1095,6 +1087,15 @@ export function NormalFlavour (props: NormalFlavourProps): React.ReactElement {
 
         return false;
     };
+
+    // Hook para los plugins de analíticas
+    const {
+        videoEvents,
+        analyticsEvents,
+    } = useVideoAnalytics({
+        plugins: props.features?.analyticsConfig || [],
+        onInternalError: handleOnInternalError
+    });
 
     /*
      *  Render

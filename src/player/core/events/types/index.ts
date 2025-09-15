@@ -1,6 +1,7 @@
 import { VideoEventsAdapter } from '../VideoEventsAdapter';
 
 import type { ReactVideoEvents } from '../../../../types';
+import type { PlayerError } from '../../errors';
 
 import {
     PlayerAnalyticsEvents,
@@ -9,6 +10,7 @@ import {
 
 export interface UseVideoAnalyticsProps {
     plugins?: PlayerAnalyticsPlugin[];
+    onInternalError?: (error: PlayerError) => void;
 }
 
 export interface UseVideoAnalyticsReturn {
