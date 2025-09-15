@@ -3,6 +3,7 @@
  *
  */
 
+import { PlayerError } from '../../../core/errors';
 import { PlayerAnalyticsEvents } from '../../../features/analytics';
 
 import type {
@@ -17,49 +18,56 @@ export class ErrorEventsHandler {
     }
 
     handleError = (data: OnVideoErrorData) => {
-        const errorType = this.categorizeError(data.error);
-        
-        switch (errorType) {
-            case 'network':
-                this.analyticsEvents.onNetworkError({
-                    errorCode: data.error.code,
-                    errorMessage: data.error.localizedDescription,
-                    errorType: 'network',
-                    isFatal: this.isErrorFatal(data.error),
-                    statusCode: this.extractStatusCode(data.error),
-                    url: this.extractUrl(data.error)
-                });
-                break;
 
-            case 'drm':
-                this.analyticsEvents.onContentProtectionError({
-                    errorCode: data.error.code,
-                    errorMessage: data.error.localizedDescription,
-                    errorType: 'drm',
-                    isFatal: this.isErrorFatal(data.error),
-                    drmType: this.extractDrmType(data.error)
-                });
-                break;
+        try {
+            const errorType = this.categorizeError(data.error);
+            
+            switch (errorType) {
+                case 'network':
+                    this.analyticsEvents.onNetworkError({
+                        errorCode: data.error.code,
+                        errorMessage: data.error.localizedDescription,
+                        errorType: 'network',
+                        isFatal: this.isErrorFatal(data.error),
+                        statusCode: this.extractStatusCode(data.error),
+                        url: this.extractUrl(data.error)
+                    });
+                    break;
 
-            case 'stream':
-                this.analyticsEvents.onStreamError({
-                    errorCode: data.error.code,
-                    errorMessage: data.error.localizedDescription,
-                    errorType: 'playback',
-                    isFatal: this.isErrorFatal(data.error),
-                    streamUrl: this.extractStreamUrl(data.error),
-                    bitrate: this.extractBitrate(data.error)
-                });
-                break;
+                case 'drm':
+                    this.analyticsEvents.onContentProtectionError({
+                        errorCode: data.error.code,
+                        errorMessage: data.error.localizedDescription,
+                        errorType: 'drm',
+                        isFatal: this.isErrorFatal(data.error),
+                        drmType: this.extractDrmType(data.error)
+                    });
+                    break;
 
-            default:
-                this.analyticsEvents.onError({
-                    errorCode: data.error.code,
-                    errorMessage: data.error.localizedDescription,
-                    errorType: 'other',
-                    isFatal: this.isErrorFatal(data.error)
-                });
+                case 'stream':
+                    this.analyticsEvents.onStreamError({
+                        errorCode: data.error.code,
+                        errorMessage: data.error.localizedDescription,
+                        errorType: 'playback',
+                        isFatal: this.isErrorFatal(data.error),
+                        streamUrl: this.extractStreamUrl(data.error),
+                        bitrate: this.extractBitrate(data.error)
+                    });
+                    break;
+
+                default:
+                    this.analyticsEvents.onError({
+                        errorCode: data.error.code,
+                        errorMessage: data.error.localizedDescription,
+                        errorType: 'other',
+                        isFatal: this.isErrorFatal(data.error)
+                    });
+            }
+
+        } catch(error) {
+            throw new PlayerError('PLAYER_ERROR_PROCESSING_ERROR', { originalError: error });
         }
+
     };
 
     private categorizeError = (error: any): 'network' | 'drm' | 'stream' | 'other' => {

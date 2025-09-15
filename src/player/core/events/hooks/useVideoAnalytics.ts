@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import type { ReactVideoEvents } from '../../../../types';
-
+import { PlayerError } from '../../errors';
 
 import {
     PlayerAnalyticsEvents,
@@ -45,7 +45,8 @@ import {
 } from '../types';
 
 export const useVideoAnalytics = ({
-    plugins = []
+    plugins = [],
+    onInternalError
 }: UseVideoAnalyticsProps = {}): UseVideoAnalyticsReturn => {
     
     const analyticsEventsRef = useRef<PlayerAnalyticsEvents>();
@@ -59,7 +60,11 @@ export const useVideoAnalytics = ({
 
     // Inicializar VideoEventsAdapter
     if (!adapterRef.current && analyticsEventsRef.current) {
-        adapterRef.current = new VideoEventsAdapter(analyticsEventsRef.current);
+        try {
+            adapterRef.current = new VideoEventsAdapter(analyticsEventsRef.current);
+        } catch(error){
+            onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED', { originalError: error }));
+        }
     }
 
     // Configurar plugins
@@ -111,122 +116,202 @@ export const useVideoAnalytics = ({
     const videoEvents: ReactVideoEvents = {
         onLoadStart: useCallback((e: OnLoadStartData) => {
             if (adapterRef.current) {
-                adapterRef.current.onLoadStart(e);
+                try {
+                    adapterRef.current.onLoadStart(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_LOAD_START_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onLoad: useCallback((e: OnLoadData) => {
             if (adapterRef.current) {
-                adapterRef.current.onLoad(e);
+                try {
+                    adapterRef.current.onLoad(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_LOAD_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onProgress: useCallback((e: OnProgressData) => {
             if (adapterRef.current) {
-                adapterRef.current.onProgress(e);
+                try {
+                    adapterRef.current.onProgress(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_PROGRESS_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onPlaybackStateChanged: useCallback((e: OnPlaybackStateChangedData) => {
             if (adapterRef.current) {
-                adapterRef.current.onPlaybackStateChanged(e);
+                try {
+                    adapterRef.current.onPlaybackStateChanged(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_PLAYBACK_STATE_CHANGED_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onBuffer: useCallback((e: OnBufferData) => {
             if (adapterRef.current) {
-                adapterRef.current.onBuffer(e);
+                try {
+                    adapterRef.current.onBuffer(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_BUFFER_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onSeek: useCallback((e: OnSeekData) => {
             if (adapterRef.current) {
-                adapterRef.current.onSeek(e);
+                try {
+                    adapterRef.current.onSeek(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_SEEK_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onPlaybackRateChange: useCallback((e: OnPlaybackRateChangeData) => {
             if (adapterRef.current) {
-                adapterRef.current.onPlaybackRateChange(e);
+                try {
+                    adapterRef.current.onPlaybackRateChange(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_PLAYBACK_RATE_CHANGE_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onVolumeChange: useCallback((e: OnVolumeChangeData) => {
             if (adapterRef.current) {
-                adapterRef.current.onVolumeChange(e);
+                try {
+                    adapterRef.current.onVolumeChange(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_VOLUME_CHANGE_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onEnd: useCallback(() => {
             if (adapterRef.current) {
-                adapterRef.current.onEnd();
+                try {
+                    adapterRef.current.onEnd();
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_END_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onError: useCallback((e: OnVideoErrorData) => {
             if (adapterRef.current) {
-                adapterRef.current.onError(e);
+                try {
+                    adapterRef.current.onError(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_ERROR_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onReceiveAdEvent: useCallback((e: OnReceiveAdEventData) => {
             if (adapterRef.current) {
-                adapterRef.current.onReceiveAdEvent(e);
+                try {
+                    adapterRef.current.onReceiveAdEvent(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onAudioTracks: useCallback((e: OnAudioTracksData) => {
             if (adapterRef.current) {
-                adapterRef.current.onAudioTracks(e);
+                try {
+                    adapterRef.current.onAudioTracks(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_AUDIO_TRACKS_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onTextTracks: useCallback((e: OnTextTracksData) => {
             if (adapterRef.current) {
-                adapterRef.current.onTextTracks(e);
+                try {
+                    adapterRef.current.onTextTracks(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_TEXT_TRACKS_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onVideoTracks: useCallback((e: OnVideoTracksData) => {
             if (adapterRef.current) {
-                adapterRef.current.onVideoTracks(e);
+                try {
+                    adapterRef.current.onVideoTracks(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_VIDEO_TRACKS_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onBandwidthUpdate: useCallback((e: OnBandwidthUpdateData) => {
             if (adapterRef.current) {
-                adapterRef.current.onBandwidthUpdate(e);
+                try {
+                    adapterRef.current.onBandwidthUpdate(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_BANDWIDTH_UPDATE_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onAspectRatio: useCallback((e: OnVideoAspectRatioData) => {
             if (adapterRef.current) {
-                adapterRef.current.onAspectRatio(e);
+                try {
+                    adapterRef.current.onAspectRatio(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_ASPECT_RATIO_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onTimedMetadata: useCallback((e: OnTimedMetadataData) => {
             if (adapterRef.current) {
-                adapterRef.current.onTimedMetadata(e);
+                try {
+                    adapterRef.current.onTimedMetadata(e);
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_TIMED_METADATA_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onReadyForDisplay: useCallback(() => {
             if (adapterRef.current) {
-                adapterRef.current.onReadyForDisplay();
+                try {
+                    adapterRef.current.onReadyForDisplay();
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_READY_FOR_DISPLAY_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         // Eventos adicionales que pueden ser útiles
         onAudioBecomingNoisy: useCallback(() => {
             if (analyticsEventsRef.current) {
-                analyticsEventsRef.current.onPause();
+                try {
+                    analyticsEventsRef.current.onPause();
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_AUDIO_BECOMING_NOISY_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
         onIdle: useCallback(() => {
             if (analyticsEventsRef.current) {
-                analyticsEventsRef.current.onPause();
+                try {
+                    analyticsEventsRef.current.onPause();
+                } catch(error){
+                    onInternalError?.(new PlayerError('PLAYER_EVENT_HANDLER_IDLE_FAILED', { originalError: error }));
+                }
             }
         }, []),
 
