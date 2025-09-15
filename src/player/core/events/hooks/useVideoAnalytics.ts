@@ -8,7 +8,6 @@ import { AppState } from 'react-native';
 
 import type { ReactVideoEvents } from '../../../../types';
 
-import { mapVideoErrorToPlayerError } from '../../../core/errors';
 
 import {
     PlayerAnalyticsEvents,
@@ -165,9 +164,8 @@ export const useVideoAnalytics = ({
         }, []),
 
         onError: useCallback((e: OnVideoErrorData) => {
-            const playerError = mapVideoErrorToPlayerError(e);
             if (adapterRef.current) {
-                adapterRef.current.onError(playerError);
+                adapterRef.current.onError(e);
             }
         }, []),
 
