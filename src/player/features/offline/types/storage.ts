@@ -33,5 +33,6 @@ export enum StorageEventType {
     SPACE_RECOVERED = 'storage:space_recovered',
     CLEANUP_STARTED = 'storage:cleanup_started',
     CLEANUP_COMPLETED = 'storage:cleanup_completed',
+    INFO_UPDATED = 'storage:info_updated',
     ERROR = 'storage:error',
 }

@@ -1,0 +1,124 @@
+import { useCallback, useEffect, useState } from 'react';
+import { storageService } from '../services/storage/StorageService';
+import { StorageEventType, StorageInfo } from '../types';
+
+/*
+ * Hook para consultar el estado del almacenamiento
+ *
+ */
+
+export function useStorageInfo() {
+    
+    const [error, setError] = useState<Error | null>(null);
+    const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
+    
+    useEffect(() => {
+        // Obtener información inicial
+        storageService.getStorageInfo().then(setStorageInfo);
+
+        // Suscribirse a eventos
+        const unsubscribeStorageInfoUpdated = storageService.subscribe(
+            StorageEventType.INFO_UPDATED,
+            (data: StorageInfo) => {
+                setStorageInfo(data);
+                setError(null);
+            }
+        );
+
+        return () => {
+            unsubscribeStorageInfoUpdated();
+        };
+    }, []);
+
+    const getStorageInfo = useCallback(async () => {
+        setError(null);
+        
+        try {
+            return await storageService.getStorageInfo();
+        } catch (err) {
+            setError(err as Error);
+            throw err;
+        }
+    }, []);
+
+    const getTotalSpace = useCallback(async () => {
+        setError(null);
+        
+        try {
+            return await storageService.getTotalSpace();
+        } catch (err) {
+            setError(err as Error);
+            throw err;
+        }
+    }, []);
+
+    const getUsedSpace = useCallback(async () => {
+        setError(null);
+        
+        try {
+            return await storageService.getUsedSpace();
+        } catch (err) {
+            setError(err as Error);
+            throw err;
+        }
+    }, []);
+
+    const getAvailableSpace = useCallback(async () => {
+        setError(null);
+        
+        try {
+            return await storageService.getAvailableSpace();
+        } catch (err) {
+            setError(err as Error);
+            throw err;
+        }
+    }, []);
+
+    const getDownloadsFolderSize = useCallback(async () => {
+        setError(null);
+        
+        try {
+            return await storageService.getDownloadsFolderSize();
+        } catch (err) {
+            setError(err as Error);
+            throw err;
+        }
+    }, []);
+
+    const getTempFolderSize = useCallback(async () => {
+        setError(null);
+        
+        try {
+            return await storageService.getTempFolderSize();
+        } catch (err) {
+            setError(err as Error);
+            throw err;
+        }
+    }, []);
+
+    const hasEnoughSpace = useCallback(async (requiredSpace: number) => {
+        setError(null);
+        
+        try {
+            return await storageService.hasEnoughSpace(requiredSpace);
+        } catch (err) {
+            setError(err as Error);
+            throw err;
+        }
+    }, []);
+
+    return {
+        // Estados
+        error,
+        storageInfo,
+        
+        // Acciones
+        getStorageInfo,
+        getTotalSpace,
+        getUsedSpace,
+        getAvailableSpace,
+        getDownloadsFolderSize,
+        getTempFolderSize,
+        hasEnoughSpace,
+    };
+}
