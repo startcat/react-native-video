@@ -53,6 +53,7 @@ const RAW_RUNTIME_STATE =
           ["eslint-plugin-prettier", "virtual:ed5cf0dc949d90b0247f6bc630db383d179ab9515b93cd0a705b1951c0b46537f7abcaca51337a3360a1ac149c88657e3b438c54cc19afad2e3dd23050027c15#npm:5.5.1"],\
           ["eslint-plugin-react", "virtual:ed5cf0dc949d90b0247f6bc630db383d179ab9515b93cd0a705b1951c0b46537f7abcaca51337a3360a1ac149c88657e3b438c54cc19afad2e3dd23050027c15#npm:7.37.5"],\
           ["eslint-plugin-react-hooks", "virtual:ed5cf0dc949d90b0247f6bc630db383d179ab9515b93cd0a705b1951c0b46537f7abcaca51337a3360a1ac149c88657e3b438c54cc19afad2e3dd23050027c15#npm:4.6.2"],\
+          ["eventemitter3", "npm:5.0.1"],\
           ["jest", "virtual:ed5cf0dc949d90b0247f6bc630db383d179ab9515b93cd0a705b1951c0b46537f7abcaca51337a3360a1ac149c88657e3b438c54cc19afad2e3dd23050027c15#npm:29.7.0"],\
           ["prettier", "npm:3.6.2"],\
           ["qs", "npm:6.14.0"],\
@@ -8387,6 +8388,15 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["eventemitter3", [\
+      ["npm:5.0.1", {\
+        "packageLocation": "../../../.yarn/berry/cache/eventemitter3-npm-5.0.1-5e423b7df3-10c0.zip/node_modules/eventemitter3/",\
+        "packageDependencies": [\
+          ["eventemitter3", "npm:5.0.1"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["execa", [\
       ["npm:1.0.0", {\
         "packageLocation": "../../../.yarn/berry/cache/execa-npm-1.0.0-7028e37029-10c0.zip/node_modules/execa/",\
@@ -14226,6 +14236,7 @@ const RAW_RUNTIME_STATE =
           ["eslint-plugin-prettier", "virtual:ed5cf0dc949d90b0247f6bc630db383d179ab9515b93cd0a705b1951c0b46537f7abcaca51337a3360a1ac149c88657e3b438c54cc19afad2e3dd23050027c15#npm:5.5.1"],\
           ["eslint-plugin-react", "virtual:ed5cf0dc949d90b0247f6bc630db383d179ab9515b93cd0a705b1951c0b46537f7abcaca51337a3360a1ac149c88657e3b438c54cc19afad2e3dd23050027c15#npm:7.37.5"],\
           ["eslint-plugin-react-hooks", "virtual:ed5cf0dc949d90b0247f6bc630db383d179ab9515b93cd0a705b1951c0b46537f7abcaca51337a3360a1ac149c88657e3b438c54cc19afad2e3dd23050027c15#npm:4.6.2"],\
+          ["eventemitter3", "npm:5.0.1"],\
           ["jest", "virtual:ed5cf0dc949d90b0247f6bc630db383d179ab9515b93cd0a705b1951c0b46537f7abcaca51337a3360a1ac149c88657e3b438c54cc19afad2e3dd23050027c15#npm:29.7.0"],\
           ["prettier", "npm:3.6.2"],\
           ["qs", "npm:6.14.0"],\

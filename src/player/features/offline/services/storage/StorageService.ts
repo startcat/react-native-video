@@ -1,8 +1,8 @@
 import { EventEmitter } from 'eventemitter3';
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
-import { Logger, LogLevel } from '../../../logger';
 import { PlayerError } from '../../../../core/errors';
+import { Logger, LogLevel } from '../../../logger';
 
 import {
     FileInfo,
@@ -253,7 +253,7 @@ export class StorageService {
         const info = await this.getStorageInfo();
         
         // Emitir evento con la información actualizada
-        this.eventEmitter.emit('storage_info_updated', info);
+        this.eventEmitter.emit(StorageEventType.INFO_UPDATED, info);
         
         return info;
     }
