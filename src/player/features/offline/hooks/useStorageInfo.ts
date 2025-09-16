@@ -13,8 +13,13 @@ export function useStorageInfo() {
     const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
     
     useEffect(() => {
-        // Obtener información inicial
-        storageService.getStorageInfo().then(setStorageInfo);
+        async function init() {
+            await storageService.initialize();
+            // Obtener información inicial tras inicializar el servicio
+            storageService.getStorageInfo().then(setStorageInfo);
+        }
+
+        init();
 
         // Suscribirse a eventos
         const unsubscribeStorageInfoUpdated = storageService.subscribe(
