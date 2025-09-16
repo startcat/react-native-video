@@ -90,6 +90,23 @@ export const NETWORK_ERROR_DEFINITIONS = {
 		message: "Downloads are restricted to WiFi connections only.",
 	},
 
+	// === ERRORES DE SERVICIO DE RED ===
+	NETWORK_SERVICE_INITIALIZATION_FAILED: {
+		message: "Failed to initialize network monitoring service.",
+	},
+	NETWORK_SERVICE_STATUS_FETCH_FAILED: {
+		message: "Failed to fetch current network status.",
+	},
+	NETWORK_SERVICE_MONITORING_START_FAILED: {
+		message: "Failed to start network monitoring.",
+	},
+	NETWORK_SERVICE_MONITORING_STOP_FAILED: {
+		message: "Failed to stop network monitoring.",
+	},
+	NETWORK_SERVICE_STORE_UPDATE_FAILED: {
+		message: "Failed to update network status in store.",
+	},
+
 	// === ERROR DESCONOCIDO ===
 	NETWORK_UNKNOWN_999: {
 		message: "Unknown network error occurred.",
