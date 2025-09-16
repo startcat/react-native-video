@@ -101,6 +101,44 @@ export const STORAGE_ERROR_DEFINITIONS = {
 		message: "Storage encryption/decryption failed.",
 	},
 
+	// === ERRORES DE SISTEMA DE ARCHIVOS ===
+	STORAGE_FILE_SYSTEM_601: {
+		message: "Failed to access file system.",
+	},
+	STORAGE_FILE_SYSTEM_602: {
+		message: "File or directory not found.",
+	},
+	STORAGE_FILE_SYSTEM_603: {
+		message: "Failed to create directory.",
+	},
+	STORAGE_FILE_SYSTEM_604: {
+		message: "Failed to delete file or directory.",
+	},
+	STORAGE_FILE_SYSTEM_605: {
+		message: "Failed to move file or directory.",
+	},
+	STORAGE_FILE_SYSTEM_606: {
+		message: "Failed to copy file or directory.",
+	},
+	STORAGE_FILE_SYSTEM_607: {
+		message: "File validation failed.",
+	},
+	STORAGE_FILE_SYSTEM_608: {
+		message: "Failed to read file information.",
+	},
+	STORAGE_FILE_SYSTEM_609: {
+		message: "File size mismatch detected.",
+	},
+	STORAGE_FILE_SYSTEM_610: {
+		message: "File is not accessible for reading.",
+	},
+	STORAGE_FILE_SYSTEM_611: {
+		message: "Storage cleanup operation failed.",
+	},
+	STORAGE_FILE_SYSTEM_612: {
+		message: "Failed to calculate folder size.",
+	},
+
 	// === ERROR DESCONOCIDO ===
 	STORAGE_UNKNOWN_999: {
 		message: "Unknown storage error occurred.",
