@@ -34,5 +34,6 @@ export enum StorageEventType {
     CLEANUP_STARTED = 'storage:cleanup_started',
     CLEANUP_COMPLETED = 'storage:cleanup_completed',
     INFO_UPDATED = 'storage:info_updated',
+    FILE_CREATED = 'storage:file_created',
     ERROR = 'storage:error',
 }
