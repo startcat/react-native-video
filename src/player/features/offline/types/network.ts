@@ -3,6 +3,8 @@ import {
     type NetInfoState,
 } from '@react-native-community/netinfo';
 
+import { LogLevel } from '../../logger';
+
 export enum NetworkEventType {
     CONNECTED = 'network:connected',
     DISCONNECTED = 'network:disconnected',
@@ -23,7 +25,9 @@ export interface NetworkStatus {
 }
 
 export interface NetworkServiceConfig {
-    checkIntervalMs?: number;
-    enableLogging?: boolean;
-    autoStart?: boolean;
+    logEnabled?: boolean;
+    logLevel?: LogLevel;
+    disableAutoStart?: boolean;
 }
+
+export type NetworkStatusCallback = (status: NetworkStatus) => void;
