@@ -2,6 +2,7 @@ import { EventEmitter } from 'eventemitter3';
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { Logger, LogLevel } from '../../../logger';
+import { PlayerError } from '../../../../core/errors';
 
 import {
     FileInfo,
@@ -127,7 +128,10 @@ export class StorageService {
             return info.totalSpace;
         } catch (error) {
             this.currentLogger.error(TAG, 'Error getting total space', error);
-            return 0;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_601', {
+                originalError: error,
+                context: 'StorageService.getTotalSpace'
+            });
         }
     }
 
@@ -142,7 +146,10 @@ export class StorageService {
             return info.totalSpace - info.freeSpace;
         } catch (error) {
             this.currentLogger.error(TAG, 'Error getting used space', error);
-            return 0;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_601', {
+                originalError: error,
+                context: 'StorageService.getUsedSpace'
+            });
         }
     }
 
@@ -157,7 +164,10 @@ export class StorageService {
             return info.freeSpace;
         } catch (error) {
             this.currentLogger.error(TAG, 'Error getting available space', error);
-            return 0;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_601', {
+                originalError: error,
+                context: 'StorageService.getAvailableSpace'
+            });
         }
     }
 
@@ -171,7 +181,10 @@ export class StorageService {
             return await this.getFolderSize(this.downloadPath);
         } catch (error) {
             this.currentLogger.error(TAG, 'Error getting downloads folder size', error);
-            return 0;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_612', {
+                originalError: error,
+                context: 'StorageService.getDownloadsFolderSize'
+            });
         }
     }
 
@@ -185,7 +198,10 @@ export class StorageService {
             return await this.getFolderSize(this.tempPath);
         } catch (error) {
             this.currentLogger.error(TAG, 'Error getting temp folder size', error);
-            return 0;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_612', {
+                originalError: error,
+                context: 'StorageService.getTempFolderSize'
+            });
         }
     }
 
@@ -279,16 +295,25 @@ export class StorageService {
         try {
             const exists = await RNFS.exists(filePath);
             if (!exists) {
-                this.currentLogger.warn(TAG, `File not found: ${filePath}`);
-                return false;
+                throw new PlayerError('STORAGE_FILE_SYSTEM_602', {
+                    filePath,
+                    context: 'StorageService.deleteFile'
+                });
             }
 
             await RNFS.unlink(filePath);
             this.currentLogger.debug(TAG, `File deleted: ${filePath}`);
             return true;
         } catch (error) {
+            if (error instanceof PlayerError) {
+                throw error;
+            }
             this.currentLogger.error(TAG, `Error deleting file: ${filePath}`, error);
-            return false;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_604', {
+                originalError: error,
+                filePath,
+                context: 'StorageService.deleteFile'
+            });
         }
     }
 
@@ -304,7 +329,12 @@ export class StorageService {
             return true;
         } catch (error) {
             this.currentLogger.error(TAG, `Error moving file from ${source} to ${destination}`, error);
-            return false;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_605', {
+                originalError: error,
+                source,
+                destination,
+                context: 'StorageService.moveFile'
+            });
         }
     }
 
@@ -320,7 +350,12 @@ export class StorageService {
             return true;
         } catch (error) {
             this.currentLogger.error(TAG, `Error copying file from ${source} to ${destination}`, error);
-            return false;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_606', {
+                originalError: error,
+                source,
+                destination,
+                context: 'StorageService.copyFile'
+            });
         }
     }
 
@@ -341,9 +376,17 @@ export class StorageService {
                 createdAt: stat.ctime ? new Date(stat.ctime).getTime() : undefined,
                 modifiedAt: stat.mtime ? new Date(stat.mtime).getTime() : undefined,
             };
-        } catch (error) {
-            this.currentLogger.debug(TAG, `File not found: ${filePath}`);
-            return null;
+        } catch (error: any) {
+            // File not found is not an error, return null
+            if (error?.code === 'ENOENT') {
+                return null;
+            }
+            this.currentLogger.error(TAG, `Error getting file info: ${filePath}`, error);
+            throw new PlayerError('STORAGE_FILE_SYSTEM_608', {
+                originalError: error,
+                filePath,
+                context: 'StorageService.getFileInfo'
+            });
         }
     }
 
@@ -360,23 +403,23 @@ export class StorageService {
             const fileInfo = await this.getFileInfo(filePath);
 
             if (!fileInfo || !fileInfo.exists) {
-                errors.push('El archivo no existe');
+                errors.push('File does not exist');
                 return { isValid: false, errors };
             }
 
             if (fileInfo.size === 0) {
-                errors.push('El archivo está vacío');
+                errors.push('File is empty');
             }
 
             if (expectedSize && fileInfo.size !== expectedSize) {
-                errors.push(`Tamaño incorrecto. Esperado: ${expectedSize}, Actual: ${fileInfo.size}`);
+                errors.push(`Incorrect file size. Expected: ${expectedSize}, Actual: ${fileInfo.size}`);
             }
 
             // Verificar si el archivo es accesible
             try {
                 await RNFS.read(filePath, 1);
             } catch (readError) {
-                errors.push('El archivo no es accesible para lectura');
+                errors.push('File is not accessible for reading');
             }
 
             return {
@@ -385,8 +428,13 @@ export class StorageService {
                 warnings: warnings.length > 0 ? warnings : undefined,
             };
         } catch (error) {
-            errors.push(`Error al validar: ${error}`);
-            return { isValid: false, errors };
+            this.currentLogger.error(TAG, `Error validating file: ${filePath}`, error);
+            throw new PlayerError('STORAGE_FILE_SYSTEM_607', {
+                originalError: error,
+                filePath,
+                expectedSize,
+                context: 'StorageService.validateFile'
+            });
         }
     }
 
@@ -405,7 +453,11 @@ export class StorageService {
             return true;
         } catch (error) {
             this.currentLogger.error(TAG, `Error creating directory: ${path}`, error);
-            return false;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_603', {
+                originalError: error,
+                path,
+                context: 'StorageService.createDirectory'
+            });
         }
     }
 
@@ -471,7 +523,11 @@ export class StorageService {
             return totalSize;
         } catch (error) {
             this.currentLogger.error(TAG, `Error calculating folder size: ${folderPath}`, error);
-            return 0;
+            throw new PlayerError('STORAGE_FILE_SYSTEM_612', {
+                originalError: error,
+                folderPath,
+                context: 'StorageService.getFolderSize'
+            });
         }
     }
 
@@ -501,6 +557,11 @@ export class StorageService {
             }
         } catch (error) {
             this.currentLogger.error(TAG, 'Error cleaning temp files', error);
+            throw new PlayerError('STORAGE_FILE_SYSTEM_611', {
+                originalError: error,
+                tempPath: this.tempPath,
+                context: 'StorageService.cleanupTempFiles'
+            });
         }
 
         return deletedBytes;
@@ -539,6 +600,11 @@ export class StorageService {
             }
         } catch (error) {
             this.currentLogger.error(TAG, 'Error cleaning partial files', error);
+            throw new PlayerError('STORAGE_FILE_SYSTEM_611', {
+                originalError: error,
+                downloadPath: this.downloadPath,
+                context: 'StorageService.cleanupPartialFiles'
+            });
         }
 
         return deletedBytes;
