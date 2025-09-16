@@ -17,6 +17,7 @@ import {
     DIRECTORIES,
     LIMITS,
     LOG_TAGS,
+    PATTERNS
 } from '../../constants';
 
 const TAG = LOG_TAGS.STORAGE_SERVICE;
@@ -287,6 +288,72 @@ export class StorageService {
     }
 
     /*
+     * Crea un archivo con contenido
+     *
+     */
+
+    public async createFile(
+        path: string,
+        content: string | Uint8Array,
+        encoding: 'utf8' | 'base64' = 'utf8'
+    ): Promise<FileInfo> {
+        try {
+            // Validar nombre
+            this.validateFilename(path);
+            
+            // Asegurar directorio
+            const directory = path.substring(0, path.lastIndexOf('/'));
+            await this.createDirectory(directory);
+                
+            // Escribir archivo
+            await RNFS.writeFile(path, content.toString(), encoding);
+                
+            const fileInfo = await this.getFileInfo(path);
+                
+            this.currentLogger.debug(TAG, `File created: ${path}`);
+            this.eventEmitter.emit(StorageEventType.FILE_CREATED, fileInfo);
+                
+            return fileInfo!;
+        } catch (error) {
+            throw new PlayerError('STORAGE_FILE_SYSTEM_609', {
+                originalError: error,
+                path,
+                context: 'StorageService.createFile'
+            });
+        }
+    }
+
+    /*
+     * Lee el contenido de un archivo
+     *
+     */
+
+    public async readFile(
+        path: string,
+        encoding: 'utf8' | 'base64' = 'utf8'
+    ): Promise<string> {
+        try {
+            const exists = await RNFS.exists(path);
+            if (!exists) {
+                throw new PlayerError('STORAGE_FILE_SYSTEM_602', {
+                    path,
+                    context: 'StorageService.readFile'
+                });
+            }
+
+            return await RNFS.readFile(path, encoding);
+        } catch (error) {
+            if (error instanceof PlayerError) throw error;
+            
+            throw new PlayerError('STORAGE_FILE_SYSTEM_610', {
+                originalError: error,
+                path,
+                context: 'StorageService.readFile'
+            });
+        }
+    }
+
+    /*
      * Elimina un archivo
      *
      */
@@ -436,6 +503,22 @@ export class StorageService {
                 context: 'StorageService.validateFile'
             });
         }
+    }
+
+    /*
+     * Genera path único para descargas
+     *
+     */
+
+    public generateUniquePath(
+        directory: string,
+        filename: string,
+        extension: string
+    ): string {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        const sanitized = this.sanitizeFilename(filename);
+        return `${directory}/${sanitized}_${timestamp}_${random}${extension}`;
     }
 
     /*
@@ -671,6 +754,58 @@ export class StorageService {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
 
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    /*
+     * Valida un nombre de archivo
+     *
+     */
+
+    private validateFilename(filename: string): void {
+        // Extraer solo el nombre del archivo si es una ruta completa
+        const name = filename.includes('/') 
+            ? filename.substring(filename.lastIndexOf('/') + 1)
+            : filename;
+
+        // Verificar longitud
+        if (name.length > LIMITS.MAX_FILENAME_LENGTH) {
+            throw new Error(`Filename too long: ${name.length} > ${LIMITS.MAX_FILENAME_LENGTH}`);
+        }
+
+        // Verificar caracteres válidos
+        if (!PATTERNS.FILENAME.test(name)) {
+            throw new Error(`Invalid filename: ${name}`);
+        }
+
+        // Verificar que no use nombres reservados
+        const reserved = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'LPT1'];
+        const nameWithoutExt = name?.split('.')[0]?.toUpperCase();
+        if (nameWithoutExt && reserved.includes(nameWithoutExt)) {
+            throw new Error(`Reserved filename: ${name}`);
+        }
+    }
+
+    /*
+     * Sanitiza un nombre de archivo
+     *
+     */
+
+    private sanitizeFilename(filename: string): string {
+        // Remover caracteres no válidos
+        let sanitized = filename.replace(/[^a-zA-Z0-9._\- ]/g, '_');
+        
+        // Limitar longitud
+        if (sanitized.length > LIMITS.MAX_FILENAME_LENGTH - 20) {
+            sanitized = sanitized.substring(0, LIMITS.MAX_FILENAME_LENGTH - 20);
+        }
+
+        // Remover espacios al inicio y final
+        sanitized = sanitized.trim();
+
+        // Reemplazar múltiples underscores con uno
+        sanitized = sanitized.replace(/_+/g, '_');
+
+        return sanitized || 'download';
     }
 
     /*
