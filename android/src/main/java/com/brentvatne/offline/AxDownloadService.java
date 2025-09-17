@@ -31,6 +31,7 @@ public class AxDownloadService extends DownloadService {
     private static final int FOREGROUND_NOTIFICATION_ID = 1;
     public static final String NOTIFICATION = "com.brentvatne.offline.AxDownloadService";
     public static final String PROGRESS = "progress";
+    public static final String KEY_CONTENT_ID = "content_id";
 
     // Helper for creating a download notifications
     private DownloadNotificationHelper notificationHelper;
@@ -44,16 +45,22 @@ public class AxDownloadService extends DownloadService {
     }
 
     private void init(){
-
         Log.d("Downloads", "+++ [AxDownloadService] init");
 
-        notificationHelper = new DownloadNotificationHelper(this, CHANNEL_ID);
-        DownloadManager downloadManager = AxOfflineManager.getInstance().getDownloadManager();
+        try {
+            notificationHelper = new DownloadNotificationHelper(this, CHANNEL_ID);
+            DownloadManager downloadManager = AxOfflineManager.getInstance().getDownloadManager();
 
-        if (downloadManager != null) {
-            downloadManager.addListener(new TerminalStateNotificationHelper(this, notificationHelper, FOREGROUND_NOTIFICATION_ID + 1));
+            if (downloadManager != null) {
+                downloadManager.addListener(new TerminalStateNotificationHelper(this, notificationHelper, FOREGROUND_NOTIFICATION_ID + 1));
+                Log.d("Downloads", "AxDownloadService initialized successfully");
+            } else {
+                Log.e("Downloads", "CRITICAL: DownloadManager is null during AxDownloadService init. Service may fail.");
+            }
+        } catch (Exception e) {
+            Log.e("Downloads", "Error during AxDownloadService init: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to initialize AxDownloadService", e);
         }
-
     }
 
     @Override
@@ -67,7 +74,11 @@ public class AxDownloadService extends DownloadService {
     @NonNull
     @Override
     protected DownloadManager getDownloadManager() {
-        return AxOfflineManager.getInstance().getDownloadManager();
+        DownloadManager downloadManager = AxOfflineManager.getInstance().getDownloadManager();
+        if (downloadManager == null) {
+            throw new IllegalStateException("DownloadManager is null. AxOfflineManager must be initialized before starting AxDownloadService");
+        }
+        return downloadManager;
     }
 
     @Override

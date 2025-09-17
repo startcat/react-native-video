@@ -22,9 +22,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -81,8 +83,8 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     private static MediaItem currentMediaItem;
     
     // Variable para trackear si hay un resumeAll pendiente
-    private boolean pendingResumeAll = false;
-    private Promise pendingResumePromise = null;
+    private volatile boolean pendingResumeAll = false;
+    private volatile Promise pendingResumePromise = null;
 
     public DownloadsModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -158,7 +160,7 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     private void initOfflineManager() {
         Log.d(TAG, "initOfflineManager");
 
-        if (AxOfflineManager.getInstance() != null && this.reactContext != null) {
+        if (AxOfflineManager.getInstance() != null && this.reactContext != null && mLicenseManager != null) {
 
             AxOfflineManager.getInstance().init(this.reactContext);
 
@@ -166,7 +168,13 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
                 mAxDownloadTracker = AxOfflineManager.getInstance().getDownloadTracker();
             }
 
-            mAxDownloadTracker.addListener(this);
+            if (mAxDownloadTracker != null) {
+                mAxDownloadTracker.addListener(this);
+            } else {
+                Log.e(TAG, "Failed to initialize AxDownloadTracker");
+                throw new RuntimeException("Failed to initialize AxDownloadTracker");
+            }
+            
             mLicenseManager.setEventListener(this);
 
             if (Util.SDK_INT < 33){
@@ -260,9 +268,25 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     public void moduleInit(final Promise promise) {
         //Log.d(TAG, "+++ [Downloads] init");
 
-        // Initializing the OfflineLicenseManager
-        mLicenseManager = new OfflineLicenseManager(this.reactContext);
-        initOfflineManager();
+        try {
+            // Initializing the OfflineLicenseManager
+            if (this.reactContext == null) {
+                promise.reject("CONTEXT_NULL", "React context is null");
+                return;
+            }
+            
+            mLicenseManager = new OfflineLicenseManager(this.reactContext);
+            if (mLicenseManager == null) {
+                promise.reject("LICENSE_MANAGER_INIT_FAILED", "Failed to initialize OfflineLicenseManager");
+                return;
+            }
+            
+            initOfflineManager();
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing DownloadsModule: " + e.getMessage(), e);
+            promise.reject("INIT_FAILED", "Failed to initialize DownloadsModule: " + e.getMessage());
+            return;
+        }
 
         Log.d(TAG, "+++ [Downloads] start isOnNativeModulesQueueThread " + this.reactContext.isOnNativeModulesQueueThread());
         Log.d(TAG, "+++ [Downloads] start isOnJSQueueThread " + this.reactContext.isOnJSQueueThread());
@@ -273,13 +297,30 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
         if (manager != null){
 
             try {
-                DownloadService.start(this.reactContext, AxDownloadService.class);
-                DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+                // Android 12+ validation for foreground service
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (this.reactContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE) == PackageManager.PERMISSION_GRANTED) {
+                        DownloadService.start(this.reactContext, AxDownloadService.class);
+                        DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+                    } else {
+                        Log.w(TAG, "Cannot start foreground service - FOREGROUND_SERVICE permission denied");
+                        promise.reject("PERMISSION_DENIED", "Foreground service permission required for downloads");
+                        return;
+                    }
+                } else {
+                    DownloadService.start(this.reactContext, AxDownloadService.class);
+                    DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+                }
 
             } catch (IllegalStateException e) {
-                DownloadService.startForeground(this.reactContext, AxDownloadService.class);
-                DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
-
+                try {
+                    DownloadService.startForeground(this.reactContext, AxDownloadService.class);
+                    DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
+                } catch (Exception ex) {
+                    Log.e(TAG, "Failed to start AxDownloadService even with startForeground", ex);
+                    promise.reject("SERVICE_START_FAILED", "Cannot start download service: " + ex.getMessage());
+                    return;
+                }
             }
 
         }
@@ -336,6 +377,15 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
             }
             
             try {
+                // Android 12+ validation for foreground service
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (this.reactContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE) != PackageManager.PERMISSION_GRANTED) {
+                        Log.w(TAG, "Cannot resume downloads - FOREGROUND_SERVICE permission denied");
+                        promise.reject("PERMISSION_DENIED", "Foreground service permission required for downloads");
+                        return;
+                    }
+                }
+                
                 DownloadService.sendResumeDownloads(this.reactContext, AxDownloadService.class, false);
                 promise.resolve(null);
 
@@ -504,6 +554,16 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
                 // Si encontramos un ID, eliminarlo
                 if (downloadId != null) {
                     Log.d(TAG, "+++ [Downloads] Removing download: " + downloadId);
+                    
+                    // Android 12+ validation for foreground service
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        if (this.reactContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE) != PackageManager.PERMISSION_GRANTED) {
+                            Log.w(TAG, "Cannot remove download - FOREGROUND_SERVICE permission denied");
+                            promise.reject("PERMISSION_DENIED", "Foreground service permission required for download operations");
+                            return;
+                        }
+                    }
+                    
                     DownloadService.sendRemoveDownload(this.reactContext, AxDownloadService.class, downloadId, false);
                     promise.resolve(null);
                     return;
@@ -547,14 +607,12 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
                 }
             } else {
                 Log.d(TAG, "+++ [getItem] No mAxDownloadTracker");
-                result.putString("error", "No mAxDownloadTracker");
-                promise.reject((Throwable) result);
+                promise.reject("NO_TRACKER", "AxDownloadTracker is not initialized");
             }
 
         } else {
             Log.d(TAG, "+++ [getItem] No uri");
-            result.putString("error", "No uri");
-            promise.reject((Throwable) result);
+            promise.reject("NO_URI", "URI parameter is required");
         }
 
     }
@@ -579,9 +637,31 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
 
     @ReactMethod
     public void prepared() {
-        int [][] tracks = getTracks();
-        mAxDownloadTracker.download(currentMediaItem.mediaMetadata.title.toString(), tracks);
-
+        if (mDownloadHelper == null) {
+            Log.e(TAG, "prepared() called but mDownloadHelper is null");
+            return;
+        }
+        
+        if (currentMediaItem == null) {
+            Log.e(TAG, "prepared() called but currentMediaItem is null");
+            return;
+        }
+        
+        if (mAxDownloadTracker == null) {
+            Log.e(TAG, "prepared() called but mAxDownloadTracker is null");
+            return;
+        }
+        
+        try {
+            int [][] tracks = getTracks();
+            String title = currentMediaItem.mediaMetadata != null && currentMediaItem.mediaMetadata.title != null 
+                ? currentMediaItem.mediaMetadata.title.toString() 
+                : currentMediaItem.mediaId != null ? currentMediaItem.mediaId : "Unknown";
+                
+            mAxDownloadTracker.download(title, tracks);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in prepared(): " + e.getMessage(), e);
+        }
     }
 
 
@@ -917,13 +997,36 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
 
         if (mAxDownloadTracker != null) {
             mAxDownloadTracker.removeListener(this);
+            mAxDownloadTracker = null;
+        }
+        
+        // Cleanup DownloadHelper to prevent memory leaks
+        if (mDownloadHelper != null) {
+            try {
+                mDownloadHelper.release();
+            } catch (Exception e) {
+                Log.w(TAG, "Error releasing DownloadHelper: " + e.getMessage());
+            } finally {
+                mDownloadHelper = null;
+            }
+        }
+        
+        // Cleanup LicenseManager
+        if (mLicenseManager != null) {
+            try {
+                mLicenseManager.release();
+            } catch (Exception e) {
+                Log.w(TAG, "Error releasing LicenseManager: " + e.getMessage());
+            } finally {
+                mLicenseManager = null;
+            }
         }
 
         if (this.reactContext != null){
             try {
                 this.reactContext.unregisterReceiver(mBroadcastReceiver);
             } catch (IllegalArgumentException e) {
-                System.out.printf(e.getMessage());
+                Log.w(TAG, "Error unregistering broadcast receiver: " + e.getMessage());
             }
 
         }

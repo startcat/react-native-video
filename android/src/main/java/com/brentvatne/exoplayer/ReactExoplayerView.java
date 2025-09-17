@@ -16,6 +16,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
@@ -1174,7 +1175,18 @@ public class ReactExoplayerView extends FrameLayout implements
         intent.setAction(MediaSessionService.SERVICE_INTERFACE);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            themedReactContext.startForegroundService(intent);
+            // Android 12+ validation for foreground service
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (themedReactContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE) == PackageManager.PERMISSION_GRANTED) {
+                    themedReactContext.startForegroundService(intent);
+                } else {
+                    Log.w("ReactExoplayerView", "Cannot start VideoPlaybackService - FOREGROUND_SERVICE permission denied");
+                    // Fallback to regular service if foreground service is not allowed
+                    themedReactContext.startService(intent);
+                }
+            } else {
+                themedReactContext.startForegroundService(intent);
+            }
         } else {
             themedReactContext.startService(intent);
         }
