@@ -1,3 +1,5 @@
+import { DownloadTask } from 'react-native-background-downloader';
+import { LogLevel } from '../../logger';
 import { Drm } from './drm';
 
 export enum DownloadStates {
@@ -51,6 +53,18 @@ export type ConfigDownloads = {
     progress_update_interval_ms?: number;
 };
 
+export interface BinaryDownloadServiceConfig {
+    logEnabled: boolean;
+    logLevel: LogLevel;
+    maxConcurrentDownloads: number;
+    progressUpdateInterval: number;
+    timeoutMs: number;
+    maxRetries: number;
+    showNotifications: boolean;
+    allowCellular: boolean;
+    requiresWifi: boolean;
+}
+
 export interface StreamDownloadConfig {
     type: 'DASH' | 'HLS';
     quality?: 'auto' | 'low' | 'medium' | 'high' | 'max';
@@ -59,11 +73,50 @@ export interface StreamDownloadConfig {
     drm?: Drm;
 }
 
+export interface ActiveBinaryDownload {
+    task: BinaryDownloadTask;
+    downloadTask?: DownloadTask;
+    startTime: number;
+    retryCount: number;
+    state: DownloadStates;
+    progress: BinaryDownloadProgress;
+    error?: DownloadError;
+}
+
 export interface DownloadError {
     code: DownloadErrorCode;
     message: string;
     details?: any;
     timestamp: number;
+}
+
+export interface StreamDownloadTask {
+    id: string;
+    manifestUrl: string;
+    config: StreamDownloadConfig;
+    estimatedSize?: number;
+}
+
+export interface BinaryDownloadTask {
+    id: string;
+    url: string;
+    destination: string;
+    headers?: Record<string, string>;
+    progressInterval?: number;
+    resumable?: boolean;
+}
+
+export interface BinaryDownloadProgress {
+    taskId: string;
+    bytesWritten: number;
+    totalBytes: number;
+    percent: number;
+}
+
+export interface ValidationResult {
+    isValid: boolean;
+    errors?: string[];
+    warnings?: string[];
 }
 
 export interface DownloadItem {
