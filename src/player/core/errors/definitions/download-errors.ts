@@ -97,4 +97,30 @@ export const DOWNLOAD_ERROR_DEFINITIONS = {
     DOWNLOAD_QUEUE_CLEANUP_FAILED: {
         message: "Failed to clean up completed downloads.",
     },
+
+    // === ERRORES CON EL SERVICIO DE DESCARGAS BINARIAS ===
+    DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED: {
+        message: "Failed to initialize binary download service.",
+    },
+    DOWNLOAD_BINARY_SERVICE_NOT_INITIALIZED: {
+        message: "Binary download service not initialized.",
+    },
+    DOWNLOAD_BINARY_TASK_INVALID: {
+        message: "Invalid binary download task.",
+    },
+    DOWNLOAD_BINARY_START_FAILED: {
+        message: "Failed to start binary download.",
+    },
+    DOWNLOAD_BINARY_NOT_FOUND: {
+        message: "Binary download not found.",
+    },
+    DOWNLOAD_BINARY_PAUSE_FAILED: {
+        message: "Failed to pause binary download.",
+    },
+    DOWNLOAD_BINARY_RESUME_FAILED: {
+        message: "Failed to resume binary download.",
+    },
+    DOWNLOAD_BINARY_CANCEL_FAILED: {
+        message: "Failed to cancel binary download.",
+    },
 };
