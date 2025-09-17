@@ -5,7 +5,7 @@ import androidx.annotation.StringRes;
 import com.brentvatne.react.R;
 
 /**
- * Player error codes
+ * License Manager error codes for DRM and offline license operations
  */
 @SuppressWarnings("WeakerAccess")
 public enum LicenseManagerErrorCode {
@@ -48,12 +48,22 @@ public enum LicenseManagerErrorCode {
     /**
      * Device provisioning failed
      */
-    ERROR_309(309, R.string.license_player_error_309);
+    ERROR_309(309, R.string.license_player_error_309),
+    /**
+     * Invalid parameter provided to method
+     */
+    INVALID_PARAMETER(400, R.string.license_player_error_400);
 
     private int mCode;
     private int mDescription;
 
     LicenseManagerErrorCode(int code, @StringRes int description) {
+        if (code <= 0) {
+            throw new IllegalArgumentException("Error code must be positive, got: " + code);
+        }
+        if (description == 0) {
+            throw new IllegalArgumentException("Description resource ID cannot be 0");
+        }
         mCode = code;
         mDescription = description;
     }
@@ -66,8 +76,38 @@ public enum LicenseManagerErrorCode {
         return mDescription;
     }
 
+    @Override
+    public String toString() {
+        return "LicenseManagerErrorCode{" +
+                "name=" + name() +
+                ", code=" + mCode +
+                ", description=" + mDescription +
+                '}';
+    }
+
     @SuppressWarnings("unused")
     public static LicenseManagerErrorCode getByCode(int code) {
-        return valueOf("ERROR_" + code);
+        try {
+            return valueOf("ERROR_" + code);
+        } catch (IllegalArgumentException e) {
+            // Return a default error code if the specific code doesn't exist
+            android.util.Log.w("LicenseManagerErrorCode", "Unknown error code: " + code + ", returning default error");
+            return ERROR_300; // Default to first error code
+        }
+    }
+
+    /**
+     * Find error code by numeric code value, returns null if not found
+     * @param code the numeric error code to search for
+     * @return the matching LicenseManagerErrorCode or null if not found
+     */
+    @SuppressWarnings("unused")
+    public static LicenseManagerErrorCode findByCode(int code) {
+        for (LicenseManagerErrorCode errorCode : values()) {
+            if (errorCode.getCode() == code) {
+                return errorCode;
+            }
+        }
+        return null;
     }
 }

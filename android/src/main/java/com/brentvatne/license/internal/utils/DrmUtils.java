@@ -41,17 +41,18 @@ public class DrmUtils {
             String jsonString = new String(Base64.decode(token, Base64.DEFAULT));
             JSONObject jObject = new JSONObject(jsonString);
             DrmMessage drmMessage = new DrmMessage();
-            drmMessage.version = jObject.has("version") ? jObject.getString("version") : "";
-            drmMessage.comKeyId = jObject.has("com_key_id") ? jObject.getString("com_key_id") : "";
+            drmMessage.setVersion(jObject.has("version") ? jObject.getString("version") : "");
+            drmMessage.setComKeyId(jObject.has("com_key_id") ? jObject.getString("com_key_id") : "");
             if (jObject.has("message")) {
                 JSONObject jMessage = jObject.getJSONObject("message");
-                drmMessage.persistent =
-                        jMessage.has("persistent") && jMessage.getBoolean("persistent")
+                boolean persistent = jMessage.has("persistent") && jMessage.getBoolean("persistent")
                                 || jMessage.has("license")
                                 && jMessage.getJSONObject("license").has("allow_persistence")
                                 && jMessage.getJSONObject("license").getBoolean("allow_persistence");
-                drmMessage.keysBasedOnRequest =
-                        jMessage.has("keys_based_on_request") && jMessage.getBoolean("keys_based_on_request");
+                drmMessage.setPersistent(persistent);
+                
+                boolean keysBasedOnRequest = jMessage.has("keys_based_on_request") && jMessage.getBoolean("keys_based_on_request");
+                drmMessage.setKeysBasedOnRequest(keysBasedOnRequest);
             }
             return drmMessage;
         } catch (Exception e) {

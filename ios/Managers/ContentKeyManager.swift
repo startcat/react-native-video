@@ -20,13 +20,13 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
     var licensingToken: String = ""
     
     // Current asset
-    var asset: Asset!
+    var asset: Asset?
     
     // A singleton instance of ContentKeyManager
     static let sharedManager = ContentKeyManager()
     
     // Content Key session
-    var contentKeySession: AVContentKeySession!
+    var contentKeySession: AVContentKeySession?
     
     // Content Key request
     var contentKeyRequest: AVContentKeyRequest!
@@ -41,10 +41,11 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
     var pendingPersistableContentKeyIdentifiers = Set<String>()
         
     // The directory that is used to save persistable content keys
-    lazy var contentKeyDirectory: URL = {
+    lazy var contentKeyDirectory: URL? = {
         guard let documentPath =
             NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first else {
-                fatalError("Unable to determine library URL")
+                RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Unable to determine library URL")
+                return nil
         }
         
         let documentURL = URL(fileURLWithPath: documentPath)
@@ -57,7 +58,8 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
                                                     withIntermediateDirectories: false,
                                                     attributes: nil)
             } catch {
-                fatalError("Unable to create directory for content keys at path: \(contentKeyDirectory.path)")
+                RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Unable to create directory for content keys at path: \(contentKeyDirectory.path) - \(error)")
+                return nil
             }
         }
         
@@ -128,8 +130,13 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
            return
         }
 
-        let keyId = contentIdentifier.components(separatedBy: ":")[0]
-        let keyIV = contentIdentifier.components(separatedBy: ":")[1]
+        let components = contentIdentifier.components(separatedBy: ":")
+        guard components.count >= 2 else {
+            RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Invalid contentIdentifier format, expected 'keyId:keyIV' but got: \(contentIdentifier)")
+            return
+        }
+        let keyId = components[0]
+        let keyIV = components[1]
         
         /*
          Console output
@@ -145,8 +152,17 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
          Save Content Key Identifier String to initiate persisting content key loading process associated with the asset if needed.
         */
         
-        if !(asset.contentKeyIdList?.contains(contentKeyIdentifierString))! {
-            asset.contentKeyIdList?.append(contentKeyIdentifierString)
+        guard let asset = asset else {
+            RCTLog("[Native Downloads] (ContentKeyManager) ERROR: No asset available for content key management")
+            return
+        }
+        
+        if let contentKeyIdList = asset.contentKeyIdList {
+            if !contentKeyIdList.contains(contentKeyIdentifierString) {
+                asset.contentKeyIdList?.append(contentKeyIdentifierString)
+            }
+        } else {
+            asset.contentKeyIdList = [contentKeyIdentifierString]
         }
         
         /*
@@ -326,8 +342,13 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
            return
         }
         
-        let keyId = contentIdentifier.components(separatedBy: ":")[0]
-        let keyIV = contentIdentifier.components(separatedBy: ":")[1]
+        let components = contentIdentifier.components(separatedBy: ":")
+        guard components.count >= 2 else {
+            RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Invalid contentIdentifier format, expected 'keyId:keyIV' but got: \(contentIdentifier)")
+            return
+        }
+        let keyId = components[0]
+        let keyIV = components[1]
         
         /*
          Console output
@@ -341,8 +362,17 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
         /*
          Save Content Key Identifier String to initiate persisting content key loading process associated with the asset if needed.
         */
-        if !(asset.contentKeyIdList?.contains(contentKeyIdentifierString))! {
-            asset.contentKeyIdList?.append(contentKeyIdentifierString)
+        guard let asset = asset else {
+            RCTLog("[Native Downloads] (ContentKeyManager) ERROR: No asset available for persistable content key management")
+            return
+        }
+        
+        if let contentKeyIdList = asset.contentKeyIdList {
+            if !contentKeyIdList.contains(contentKeyIdentifierString) {
+                asset.contentKeyIdList?.append(contentKeyIdentifierString)
+            }
+        } else {
+            asset.contentKeyIdList = [contentKeyIdentifierString]
         }
 
         /*
@@ -389,7 +419,11 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
                 /*
                  Writes out a persistable content key to disk
                 */
-                try strongSelf.writePersistableContentKey(contentKey: persistentKey, withAssetName: strongSelf.asset.name, withContentKeyIV: keyIV)
+                guard let asset = strongSelf.asset else {
+                    RCTLog("[Native Downloads] (ContentKeyManager) ERROR: No asset available for writing persistable content key")
+                    return
+                }
+                try strongSelf.writePersistableContentKey(contentKey: persistentKey, withAssetName: asset.name, withContentKeyIV: keyIV)
                 
                 RCTLog("[Native Downloads] (ContentKeyManager) Wrote persistable content key to disk")
                 
@@ -407,8 +441,10 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
                 RCTLog("[Native Downloads] (ContentKeyManager) Providing Content Key Response to make protected content available for processing: \(keyResponse)")
               
                 var userInfo = [String: Any]()
-                userInfo[Asset.Keys.name] = self!.asset.name
-                userInfo[Asset.Keys.url] = self!.asset.url.absoluteString
+                if let asset = strongSelf.asset {
+                    userInfo[Asset.Keys.name] = asset.name
+                    userInfo[Asset.Keys.url] = asset.url.absoluteString
+                }
                 
                 NotificationCenter.default.post(name: .HasAvailablePersistableContentKey, object: nil, userInfo: userInfo)
                 
@@ -434,7 +470,10 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
         */
         if persistableContentKeyExistsOnDisk(withAssetName: asset.name, withContentKeyIV: keyIV) {
             
-            let urlToPersistableKey = urlForPersistableContentKey(withAssetName: asset.name, withContentKeyIV: keyIV)
+            guard let urlToPersistableKey = urlForPersistableContentKey(withAssetName: asset.name, withContentKeyIV: keyIV) else {
+                RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Could not get URL for existing persistable key")
+                return
+            }
             
             RCTLog("[Native Downloads] (ContentKeyManager) Presistable key already exists on disk at location: \(urlToPersistableKey.path)")
             
@@ -529,7 +568,12 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
             
             RCTLog("[Native Downloads] (ContentKeyManager) Will write updated persistable content key to disk for \(asset.name)")
             
-            try writePersistableContentKey(contentKey: persistableContentKey, withAssetName: asset.name, withContentKeyIV: contentIdentifier.components(separatedBy: ":")[1])
+            let components = contentIdentifier.components(separatedBy: ":")
+            guard components.count >= 2 else {
+                RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Invalid contentIdentifier format for update, expected 'keyId:keyIV' but got: \(contentIdentifier)")
+                return
+            }
+            try writePersistableContentKey(contentKey: persistableContentKey, withAssetName: asset.name, withContentKeyIV: components[1])
         } catch {
             RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Failed to write updated persistable content key to disk: \(error.localizedDescription)")
         }
@@ -543,7 +587,9 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
     // - Throws: If an error occurs during the file write process.
     func writePersistableContentKey(contentKey: Data, withAssetName assetName: String, withContentKeyIV keyIV: String) throws {
         
-        let fileURL = urlForPersistableContentKey(withAssetName: assetName, withContentKeyIV: keyIV)
+        guard let fileURL = urlForPersistableContentKey(withAssetName: assetName, withContentKeyIV: keyIV) else {
+            throw ProgramError.applicationCertificateRequestFailed // Using existing error type
+        }
         
         try contentKey.write(to: fileURL, options: Data.WritingOptions.atomicWrite)
         
@@ -555,7 +601,9 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
     // - Parameter assetName: The asset name.
     // - Returns: `true` if the key exists on disk, `false` otherwise.
     func persistableContentKeyExistsOnDisk(withAssetName assetName: String, withContentKeyIV keyIV: String) -> Bool {
-        let contentKeyURL = urlForPersistableContentKey(withAssetName: assetName, withContentKeyIV: keyIV)
+        guard let contentKeyURL = urlForPersistableContentKey(withAssetName: assetName, withContentKeyIV: keyIV) else {
+            return false
+        }
         
         return FileManager.default.fileExists(atPath: contentKeyURL.path)
     }
@@ -563,8 +611,12 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
     // Returns the `URL` for persisting or retrieving a persistable content key.
     //
     // - Parameter assetName: The asset name.
-    // - Returns: The fully resolved file URL.
-    func urlForPersistableContentKey(withAssetName assetName: String, withContentKeyIV keyIV: String) -> URL {
+    // - Returns: The fully resolved file URL, or nil if contentKeyDirectory is unavailable.
+    func urlForPersistableContentKey(withAssetName assetName: String, withContentKeyIV keyIV: String) -> URL? {
+        guard let contentKeyDirectory = contentKeyDirectory else {
+            RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Content key directory is not available")
+            return nil
+        }
         return contentKeyDirectory.appendingPathComponent("\(assetName)-\(keyIV)-Key")
     }
     
@@ -581,7 +633,12 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
             return
         }
         
-        let keyIV = contentIdentifier.components(separatedBy: ":")[1]
+        let components = contentIdentifier.components(separatedBy: ":")
+        guard components.count >= 2 else {
+            RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Invalid contentIdentifier format for deletion, expected 'keyId:keyIV' but got: \(contentIdentifier)")
+            return
+        }
+        let keyIV = components[1]
         
         if persistableContentKeyExistsOnDisk(withAssetName: assetName, withContentKeyIV: keyIV) {
             RCTLog("[Native Downloads] (ContentKeyManager) Deleting content key for \(assetName) - \(keyIV): Persistable content key exists on disk")
@@ -590,7 +647,10 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
             return
         }
         
-        let contentKeyURL = urlForPersistableContentKey(withAssetName: assetName, withContentKeyIV: keyIV)
+        guard let contentKeyURL = urlForPersistableContentKey(withAssetName: assetName, withContentKeyIV: keyIV) else {
+            RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Could not get URL for content key deletion")
+            return
+        }
         
         do {
             try FileManager.default.removeItem(at: contentKeyURL)

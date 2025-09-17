@@ -48,10 +48,28 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
     }
     
     func download(asset: Asset) {
-        RCTLog("[Native Downloads] (AssetDownloader) Download")
+        RCTLog("[Native Downloads] (AssetDownloader) Download request for: \(asset.name)")
+        
+        // Validate asset
+        guard !asset.name.isEmpty else {
+            RCTLog("[Native Downloads] (AssetDownloader) Asset name is empty")
+            return
+        }
+        
+        // Check if already downloaded
+        let currentState = downloadStateOfAsset(asset: asset)
+        if currentState == .downloadedAndSavedToDevice {
+            RCTLog("[Native Downloads] (AssetDownloader) Asset \(asset.name) is already downloaded")
+            return
+        }
+        
+        if currentState == .downloading {
+            RCTLog("[Native Downloads] (AssetDownloader) Asset \(asset.name) is already being downloaded")
+            return
+        }
         
         guard let urlAsset = asset.urlAsset else {
-            RCTLog("[Native Downloads] (AssetDownloader) No AVURLAsset supplied")
+            RCTLog("[Native Downloads] (AssetDownloader) No AVURLAsset supplied for: \(asset.name)")
             return
         }
         
@@ -109,7 +127,9 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
                                     bookmarkDataIsStale: &bookmarkDataIsStale)
 
             if bookmarkDataIsStale {
-                fatalError("Bookmark data is stale!")
+                RCTLog("[Native Downloads] (AssetDownloader) Bookmark data is stale, removing invalid bookmark for: \(name)")
+                userDefaults.removeObject(forKey: name)
+                return nil
             }
             
             // Create an asset that will be used during the playback
@@ -117,7 +137,9 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
             
             return asset
         } catch {
-            fatalError("Failed to create URL from bookmark with error: \(error)")
+            RCTLog("[Native Downloads] (AssetDownloader) Failed to create URL from bookmark for \(name): \(error)")
+            userDefaults.removeObject(forKey: name)
+            return nil
         }
     }
     
@@ -181,7 +203,12 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
             break
         }
         
-        task?.cancel()
+        if let downloadTask = task {
+            downloadTask.cancel()
+            // Clean up maps immediately to prevent memory leaks
+            activeDownloadsMap.removeValue(forKey: downloadTask)
+            willDownloadToUrlMap.removeValue(forKey: downloadTask)
+        }
     }
   
   // Pauses the download task
@@ -293,9 +320,11 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
                 
             case (NSURLErrorDomain, NSURLErrorUnknown):
                 RCTLog("[Native Downloads] (AssetDownloader) Downloading HLS streams is not supported in the simulator.")
+                userInfo[Asset.Keys.downloadState] = Asset.DownloadState.notDownloaded.rawValue
                 
             default:
-                RCTLog("[Native Downloads] (AssetDownloader) An unexpected error occured \(error.domain)")
+                RCTLog("[Native Downloads] (AssetDownloader) Download failed with error: \(error.localizedDescription) (domain: \(error.domain), code: \(error.code))")
+                userInfo[Asset.Keys.downloadState] = Asset.DownloadState.notDownloaded.rawValue
             }
         } else {
             do {
@@ -359,12 +388,18 @@ class AssetDownloader: NSObject, AVAssetDownloadDelegate  {
         // Log para depuración
         RCTLog("[Native Downloads] (AssetDownloader) Progress update: \(percentCompleteFormatted)% for \(aggregateAssetDownloadTask.taskDescription ?? "unknown")")
         
+        // Get the actual asset from activeDownloadsMap
+        guard let asset = activeDownloadsMap[aggregateAssetDownloadTask] else {
+            RCTLog("[Native Downloads] (AssetDownloader) Could not find asset for progress update")
+            return
+        }
+        
         // Prepare the basic userInfo dictionary that will be posted as part of our notification
         var userInfo = [String: Any]()
-        userInfo[Asset.Keys.name] = aggregateAssetDownloadTask.taskDescription
+        userInfo[Asset.Keys.name] = asset.name
         userInfo[Asset.Keys.percentDownloaded] = percentComplete
-        userInfo[Asset.Keys.url] = aggregateAssetDownloadTask.taskDescription
-        userInfo[Asset.Keys.id] = aggregateAssetDownloadTask.taskDescription
+        userInfo[Asset.Keys.url] = asset.url.absoluteString
+        userInfo[Asset.Keys.id] = asset.id
         
         // Asegurarnos de que la notificación se envía correctamente
         NotificationCenter.default.post(name: .AssetDownloadProgress, object: nil, userInfo: userInfo)

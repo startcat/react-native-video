@@ -70,18 +70,29 @@ public final class SchemeData implements Parcelable {
      * @param requiresSecureDecryption See {@link #requiresSecureDecryption}.
      */
     public SchemeData(UUID uuid, String mimeType, byte[] data, boolean requiresSecureDecryption) {
-        if (BuildConfig.DEBUG && (uuid == null || mimeType == null)) {
-            throw new NullPointerException();
+        // CRITICAL: Always validate in both DEBUG and RELEASE modes to prevent NPE
+        if (uuid == null) {
+            throw new IllegalArgumentException("UUID cannot be null");
+        }
+        if (mimeType == null) {
+            throw new IllegalArgumentException("MimeType cannot be null");
         }
         this.uuid = uuid;
         this.mimeType = mimeType;
-        this.data = data;
+        this.data = data; // data can be null for scheme support checks
         this.requiresSecureDecryption = requiresSecureDecryption;
     }
 
     /* package */ SchemeData(Parcel in) {
-        uuid = new UUID(in.readLong(), in.readLong());
+        long mostSigBits = in.readLong();
+        long leastSigBits = in.readLong();
+        uuid = new UUID(mostSigBits, leastSigBits);
+        
         mimeType = in.readString();
+        if (mimeType == null) {
+            throw new IllegalStateException("MimeType cannot be null when reading from Parcel");
+        }
+        
         data = in.createByteArray();
         requiresSecureDecryption = in.readByte() != 0;
     }
@@ -108,7 +119,10 @@ public final class SchemeData implements Parcelable {
 
     /**
      * Returns whether {@link #data} is non-null.
-     * @return boolean
+     * This is useful for checking if the SchemeData contains actual initialization data
+     * or is just used for scheme support checks.
+     * 
+     * @return true if data is not null, false otherwise
      */
     public boolean hasData() {
         return data != null;
@@ -123,8 +137,10 @@ public final class SchemeData implements Parcelable {
             return true;
         }
         SchemeData other = (SchemeData) obj;
-        return mimeType.equals(other.mimeType) && LicenseManagerUtils.areEqual(uuid, other.uuid)
-                && Arrays.equals(data, other.data);
+        return mimeType.equals(other.mimeType) 
+                && LicenseManagerUtils.areEqual(uuid, other.uuid)
+                && Arrays.equals(data, other.data)
+                && requiresSecureDecryption == other.requiresSecureDecryption;
     }
 
     @Override
@@ -133,9 +149,20 @@ public final class SchemeData implements Parcelable {
             int result = uuid.hashCode();
             result = 31 * result + mimeType.hashCode();
             result = 31 * result + Arrays.hashCode(data);
+            result = 31 * result + (requiresSecureDecryption ? 1 : 0);
             hashCode = result;
         }
         return hashCode;
+    }
+
+    @Override
+    public String toString() {
+        return "SchemeData{" +
+                "uuid=" + uuid +
+                ", mimeType='" + mimeType + '\'' +
+                ", dataLength=" + (data != null ? data.length : 0) +
+                ", requiresSecureDecryption=" + requiresSecureDecryption +
+                '}';
     }
 
     // Parcelable implementation.

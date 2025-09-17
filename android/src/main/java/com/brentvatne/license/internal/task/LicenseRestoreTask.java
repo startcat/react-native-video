@@ -3,7 +3,7 @@ package com.brentvatne.license.internal.task;
 import android.annotation.SuppressLint;
 import android.media.MediaDrm;
 import android.media.UnsupportedSchemeException;
-import android.os.AsyncTask;
+import android.os.AsyncTask; // TODO: Replace with ExecutorService - AsyncTask is deprecated since API 30
 import android.os.Build;
 import android.util.Log;
 import android.util.Pair;
@@ -31,6 +31,9 @@ public class LicenseRestoreTask extends AsyncTask<LicenseRestoreTask.Params, Voi
     private byte[] mSessionId;
 
     public LicenseRestoreTask(ILicenceRestoreTaskCallback listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("Listener cannot be null");
+        }
         mListener = listener;
     }
 
@@ -46,6 +49,12 @@ public class LicenseRestoreTask extends AsyncTask<LicenseRestoreTask.Params, Voi
     protected byte[] doInBackground(Params... params) {
         if (Build.VERSION.SDK_INT < 18) {
             mErrorCode = LicenseManagerErrorCode.ERROR_300;
+            return null;
+        }
+
+        if (params == null || params.length == 0 || params[0] == null) {
+            mErrorCode = LicenseManagerErrorCode.INVALID_PARAMETER;
+            mErrorExtraData = "Parameters cannot be null or empty";
             return null;
         }
 
@@ -78,7 +87,19 @@ public class LicenseRestoreTask extends AsyncTask<LicenseRestoreTask.Params, Voi
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void closeSession() {
-        if (mMediaDrm != null && mSessionId != null) mMediaDrm.closeSession(mSessionId);
+        // CRITICAL: Properly close MediaDrm resources to prevent memory leaks
+        if (mMediaDrm != null) {
+            try {
+                if (mSessionId != null) {
+                    mMediaDrm.closeSession(mSessionId);
+                    mSessionId = null;
+                }
+                mMediaDrm.close();
+                mMediaDrm = null;
+            } catch (Exception e) {
+                Log.w(TAG, "Error closing MediaDrm resources: " + e.getMessage());
+            }
+        }
     }
 
     private void onError(Exception e) {
@@ -101,13 +122,34 @@ public class LicenseRestoreTask extends AsyncTask<LicenseRestoreTask.Params, Voi
 
     @Override
     protected void onPostExecute(byte[] keySetId) {
-        if (mListener != null) {
-            if (mErrorCode == null) mListener.onLicenseKeysRestored(mManifestUrl, keySetId);
-            else mListener.onLicenseRestoreFailed(mErrorCode, mErrorExtraData, mManifestUrl);
+        try {
+            if (mListener != null) {
+                if (mErrorCode == null) mListener.onLicenseKeysRestored(mManifestUrl, keySetId);
+                else mListener.onLicenseRestoreFailed(mErrorCode, mErrorExtraData, mManifestUrl);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onPostExecute callback: " + e.getMessage(), e);
+        } finally {
+            // Ensure proper cleanup even if callback throws exception
+            cleanup();
         }
-        mListener = null;
-        mMediaDrm = null;
-        mSessionId = null;
+    }
+
+    private void cleanup() {
+        try {
+            if (mMediaDrm != null) {
+                if (mSessionId != null) {
+                    mMediaDrm.closeSession(mSessionId);
+                }
+                mMediaDrm.close();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error during cleanup: " + e.getMessage());
+        } finally {
+            mListener = null;
+            mMediaDrm = null;
+            mSessionId = null;
+        }
     }
 
     public static class Params {
@@ -115,6 +157,17 @@ public class LicenseRestoreTask extends AsyncTask<LicenseRestoreTask.Params, Voi
         final String manifestUrl, defaultStoragePath;
 
         public Params(String manifestUrl, String defaultStoragePath, long minExpireSecond) {
+            // Validate required parameters
+            if (manifestUrl == null || manifestUrl.trim().isEmpty()) {
+                throw new IllegalArgumentException("ManifestUrl cannot be null or empty");
+            }
+            if (defaultStoragePath == null || defaultStoragePath.trim().isEmpty()) {
+                throw new IllegalArgumentException("DefaultStoragePath cannot be null or empty");
+            }
+            if (minExpireSecond < 0) {
+                throw new IllegalArgumentException("MinExpireSecond cannot be negative");
+            }
+            
             this.manifestUrl = manifestUrl;
             this.defaultStoragePath = defaultStoragePath;
             this.minExpireSecond = minExpireSecond;

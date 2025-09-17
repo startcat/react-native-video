@@ -26,6 +26,19 @@ class DownloadsModule: RCTEventEmitter {
       DownloadsModule.emitter = self
   }
   
+  // Helper function to safely create Asset from NSDictionary
+  private func createAssetSafely(from src: NSDictionary) -> Asset? {
+      guard let title = src.value(forKey: "title") as? String,
+            let uriString = src.value(forKey: "uri") as? String,
+            let url = URL(string: uriString),
+            let id = src.value(forKey: "id") as? String else {
+          RCTLog("[Native Downloads] (DownloadsModule) ERROR: Invalid asset parameters - title, uri, or id missing/invalid")
+          return nil
+      }
+      
+      return Asset(name: title, url: url, id: id)
+  }
+  
   @objc override static func requiresMainQueueSetup() -> Bool { return true }
   
   // Events
@@ -69,7 +82,11 @@ class DownloadsModule: RCTEventEmitter {
   @objc(pause:drm:resolver:rejecter:)
   func pause(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
       
-      let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!, id:src.value(forKey: "id") as! String)
+      guard let asset = createAssetSafely(from: src) else {
+          reject("INVALID_PARAMS", "Invalid asset parameters for pause operation", nil)
+          return
+      }
+      
       downloader.pauseDownloadOfAsset(asset: asset)
       resolve(nil)
     
@@ -78,7 +95,11 @@ class DownloadsModule: RCTEventEmitter {
   @objc(resume:drm:resolver:rejecter:)
   func resume(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
-      let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!, id:src.value(forKey: "id") as! String)
+      guard let asset = createAssetSafely(from: src) else {
+          reject("INVALID_PARAMS", "Invalid asset parameters for resume operation", nil)
+          return
+      }
+      
       downloader.resumeDownloadOfAsset(asset: asset)
       resolve(nil)
     
@@ -92,14 +113,22 @@ class DownloadsModule: RCTEventEmitter {
   @objc(addItem:drm:resolver:rejecter:)
   func addItem(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
-    let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!, id:src.value(forKey: "id") as! String)
+    guard let asset = createAssetSafely(from: src) else {
+        reject("INVALID_PARAMS", "Invalid asset parameters for addItem operation", nil)
+        return
+    }
     
     let chosenStream: StreamData
       
     if (drm == nil){
-      chosenStream = StreamData(title: src.value(forKey: "title") as! String, videoUrl: src.value(forKey: "uri") as! String, licenseServer: "", fpsCertificateUrl: "", licenseToken: "")
+      chosenStream = StreamData(title: asset.name, videoUrl: asset.url.absoluteString, licenseServer: "", fpsCertificateUrl: "", licenseToken: "")
     } else {
-      chosenStream = StreamData(title: src.value(forKey: "title") as! String, videoUrl: src.value(forKey: "uri") as! String, licenseServer: drm?.value(forKey: "licenseServer") as! String, fpsCertificateUrl: drm?.value(forKey: "certificateUrl") as! String, licenseToken: "")
+      guard let licenseServer = drm?.value(forKey: "licenseServer") as? String,
+            let certificateUrl = drm?.value(forKey: "certificateUrl") as? String else {
+          reject("INVALID_DRM_PARAMS", "Invalid DRM parameters - licenseServer or certificateUrl missing", nil)
+          return
+      }
+      chosenStream = StreamData(title: asset.name, videoUrl: asset.url.absoluteString, licenseServer: licenseServer, fpsCertificateUrl: certificateUrl, licenseToken: "")
     }
     
     // Assume that only protected streams will have Licensing Server Url in Streams.json
@@ -160,7 +189,10 @@ class DownloadsModule: RCTEventEmitter {
   @objc(removeItem:drm:resolver:rejecter:)
   func removeItem(_ src: NSDictionary, drm: NSDictionary?, resolve: @escaping RCTPromiseResolveBlock,reject: @escaping RCTPromiseRejectBlock) -> Void {
     
-    let asset:Asset = Asset(name:src.value(forKey: "title") as! String, url:(URL(string: src.value(forKey: "uri") as! String) ?? URL(string: "https://"))!, id:src.value(forKey: "id") as! String)
+    guard let asset = createAssetSafely(from: src) else {
+        reject("INVALID_PARAMS", "Invalid asset parameters for removeItem operation", nil)
+        return
+    }
     
     // Remove Content Key from the device
     ContentKeyManager.sharedManager.deleteAllPeristableContentKeys(forAsset: asset)
@@ -225,15 +257,8 @@ class DownloadsModule: RCTEventEmitter {
 
     RCTLog("[Native Downloads] (DownloadsModule) Persistable Content Key is now available")
     
-    //let asset:Asset = Asset(name:(notification.userInfo![Asset.Keys.name] as? String)!, url:(URL(string: (notification.userInfo![Asset.Keys.url] as? String)!) ?? URL(string: "https://"))!)
-      
-    // Initiate download if not already downloaded
-    //let result:String = downloadStream(asset)
-    
-    //if result == "SUCCESS" {
-      //ContentKeyManager.sharedManager.downloadRequestedByUser = false
-      
-    //}
+    // Note: Download initiation is handled in addItem() method
+    // This notification confirms that the content key is ready for offline use
     
   }
   
@@ -241,12 +266,13 @@ class DownloadsModule: RCTEventEmitter {
   @objc func handleAssetDownloadStateChanged(_ notification: Notification) {
       DispatchQueue.main.async {
       
-          guard let downloadStateRawValue = notification.userInfo![Asset.Keys.downloadState] as? String,
-                let downloadUrl = notification.userInfo![Asset.Keys.url] as? String,
+          guard let userInfo = notification.userInfo,
+                let downloadStateRawValue = userInfo[Asset.Keys.downloadState] as? String,
+                let downloadUrl = userInfo[Asset.Keys.url] as? String,
                 let downloadState = Asset.DownloadState(rawValue: downloadStateRawValue),
-                let downloadId = notification.userInfo![Asset.Keys.id] as? String
+                let downloadId = userInfo[Asset.Keys.id] as? String
               else {
-                  RCTLog("[Native Downloads] (DownloadsModule) Download state missing")
+                  RCTLog("[Native Downloads] (DownloadsModule) Download state notification missing required data")
                   return
           }
                   
@@ -299,10 +325,14 @@ class DownloadsModule: RCTEventEmitter {
   // Shows Download progress in %
   // [LOGGING]
   @objc func handleAssetDownloadProgress(_ notification: Notification) {
-      guard let progress = notification.userInfo![Asset.Keys.percentDownloaded] as? Double,
-            let assetName = notification.userInfo![Asset.Keys.name] as? String,
-            let assetId = notification.userInfo![Asset.Keys.id] as? String
-      else { return }
+      guard let userInfo = notification.userInfo,
+            let progress = userInfo[Asset.Keys.percentDownloaded] as? Double,
+            let assetName = userInfo[Asset.Keys.name] as? String,
+            let assetId = userInfo[Asset.Keys.id] as? String
+      else { 
+          RCTLog("[Native Downloads] (DownloadsModule) Download progress notification missing required data")
+          return 
+      }
               
       let humanReadableProgress = Double(round(1000 * progress) / 10)
       
