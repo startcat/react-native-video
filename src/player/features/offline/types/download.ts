@@ -1,3 +1,5 @@
+import { Drm } from './drm';
+
 export enum DownloadStates {
     RESTART = 'RESTART',
     RESTARTING = 'RESTARTING',
@@ -13,11 +15,16 @@ export enum DownloadStates {
     PREPARING = 'PREPARING'
 }
 
-export enum DRMType {
-    WIDEVINE = 'widevine',
-    PLAYREADY = 'playready',
-    CLEARKEY = 'clearkey',
-    FAIRPLAY = 'fairplay',
+export enum DownloadEventType {
+    STARTED = 'download:started',
+    PROGRESS = 'download:progress',
+    COMPLETED = 'download:completed',
+    FAILED = 'download:failed',
+    PAUSED = 'download:paused',
+    RESUMED = 'download:resumed',
+    CANCELLED = 'download:cancelled',
+    QUEUED = 'download:queued',
+    REMOVED = 'download:removed',
 }
 
 export enum DownloadErrorCode {
@@ -32,22 +39,25 @@ export enum DownloadErrorCode {
     UNKNOWN = 'UNKNOWN',
 }
 
-export type Drm = Readonly<{
-    type?: DRMType;
-    licenseServer?: string;
-    headers?: Record<string, string>;
-    contentId?: string; // ios
-    certificateUrl?: string; // ios
-    base64Certificate?: boolean; // ios default: false
-    /* eslint-disable @typescript-eslint/no-unused-vars */
-    getLicense?: (
-        spcBase64: string,
-        contentId: string,
-        licenseUrl: string,
-        loadedLicenseUrl: string,
-    ) => void; // ios
-    /* eslint-enable @typescript-eslint/no-unused-vars */
-}>;
+export type ConfigDownloads = {
+    download_just_wifi?: boolean;
+    max_concurrent_downloads?: number;
+    auto_resume_on_network?: boolean;
+    storage_warning_threshold?: number; // 0-1 percentage
+    min_free_space_mb?: number;
+    retry_attempts?: number;
+    retry_delay_ms?: number;
+    chunk_size_bytes?: number;
+    progress_update_interval_ms?: number;
+};
+
+export interface StreamDownloadConfig {
+    type: 'DASH' | 'HLS';
+    quality?: 'auto' | 'low' | 'medium' | 'high' | 'max';
+    audioLanguages?: string[];
+    subtitleLanguages?: string[];
+    drm?: Drm;
+}
 
 export interface DownloadError {
     code: DownloadErrorCode;
@@ -58,6 +68,8 @@ export interface DownloadError {
 
 export interface DownloadItem {
     media?: any; // Metadatos del video, que dependen de proyecto
+    profileId?: string | null; // ID del perfil asociado a la descarga
+    retryCount?: number; // Número de reintentos realizados
     offlineData: {
         session_ids: Array<string>;
         source: {
@@ -92,4 +104,25 @@ export interface DownloadMetrics {
         cellular: number;
         total: number;
     };
+}
+
+export interface DownloadProgressEvent {
+    downloadId: string;
+    percent: number;
+    bytesDownloaded: number;
+    totalBytes: number;
+    speed?: number; // bytes per second
+    remainingTime?: number; // seconds
+}
+
+export interface DownloadCompleteEvent {
+    downloadId: string;
+    fileUri: string;
+    totalBytes: number;
+    duration: number; // milliseconds
+}
+
+export interface DownloadFailedEvent {
+    downloadId: string;
+    error: DownloadError;
 }

@@ -69,4 +69,32 @@ export const DOWNLOAD_ERROR_DEFINITIONS = {
 	DOWNLOAD_CONTENT_ACCESS_FAILED: {
 		message: "Failed to access download content data.",
 	},
+
+    // === ERRORES CON LOS PERFILES ASSIGNADOS A LAS DESCARGAS ===
+    DOWNLOAD_PROFILE_MANAGER_INITIALIZATION_FAILED: {
+        message: "Failed to initialize profile manager.",
+    },
+    DOWNLOAD_PROFILE_MANAGER_NOT_INITIALIZED: {
+        message: "Profile manager not initialized.",
+    },
+
+    // === ERRORES CON LA COLA DE DESCARGAS ===
+    DOWNLOAD_QUEUE_MANAGER_INITIALIZATION_FAILED: {
+        message: "Failed to initialize queue manager.",
+    },
+    DOWNLOAD_QUEUE_MANAGER_NOT_INITIALIZED: {
+        message: "Queue manager not initialized.",
+    },
+    DOWNLOAD_QUEUE_ADD_ITEM_FAILED: {
+        message: "Failed to add download to queue.",
+    },
+    DOWNLOAD_QUEUE_ITEM_NOT_FOUND: {
+        message: "Download item not found.",
+    },
+    DOWNLOAD_QUEUE_REMOVE_FAILED: {
+        message: "Failed to remove download from queue.",
+    },
+    DOWNLOAD_QUEUE_CLEANUP_FAILED: {
+        message: "Failed to clean up completed downloads.",
+    },
 };

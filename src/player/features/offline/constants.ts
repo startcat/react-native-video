@@ -106,6 +106,7 @@ export const PATTERNS = {
 } as const;
 
 export const LOG_TAGS = {
+    MAIN: '💾 Offline',
     DOWNLOAD_MANAGER: 'Download Manager',
     QUEUE_MANAGER: 'Queue Manager',
     NETWORK_SERVICE: 'Network Service',

@@ -1,20 +1,12 @@
-import { DownloadItem } from "./items";
+import { DownloadItem } from "./download";
 import { ProfileDownloadMapping } from "./profiles";
 
-export enum PersistenceEventType {
-    SAVE_STARTED = 'persistence:save_started',
-    SAVE_COMPLETED = 'persistence:save_completed',
-    SAVE_FAILED = 'persistence:save_failed',
-    LOAD_STARTED = 'persistence:load_started',
-    LOAD_COMPLETED = 'persistence:load_completed',
-    LOAD_FAILED = 'persistence:load_failed',
-    RESTORE_STARTED = 'persistence:restore_started',
-    RESTORE_COMPLETED = 'persistence:restore_completed',
-    RESTORE_FAILED = 'persistence:restore_failed',
-    MIGRATION_STARTED = 'persistence:migration_started',
-    MIGRATION_COMPLETED = 'persistence:migration_completed',
-    DATA_CORRUPTED = 'persistence:data_corrupted',
-    AUTO_SAVE = 'persistence:auto_save',
+export interface PersistenceConfig {
+    storageKey?: string;
+    encryptionEnabled?: boolean;
+    compressionEnabled?: boolean;
+    autoSave?: boolean;
+    autoSaveInterval?: number;
 }
 
 export interface PersistedData {
@@ -32,4 +24,20 @@ export interface BackupData {
     primary: PersistedData | null;
     backup: PersistedData | null;
     lastBackupTime: number;
+}
+
+export enum PersistenceEventType {
+    SAVE_STARTED = 'persistence:save_started',
+    SAVE_COMPLETED = 'persistence:save_completed',
+    SAVE_FAILED = 'persistence:save_failed',
+    LOAD_STARTED = 'persistence:load_started',
+    LOAD_COMPLETED = 'persistence:load_completed',
+    LOAD_FAILED = 'persistence:load_failed',
+    RESTORE_STARTED = 'persistence:restore_started',
+    RESTORE_COMPLETED = 'persistence:restore_completed',
+    RESTORE_FAILED = 'persistence:restore_failed',
+    MIGRATION_STARTED = 'persistence:migration_started',
+    MIGRATION_COMPLETED = 'persistence:migration_completed',
+    DATA_CORRUPTED = 'persistence:data_corrupted',
+    AUTO_SAVE = 'persistence:auto_save',
 }
