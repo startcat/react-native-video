@@ -1,7 +1,7 @@
 package com.brentvatne.license;
 
 import android.content.Context;
-import android.os.AsyncTask;
+import android.os.AsyncTask; // TODO: Replace with ExecutorService - AsyncTask is deprecated since API 30
 import android.util.Log;
 
 import com.brentvatne.license.interfaces.IOfflineLicenseManagerListener;
@@ -37,10 +37,24 @@ public class OfflineLicenseManager {
      * Create an instance of OfflineLicenseManager
      *
      * @param context reference for the application context
+     * @throws IllegalArgumentException if context is null
      */
     public OfflineLicenseManager(Context context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context cannot be null");
+        }
+        
         mContext = context;
-        mDefaultStoragePath = context.getFilesDir().getAbsolutePath();
+        
+        // Safely get files directory
+        java.io.File filesDir = context.getFilesDir();
+        if (filesDir == null) {
+            Log.w(TAG, "getFilesDir() returned null, using fallback path");
+            mDefaultStoragePath = context.getCacheDir().getAbsolutePath();
+        } else {
+            mDefaultStoragePath = filesDir.getAbsolutePath();
+        }
+        
         mInternalListener = new InternalListener();
         Log.d(TAG, "Initializing OfflineLicenseManager, " +
                 "setting value to mDefaultStoragePath = [" + mDefaultStoragePath + "]");
@@ -72,8 +86,18 @@ public class OfflineLicenseManager {
      * license. Set event listener to receive callbacks. Returns result as keys array.
      *
      * @param manifestUrl URL of the video manifest file
+     * @throws IllegalArgumentException if manifestUrl is null or empty
      */
     public void getLicenseKeys(String manifestUrl) {
+        if (manifestUrl == null || manifestUrl.trim().isEmpty()) {
+            Log.e(TAG, "getLicenseKeys: manifestUrl cannot be null or empty");
+            if (mListener != null) {
+                mListener.onLicenseRestoreFailed(LicenseManagerErrorCode.INVALID_PARAMETER.getCode(), 
+                    "Manifest URL is required", manifestUrl);
+            }
+            return;
+        }
+        
         cancelRestoreTask();
         LicenseRestoreTask.Params params = new LicenseRestoreTask.Params(
                 manifestUrl, mDefaultStoragePath, mMinExpireSeconds
@@ -97,8 +121,18 @@ public class OfflineLicenseManager {
      * Start license releasing process. Set event listener to receive callbacks.
      *
      * @param manifestUrl URL of the video manifest file
+     * @throws IllegalArgumentException if manifestUrl is null or empty
      */
     public void releaseLicense(String manifestUrl) {
+        if (manifestUrl == null || manifestUrl.trim().isEmpty()) {
+            Log.e(TAG, "releaseLicense: manifestUrl cannot be null or empty");
+            if (mListener != null) {
+                mListener.onLicenseReleaseFailed(LicenseManagerErrorCode.INVALID_PARAMETER.getCode(), 
+                    "Manifest URL is required", manifestUrl);
+            }
+            return;
+        }
+        
         LicenseReleaseTask.Params params = new LicenseReleaseTask.Params(
                 null, manifestUrl, mDefaultStoragePath, false,
                 false, mRequestParams
@@ -152,7 +186,7 @@ public class OfflineLicenseManager {
         runReleaseLicenseTask(params);
     }
 
-    private void runReleaseLicenseTask(LicenseReleaseTask.Params params) {
+    private synchronized void runReleaseLicenseTask(LicenseReleaseTask.Params params) {
         cancelReleaseTask();
         mReleaseTask = new LicenseReleaseTask(mInternalListener);
         mReleaseTask.execute(params);
@@ -171,8 +205,18 @@ public class OfflineLicenseManager {
      * or autoSave was set to true.
      *
      * @param manifestUrl URL of the video manifest file
+     * @throws IllegalArgumentException if manifestUrl is null or empty
      */
     public void checkLicenseValid(String manifestUrl) {
+        if (manifestUrl == null || manifestUrl.trim().isEmpty()) {
+            Log.e(TAG, "checkLicenseValid: manifestUrl cannot be null or empty");
+            if (mListener != null) {
+                mListener.onLicenseCheckFailed(LicenseManagerErrorCode.INVALID_PARAMETER.getCode(), 
+                    "Manifest URL is required", manifestUrl);
+            }
+            return;
+        }
+        
         cancelCheckTask();
         LicenseCheckTask.Params params = new LicenseCheckTask.Params(
                 manifestUrl,
@@ -242,8 +286,36 @@ public class OfflineLicenseManager {
      * @param licenseServerUrl URL of the license server
      * @param manifestUrl      URL of the video manifest file
      * @param drmMessage       DRM message (token)
+     * @throws IllegalArgumentException if required parameters are null or empty
      */
     public void downloadLicense(String licenseServerUrl, String manifestUrl, String drmMessage) {
+        if (licenseServerUrl == null || licenseServerUrl.trim().isEmpty()) {
+            Log.e(TAG, "downloadLicense: licenseServerUrl cannot be null or empty");
+            if (mListener != null) {
+                mListener.onLicenseDownloadFailed(LicenseManagerErrorCode.INVALID_PARAMETER.getCode(), 
+                    "License server URL is required", manifestUrl);
+            }
+            return;
+        }
+        
+        if (manifestUrl == null || manifestUrl.trim().isEmpty()) {
+            Log.e(TAG, "downloadLicense: manifestUrl cannot be null or empty");
+            if (mListener != null) {
+                mListener.onLicenseDownloadFailed(LicenseManagerErrorCode.INVALID_PARAMETER.getCode(), 
+                    "Manifest URL is required", manifestUrl);
+            }
+            return;
+        }
+        
+        if (drmMessage == null || drmMessage.trim().isEmpty()) {
+            Log.e(TAG, "downloadLicense: drmMessage cannot be null or empty");
+            if (mListener != null) {
+                mListener.onLicenseDownloadFailed(LicenseManagerErrorCode.INVALID_PARAMETER.getCode(), 
+                    "DRM message is required", manifestUrl);
+            }
+            return;
+        }
+        
         cancelDownloadTask();
         LicenceDownloadTask.Params params =
                 new LicenceDownloadTask.Params(
@@ -280,10 +352,17 @@ public class OfflineLicenseManager {
      * Set custom storage path where keys for the licenses will be stored.
      *
      * @param path path string. Should have read/write permissions
+     * @throws IllegalArgumentException if path is null or empty
      */
     public void setCustomStoragePath(String path) {
+        if (path == null || path.trim().isEmpty()) {
+            Log.e(TAG, "setCustomStoragePath: path cannot be null or empty");
+            throw new IllegalArgumentException("Storage path cannot be null or empty");
+        }
+        
         if (!path.endsWith("/")) path = path + "/";
         LicenseFileUtils.customStoragePath = path;
+        Log.d(TAG, "Custom storage path set to: " + path);
     }
 
     /**
@@ -369,11 +448,21 @@ public class OfflineLicenseManager {
         private String getErrorDescription(LicenseManagerErrorCode errorCode, String errorExtraData) {
             String description = "";
             if (mContext != null) {
-                if (errorExtraData == null) {
-                    description = mContext.getResources().getString(errorCode.getDescription());
-                } else {
-                    description = mContext.getResources().getString(errorCode.getDescription(), errorExtraData);
+                try {
+                    if (errorExtraData == null) {
+                        description = mContext.getResources().getString(errorCode.getDescription());
+                    } else {
+                        description = mContext.getResources().getString(errorCode.getDescription(), errorExtraData);
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to get error description from resources: " + e.getMessage());
+                    description = "Error code: " + errorCode.getCode() + 
+                        (errorExtraData != null ? ", Extra data: " + errorExtraData : "");
                 }
+            } else {
+                Log.w(TAG, "Context is null, cannot get error description from resources");
+                description = "Error code: " + errorCode.getCode() + 
+                    (errorExtraData != null ? ", Extra data: " + errorExtraData : "");
             }
             return description;
         }

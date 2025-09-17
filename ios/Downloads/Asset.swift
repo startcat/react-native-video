@@ -14,30 +14,53 @@ class Asset {
     
     var id: String
     var name: String
-    var url: URL!
+    var url: URL
     var contentKeyIdList: [String]?
-    var urlAsset: AVURLAsset!
+    var urlAsset: AVURLAsset?
     
     init(name: String, url: URL, id: String? = "") {
+        // Validate input parameters
+        if name.isEmpty {
+            RCTLog("[Native Downloads] (Asset) WARNING: Asset name is empty, using URL as fallback")
+        }
+        
         self.id = id ?? ""
-        self.name = name
+        self.name = name.isEmpty ? url.lastPathComponent : name
         self.url = url
         self.contentKeyIdList = [String]()
         
-        print("Creating Asset with url: \(url) name: \(name) id: \(id)")
+        RCTLog("[Native Downloads] (Asset) Creating Asset with url: \(url) name: \(self.name) id: \(String(describing: id))")
         
         createUrlAsset()
     }
     
     // Link AVURLAsset to Content Key Session
     func addAsContentKeyRecipient() {
-        print("Adding AVURLAsset as a recepient to the Content Key Session")
-        ContentKeyManager.sharedManager.contentKeySession.addContentKeyRecipient(urlAsset)
+        RCTLog("[Native Downloads] (Asset) Adding AVURLAsset as a recipient to the Content Key Session")
+        
+        guard let urlAsset = urlAsset else {
+            RCTLog("[Native Downloads] (Asset) ERROR: Cannot add nil urlAsset as content key recipient")
+            return
+        }
+        
+        guard let contentKeySession = ContentKeyManager.sharedManager.contentKeySession else {
+            RCTLog("[Native Downloads] (Asset) ERROR: ContentKeySession is not available")
+            return
+        }
+        
+        contentKeySession.addContentKeyRecipient(urlAsset)
+        RCTLog("[Native Downloads] (Asset) Successfully added urlAsset as content key recipient")
     }
     
     // Using different AVURLAsset to allow simultaneous playback and download
     func createUrlAsset() {
-        urlAsset = AVURLAsset(url: url)
+        do {
+            urlAsset = AVURLAsset(url: url)
+            RCTLog("[Native Downloads] (Asset) Successfully created AVURLAsset for: \(url)")
+        } catch {
+            RCTLog("[Native Downloads] (Asset) ERROR: Failed to create AVURLAsset for \(url): \(error)")
+            urlAsset = nil
+        }
     }
 }
 

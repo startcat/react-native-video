@@ -6,7 +6,7 @@ import android.media.MediaDrm;
 import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
 import android.media.UnsupportedSchemeException;
-import android.os.AsyncTask;
+import android.os.AsyncTask; // TODO: Replace with ExecutorService - AsyncTask is deprecated since API 30
 import android.os.Build;
 import android.text.TextUtils;
 import android.util.Log;
@@ -38,6 +38,9 @@ public class LicenseReleaseTask extends AsyncTask<LicenseReleaseTask.Params, Voi
     private boolean mAllLicenseRelease;
 
     public LicenseReleaseTask(ILicenseReleaseTaskCallback listener) {
+        if (listener == null) {
+            throw new IllegalArgumentException("Listener cannot be null");
+        }
         mListener = listener;
     }
 
@@ -58,6 +61,12 @@ public class LicenseReleaseTask extends AsyncTask<LicenseReleaseTask.Params, Voi
     protected Void doInBackground(Params... params) {
         if (Build.VERSION.SDK_INT < 18) {
             mErrorCode = LicenseManagerErrorCode.ERROR_300;
+            return null;
+        }
+
+        if (params == null || params.length == 0 || params[0] == null) {
+            mErrorCode = LicenseManagerErrorCode.INVALID_PARAMETER;
+            mErrorExtraData = "Parameters cannot be null or empty";
             return null;
         }
 
@@ -172,9 +181,10 @@ public class LicenseReleaseTask extends AsyncTask<LicenseReleaseTask.Params, Voi
             mSessionId = mMediaDrm.openSession();
         }
 
-        // Ger request data from MediaDrm needed to be sent to License Server
+        // Get request data from MediaDrm needed to be sent to License Server
+        // CRITICAL FIX: Use mSessionId as first parameter, keySetId as optionalParameters
         MediaDrm.KeyRequest keyRequest = mMediaDrm.getKeyRequest(
-                keySetId, null, null, MediaDrm.KEY_TYPE_RELEASE, null
+                mSessionId, keySetId, null, MediaDrm.KEY_TYPE_RELEASE, null
         );
 
         Log.d(TAG, "Keys for release acquired!");
@@ -190,14 +200,27 @@ public class LicenseReleaseTask extends AsyncTask<LicenseReleaseTask.Params, Voi
                     LicenseManagerErrorCode.ERROR_302, "Server response is empty");
         }
 
-        mMediaDrm.provideKeyResponse(keySetId, response);
+        // CRITICAL FIX: Use mSessionId for provideKeyResponse, not keySetId
+        mMediaDrm.provideKeyResponse(mSessionId, response);
 
         Log.d(TAG, "Keys released!");
     }
 
     @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN_MR2)
     private void closeSession() {
-        if (mMediaDrm != null && mSessionId != null) mMediaDrm.closeSession(mSessionId);
+        // CRITICAL: Properly close MediaDrm resources to prevent memory leaks
+        if (mMediaDrm != null) {
+            try {
+                if (mSessionId != null) {
+                    mMediaDrm.closeSession(mSessionId);
+                    mSessionId = null;
+                }
+                mMediaDrm.close();
+                mMediaDrm = null;
+            } catch (Exception e) {
+                Log.w(TAG, "Error closing MediaDrm resources: " + e.getMessage());
+            }
+        }
     }
 
     private void onError(Exception e) {
@@ -220,18 +243,39 @@ public class LicenseReleaseTask extends AsyncTask<LicenseReleaseTask.Params, Voi
 
     @Override
     protected void onPostExecute(Void voidParam) {
-        if (mListener != null) {
-            if (mAllLicenseRelease) {
-                if (mErrorCode == null) mListener.onAllLicensesReleased();
-                else mListener.onAllLicensesReleaseFailed(mErrorCode, mErrorExtraData);
-            } else {
-                if (mErrorCode == null) mListener.onLicenseReleased(mManifestUrl);
-                else mListener.onLicenseReleaseFailed(mErrorCode, mErrorExtraData, mManifestUrl);
+        try {
+            if (mListener != null) {
+                if (mAllLicenseRelease) {
+                    if (mErrorCode == null) mListener.onAllLicensesReleased();
+                    else mListener.onAllLicensesReleaseFailed(mErrorCode, mErrorExtraData);
+                } else {
+                    if (mErrorCode == null) mListener.onLicenseReleased(mManifestUrl);
+                    else mListener.onLicenseReleaseFailed(mErrorCode, mErrorExtraData, mManifestUrl);
+                }
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onPostExecute callback: " + e.getMessage(), e);
+        } finally {
+            // Ensure proper cleanup even if callback throws exception
+            cleanup();
         }
-        mListener = null;
-        mMediaDrm = null;
-        mSessionId = null;
+    }
+
+    private void cleanup() {
+        try {
+            if (mMediaDrm != null) {
+                if (mSessionId != null) {
+                    mMediaDrm.closeSession(mSessionId);
+                }
+                mMediaDrm.close();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error during cleanup: " + e.getMessage());
+        } finally {
+            mListener = null;
+            mMediaDrm = null;
+            mSessionId = null;
+        }
     }
 
     public static class Params {
@@ -242,12 +286,24 @@ public class LicenseReleaseTask extends AsyncTask<LicenseReleaseTask.Params, Voi
         public Params(String licenseServerUrl, String manifestUrl, String defaultStoragePath,
                       boolean deleteAll, boolean stopOnLicenseServerFail,
                       Map<String, String> requestProperties) {
-            this.licenseServerUrl = licenseServerUrl;
-            this.manifestUrl = manifestUrl;
+            
+            // Validate required parameters - defaultStoragePath is always required
+            if (defaultStoragePath == null || defaultStoragePath.trim().isEmpty()) {
+                throw new IllegalArgumentException("DefaultStoragePath cannot be null or empty");
+            }
+            
+            // For single license release (deleteAll=false), manifestUrl is required
+            // For deleteAll operations (deleteAll=true), manifestUrl can be null
+            if (!deleteAll && (manifestUrl == null || manifestUrl.trim().isEmpty())) {
+                throw new IllegalArgumentException("ManifestUrl cannot be null or empty for single license release");
+            }
+            
+            this.licenseServerUrl = licenseServerUrl; // Can be null for file-only operations
+            this.manifestUrl = manifestUrl; // Can be null for deleteAll operations
             this.defaultStoragePath = defaultStoragePath;
             this.deleteAll = deleteAll;
             this.stopOnLicenseServerFail = stopOnLicenseServerFail;
-            this.requestProperties = requestProperties;
+            this.requestProperties = requestProperties; // Can be null
         }
     }
 }

@@ -121,8 +121,9 @@ public class ManifestUtils {
             xpp.next();
         }
 
-        manifest.schemeDatas = new SchemeData[schemeDatas.size()];
-        schemeDatas.toArray(manifest.schemeDatas);
+        SchemeData[] schemeDataArray = new SchemeData[schemeDatas.size()];
+        schemeDatas.toArray(schemeDataArray);
+        manifest.setSchemeDatas(schemeDataArray);
 
         return manifest;
     }
@@ -269,8 +270,9 @@ public class ManifestUtils {
             Util.closeQuietly(reader);
         }
 
-        manifest.schemeDatas = new SchemeData[schemeDatas.size()];
-        schemeDatas.toArray(manifest.schemeDatas);
+        SchemeData[] schemeDataArray = new SchemeData[schemeDatas.size()];
+        schemeDatas.toArray(schemeDataArray);
+        manifest.setSchemeDatas(schemeDataArray);
 
         return manifest;
     }

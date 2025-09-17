@@ -10,7 +10,7 @@ import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
 import android.media.UnsupportedSchemeException;
 import android.net.Uri;
-import android.os.AsyncTask;
+import android.os.AsyncTask; // TODO: Replace with ExecutorService - AsyncTask is deprecated since API 30
 import android.os.Build;
 import android.util.Log;
 import android.util.Pair;
@@ -57,6 +57,9 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
     }
 
     public LicenceDownloadTask(ILicenceDownloadTaskCallback listener, boolean withResult, boolean autoSave) {
+        if (listener == null) {
+            throw new IllegalArgumentException("Listener cannot be null");
+        }
         mListener = listener;
         mWithResult = withResult;
         mAutoSave = autoSave;
@@ -68,6 +71,12 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
     protected byte[] doInBackground(Params... params) {
         if (Build.VERSION.SDK_INT < 18) {
             mErrorCode = LicenseManagerErrorCode.ERROR_300;
+            return null;
+        }
+
+        if (params == null || params.length == 0 || params[0] == null) {
+            mErrorCode = LicenseManagerErrorCode.INVALID_PARAMETER;
+            mErrorExtraData = "Parameters cannot be null or empty";
             return null;
         }
 
@@ -83,7 +92,19 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
                 onError(e);
             }
         } finally {
-            if (mMediaDrm != null && mSessionId != null) mMediaDrm.closeSession(mSessionId);
+            // CRITICAL: Properly close MediaDrm resources to prevent memory leaks
+            if (mMediaDrm != null) {
+                try {
+                    if (mSessionId != null) {
+                        mMediaDrm.closeSession(mSessionId);
+                        mSessionId = null;
+                    }
+                    mMediaDrm.close();
+                    mMediaDrm = null;
+                } catch (Exception e) {
+                    Log.w(TAG, "Error closing MediaDrm resources: " + e.getMessage());
+                }
+            }
         }
 
         return keySetId;
@@ -109,21 +130,34 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     private boolean makeProvisioning() {
-        // Get data required for provisioning
-        MediaDrm.ProvisionRequest request = mMediaDrm.getProvisionRequest();
-        // Prepare url
-        String url = request.getDefaultUrl() + "&signedRequest=" + new String(request.getData());
         try {
+            // Get data required for provisioning
+            MediaDrm.ProvisionRequest request = mMediaDrm.getProvisionRequest();
+            if (request == null) {
+                Log.e(TAG, "Provisioning request is null");
+                return false;
+            }
+            
+            // Prepare url
+            String url = request.getDefaultUrl() + "&signedRequest=" + new String(request.getData());
+            Log.d(TAG, "Making provisioning request to: " + request.getDefaultUrl());
+            
             // make request to default provisioning server (usually it is google server)
             byte[] response = RequestUtils.executePost(url, null, null, null);
+            if (response == null || response.length == 0) {
+                Log.e(TAG, "Provisioning response is empty");
+                return false;
+            }
+            
             // Provide provisioning response to MediaDrm
             mMediaDrm.provideProvisionResponse(response);
+            Log.d(TAG, "Provisioning completed successfully");
+            return true; // FIXED: Return true on success
+            
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Provisioning failed: " + e.getMessage(), e);
             return false;
         }
-
-        return false;
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -155,7 +189,7 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
         }
         SchemeData schemeData = null;
         if (manifest != null) {
-            schemeData = DrmUtils.getSchemeData(manifest.schemeDatas, C.WIDEVINE_UUID);
+            schemeData = DrmUtils.getSchemeData(manifest.getSchemeDatas(), C.WIDEVINE_UUID);
         }
         if (schemeData == null) {
             throw new LicenseManagerException(
@@ -224,7 +258,7 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
             throw new LicenseManagerException(LicenseManagerErrorCode.ERROR_306);
         }
 
-        if (!drmMessage.persistent) {
+        if (!drmMessage.isPersistent()) {
             throw new LicenseManagerException(LicenseManagerErrorCode.ERROR_307);
         }
         */
@@ -251,18 +285,39 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
     @Override
     protected void onPostExecute(byte[] keyIds) {
-        if (mListener != null) {
-            if (keyIds != null) {
-                if (mWithResult) mListener.onLicenseDownloadedWithResult(mManifestUrl, keyIds);
-                else mListener.onLicenseDownloaded(mManifestUrl);
-            } else {
-                mListener.onLicenseDownloadFailed(mErrorCode, mErrorExtraData, mManifestUrl);
+        try {
+            if (mListener != null) {
+                if (keyIds != null) {
+                    if (mWithResult) mListener.onLicenseDownloadedWithResult(mManifestUrl, keyIds);
+                    else mListener.onLicenseDownloaded(mManifestUrl);
+                } else {
+                    mListener.onLicenseDownloadFailed(mErrorCode, mErrorExtraData, mManifestUrl);
+                }
             }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onPostExecute callback: " + e.getMessage(), e);
+        } finally {
+            // Ensure proper cleanup even if callback throws exception
+            cleanup();
         }
-        if (mMediaDrm != null) mMediaDrm.setOnEventListener(null);
-        mListener = null;
-        mMediaDrm = null;
-        mSessionId = null;
+    }
+
+    private void cleanup() {
+        try {
+            if (mMediaDrm != null) {
+                mMediaDrm.setOnEventListener(null);
+                if (mSessionId != null) {
+                    mMediaDrm.closeSession(mSessionId);
+                }
+                mMediaDrm.close();
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error during cleanup: " + e.getMessage());
+        } finally {
+            mListener = null;
+            mMediaDrm = null;
+            mSessionId = null;
+        }
     }
 
     public static class Params {
@@ -273,7 +328,25 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
         public Params(Map<String, String> requestProperties, String manifestUrl,
                       String licenseServerUrl, String axDrmMessage,
                       String defaultStoragePath, long minExpireSecond) {
-            this.requestProperties = requestProperties;
+            
+            // Validate required parameters
+            if (manifestUrl == null || manifestUrl.trim().isEmpty()) {
+                throw new IllegalArgumentException("ManifestUrl cannot be null or empty");
+            }
+            if (licenseServerUrl == null || licenseServerUrl.trim().isEmpty()) {
+                throw new IllegalArgumentException("LicenseServerUrl cannot be null or empty");
+            }
+            if (axDrmMessage == null || axDrmMessage.trim().isEmpty()) {
+                throw new IllegalArgumentException("AxDrmMessage cannot be null or empty");
+            }
+            if (defaultStoragePath == null || defaultStoragePath.trim().isEmpty()) {
+                throw new IllegalArgumentException("DefaultStoragePath cannot be null or empty");
+            }
+            if (minExpireSecond < 0) {
+                throw new IllegalArgumentException("MinExpireSecond cannot be negative");
+            }
+            
+            this.requestProperties = requestProperties; // Can be null
             this.manifestUrl = manifestUrl;
             this.licenseServerUrl = licenseServerUrl;
             this.axDrmMessage = axDrmMessage;
