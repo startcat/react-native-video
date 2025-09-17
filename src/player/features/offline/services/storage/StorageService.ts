@@ -54,7 +54,7 @@ export class StorageService {
         this.currentLogger = new Logger({
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: `💾 Downloads Storage`,
+            prefix: LOG_TAGS.MAIN,
             useColors: true,
             includeLevelName: false,
             includeTimestamp: true,

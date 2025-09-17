@@ -1,13 +1,5 @@
 import { LogLevel } from '../../logger';
 
-export interface StorageInfo {
-    totalSpace: number;
-    usedSpace: number;
-    availableSpace: number;
-    downloadsFolderSize: number;
-    lastUpdated: number;
-}
-
 export interface StorageServiceConfig {
     logEnabled?: boolean;
     logLevel?: LogLevel;
@@ -15,6 +7,14 @@ export interface StorageServiceConfig {
     tempDirectory?: string;
     cleanupEnabled?: boolean;
     cleanupIntervalHours?: number;
+}
+
+export interface StorageInfo {
+    totalSpace: number;
+    usedSpace: number;
+    availableSpace: number;
+    downloadsFolderSize: number;
+    lastUpdated: number;
 }
 
 export interface FileInfo {

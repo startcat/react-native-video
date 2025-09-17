@@ -1,21 +1,37 @@
-export enum QueuePriority {
-    LOW = 0,
-    NORMAL = 1,
-    HIGH = 2,
-    URGENT = 3,
+import { LogLevel } from '../../logger';
+import { DownloadItem } from './download';
+
+export interface QueueServiceConfig {
+    logEnabled: boolean;
+    logLevel: LogLevel;
+    autoProcess: boolean;
+    processIntervalMs: number;
+    maxConcurrentDownloads: number;
+    maxRetries: number;
 }
 
-export interface QueueItem {
-    downloadId: string;
-    priority: QueuePriority;
-    addedAt: number;
-    retryCount: number;
+export interface ExtendedDownloadItem extends DownloadItem {
+    profileId?: string | null; // Para filtrar por perfil
+    retryCount?: number;
 }
 
-export interface QueueStatus {
-    queued: number;
-    active: number;
+export interface QueueEventData {
+    downloadId?: string;
+    item?: ExtendedDownloadItem;
+    percent?: number;
+    queueSize?: number;
+    error?: any;
+}
+
+export type QueueStatusCallback = (data: QueueEventData) => void;
+
+export interface QueueStats {
+    total: number;
+    pending: number;
+    downloading: number;
+    paused: number;
     completed: number;
     failed: number;
-    total: number;
+    isPaused: boolean;
+    isProcessing: boolean;
 }

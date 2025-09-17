@@ -61,7 +61,7 @@ export class PersistenceService {
         this.currentLogger = new Logger({
             enabled: true,
             level: LogLevel.DEBUG,
-            prefix: `📁 Persistence`,
+            prefix: LOG_TAGS.MAIN,
             useColors: true,
             includeLevelName: false,
             includeTimestamp: true,

@@ -5,14 +5,10 @@ import {
 
 import { LogLevel } from '../../logger';
 
-export enum NetworkEventType {
-    CONNECTED = 'network:connected',
-    DISCONNECTED = 'network:disconnected',
-    TYPE_CHANGED = 'network:type_changed',
-    WIFI_CONNECTED = 'network:wifi_connected',
-    WIFI_DISCONNECTED = 'network:wifi_disconnected',
-    CELLULAR_CONNECTED = 'network:cellular_connected',
-    CELLULAR_DISCONNECTED = 'network:cellular_disconnected',
+export interface NetworkServiceConfig {
+    logEnabled?: boolean;
+    logLevel?: LogLevel;
+    disableAutoStart?: boolean;
 }
 
 export interface NetworkStatus {
@@ -24,10 +20,14 @@ export interface NetworkStatus {
     details?: NetInfoState;
 }
 
-export interface NetworkServiceConfig {
-    logEnabled?: boolean;
-    logLevel?: LogLevel;
-    disableAutoStart?: boolean;
-}
-
 export type NetworkStatusCallback = (status: NetworkStatus) => void;
+
+export enum NetworkEventType {
+    CONNECTED = 'network:connected',
+    DISCONNECTED = 'network:disconnected',
+    TYPE_CHANGED = 'network:type_changed',
+    WIFI_CONNECTED = 'network:wifi_connected',
+    WIFI_DISCONNECTED = 'network:wifi_disconnected',
+    CELLULAR_CONNECTED = 'network:cellular_connected',
+    CELLULAR_DISCONNECTED = 'network:cellular_disconnected',
+}
