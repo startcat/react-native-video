@@ -46,10 +46,24 @@ public class AxOfflineManager {
     }
 
     public AxDownloadTracker getDownloadTracker() {
+        if (mDownloadTracker == null) {
+            Log.w(TAG, "getDownloadTracker() called but DownloadTracker is null. Call init() first.");
+        }
         return mDownloadTracker;
+    }
+    
+    /**
+     * Check if AxOfflineManager is properly initialized
+     * @return true if initialized, false otherwise
+     */
+    public boolean isInitialized() {
+        return mDownloadManager != null && mDownloadTracker != null;
     }
 
     public DownloadManager getDownloadManager() {
+        if (mDownloadManager == null) {
+            Log.w(TAG, "getDownloadManager() called but DownloadManager is null. Call init() first.");
+        }
         return mDownloadManager;
     }
 
@@ -59,27 +73,55 @@ public class AxOfflineManager {
 
     // Initializing of AxOfflineManager
     public synchronized void init(Context context, File tempFolder) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context cannot be null");
+        }
+        
         Log.d(TAG, "init() called with: context = [" + context + "]");
 
-        DEFAULT_DOWNLOADS_FOLDER = context.getFilesDir().getAbsolutePath();
-        DEFAULT_DOWNLOADS_FOLDER = DEFAULT_DOWNLOADS_FOLDER.endsWith("/") ? DEFAULT_DOWNLOADS_FOLDER : (DEFAULT_DOWNLOADS_FOLDER + "/");
-        DEFAULT_DOWNLOADS_FOLDER += "downloads";
+        try {
+            // Safely get files directory
+            java.io.File filesDir = context.getFilesDir();
+            if (filesDir == null) {
+                Log.w(TAG, "getFilesDir() returned null, using cache directory as fallback");
+                filesDir = context.getCacheDir();
+                if (filesDir == null) {
+                    throw new IllegalStateException("Both getFilesDir() and getCacheDir() returned null");
+                }
+            }
+            
+            DEFAULT_DOWNLOADS_FOLDER = filesDir.getAbsolutePath();
+            DEFAULT_DOWNLOADS_FOLDER = DEFAULT_DOWNLOADS_FOLDER.endsWith("/") ? DEFAULT_DOWNLOADS_FOLDER : (DEFAULT_DOWNLOADS_FOLDER + "/");
+            DEFAULT_DOWNLOADS_FOLDER += "downloads";
 
-        File folder = new File(DEFAULT_DOWNLOADS_FOLDER);
+            File folder = new File(DEFAULT_DOWNLOADS_FOLDER);
+            Log.d(TAG, "init() called with: folder = [" + folder + "]");
 
-        Log.d(TAG, "init() called with: older = [" + folder + "]");
-
-        if (mDownloadManager == null) {
-            mDownloadDirectory = folder;
-            mDownloadManager = new DownloadManager(
-                    context.getApplicationContext(),
-                    getDatabaseProvider(context),
-                    getDownloadCache(context),
-                    buildHttpDataSourceFactory(),
-                    Executors.newFixedThreadPool(6));
-            mDownloadTracker = new AxDownloadTracker(context, buildDataSourceFactory(context),
-                    mDownloadManager);
-            configureDownloadManager();
+            if (mDownloadManager == null) {
+                mDownloadDirectory = folder;
+                
+                // Ensure download directory exists
+                if (!folder.exists() && !folder.mkdirs()) {
+                    Log.w(TAG, "Failed to create download directory: " + folder.getAbsolutePath());
+                }
+                
+                mDownloadManager = new DownloadManager(
+                        context.getApplicationContext(),
+                        getDatabaseProvider(context),
+                        getDownloadCache(context),
+                        buildHttpDataSourceFactory(),
+                        Executors.newFixedThreadPool(6));
+                mDownloadTracker = new AxDownloadTracker(context, buildDataSourceFactory(context),
+                        mDownloadManager);
+                configureDownloadManager();
+                
+                Log.d(TAG, "AxOfflineManager initialized successfully");
+            } else {
+                Log.d(TAG, "AxOfflineManager already initialized, skipping");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error initializing AxOfflineManager: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to initialize AxOfflineManager", e);
         }
     }
 

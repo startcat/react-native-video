@@ -49,6 +49,16 @@ public class AxDownloadTracker {
 
     // Construction of AxDownloadTracker
     AxDownloadTracker(Context context, DataSource.Factory dataSourceFactory, DownloadManager downloadManager) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context cannot be null");
+        }
+        if (dataSourceFactory == null) {
+            throw new IllegalArgumentException("DataSourceFactory cannot be null");
+        }
+        if (downloadManager == null) {
+            throw new IllegalArgumentException("DownloadManager cannot be null");
+        }
+        
         this.mContext = context.getApplicationContext();
         mDataSourceFactory = dataSourceFactory;
         mDownloads = new HashMap<>();
@@ -60,13 +70,34 @@ public class AxDownloadTracker {
 
     private void loadDownloads() {
         try {
+            if (mDownloadIndex == null) {
+                Log.e(TAG, "DownloadIndex is null, cannot load downloads");
+                return;
+            }
+            
             DownloadCursor loadedDownloads = mDownloadIndex.getDownloads();
+            if (loadedDownloads == null) {
+                Log.w(TAG, "getDownloads() returned null cursor");
+                return;
+            }
+            
+            int downloadCount = 0;
             while (loadedDownloads.moveToNext()) {
                 Download download = loadedDownloads.getDownload();
-                mDownloads.put(download.request.uri, download);
+                if (download != null && download.request != null && download.request.uri != null) {
+                    mDownloads.put(download.request.uri, download);
+                    downloadCount++;
+                } else {
+                    Log.w(TAG, "Skipping invalid download entry");
+                }
             }
+            loadedDownloads.close();
+            
+            Log.d(TAG, "Loaded " + downloadCount + " downloads from database");
         } catch (IOException e) {
-            Log.w(TAG, "Failed to query mDownloads", e);
+            Log.e(TAG, "Failed to query downloads from database", e);
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error loading downloads", e);
         }
     }
 
@@ -121,6 +152,15 @@ public class AxDownloadTracker {
 
         // Create a DownloadRequest and send it to service
         DownloadRequest downloadRequest = mDownloadHelper.getDownloadRequest(Util.getUtf8Bytes(description));
+        
+        // Android 12+ validation for foreground service
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            if (mContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                Log.w(TAG, "Cannot add download - FOREGROUND_SERVICE permission denied");
+                throw new SecurityException("Foreground service permission required for downloads");
+            }
+        }
+        
         DownloadService.sendAddDownload(
                 mContext,
                 AxDownloadService.class,
