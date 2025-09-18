@@ -160,3 +160,11 @@ export type OnPrepareErrorData = Readonly<{
     mediaId: string;
     error?: string;
 }>;
+
+// Evento de error de descarga mejorado
+export type OnDownloadErrorData = Readonly<{
+    id: string;
+    state: DownloadStates;
+    item?: DownloadItem;
+    message: string;
+}>;

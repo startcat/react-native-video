@@ -39,6 +39,11 @@ public class AxDownloadTracker {
     }
 
     private static final String TAG = "Downloads";
+    
+    // Umbral de progreso mínimo para considerar descargas MPD como exitosas
+    // Cuando una descarga DASH/MPD falla pero ha alcanzado este porcentaje,
+    // se considera que tiene suficiente contenido para reproducción offline
+    private static final double HIGH_PROGRESS_THRESHOLD_PERCENT = 85.0;
 
     private final Context mContext;
     private final DataSource.Factory mDataSourceFactory;
@@ -191,9 +196,9 @@ public class AxDownloadTracker {
             return null;
         }
         
-        // Permitir descargas con estado fallido si son MPD y tienen >95% de progreso
+        // Permitir descargas con estado fallido si son MPD y tienen suficiente progreso
         boolean isHighProgressMpdFailure = (download.state == Download.STATE_FAILED && 
-                                          download.getPercentDownloaded() > 95.0 && 
+                                          download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT && 
                                           download.request.uri.toString().toLowerCase().endsWith(".mpd"));
         
         if (isHighProgressMpdFailure) {
@@ -238,23 +243,26 @@ public class AxDownloadTracker {
         @Override
         public void onDownloadChanged(
                 DownloadManager downloadManager, Download download, Exception exception) {
-            // Comprobar si es una descarga MPD fallida con >95% de progreso
+            // Comprobar si es una descarga MPD fallida con suficiente progreso
             boolean isHighProgressMpdFailure = false;
             
             if (download.state == Download.STATE_FAILED && 
-                download.getPercentDownloaded() > 95.0 && 
+                download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT && 
                 download.request.uri.toString().toLowerCase().endsWith(".mpd")) {
                 
                 // Comprobar si es error 404
                 boolean is404Error = (exception != null && exception.getMessage() != null && 
                                      exception.getMessage().contains("404"));
                 
-                if (is404Error || true) { // true para manejar cualquier error en MPD al 95%+
+                if (is404Error || true) { // true para manejar cualquier error en MPD con suficiente progreso
                     isHighProgressMpdFailure = true;
                     Log.w(TAG, "===== HANDLING HIGH PROGRESS MPD FAILURE AS SUCCESS =====");
                     Log.w(TAG, "Converting failed download to successful: " + download.request.id);
-                    Log.w(TAG, "Progress at conversion: " + download.getPercentDownloaded() + "%");
+                    Log.w(TAG, "Progress at conversion: " + download.getPercentDownloaded() + "% (threshold: >" + HIGH_PROGRESS_THRESHOLD_PERCENT + "%)");
                     Log.w(TAG, "Bytes downloaded: " + download.getBytesDownloaded() + " / " + download.contentLength);
+                    if (exception != null && exception.getMessage() != null) {
+                        Log.w(TAG, "Original error: " + exception.getMessage());
+                    }
                     
                     // Alternativa: en lugar de crear un nuevo objeto Download, simplemente
                     // notificar a los listeners con un estado completado, pero mantener
@@ -301,7 +309,7 @@ public class AxDownloadTracker {
                 }
             } else if (download.state == Download.STATE_DOWNLOADING) {
                 // Opcional: Registrar progreso para depuración
-                if (download.getPercentDownloaded() > 95.0) {
+                if (download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT) {
                     Log.d(TAG, "Download near completion: " + download.request.id + " - Progress: " + 
                            download.getPercentDownloaded() + "%");
                 }

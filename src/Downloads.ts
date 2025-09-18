@@ -19,6 +19,7 @@ import type {
     OnDownloadStateChangedData,
     OnDownloadCompletedData,
     OnDownloadRemovedData,
+    OnDownloadErrorData,
     OnLicenseDownloadedData,
     OnLicenseDownloadFailedData,
     OnLicenseCheckData,
@@ -1048,37 +1049,73 @@ class Singleton {
     private async onDownloadStateChanged (data: OnDownloadStateChangedData): Promise<void> {
         console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
 
-        this.getItemBySrc(data?.id).then(async obj => {
-
-            if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state !== DownloadStates.REMOVING){
-                console.log(`${this.log_key} onDownloadStateChanged ${JSON.stringify(data)}`);
-                obj.item.offlineData.state = data?.state;
-                this.updateRefListItem(obj.index, obj.item);
-
-                if (data?.state === DownloadStates.COMPLETED){
-                    await this.checkTotalSize();
+        // Intentar buscar por URI primero, luego por ID
+        let searchResult = null;
         
+        try {
+            // Búsqueda por URI (método original)
+            searchResult = await this.getItemBySrc(data?.id);
+        } catch (e) {
+            // Si no se encuentra por URI, intentar buscar por ID
+            try {
+                searchResult = await this.getItemByIdAsync(data?.id);
+            } catch (e2) {
+                console.log(`${this.log_key} onDownloadStateChanged: Item not found by URI or ID (${data?.id})`);
+                
+                // ❌ CRÍTICO: No perder el error - emitir evento aunque no encontremos el item
+                if (data?.state === DownloadStates.FAILED) {
+                    console.error(`${this.log_key} DOWNLOAD FAILED but item not in local list: ${data?.id}`);
+                    // Emitir evento de error global para que la aplicación pueda reaccionar
+                    EventRegister.emit('downloadError', {
+                        id: data?.id,
+                        state: data?.state,
+                        message: `Download failed for ${data?.id} but item not found in local storage`
+                    });
                 }
+                return;
+            }
+        }
+
+        if (!searchResult?.item) {
+            console.log(`${this.log_key} onDownloadStateChanged: No valid item found`);
+            return;
+        }
+
+        const obj = searchResult;
+
+        if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state !== DownloadStates.REMOVING){
+            console.log(`${this.log_key} onDownloadStateChanged updating item: ${JSON.stringify(data)}`);
+            obj.item.offlineData.state = data?.state;
+            this.updateRefListItem(obj.index, obj.item);
+
+            if (data?.state === DownloadStates.COMPLETED){
+                await this.checkTotalSize();
     
-            } else if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state === DownloadStates.REMOVING){
-
-                // Lo eliminamos del listado
-                this.savedDownloads.splice(obj.index, 1);
-
-                this.saveRefList().finally(async () => {
-                    listToConsole(this.log_key, this.savedDownloads);
-                    EventRegister.emit('downloadsList', {});
-                    this.checkDownloadsStatus();
-                    await this.checkTotalSize();
-
+            } else if (data?.state === DownloadStates.FAILED) {
+                // ✅ Asegurar que se emite evento de error cuando se actualiza correctamente
+                console.error(`${this.log_key} DOWNLOAD FAILED for item: ${obj.item?.offlineData?.source?.title} (${data?.id})`);
+                EventRegister.emit('downloadError', {
+                    id: data?.id,
+                    state: data?.state,
+                    item: obj.item,
+                    message: `Download failed: ${obj.item?.offlineData?.source?.title}`
                 });
-
             }
 
-        }).catch(() => {
-            console.log(`${this.log_key} onDownloadStateChanged: Item not found (${data?.id})`);
+        } else if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state === DownloadStates.REMOVING){
 
-        });
+            // Lo eliminamos del listado
+            this.savedDownloads.splice(obj.index, 1);
+
+            this.saveRefList().finally(async () => {
+                listToConsole(this.log_key, this.savedDownloads);
+                EventRegister.emit('downloadsList', {});
+                this.checkDownloadsStatus();
+                await this.checkTotalSize();
+
+            });
+
+        }
 
     }
 
