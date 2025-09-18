@@ -819,6 +819,7 @@ export class StorageService {
         this.isMonitoring = true;
         this.monitoringInterval = setInterval(async () => {
             await this.updateStorageInfo();
+            this.currentLogger.debug(TAG, 'Storage info updated from monitoring');
         }, intervalMs);
 
         this.currentLogger.info(TAG, 'Storage monitoring started');
