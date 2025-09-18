@@ -76,7 +76,19 @@ public class AxDownloadService extends DownloadService {
     protected DownloadManager getDownloadManager() {
         DownloadManager downloadManager = AxOfflineManager.getInstance().getDownloadManager();
         if (downloadManager == null) {
-            throw new IllegalStateException("DownloadManager is null. AxOfflineManager must be initialized before starting AxDownloadService");
+            Log.e("Downloads", "CRITICAL: DownloadManager is null. Attempting to reinitialize AxOfflineManager...");
+            try {
+                // Attempt to reinitialize the AxOfflineManager
+                AxOfflineManager.getInstance().init(getApplicationContext());
+                downloadManager = AxOfflineManager.getInstance().getDownloadManager();
+                if (downloadManager == null) {
+                    throw new IllegalStateException("DownloadManager is still null after reinitialization attempt");
+                }
+                Log.d("Downloads", "Successfully recovered DownloadManager after reinitialization");
+            } catch (Exception e) {
+                Log.e("Downloads", "Failed to recover DownloadManager: " + e.getMessage(), e);
+                throw new IllegalStateException("DownloadManager is null and recovery failed. AxOfflineManager must be initialized before starting AxDownloadService", e);
+            }
         }
         return downloadManager;
     }

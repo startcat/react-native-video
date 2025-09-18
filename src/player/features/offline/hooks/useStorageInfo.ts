@@ -1,20 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { storageService } from '../services/storage/StorageService';
-import { StorageEventType, StorageInfo } from '../types';
+import { StorageEventType, StorageInfo, StorageInfoHookConfig } from '../types';
 
 /*
  * Hook para consultar el estado del almacenamiento
  *
  */
 
-export function useStorageInfo() {
+export function useStorageInfo(config?: Partial<StorageInfoHookConfig>) {
     
     const [error, setError] = useState<Error | null>(null);
     const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
     
     useEffect(() => {
         async function init() {
-            await storageService.initialize();
+            await storageService.initialize(config);
+
+            if (config?.monitoringInterval) {
+                storageService.startMonitoring(config.monitoringInterval);
+            }
+            
             // Obtener información inicial tras inicializar el servicio
             storageService.getStorageInfo().then(setStorageInfo);
         }

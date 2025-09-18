@@ -7,6 +7,7 @@ import androidx.media3.common.util.Util;
 import androidx.media3.database.DatabaseProvider;
 import androidx.media3.database.StandaloneDatabaseProvider;
 import androidx.media3.exoplayer.offline.Download;
+import androidx.media3.exoplayer.offline.DownloadIndex;
 import androidx.media3.exoplayer.offline.DownloadManager;
 import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.datasource.DataSource;
@@ -105,19 +106,16 @@ public class AxOfflineManager {
                     Log.w(TAG, "Failed to create download directory: " + folder.getAbsolutePath());
                 }
                 
-                mDownloadManager = new DownloadManager(
-                        context.getApplicationContext(),
-                        getDatabaseProvider(context),
-                        getDownloadCache(context),
-                        buildHttpDataSourceFactory(),
-                        Executors.newFixedThreadPool(6));
-                mDownloadTracker = new AxDownloadTracker(context, buildDataSourceFactory(context),
-                        mDownloadManager);
-                configureDownloadManager();
+                initializeDownloadManager(context);
                 
                 Log.d(TAG, "AxOfflineManager initialized successfully");
             } else {
-                Log.d(TAG, "AxOfflineManager already initialized, skipping");
+                Log.d(TAG, "AxOfflineManager already initialized, checking health...");
+                // Verificar si el DownloadManager está en buen estado
+                if (!isDownloadManagerHealthy()) {
+                    Log.w(TAG, "DownloadManager appears unhealthy, reinitializing...");
+                    reinitializeDownloadManager(context);
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error initializing AxOfflineManager: " + e.getMessage(), e);
@@ -167,6 +165,86 @@ public class AxOfflineManager {
         return databaseProvider;
     }
 
+    // Initialize DownloadManager with proper error handling
+    private void initializeDownloadManager(Context context) {
+        try {
+            mDownloadManager = new DownloadManager(
+                    context.getApplicationContext(),
+                    getDatabaseProvider(context),
+                    getDownloadCache(context),
+                    buildHttpDataSourceFactory(),
+                    Executors.newFixedThreadPool(6));
+            mDownloadTracker = new AxDownloadTracker(context, buildDataSourceFactory(context),
+                    mDownloadManager);
+            configureDownloadManager();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize DownloadManager: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to initialize DownloadManager", e);
+        }
+    }
+    
+    // Reinitialize DownloadManager when it becomes unhealthy
+    private synchronized void reinitializeDownloadManager(Context context) {
+        try {
+            Log.w(TAG, "Reinitializing DownloadManager due to health issues...");
+            
+            // Clean up existing manager
+            if (mDownloadManager != null) {
+                try {
+                    mDownloadManager.release();
+                } catch (Exception e) {
+                    Log.w(TAG, "Error releasing old DownloadManager: " + e.getMessage());
+                }
+            }
+            
+            // Clean up tracker
+            if (mDownloadTracker != null) {
+                try {
+                    mDownloadTracker.clearDownloadHelper();
+                } catch (Exception e) {
+                    Log.w(TAG, "Error clearing DownloadTracker helper: " + e.getMessage());
+                }
+            }
+            
+            // Reinitialize
+            mDownloadManager = null;
+            mDownloadTracker = null;
+            
+            // Wait a bit to ensure cleanup
+            Thread.sleep(500);
+            
+            initializeDownloadManager(context);
+            
+            Log.d(TAG, "DownloadManager successfully reinitialized");
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to reinitialize DownloadManager: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to reinitialize DownloadManager", e);
+        }
+    }
+    
+    // Check if DownloadManager is in a healthy state
+    private boolean isDownloadManagerHealthy() {
+        if (mDownloadManager == null) {
+            return false;
+        }
+        
+        try {
+            // Try to access the download index to check if it's working
+            DownloadIndex downloadIndex = mDownloadManager.getDownloadIndex();
+            if (downloadIndex == null) {
+                Log.w(TAG, "DownloadIndex is null, DownloadManager may be unhealthy");
+                return false;
+            }
+            
+            // Try a simple operation to verify it's working
+            downloadIndex.getDownloads();
+            return true;
+        } catch (Exception e) {
+            Log.w(TAG, "DownloadManager health check failed: " + e.getMessage());
+            return false;
+        }
+    }
+
     // Configure the DownloadManager to handle errors more gracefully
     private void configureDownloadManager() {
         if (mDownloadManager == null) {
@@ -183,6 +261,14 @@ public class AxOfflineManager {
                 @Override
                 public void onDownloadChanged(DownloadManager manager, Download download, Exception exception) {
                     try {
+                        // Detectar errores de handler muerto y reinicializar si es necesario
+                        if (exception != null && exception.getMessage() != null && 
+                            exception.getMessage().contains("Handler") && 
+                            exception.getMessage().contains("dead thread")) {
+                            Log.e(TAG, "Detected dead thread handler error for download: " + download.request.id);
+                            Log.e(TAG, "This indicates DownloadManager threading issues. Consider restarting the service.");
+                        }
+                        
                         // Si la descarga falló pero estaba casi completa (>95%), simplemente ignorar el error
                         if (download.state == Download.STATE_FAILED && download.getPercentDownloaded() > 95.0) {
                             // Verificar que sea un archivo MPD (DASH)
@@ -210,7 +296,7 @@ public class AxOfflineManager {
                 }
             });
             
-            Log.d(TAG, "Successfully configured DownloadManager with MPD ignore-errors handling");
+            Log.d(TAG, "Successfully configured DownloadManager with enhanced error handling");
         } catch (Exception e) {
             Log.e(TAG, "Error configuring DownloadManager: " + e.getMessage(), e);
         }

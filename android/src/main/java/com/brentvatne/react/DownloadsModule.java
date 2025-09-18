@@ -473,38 +473,105 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     public void addItem(ReadableMap src, @Nullable ReadableMap drm, final Promise promise) {
         Log.d(TAG, "+++ [Downloads] addItem");
 
-        MediaItem mediaItem = createMediaItem(src, drm);
-        currentMediaItem = mediaItem;
-
-        // Prepare DownloadHelper
-        if (mDownloadHelper != null) {
-            mDownloadHelper.release();
-            mDownloadHelper = null;
-        }
-
-        // Download a license if the content is protected
-        if (drm != null){
-            downloadLicenseWithResult(mediaItem);
-        }
-
-        if (mAxDownloadTracker != null){
-            mAxDownloadTracker.clearDownloadHelper();
-            mDownloadHelper = mAxDownloadTracker.getDownloadHelper(mediaItem, this.reactContext);
-            try {
-                mDownloadHelper.prepare(this);
-                promise.resolve(null);
-
-            } catch (Exception e) {
-                //showToast("Download failed, exception: " + e.getMessage());
-                Log.d(TAG, "+++ [Downloads] Download failed, exception: " + e.getMessage());
-                promise.reject(e);
+        try {
+            // Check if DownloadManager is healthy before proceeding
+            DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
+            if (manager == null || !AxOfflineManager.getInstance().isInitialized()) {
+                Log.w(TAG, "DownloadManager appears to be null or unhealthy, attempting recovery...");
+                try {
+                    // Attempt to recover the system
+                    recoverDownloadSystem();
+                } catch (Exception recoveryException) {
+                    Log.e(TAG, "Failed to recover download system: " + recoveryException.getMessage(), recoveryException);
+                    promise.reject("DOWNLOAD_SYSTEM_RECOVERY_FAILED", "Download system is unhealthy and recovery failed: " + recoveryException.getMessage());
+                    return;
+                }
             }
 
-        } else {
-            Log.d(TAG, "+++ [Downloads] addItem mAxDownloadTracker is null");
-            promise.reject("mAxDownloadTracker is null");
-        }
+            MediaItem mediaItem = createMediaItem(src, drm);
+            currentMediaItem = mediaItem;
 
+            // Prepare DownloadHelper
+            if (mDownloadHelper != null) {
+                mDownloadHelper.release();
+                mDownloadHelper = null;
+            }
+
+            // Download a license if the content is protected
+            if (drm != null){
+                downloadLicenseWithResult(mediaItem);
+            }
+
+            if (mAxDownloadTracker != null){
+                mAxDownloadTracker.clearDownloadHelper();
+                mDownloadHelper = mAxDownloadTracker.getDownloadHelper(mediaItem, this.reactContext);
+                try {
+                    mDownloadHelper.prepare(this);
+                    promise.resolve(null);
+
+                } catch (Exception e) {
+                    Log.e(TAG, "+++ [Downloads] Download failed, exception: " + e.getMessage(), e);
+                    
+                    // Check if this is a handler dead thread error
+                    if (e.getMessage() != null && e.getMessage().contains("Handler") && e.getMessage().contains("dead thread")) {
+                        Log.e(TAG, "Detected dead thread handler error during addItem. Attempting system recovery...");
+                        try {
+                            recoverDownloadSystem();
+                            // Retry the operation once after recovery
+                            mAxDownloadTracker.clearDownloadHelper();
+                            mDownloadHelper = mAxDownloadTracker.getDownloadHelper(mediaItem, this.reactContext);
+                            mDownloadHelper.prepare(this);
+                            promise.resolve(null);
+                            return;
+                        } catch (Exception retryException) {
+                            Log.e(TAG, "Retry after recovery also failed: " + retryException.getMessage(), retryException);
+                            promise.reject("DOWNLOAD_FAILED_AFTER_RECOVERY", "Download failed even after system recovery: " + retryException.getMessage());
+                            return;
+                        }
+                    }
+                    
+                    promise.reject("DOWNLOAD_FAILED", "Download preparation failed: " + e.getMessage());
+                }
+
+            } else {
+                Log.e(TAG, "+++ [Downloads] addItem mAxDownloadTracker is null");
+                promise.reject("DOWNLOAD_TRACKER_NULL", "DownloadTracker is null - system may need reinitialization");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Unexpected error in addItem: " + e.getMessage(), e);
+            promise.reject("UNEXPECTED_ERROR", "Unexpected error during addItem: " + e.getMessage());
+        }
+    }
+    
+    // Method to recover the download system when it becomes unhealthy
+    private void recoverDownloadSystem() throws Exception {
+        Log.w(TAG, "Attempting to recover download system...");
+        
+        try {
+            // Stop the download service
+            DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
+            
+            // Wait a bit for the service to stop
+            Thread.sleep(1000);
+            
+            // Reinitialize the AxOfflineManager
+            AxOfflineManager.getInstance().init(this.reactContext);
+            
+            // Get the new tracker
+            mAxDownloadTracker = AxOfflineManager.getInstance().getDownloadTracker();
+            if (mAxDownloadTracker != null) {
+                mAxDownloadTracker.addListener(this);
+            }
+            
+            // Restart the download service
+            DownloadService.start(this.reactContext, AxDownloadService.class);
+            DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+            
+            Log.d(TAG, "Download system recovery completed successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "Download system recovery failed: " + e.getMessage(), e);
+            throw new Exception("Failed to recover download system: " + e.getMessage(), e);
+        }
     }
 
     @ReactMethod
