@@ -9,6 +9,10 @@ export interface StorageServiceConfig {
     cleanupIntervalHours?: number;
 }
 
+export interface StorageInfoHookConfig extends StorageServiceConfig {
+    monitoringInterval?: number;
+}
+
 export interface StorageInfo {
     totalSpace: number;
     usedSpace: number;
