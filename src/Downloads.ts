@@ -1,37 +1,36 @@
-import { Platform, DeviceEventEmitter, NativeEventEmitter, NativeModules } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
+import { DeviceEventEmitter, NativeEventEmitter, NativeModules, Platform } from 'react-native';
 import { EventRegister } from 'react-native-event-listeners';
 
-import { formatBytes, listToConsole } from './downloads/utils';
-import { refactorOldEntries } from './downloads/upgrade';
+import { calculateTotalDownloadsSize, getBinaryDownloadsDirectory, removeUri } from './downloads/filesystem';
 import { getNetworkInfo } from './downloads/network';
 import { readStorage, saveStorage } from './downloads/storage';
-import { calculateTotalDownloadsSize, getBinaryDownloadsDirectory, removeUri } from './downloads/filesystem';
+import { refactorOldEntries } from './downloads/upgrade';
+import { formatBytes, listToConsole } from './downloads/utils';
+import { PlayerError } from './player/core/errors/PlayerError';
 
 import type {
     ConfigDownloads,
-    NetworkState,
     DownloadItem,
+    NetworkState,
     NewDownloadItem,
-    SearchDownloadItem,
-
-    OnDownloadProgressData,
-    OnDownloadStateChangedData,
-    OnDownloadCompletedData,
-    OnDownloadRemovedData,
-    OnDownloadErrorData,
-    OnLicenseDownloadedData,
-    OnLicenseDownloadFailedData,
-    OnLicenseCheckData,
-    OnLicenseCheckFailedData,
-    OnLicenseReleasedData,
-    OnLicenseReleasedFailedData,
-    OnLicenseKeysRestoredData,
-    OnLicenseRestoreFailedData,
     OnAllLicensesReleasedData,
     OnAllLicensesReleaseFailedData,
+    OnDownloadCompletedData,
+    OnDownloadProgressData,
+    OnDownloadRemovedData,
+    OnDownloadStateChangedData,
+    OnLicenseCheckData,
+    OnLicenseCheckFailedData,
+    OnLicenseDownloadedData,
+    OnLicenseDownloadFailedData,
+    OnLicenseKeysRestoredData,
+    OnLicenseReleasedData,
+    OnLicenseReleasedFailedData,
+    OnLicenseRestoreFailedData,
     OnPreparedData,
-    OnPrepareErrorData
+    OnPrepareErrorData,
+    SearchDownloadItem
 } from './types';
 
 import { DownloadStates } from './types';
@@ -64,6 +63,7 @@ class Singleton {
     public downloadsEnabled: boolean = false;
     public binaryDownloadsEnabled: boolean = false;
     public isStarted: boolean = false;
+    public isPending: boolean = false;
     public size: number = 0;
     public user_isLogged: boolean = false;
     public user_id: string = '';
@@ -222,6 +222,9 @@ class Singleton {
 
                         console.log(`${this.log_key} Initialized`);
                         
+                        // Inicializar isPending con el estado correcto desde el inicio
+                        this.checkDownloadsStatus();
+                        
                         return resolve(this.savedDownloads);
 
                     }).catch((err: any) => {
@@ -230,6 +233,8 @@ class Singleton {
                     });
 
                 }
+
+                this.checkDownloadsStatus();
 
                 return resolve(this.savedDownloads);
 
@@ -451,8 +456,6 @@ class Singleton {
 
     }
 
-
-
     // Local Settings
     private saveRefList (): Promise<DownloadItem[]> {
 
@@ -462,7 +465,10 @@ class Singleton {
                 if (success) {
                     return resolve(this.savedDownloads);
                 } else {
-                    return reject(new Error('Error al guardar los datos'));
+                    return reject(new PlayerError('STORAGE_ASYNC_002', {
+                        operation: 'saveDownloadsList',
+                        itemCount: this.savedDownloads?.length || 0
+                    }));
                 }
 
             }).catch((err: any) => {
@@ -477,19 +483,43 @@ class Singleton {
 
         return new Promise((resolve, reject) => {
 
-            if (index > -1 && this.savedDownloads?.length > index){
-                this.savedDownloads.splice(index, 1, obj);
-                this.saveRefList().finally(() => {
-                    EventRegister.emit('offlineData', { index:index, item:obj });
-                    this.checkDownloadsStatus();
-                    resolve();
-
-                });
-
-            } else {
-                console.log(`${this.log_key} updateRefListItem error: No item at ${index}`);
-                reject(`No current item index`);
+            // Verificar índice y array
+            if (index < 0) {
+                console.error(`${this.log_key} updateRefListItem error: Invalid negative index ${index}`);
+                return reject(new PlayerError('DOWNLOAD_QUEUE_ITEM_NOT_FOUND', {
+                    operation: 'updateRefListItem',
+                    index: index,
+                    reason: 'Invalid negative index'
+                }));
             }
+
+            if (!this.savedDownloads || this.savedDownloads.length === 0) {
+                console.error(`${this.log_key} updateRefListItem error: savedDownloads array is empty`);
+                return reject(new PlayerError('DOWNLOAD_QUEUE_ITEM_NOT_FOUND', {
+                    operation: 'updateRefListItem',
+                    index: index,
+                    reason: 'Downloads array is empty'
+                }));
+            }
+
+            if (index >= this.savedDownloads.length) {
+                console.error(`${this.log_key} updateRefListItem error: Index ${index} exceeds array length ${this.savedDownloads.length}`);
+                return reject(new PlayerError('DOWNLOAD_QUEUE_ITEM_NOT_FOUND', {
+                    operation: 'updateRefListItem',
+                    index: index,
+                    arrayLength: this.savedDownloads.length,
+                    reason: 'Index exceeds array length'
+                }));
+            }
+
+            console.log(`${this.log_key} updateRefListItem: Updating index ${index} with ${obj?.offlineData?.source?.title} (${obj?.offlineData?.source?.uri})`);
+            this.savedDownloads.splice(index, 1, obj);
+            this.saveRefList().finally(() => {
+                EventRegister.emit('offlineData', { index:index, item:obj });
+                this.checkDownloadsStatus();
+                resolve();
+
+            });
 
         });
 
@@ -499,19 +529,45 @@ class Singleton {
 
         return new Promise((resolve, reject) => {
 
-            if (index > -1 && this.savedDownloads?.length > index){
-                this.savedDownloads.splice(index, 1);
-                this.saveRefList().finally(() => {
-                    EventRegister.emit('downloadsList', {});
-                    this.checkDownloadsStatus();
-                    resolve();
-
-                });
-
-            } else {
-                console.log(`${this.log_key} removeRefListItem error: No item at ${index}`);
-                reject(`No current item index`);
+            // Verificar índice y array
+            if (index < 0) {
+                console.error(`${this.log_key} removeRefListItem error: Invalid negative index ${index}`);
+                return reject(new PlayerError('DOWNLOAD_QUEUE_REMOVE_FAILED', {
+                    operation: 'removeRefListItem',
+                    index: index,
+                    reason: 'Invalid negative index'
+                }));
             }
+
+            if (!this.savedDownloads || this.savedDownloads.length === 0) {
+                console.error(`${this.log_key} removeRefListItem error: savedDownloads array is empty`);
+                return reject(new PlayerError('DOWNLOAD_QUEUE_REMOVE_FAILED', {
+                    operation: 'removeRefListItem',
+                    index: index,
+                    reason: 'Downloads array is empty'
+                }));
+            }
+
+            if (index >= this.savedDownloads.length) {
+                console.error(`${this.log_key} removeRefListItem error: Index ${index} exceeds array length ${this.savedDownloads.length}`);
+                return reject(new PlayerError('DOWNLOAD_QUEUE_REMOVE_FAILED', {
+                    operation: 'removeRefListItem',
+                    index: index,
+                    arrayLength: this.savedDownloads.length,
+                    reason: 'Index exceeds array length'
+                }));
+            }
+
+            const itemToRemove = this.savedDownloads[index];
+            console.log(`${this.log_key} removeRefListItem: Removing index ${index} - ${itemToRemove?.offlineData?.source?.title} (${itemToRemove?.offlineData?.source?.uri})`);
+            
+            this.savedDownloads.splice(index, 1);
+            this.saveRefList().finally(() => {
+                EventRegister.emit('downloadsList', {});
+                this.checkDownloadsStatus();
+                resolve();
+
+            });
 
         });
 
@@ -551,8 +607,6 @@ class Singleton {
         }
 
     }
-
-
 
     // List Methods
     public async checkRestartItems (): Promise<void> {
@@ -595,12 +649,18 @@ class Singleton {
         return new Promise(async (resolve, reject) => {
 
             if (!this.downloadsEnabled){
-                return reject();
+                return reject(new PlayerError('DOWNLOAD_MODULE_UNAVAILABLE', {
+                    operation: 'checkItem',
+                    uri: uri
+                }));
 
             }
 
             if (!uri){
-                return reject(`Incomplete media data`);
+                return reject(new PlayerError('DOWNLOAD_INVALID_CONTENT_ID', {
+                    operation: 'checkItem',
+                    reason: 'Missing URI parameter'
+                }));
 
             }
 
@@ -702,14 +762,21 @@ class Singleton {
         return new Promise(async (resolve, reject) => {
 
             if (!this.downloadsEnabled){
-                return reject();
+                return reject(new PlayerError('DOWNLOAD_MODULE_UNAVAILABLE', {
+                    operation: 'addItem',
+                    title: obj?.offlineData?.source?.title,
+                    uri: obj?.offlineData?.source?.uri
+                }));
 
             }
 
             console.log(`${this.log_key} Add ${obj?.offlineData?.source?.title} (${obj.offlineData?.source?.uri})`);
 
             if (!obj){
-                return reject(`Incomplete media data`);
+                return reject(new PlayerError('DOWNLOAD_INVALID_CONTENT_ID', {
+                    operation: 'addItem',
+                    reason: 'Missing download object'
+                }));
             }
 
             this.getItemBySrc(obj.offlineData?.source?.uri).then(async (res) => {
@@ -753,7 +820,12 @@ class Singleton {
                         return resolve();
 
                     } catch(ex: any){
-                        return reject(ex?.message);
+                        return reject(new PlayerError('DOWNLOAD_QUEUE_ADD_ITEM_FAILED', {
+                            operation: 'setItemToLocal',
+                            originalError: ex?.message,
+                            title: obj?.offlineData?.source?.title,
+                            uri: obj?.offlineData?.source?.uri
+                        }));
 
                     }
 
@@ -768,7 +840,12 @@ class Singleton {
                     return resolve();
 
                 } catch(ex: any){
-                    return reject(ex?.message);
+                    return reject(new PlayerError('DOWNLOAD_QUEUE_ADD_ITEM_FAILED', {
+                        operation: 'addItem_fallback',
+                        originalError: ex?.message,
+                        title: obj?.offlineData?.source?.title,
+                        uri: obj?.offlineData?.source?.uri
+                    }));
 
                 }
 
@@ -783,7 +860,11 @@ class Singleton {
         return new Promise(async (resolve, reject) => {
 
             if (!this.downloadsEnabled){
-                return reject();
+                return reject(new PlayerError('DOWNLOAD_MODULE_UNAVAILABLE', {
+                    operation: 'removeItem',
+                    title: obj?.offlineData?.source?.title,
+                    uri: obj?.offlineData?.source?.uri
+                }));
                 
             }
 
@@ -800,9 +881,11 @@ class Singleton {
 
                         const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === obj?.offlineData?.source?.uri);
 
-                        if (foundAtIndex !== undefined && foundAtIndex !== null){
+                        if (foundAtIndex !== undefined && foundAtIndex !== null && foundAtIndex >= 0){
+                            console.log(`${this.log_key} removeItem: Removing item at index ${foundAtIndex} (${obj?.offlineData?.source?.uri})`);
                             this.removeRefListItem(foundAtIndex);
-                
+                        } else {
+                            console.log(`${this.log_key} removeItem: Item not found in local list (${obj?.offlineData?.source?.uri})`);
                         }
 
                         await this.checkTotalSize();
@@ -815,7 +898,13 @@ class Singleton {
 
             } catch(ex:any){
                 await this.onBinaryRemoved(obj?.offlineData?.source?.id!);
-                return reject(ex?.message);
+                return reject(new PlayerError('DOWNLOAD_QUEUE_REMOVE_FAILED', {
+                    operation: 'removeItem',
+                    originalError: ex?.message,
+                    title: obj?.offlineData?.source?.title,
+                    uri: obj?.offlineData?.source?.uri,
+                    contentId: obj?.offlineData?.source?.id
+                }));
 
             }
 
@@ -964,18 +1053,33 @@ class Singleton {
     private async onProgress (data: OnDownloadProgressData): Promise<void> {
         console.log(`${this.log_key} onProgress ${JSON.stringify(data)}`);
 
-        this.getItemBySrc(data?.id).then(obj => {
-
-            if (!!obj.item && obj.item?.offlineData?.percent !== data?.percent && data?.percent > 0){
-                obj.item.offlineData.percent = data?.percent;
-                this.updateRefListItem(obj.index, obj.item);
-    
+        let searchResult = null;
+        
+        try {
+            // Intentar búsqueda por URI primero (método original)
+            searchResult = await this.getItemBySrc(data?.id);
+        } catch (e) {
+            // Si no se encuentra por URI, intentar buscar por ID como fallback
+            try {
+                searchResult = await this.getItemByIdAsync(data?.id);
+            } catch (e2) {
+                console.log(`${this.log_key} onProgress: Item not found by URI or ID (${data?.id}) - possible desync with native system`);
+                return;
             }
+        }
 
-        }).catch(() => {
-            console.log(`${this.log_key} onProgress: Item not found (${data?.id})`);
+        if (!searchResult?.item) {
+            console.log(`${this.log_key} onProgress: No valid item found for progress update`);
+            return;
+        }
 
-        });
+        const obj = searchResult;
+
+        if (!!obj.item && obj.item?.offlineData?.percent !== data?.percent && data?.percent > 0){
+            console.log(`${this.log_key} onProgress: Updating item ${obj.item.offlineData?.source?.title} from ${obj.item.offlineData?.percent}% to ${data?.percent}%`);
+            obj.item.offlineData.percent = data?.percent;
+            this.updateRefListItem(obj.index, obj.item);
+        }
 
     }
 
@@ -1004,9 +1108,11 @@ class Singleton {
 
         const foundAtIndex = this.savedDownloads?.findIndex(item => item.offlineData?.source?.uri === data?.manifest);
 
-        if (foundAtIndex !== undefined && foundAtIndex !== null){
+        if (foundAtIndex !== undefined && foundAtIndex !== null && foundAtIndex >= 0){
+            console.log(`${this.log_key} onLicenseReleased: Removing item at index ${foundAtIndex} (${data?.manifest})`);
             this.removeRefListItem(foundAtIndex);
-
+        } else {
+            console.log(`${this.log_key} onLicenseReleased: Item not found for manifest (${data?.manifest})`);
         }
 
     }
@@ -1062,7 +1168,6 @@ class Singleton {
             } catch (e2) {
                 console.log(`${this.log_key} onDownloadStateChanged: Item not found by URI or ID (${data?.id})`);
                 
-                // ❌ CRÍTICO: No perder el error - emitir evento aunque no encontremos el item
                 if (data?.state === DownloadStates.FAILED) {
                     console.error(`${this.log_key} DOWNLOAD FAILED but item not in local list: ${data?.id}`);
                     // Emitir evento de error global para que la aplicación pueda reaccionar
@@ -1092,7 +1197,6 @@ class Singleton {
                 await this.checkTotalSize();
     
             } else if (data?.state === DownloadStates.FAILED) {
-                // ✅ Asegurar que se emite evento de error cuando se actualiza correctamente
                 console.error(`${this.log_key} DOWNLOAD FAILED for item: ${obj.item?.offlineData?.source?.title} (${data?.id})`);
                 EventRegister.emit('downloadError', {
                     id: data?.id,
@@ -1104,16 +1208,19 @@ class Singleton {
 
         } else if (!!obj.item && obj.item?.offlineData?.state !== data?.state && data?.state === DownloadStates.REMOVING){
 
-            // Lo eliminamos del listado
-            this.savedDownloads.splice(obj.index, 1);
-
-            this.saveRefList().finally(async () => {
-                listToConsole(this.log_key, this.savedDownloads);
-                EventRegister.emit('downloadsList', {});
-                this.checkDownloadsStatus();
-                await this.checkTotalSize();
-
-            });
+            console.log(`${this.log_key} onDownloadStateChanged: Removing item via REMOVING state at index ${obj.index} (${data?.id})`);
+            
+            // Verificar que el índice sigue siendo válido (evitar condición de carrera)
+            if (obj.index >= 0 && obj.index < this.savedDownloads.length && 
+                this.savedDownloads[obj.index]?.offlineData?.source?.uri === data?.id) {
+                
+                this.removeRefListItem(obj.index).catch(error => {
+                    console.error(`${this.log_key} onDownloadStateChanged: Failed to remove item at index ${obj.index}:`, error);
+                });
+                
+            } else {
+                console.log(`${this.log_key} onDownloadStateChanged: Item already removed or index changed (index: ${obj.index}, array length: ${this.savedDownloads.length})`);
+            }
 
         }
 
@@ -1128,8 +1235,6 @@ class Singleton {
         console.log(`${this.log_key} onRemoved ${JSON.stringify(data)}`);
 
     }
-
-
 
     // Binary Events
     private async onBinaryStart (id: string): Promise<void> {
@@ -1220,8 +1325,6 @@ class Singleton {
 
     }
 
-
-
     // Actions
     public checkDownloadsStatus (): void {
 
@@ -1237,6 +1340,8 @@ class Singleton {
             }
             
         }
+
+        this.isPending = !!pendingItems;
 
         console.log(`${this.log_key} Pending items for this user id: ${pendingItems} / isStarted ${this.isStarted}`);
 
