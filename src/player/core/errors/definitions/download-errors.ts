@@ -97,6 +97,18 @@ export const DOWNLOAD_ERROR_DEFINITIONS = {
     DOWNLOAD_QUEUE_CLEANUP_FAILED: {
         message: "Failed to clean up completed downloads.",
     },
+    DOWNLOAD_QUEUE_CLEAR_FAILED: {
+        message: "Failed to clear download queue.",
+    },
+    DOWNLOAD_QUEUE_REORDER_FAILED: {
+        message: "Failed to reorder download queue.",
+    },
+    DOWNLOAD_QUEUE_INVALID_CONCURRENT_COUNT: {
+        message: "Invalid concurrent downloads count.",
+    },
+    DOWNLOAD_QUEUE_CLEAR_BY_STATE_FAILED: {
+        message: "Failed to clear downloads by state.",
+    },
 
     // === ERRORES CON EL SERVICIO DE DESCARGAS BINARIAS ===
     DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED: {

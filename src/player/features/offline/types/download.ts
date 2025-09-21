@@ -28,6 +28,10 @@ export enum DownloadEventType {
     CANCELLED = 'download:cancelled',
     QUEUED = 'download:queued',
     REMOVED = 'download:removed',
+    
+    // Eventos de gestión de cola
+    QUEUE_CLEARED = 'queue:cleared',
+    QUEUE_REORDERED = 'queue:reordered',
 }
 
 export enum DownloadErrorCode {

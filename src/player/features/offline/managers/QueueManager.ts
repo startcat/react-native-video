@@ -14,8 +14,10 @@ import {
     DownloadEventType,
     DownloadItem,
     DownloadStates,
+    DownloadType,
     QueueServiceConfig,
     QueueStatusCallback,
+    QueueStats,
 } from '../types';
 
 import { LOG_TAGS } from "../constants";
@@ -33,6 +35,7 @@ export class QueueManager {
     private config: QueueServiceConfig;
     private processingInterval: ReturnType<typeof setTimeout> | null = null;
     private currentlyDownloading: Set<string> = new Set();
+    private retryTracker: Map<string, number> = new Map();
     private currentLogger: Logger;
 
     private constructor() {
@@ -128,31 +131,31 @@ export class QueueManager {
 
         // Verificar si ya existe
         const existing = Array.from(this.downloadQueue.values()).find(item => 
-            item.offlineData.source.id === downloadData.contentId &&
-            item.profileId === downloadData.profileId
+            item.id === downloadData.contentId
         );
 
         if (existing) {
             this.currentLogger.info(TAG, `Download already exists: ${downloadData.title}`);
-            return existing.offlineData.source.id;
+            return existing.id;
         }
 
         try {
             const downloadId = this.generateDownloadId();
             const downloadItem: DownloadItem = {
-                profileId: downloadData.profileId || null,
-                offlineData: {
-                    session_ids: [downloadId],
-                    source: {
-                        id: downloadData.contentId,
-                        title: downloadData.title,
-                        uri: downloadData.uri,
-                        type: downloadData.type,
-                        drmScheme: downloadData.drmScheme,
-                    },
-                    state: DownloadStates.QUEUED,
-                    percent: 0,
+                id: downloadData.contentId,
+                type: downloadData.type === 'STREAM' ? DownloadType.STREAM : DownloadType.BINARY,
+                title: downloadData.title,
+                uri: downloadData.uri,
+                media: undefined,
+                profileIds: downloadData.profileId ? [downloadData.profileId] : [],
+                drmScheme: downloadData.drmScheme,
+                state: DownloadStates.QUEUED,
+                stats: {
+                    progressPercent: 0,
+                    bytesDownloaded: 0,
+                    totalBytes: 0,
                     startedAt: Date.now(),
+                    retryCount: 0,
                 }
             };
 
@@ -169,7 +172,7 @@ export class QueueManager {
                 queueSize: this.downloadQueue.size
             });
 
-            this.currentLogger.info(TAG, `Download queued: ${downloadItem.offlineData.source.title} (${downloadId})`);
+            this.currentLogger.info(TAG, `Download queued: ${downloadItem.title} (${downloadId})`);
             return downloadId;
 
         } catch (error) {
@@ -197,7 +200,7 @@ export class QueueManager {
             }
 
             // Cambiar estado a removing
-            item.offlineData.state = DownloadStates.REMOVING;
+            item.state = DownloadStates.REMOVING;
             this.downloadQueue.set(downloadId, item);
 
             // Si se está descargando, detenerla
@@ -206,16 +209,17 @@ export class QueueManager {
             }
 
             // Eliminar archivos del disco usando StorageService
-            if (item.offlineData.fileUri) {
+            if (item.fileUri) {
                 try {
-                    await storageService.deleteFile(item.offlineData.fileUri);
+                    await storageService.deleteFile(item.fileUri);
                 } catch (error) {
-                    this.currentLogger.warn(TAG, `Failed to delete file: ${item.offlineData.fileUri}`);
+                    this.currentLogger.warn(TAG, `Failed to delete file: ${item.fileUri}`);
                 }
             }
 
-            // Remover de la cola
+            // Remover de la cola y tracking
             this.downloadQueue.delete(downloadId);
+            this.retryTracker.delete(downloadId);
 
             // Persistir cambios
             await persistenceService.saveDownloadState(this.downloadQueue);
@@ -227,7 +231,7 @@ export class QueueManager {
                 queueSize: this.downloadQueue.size
             });
 
-            this.currentLogger.info(TAG, `Download removed: ${item.offlineData.source.title} (${downloadId})`);
+            this.currentLogger.info(TAG, `Download removed: ${item.title} (${downloadId})`);
 
         } catch (error) {
             throw new PlayerError('DOWNLOAD_QUEUE_REMOVE_FAILED', {
@@ -244,7 +248,7 @@ export class QueueManager {
 
     public async pauseDownload(downloadId: string): Promise<void> {
         const item = this.downloadQueue.get(downloadId);
-        if (item && item.offlineData.state === DownloadStates.DOWNLOADING) {
+        if (item && item.state === DownloadStates.DOWNLOADING) {
             await this.updateDownloadState(downloadId, DownloadStates.PAUSED);
             this.currentlyDownloading.delete(downloadId);
             
@@ -259,7 +263,7 @@ export class QueueManager {
 
     public async resumeDownload(downloadId: string): Promise<void> {
         const item = this.downloadQueue.get(downloadId);
-        if (item && item.offlineData.state === DownloadStates.PAUSED) {
+        if (item && item.state === DownloadStates.PAUSED) {
             await this.updateDownloadState(downloadId, DownloadStates.QUEUED);
             
             this.eventEmitter.emit(DownloadEventType.RESUMED, { downloadId, item });
@@ -286,30 +290,6 @@ export class QueueManager {
         this.currentLogger.info(TAG, 'All downloads resumed');
     }
 
-    /*
-     * Obtiene el estado actual de la cola
-     *
-     */
-
-    public getQueueState() {
-        const items = Array.from(this.downloadQueue.values());
-        const pending = items.filter(item => item.offlineData.state === DownloadStates.QUEUED).length;
-        const downloading = items.filter(item => item.offlineData.state === DownloadStates.DOWNLOADING).length;
-        const paused = items.filter(item => item.offlineData.state === DownloadStates.PAUSED).length;
-        const completed = items.filter(item => item.offlineData.state === DownloadStates.COMPLETED).length;
-        const failed = items.filter(item => item.offlineData.state === DownloadStates.FAILED).length;
-
-        return {
-            total: this.downloadQueue.size,
-            pending,
-            downloading,
-            paused,
-            completed,
-            failed,
-            isPaused: this.isPaused,
-            isProcessing: this.isProcessing,
-        };
-    }
 
     /*
      * Obtiene todas las descargas
@@ -320,16 +300,6 @@ export class QueueManager {
         return Array.from(this.downloadQueue.values()).map(item => ({ ...item }));
     }
 
-    /*
-     * Obtiene descargas filtradas por perfil
-     *
-     */
-
-    public getDownloadsByProfile(profileId: string | null): DownloadItem[] {
-        return Array.from(this.downloadQueue.values())
-            .filter(item => item.profileId === profileId)
-            .map(item => ({ ...item }));
-    }
 
     /*
      * Obtiene una descarga específica
@@ -347,28 +317,224 @@ export class QueueManager {
      */
 
     public async cleanupCompleted(): Promise<void> {
+        await this.clearByState([DownloadStates.COMPLETED]);
+    }
+    
+    /*
+     * Limpia descargas fallidas
+     *
+     */
+
+    public async clearFailed(): Promise<void> {
+        await this.clearByState([DownloadStates.FAILED]);
+    }
+    
+    /*
+     * Limpia toda la cola de descargas
+     *
+     */
+
+    public async clearQueue(): Promise<void> {
         try {
             const beforeCount = this.downloadQueue.size;
-            const completedIds: string[] = [];
+            
+            // Detener todas las descargas activas
+            this.currentlyDownloading.clear();
+            
+            // Limpiar archivos de descargas incompletas
+            for (const [, item] of this.downloadQueue) {
+                if (item.fileUri && 
+                    item.state !== DownloadStates.COMPLETED) {
+                    try {
+                        await storageService.deleteFile(item.fileUri);
+                    } catch (error) {
+                        this.currentLogger.warn(TAG, `Failed to delete file: ${item.fileUri}`);
+                    }
+                }
+            }
+            
+            // Limpiar la cola y tracking
+            this.downloadQueue.clear();
+            this.retryTracker.clear();
+            
+            // Persistir cambios
+            await persistenceService.saveDownloadState(this.downloadQueue);
+            
+            this.eventEmitter.emit(DownloadEventType.QUEUE_CLEARED, {
+                queueSize: 0,
+                clearedCount: beforeCount
+            });
+            
+            this.currentLogger.info(TAG, `Cleared entire queue (${beforeCount} downloads)`);
+            
+        } catch (error) {
+            throw new PlayerError('DOWNLOAD_QUEUE_CLEAR_FAILED', {
+                originalError: error
+            });
+        }
+    }
+    
+    /*
+     * Reordena la cola de descargas
+     *
+     */
+
+    public async reorderQueue(newOrder: string[]): Promise<void> {
+        try {
+            // Crear nueva cola con el orden especificado
+            const newQueue = new Map<string, DownloadItem>();
+            const existingItems = new Map(this.downloadQueue);
+            
+            // Agregar items en el orden especificado
+            newOrder.forEach(id => {
+                const item = existingItems.get(id);
+                if (item) {
+                    newQueue.set(id, item);
+                    existingItems.delete(id);
+                }
+            });
+            
+            // Agregar items restantes al final
+            existingItems.forEach((item, id) => {
+                newQueue.set(id, item);
+            });
+            
+            this.downloadQueue = newQueue;
+            
+            // Persistir cambios
+            await persistenceService.saveDownloadState(this.downloadQueue);
+            
+            this.eventEmitter.emit(DownloadEventType.QUEUE_REORDERED, {
+                queueSize: this.downloadQueue.size,
+                newOrder
+            });
+            
+            this.currentLogger.info(TAG, `Queue reordered with ${newOrder.length} items`);
+            
+        } catch (error) {
+            throw new PlayerError('DOWNLOAD_QUEUE_REORDER_FAILED', {
+                originalError: error,
+                newOrder
+            });
+        }
+    }
+    
+    /*
+     * Establece el número máximo de descargas concurrentes
+     *
+     */
+
+    public setMaxConcurrent(count: number): void {
+        if (count <= 0) {
+            throw new PlayerError('DOWNLOAD_QUEUE_INVALID_CONCURRENT_COUNT', { count });
+        }
+        
+        this.config.maxConcurrentDownloads = count;
+        this.currentLogger.info(TAG, `Max concurrent downloads set to ${count}`);
+        
+        this.eventEmitter.emit('max_concurrent_changed', { maxConcurrent: count });
+    }
+    
+    /*
+     * Filtra descargas por estado
+     *
+     */
+
+    public filterByState(states: DownloadStates[]): DownloadItem[] {
+        return Array.from(this.downloadQueue.values())
+            .filter(item => states.includes(item.state))
+            .map(item => ({ ...item }));
+    }
+    
+    /*
+     * Filtra descargas por tipo
+     *
+     */
+
+    public filterByType(type: string): DownloadItem[] {
+        return Array.from(this.downloadQueue.values())
+            .filter(item => item.type.toString() === type)
+            .map(item => ({ ...item }));
+    }
+    
+    /*
+     * Obtiene la posición de cada descarga en la cola
+     *
+     */
+
+    public getQueuePositions(): Map<string, number> {
+        const positions = new Map<string, number>();
+        let position = 1;
+        
+        for (const [id] of this.downloadQueue) {
+            positions.set(id, position);
+            position++;
+        }
+        
+        return positions;
+    }
+    
+    /*
+     * Obtiene estadísticas completas de la cola
+     *
+     */
+
+    public getQueueStats(): QueueStats {
+        const items = Array.from(this.downloadQueue.values());
+        const pending = items.filter(item => item.state === DownloadStates.QUEUED).length;
+        const downloading = items.filter(item => item.state === DownloadStates.DOWNLOADING).length;
+        const paused = items.filter(item => item.state === DownloadStates.PAUSED).length;
+        const completed = items.filter(item => item.state === DownloadStates.COMPLETED).length;
+        const failed = items.filter(item => item.state === DownloadStates.FAILED).length;
+        
+        return {
+            total: this.downloadQueue.size,
+            pending,
+            downloading,
+            paused,
+            completed,
+            failed,
+            isPaused: this.isPaused,
+            isProcessing: this.isProcessing,
+        };
+    }
+    
+    /*
+     * Limpia descargas por estados específicos (método auxiliar)
+     *
+     */
+
+    private async clearByState(states: DownloadStates[]): Promise<void> {
+        try {
+            const beforeCount = this.downloadQueue.size;
+            const idsToRemove: string[] = [];
 
             for (const [id, item] of this.downloadQueue) {
-                if (item.offlineData.state === DownloadStates.COMPLETED) {
-                    completedIds.push(id);
+                if (states.includes(item.state)) {
+                    idsToRemove.push(id);
                 }
             }
 
-            completedIds.forEach(id => this.downloadQueue.delete(id));
+            idsToRemove.forEach(id => this.downloadQueue.delete(id));
 
             const removed = beforeCount - this.downloadQueue.size;
 
             if (removed > 0) {
                 await persistenceService.saveDownloadState(this.downloadQueue);
-                this.currentLogger.info(TAG, `Cleaned up ${removed} completed downloads`);
+                
+                this.eventEmitter.emit('downloads_cleared_by_state', {
+                    states,
+                    clearedCount: removed,
+                    queueSize: this.downloadQueue.size
+                });
+                
+                this.currentLogger.info(TAG, `Cleared ${removed} downloads with states: ${states.join(', ')}`);
             }
 
         } catch (error) {
-            throw new PlayerError('DOWNLOAD_QUEUE_CLEANUP_FAILED', {
-                originalError: error
+            throw new PlayerError('DOWNLOAD_QUEUE_CLEAR_BY_STATE_FAILED', {
+                originalError: error,
+                states
             });
         }
     }
@@ -445,7 +611,7 @@ export class QueueManager {
         let nextDownloadId: string | null = null;
 
         for (const [id, item] of this.downloadQueue) {
-            if (item.offlineData.state === DownloadStates.QUEUED && 
+            if (item.state === DownloadStates.QUEUED && 
                 !this.currentlyDownloading.has(id)) {
                 nextDownload = item;
                 nextDownloadId = id;
@@ -495,7 +661,7 @@ export class QueueManager {
         const updateInterval = 200;
         const incrementPerUpdate = (100 / (totalTime / updateInterval));
         
-        let currentProgress = item.offlineData.percent || 0;
+        let currentProgress = item.stats.progressPercent || 0;
         
         const progressInterval = setInterval(async () => {
             currentProgress += incrementPerUpdate;
@@ -509,10 +675,10 @@ export class QueueManager {
                 
                 if (success) {
                     // Generar ruta de archivo usando StorageService
-                    const fileName = `${item.offlineData.source.id}.mp4`;
+                    const fileName = `${item.id}.mp4`;
                     const filePath = storageService.generateUniquePath(
                         '/downloads',
-                        item.offlineData.source.title,
+                        item.title,
                         '.mp4'
                     );
 
@@ -521,10 +687,10 @@ export class QueueManager {
                     
                     this.eventEmitter.emit(DownloadEventType.COMPLETED, {
                         downloadId,
-                        item: { ...item, offlineData: { ...item.offlineData, fileUri: filePath } }
+                        item: { ...item, fileUri: filePath }
                     });
                     
-                    this.currentLogger.info(TAG, `Download completed: ${item.offlineData.source.title}`);
+                    this.currentLogger.info(TAG, `Download completed: ${item.title}`);
                 } else {
                     await this.handleDownloadFailure(downloadId, item, new Error('Simulated download error'));
                 }
@@ -548,25 +714,29 @@ export class QueueManager {
      */
 
     private async handleDownloadFailure(downloadId: string, item: DownloadItem, error: any): Promise<void> {
-        const retryCount = (item.retryCount || 0) + 1;
+        const currentRetries = this.retryTracker.get(downloadId) || 0;
+        const retryCount = currentRetries + 1;
 
         if (retryCount >= this.config.maxRetries) {
+            // Límite de reintentos alcanzado - marcar como fallida
+            this.retryTracker.delete(downloadId);
             await this.updateDownloadState(downloadId, DownloadStates.FAILED);
+            
             this.eventEmitter.emit(DownloadEventType.FAILED, {
                 downloadId,
                 item,
                 error
             });
-            this.currentLogger.error(TAG, `Download failed after ${retryCount} retries: ${item.offlineData.source.title}`);
+            
+            this.currentLogger.error(TAG, `Download failed after ${retryCount} retries: ${item.title || downloadId}`);
         } else {
-            // Actualizar retry count
-            item.retryCount = retryCount;
-            this.downloadQueue.set(downloadId, item);
+            // Actualizar contador de reintentos
+            this.retryTracker.set(downloadId, retryCount);
 
             // Programar reintento
             setTimeout(async () => {
                 await this.updateDownloadState(downloadId, DownloadStates.QUEUED);
-                this.currentLogger.info(TAG, `Retrying download (${retryCount}/${this.config.maxRetries}): ${item.offlineData.source.title}`);
+                this.currentLogger.info(TAG, `Retrying download (${retryCount}/${this.config.maxRetries}): ${item.title || downloadId}`);
             }, 5000);
         }
     }
@@ -579,12 +749,12 @@ export class QueueManager {
     private async updateDownloadState(downloadId: string, state: DownloadStates, fileUri?: string): Promise<void> {
         const item = this.downloadQueue.get(downloadId);
         if (item) {
-            item.offlineData.state = state;
+            item.state = state;
             if (fileUri) {
-                item.offlineData.fileUri = fileUri;
+                item.fileUri = fileUri;
             }
             if (state === DownloadStates.COMPLETED) {
-                item.offlineData.downloadedAt = Date.now();
+                item.stats.downloadedAt = Date.now();
             }
 
             this.downloadQueue.set(downloadId, item);
@@ -602,7 +772,7 @@ export class QueueManager {
     private async updateDownloadProgress(downloadId: string, progress: number): Promise<void> {
         const item = this.downloadQueue.get(downloadId);
         if (item) {
-            item.offlineData.percent = Math.max(0, Math.min(100, progress));
+            item.stats.progressPercent = Math.max(0, Math.min(100, progress));
             this.downloadQueue.set(downloadId, item);
             
             // Solo persistir en cambios importantes de progreso (cada 10%)
@@ -627,8 +797,8 @@ export class QueueManager {
 
             // Resetear descargas que estaban en progreso
             for (const [id, item] of this.downloadQueue) {
-                if (item.offlineData.state === DownloadStates.DOWNLOADING) {
-                    item.offlineData.state = DownloadStates.QUEUED;
+                if (item.state === DownloadStates.DOWNLOADING) {
+                    item.state = DownloadStates.QUEUED;
                     this.downloadQueue.set(id, item);
                 }
             }
@@ -663,6 +833,7 @@ export class QueueManager {
         this.eventEmitter.removeAllListeners();
         this.downloadQueue.clear();
         this.currentlyDownloading.clear();
+        this.retryTracker.clear();
         this.isInitialized = false;
         this.currentLogger.info(TAG, 'QueueManager destroyed');
     }
