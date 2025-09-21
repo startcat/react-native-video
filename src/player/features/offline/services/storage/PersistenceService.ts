@@ -5,6 +5,7 @@ import { Logger, LogLevel } from '../../../logger';
 
 import {
     BackupData,
+    ConfigDownloads,
     DownloadItem,
     DownloadStates,
     DownloadType,
@@ -367,8 +368,70 @@ export class PersistenceService {
     }
 
     /*
+     * Actualiza configuración de descargas parcialmente
+     */
+    
+    public async updateDownloadsConfig(updates: Partial<ConfigDownloads>): Promise<ConfigDownloads> {
+        try {
+            // Cargar configuración actual
+            const currentConfig = await this.loadDownloadsConfig();
+            
+            if (!currentConfig) {
+                throw new Error('No existing config found to update');
+            }
+
+            // Aplicar actualizaciones
+            const updatedConfig: ConfigDownloads = {
+                ...currentConfig,
+                ...updates
+            };
+
+            // Guardar configuración actualizada
+            await this.saveDownloadsConfig(updatedConfig);
+
+            this.currentLogger.debug(TAG, 'Downloads config updated', {
+                updatedProperties: Object.keys(updates)
+            });
+
+            return updatedConfig;
+
+        } catch (error) {
+            this.currentLogger.error(TAG, 'Failed to update downloads config', error);
+            throw new PlayerError('STORAGE_ASYNC_002', {
+                originalError: error,
+                context: { 
+                    service: 'PersistenceService',
+                    operation: 'updateDownloadsConfig',
+                    updates
+                },
+            });
+        }
+    }
+
+    /*
+     * Elimina la configuración de descargas persistida
+     */
+    
+    public async clearDownloadsConfig(): Promise<void> {
+        try {
+            await AsyncStorage.removeItem(this.KEYS.CONFIG);
+            
+            this.currentLogger.debug(TAG, 'Downloads config cleared');
+
+        } catch (error) {
+            this.currentLogger.error(TAG, 'Failed to clear downloads config', error);
+            throw new PlayerError('STORAGE_ASYNC_004', {
+                originalError: error,
+                context: { 
+                    service: 'PersistenceService',
+                    operation: 'clearDownloadsConfig'
+                },
+            });
+        }
+    }
+
+    /*
      * Guarda métricas de descarga
-     *
      */
     
     public async saveMetrics(metrics: any): Promise<void> {
@@ -401,21 +464,42 @@ export class PersistenceService {
             return {};
         }
     }
-
     /*
-     * Guarda configuración
-     *
+     * Guarda configuración de descargas
      */
 
-    public async saveConfig(config: any): Promise<void> {
+    public async saveDownloadsConfig(config: ConfigDownloads): Promise<void> {
         try {
-            await AsyncStorage.setItem(this.KEYS.CONFIG, JSON.stringify(config));
-            this.currentLogger.debug(TAG, 'Config saved');
+            const configData = {
+                version: this.dataVersion,
+                config,
+                timestamp: Date.now(),
+                checksum: this.config.encryptionEnabled ? this.generateChecksum(config) : undefined
+            };
+
+            const serializedData = this.config.compressionEnabled 
+                ? await this.compressData(configData)
+                : JSON.stringify(configData);
+
+            await AsyncStorage.setItem(this.KEYS.CONFIG, serializedData);
+            
+            this.currentLogger.debug(TAG, 'Downloads config saved', {
+                properties: Object.keys(config)
+            });
+
+            this.eventEmitter.emit(PersistenceEventType.SAVE_COMPLETED, {
+                type: 'config',
+                dataSize: serializedData.length
+            });
+
         } catch (error) {
-            this.currentLogger.error(TAG, 'Failed to save config', error);
+            this.currentLogger.error(TAG, 'Failed to save downloads config', error);
             throw new PlayerError('STORAGE_ASYNC_002', {
                 originalError: error,
-                context: { service: 'PersistenceService' },
+                context: { 
+                    service: 'PersistenceService',
+                    operation: 'saveDownloadsConfig'
+                },
             });
         }
     }
@@ -504,19 +588,65 @@ export class PersistenceService {
             });
         }
     }
-
     /*
-     * Carga configuración
-     *
+     * Carga configuración de descargas
      */
     
-    public async loadConfig(): Promise<any> {
+    public async loadDownloadsConfig(): Promise<ConfigDownloads | null> {
+        this.eventEmitter.emit(PersistenceEventType.LOAD_STARTED, { type: 'config' });
+
         try {
-            const data = await AsyncStorage.getItem(this.KEYS.CONFIG);
-            return data ? JSON.parse(data) : {};
+            const serializedData = await AsyncStorage.getItem(this.KEYS.CONFIG);
+            
+            if (!serializedData) {
+                this.currentLogger.debug(TAG, 'No persisted downloads config found');
+                return null;
+            }
+
+            // Descomprimir si es necesario
+            const data = this.config.compressionEnabled
+                ? await this.decompressData(serializedData)
+                : JSON.parse(serializedData);
+
+            // Verificar si es el formato nuevo con metadata
+            let config: ConfigDownloads;
+            
+            if (data.version && data.config) {
+                // Formato nuevo con metadata
+                config = data.config;
+                
+                // Verificar checksum si está habilitado
+                if (this.config.encryptionEnabled && data.checksum) {
+                    const isValid = this.generateChecksum(config) === data.checksum;
+                    if (!isValid) {
+                        throw new Error('Config data integrity check failed');
+                    }
+                }
+            } else {
+                // Formato legacy - asumir que data ES la configuración
+                config = data as ConfigDownloads;
+            }
+
+            this.currentLogger.debug(TAG, 'Downloads config loaded', {
+                properties: Object.keys(config),
+                hasMetadata: !!(data.version && data.config)
+            });
+
+            this.eventEmitter.emit(PersistenceEventType.LOAD_COMPLETED, {
+                type: 'config'
+            });
+
+            return config;
+
         } catch (error) {
-            this.currentLogger.error(TAG, 'Failed to load config', error);
-            return {};
+            this.currentLogger.error(TAG, 'Failed to load downloads config', error);
+            this.eventEmitter.emit(PersistenceEventType.LOAD_FAILED, { 
+                type: 'config',
+                error 
+            });
+            
+            // No lanzar error - devolver null para usar defaults
+            return null;
         }
     }
 
@@ -555,7 +685,7 @@ export class PersistenceService {
             const downloads = await this.loadDownloadState();
             const profiles = await this.loadProfileMappings();
             const metrics = await this.loadMetrics();
-            const config = await this.loadConfig();
+            const config = await this.loadDownloadsConfig();
 
             const exportData = {
                 version: this.dataVersion,
@@ -616,7 +746,7 @@ export class PersistenceService {
             }
 
             if (migratedData.config) {
-                await this.saveConfig(migratedData.config);
+                await this.saveDownloadsConfig(migratedData.config);
             }
 
             this.currentLogger.info(TAG, 'Data imported successfully');

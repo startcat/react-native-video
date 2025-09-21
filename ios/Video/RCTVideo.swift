@@ -469,7 +469,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 }
             }
             
-            return AVPlayerItem(asset: localAsset.urlAsset)
+            return AVPlayerItem(asset: localAsset.urlAsset!)
         }
 
         return await playerItemPrepareText(asset: asset, assetOptions: assetOptions, uri: source.uri ?? "")

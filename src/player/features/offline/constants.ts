@@ -110,6 +110,7 @@ export const LOG_TAGS = {
     MAIN: '💾 Offline',
     DOWNLOAD_MANAGER: 'Download Manager',
     QUEUE_MANAGER: 'Queue Manager',
+    CONFIG_MANAGER: 'Config Manager',
     NETWORK_SERVICE: 'Network Service',
     STORAGE_SERVICE: 'Storage Service',
     DRM_SERVICE: 'DRM Service',
