@@ -74,7 +74,7 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
     func createContentKeySession() {
         RCTLog("[Native Downloads] (ContentKeyManager) Creating new AVContentKeySession")
         contentKeySession = AVContentKeySession(keySystem: .fairPlayStreaming)
-        contentKeySession.setDelegate(self, queue: DispatchQueue(label: "\(Bundle.main.bundleIdentifier!).ContentKeyDelegateQueue"))
+        contentKeySession!.setDelegate(self, queue: DispatchQueue(label: "\(Bundle.main.bundleIdentifier!).ContentKeyDelegateQueue"))
     }
     
     // MARK: Online key retrival
@@ -278,7 +278,7 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
             
             pendingPersistableContentKeyIdentifiers.insert(contentKeyId)
             
-            contentKeySession.processContentKeyRequest(withIdentifier: contentKeyId, initializationData: nil, options: nil)
+            contentKeySession!.processContentKeyRequest(withIdentifier: contentKeyId, initializationData: nil, options: nil)
         }
     }
     
@@ -564,16 +564,16 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
                return
             }
                         
-            deletePeristableContentKey(withAssetName: asset.name, withContentKeyId: contentIdentifier)
+            deletePeristableContentKey(withAssetName: asset!.name, withContentKeyId: contentIdentifier)
             
-            RCTLog("[Native Downloads] (ContentKeyManager) Will write updated persistable content key to disk for \(asset.name)")
+            RCTLog("[Native Downloads] (ContentKeyManager) Will write updated persistable content key to disk for \(asset!.name)")
             
             let components = contentIdentifier.components(separatedBy: ":")
             guard components.count >= 2 else {
                 RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Invalid contentIdentifier format for update, expected 'keyId:keyIV' but got: \(contentIdentifier)")
                 return
             }
-            try writePersistableContentKey(contentKey: persistableContentKey, withAssetName: asset.name, withContentKeyIV: components[1])
+            try writePersistableContentKey(contentKey: persistableContentKey, withAssetName: asset!.name, withContentKeyIV: components[1])
         } catch {
             RCTLog("[Native Downloads] (ContentKeyManager) ERROR: Failed to write updated persistable content key to disk: \(error.localizedDescription)")
         }

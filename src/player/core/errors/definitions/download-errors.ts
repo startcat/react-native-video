@@ -135,4 +135,27 @@ export const DOWNLOAD_ERROR_DEFINITIONS = {
     DOWNLOAD_BINARY_CANCEL_FAILED: {
         message: "Failed to cancel binary download.",
     },
+
+    // === ERRORES CON EL GESTOR DE CONFIGURACIÓN ===
+    CONFIG_MANAGER_INITIALIZATION_FAILED: {
+        message: "Failed to initialize config manager.",
+    },
+    CONFIG_MANAGER_NOT_INITIALIZED: {
+        message: "Config manager not initialized.",
+    },
+    CONFIG_UPDATE_FAILED: {
+        message: "Failed to update configuration.",
+    },
+    CONFIG_MULTIPLE_UPDATE_FAILED: {
+        message: "Failed to update multiple configuration properties.",
+    },
+    CONFIG_RESET_FAILED: {
+        message: "Failed to reset configuration to defaults.",
+    },
+    CONFIG_VALIDATION_FAILED: {
+        message: "Configuration validation failed.",
+    },
+    CONFIG_SAVE_FAILED: {
+        message: "Failed to save configuration.",
+    },
 };

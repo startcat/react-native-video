@@ -5,6 +5,7 @@ import { DownloadItem, DownloadStates, QueueStats } from '../types';
 /*
  * Hook para gestión de la cola de descargas según la interfaz del contexto
  * Proporciona estado de la cola, estadísticas y control completo
+ * 
  */
 
 export interface UseDownloadsQueueReturn {
