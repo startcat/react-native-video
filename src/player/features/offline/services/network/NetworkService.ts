@@ -14,13 +14,13 @@ import { Logger, LogLevel } from '../../../logger';
 
 import {
     NetworkEventType,
+    NetworkPolicy,
     NetworkServiceConfig,
     NetworkStatus,
     NetworkStatusCallback,
 } from '../../types';
 
 import { EventEmitter } from 'eventemitter3';
-// import { downloadStoreManager } from '../../store/downloadStore';
 
 import {
     LOG_TAGS,
@@ -38,6 +38,8 @@ export class NetworkService {
     private config: NetworkServiceConfig;
     private offlineQueue: Set<string> = new Set();
     private currentLogger: Logger;
+    private networkPolicy: NetworkPolicy;
+    private pausedDownloads: Set<string> = new Set();
   
     private constructor() {
         this.eventEmitter = new EventEmitter();
@@ -53,6 +55,13 @@ export class NetworkService {
             logEnabled: true,
             logLevel: LogLevel.DEBUG,
             disableAutoStart: false,
+        };
+
+        this.networkPolicy = {
+            allowCellular: true,
+            requiresWifi: false,
+            pauseOnCellular: false,
+            resumeOnWifi: true,
         };
 
         this.currentLogger = new Logger({
@@ -198,11 +207,114 @@ export class NetworkService {
             return false;
         }
   
-        if (requireWifiOnly) {
+        if (requireWifiOnly || this.networkPolicy.requiresWifi) {
             return this.currentStatus.isWifi;
+        }
+        
+        if (this.currentStatus.isCellular && !this.networkPolicy.allowCellular) {
+            return false;
         }
   
         return true;
+    }
+    
+    /*
+     * Obtiene la política de red actual
+     *
+     */
+    
+    public getNetworkPolicy(): NetworkPolicy {
+        return { ...this.networkPolicy };
+    }
+    
+    /*
+     * Establece la política de red
+     *
+     */
+    
+    public setNetworkPolicy(policy: Partial<NetworkPolicy>): void {
+        this.networkPolicy = { ...this.networkPolicy, ...policy };
+        this.currentLogger.info(TAG, 'Network policy updated:', this.networkPolicy);
+        
+        // Emitir evento de cambio de política
+        this.eventEmitter.emit('policy_changed', this.networkPolicy);
+    }
+    
+    /*
+     * Verifica si las descargas están permitidas con la red actual
+     *
+     */
+    
+    public areDownloadsAllowed(): boolean {
+        return this.canDownload();
+    }
+    
+    /*
+     * Verifica si las descargas están pausadas por la red
+     *
+     */
+    
+    public areDownloadsPausedByNetwork(): boolean {
+        return this.pausedDownloads.size > 0;
+    }
+    
+    /*
+     * Pausa descargas cuando se está en red celular
+     *
+     */
+    
+    public async pauseOnCellular(downloadIds?: string[]): Promise<void> {
+        if (!this.currentStatus.isCellular) {
+            return;
+        }
+        
+        const idsToPause = downloadIds || ['all']; // Si no se especifica, pausar todas
+        
+        idsToPause.forEach(id => this.pausedDownloads.add(id));
+        
+        this.currentLogger.info(TAG, `Paused downloads on cellular: ${idsToPause.join(', ')}`);
+        this.eventEmitter.emit('downloads_paused_cellular', idsToPause);
+    }
+    
+    /*
+     * Reanuda descargas cuando se conecta a WiFi
+     *
+     */
+    
+    public async resumeOnWifi(downloadIds?: string[]): Promise<void> {
+        if (!this.currentStatus.isWifi) {
+            return;
+        }
+        
+        const idsToResume = downloadIds || Array.from(this.pausedDownloads);
+        
+        idsToResume.forEach(id => this.pausedDownloads.delete(id));
+        
+        if (idsToResume.length > 0) {
+            this.currentLogger.info(TAG, `Resumed downloads on WiFi: ${idsToResume.join(', ')}`);
+            this.eventEmitter.emit('downloads_resumed_wifi', idsToResume);
+        }
+    }
+    
+    /*
+     * Obtiene el tipo de conexión actual
+     *
+     */
+    
+    public getConnectionType(): 'wifi' | 'cellular' | 'none' {
+        if (!this.currentStatus.isConnected) {
+            return 'none';
+        }
+        
+        if (this.currentStatus.isWifi) {
+            return 'wifi';
+        }
+        
+        if (this.currentStatus.isCellular) {
+            return 'cellular';
+        }
+        
+        return 'none';
     }
   
     /*
@@ -352,6 +464,9 @@ export class NetworkService {
         if (!this.previousStatus.isConnected && this.currentStatus.isConnected) {
             this.processOfflineQueue();
         }
+        
+        // Aplicar políticas automáticas
+        this.applyAutomaticPolicies();
   
         this.currentLogger.info(TAG, `Network state changed: ${JSON.stringify(this.currentStatus)}`);
     }
@@ -439,6 +554,30 @@ export class NetworkService {
     }
   
     /*
+     * Aplica políticas automáticas según el cambio de red
+     *
+     */
+    
+    private applyAutomaticPolicies(): void {
+        if (!this.previousStatus) {
+            return;
+        }
+        
+        const prev = this.previousStatus;
+        const curr = this.currentStatus;
+        
+        // Pausar en celular si está configurado
+        if (!prev.isCellular && curr.isCellular && this.networkPolicy.pauseOnCellular) {
+            this.pauseOnCellular();
+        }
+        
+        // Reanudar en WiFi si está configurado  
+        if (!prev.isWifi && curr.isWifi && this.networkPolicy.resumeOnWifi) {
+            this.resumeOnWifi();
+        }
+    }
+    
+    /*
      * Limpia recursos al destruir
      *
      */
@@ -447,6 +586,7 @@ export class NetworkService {
         this.stopMonitoring();
         this.eventEmitter.removeAllListeners();
         this.offlineQueue.clear();
+        this.pausedDownloads.clear();
     }
 
 }

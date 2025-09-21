@@ -20,6 +20,13 @@ export interface NetworkStatus {
     details?: NetInfoState;
 }
 
+export interface NetworkPolicy {
+    allowCellular: boolean;          // Permite descargas por datos móviles
+    requiresWifi: boolean;           // Requiere WiFi obligatoriamente
+    pauseOnCellular: boolean;        // Pausa descargas al cambiar a celular
+    resumeOnWifi: boolean;           // Reanuda descargas al conectar WiFi
+}
+
 export type NetworkStatusCallback = (status: NetworkStatus) => void;
 
 export enum NetworkEventType {
