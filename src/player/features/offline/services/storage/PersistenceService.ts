@@ -7,6 +7,7 @@ import {
     BackupData,
     DownloadItem,
     DownloadStates,
+    DownloadType,
     PersistedData,
     PersistenceConfig,
     PersistenceEventType,
@@ -250,14 +251,23 @@ export class PersistenceService {
                 throw new Error(`Download item not found: ${id}`);
             }
 
-            // Actualizar item
+            // Actualizar item con nueva estructura
             const updated: DownloadItem = {
                 ...existing,
                 ...updates,
-                offlineData: {
-                    ...existing.offlineData,
-                    ...(updates.offlineData || {}),
+                // Merge stats properly
+                stats: {
+                    ...existing.stats,
+                    ...(updates.stats || {}),
                 },
+                // Merge profileIds properly (should be array)
+                profileIds: updates.profileIds !== undefined 
+                    ? updates.profileIds 
+                    : existing.profileIds,
+                // Merge subtitles properly
+                subtitles: updates.subtitles !== undefined 
+                    ? updates.subtitles 
+                    : existing.subtitles,
             };
 
             downloads.set(id, updated);
@@ -406,6 +416,91 @@ export class PersistenceService {
             throw new PlayerError('STORAGE_ASYNC_002', {
                 originalError: error,
                 context: { service: 'PersistenceService' },
+            });
+        }
+    }
+
+    /*
+     * Actualiza el progreso de una descarga específica (método optimizado para QueueManager)
+     *
+     */
+
+    public async updateDownloadProgress(downloadId: string, progress: number, bytesDownloaded?: number, totalBytes?: number): Promise<void> {
+        try {
+            const downloads = await this.loadDownloadState();
+            const item = downloads.get(downloadId);
+            
+            if (!item) {
+                throw new Error(`Download item not found: ${downloadId}`);
+            }
+
+            // Actualizar solo las estadísticas de progreso
+            item.stats.progressPercent = Math.max(0, Math.min(100, progress));
+            if (bytesDownloaded !== undefined) {
+                item.stats.bytesDownloaded = bytesDownloaded;
+            }
+            if (totalBytes !== undefined) {
+                item.stats.totalBytes = totalBytes;
+            }
+
+            downloads.set(downloadId, item);
+
+            // Persistir solo en cambios importantes (cada 10%) para optimizar performance
+            if (progress % 10 === 0 || progress === 100) {
+                await this.saveDownloadState(downloads);
+            } else {
+                // Solo marcar como dirty para auto-save
+                this.markAsDirty();
+            }
+            
+        } catch (error) {
+            this.currentLogger.error(TAG, `Failed to update download progress: ${downloadId}`, error);
+            throw new PlayerError('STORAGE_ASYNC_002', {
+                originalError: error,
+                context: { downloadId, progress },
+            });
+        }
+    }
+
+    /*
+     * Actualiza el estado de una descarga específica (método optimizado para QueueManager)
+     *
+     */
+
+    public async updateDownloadState(downloadId: string, state: DownloadStates, fileUri?: string): Promise<void> {
+        try {
+            const downloads = await this.loadDownloadState();
+            const item = downloads.get(downloadId);
+            
+            if (!item) {
+                throw new Error(`Download item not found: ${downloadId}`);
+            }
+
+            // Actualizar estado
+            item.state = state;
+            
+            if (fileUri) {
+                item.fileUri = fileUri;
+            }
+            
+            // Actualizar timestamps según el estado
+            if (state === DownloadStates.DOWNLOADING && !item.stats.startedAt) {
+                item.stats.startedAt = Date.now();
+            } else if (state === DownloadStates.COMPLETED) {
+                item.stats.downloadedAt = Date.now();
+                item.stats.progressPercent = 100;
+            }
+
+            downloads.set(downloadId, item);
+            
+            // Siempre persistir cambios de estado (son críticos)
+            await this.saveDownloadState(downloads);
+            
+        } catch (error) {
+            this.currentLogger.error(TAG, `Failed to update download state: ${downloadId}`, error);
+            throw new PlayerError('STORAGE_ASYNC_002', {
+                originalError: error,
+                context: { downloadId, state },
             });
         }
     }
@@ -615,24 +710,67 @@ export class PersistenceService {
     }
 
     /*
-     * Migración de v0 a v1
+     * Migración de v0 a v1 - De estructura antigua a nueva arquitectura
      *
      */
     
     private migrateV0ToV1(data: any): any {
-        // Implementar lógica de migración específica
-        // Por ejemplo, añadir campos nuevos con valores por defecto
+        // Migrar de estructura antigua (offlineData) a nueva estructura
         
         if (data.downloads && Array.isArray(data.downloads)) {
             data.downloads = data.downloads.map(([id, item]: [string, any]) => {
-                // Asegurar que todos los campos necesarios existen
-                if (!item.offlineData.session_ids) {
-                    item.offlineData.session_ids = [];
+                
+                // Si el item ya tiene la nueva estructura, no migrar
+                if (item.profileIds !== undefined && item.stats !== undefined) {
+                    return [id, item];
                 }
-                if (!item.offlineData.state) {
-                    item.offlineData.state = DownloadStates.NOT_DOWNLOADED;
-                }
-                return [id, item];
+                
+                // Migrar de estructura antigua a nueva
+                const migratedItem: DownloadItem = {
+                    // Campos básicos
+                    id: item.offlineData?.source?.id || id,
+                    type: item.offlineData?.isBinary ? DownloadType.BINARY : DownloadType.STREAM,
+                    title: item.offlineData?.source?.title || 'Unknown',
+                    uri: item.offlineData?.source?.uri || '',
+                    
+                    // Metadata
+                    media: item.media || undefined,
+                    licenseExpirationDate: item.licenseExpirationDate || undefined,
+                    
+                    // Perfiles - migrar de profileId single a profileIds array
+                    profileIds: item.profileId ? [item.profileId] : [],
+                    
+                    // DRM
+                    drm: item.offlineData?.drm || undefined,
+                    drmScheme: item.offlineData?.source?.drmScheme || undefined,
+                    
+                    // Estado
+                    state: item.offlineData?.state || DownloadStates.NOT_DOWNLOADED,
+                    fileUri: item.offlineData?.fileUri || undefined,
+                    
+                    // Estadísticas - migrar de offlineData a stats
+                    stats: {
+                        progressPercent: item.offlineData?.percent || 0,
+                        bytesDownloaded: 0,
+                        totalBytes: 0,
+                        downloadSpeed: undefined,
+                        remainingTime: undefined,
+                        networkType: undefined,
+                        streamQuality: undefined,
+                        segmentsTotal: undefined,
+                        segmentsCompleted: undefined,
+                        drmLicenseStatus: 'none',
+                        startedAt: item.offlineData?.startedAt || undefined,
+                        downloadedAt: item.offlineData?.downloadedAt || undefined,
+                        error: undefined,
+                        retryCount: item.retryCount || 0,
+                    },
+                    
+                    // Subtítulos (nuevo campo)
+                    subtitles: [],
+                };
+                
+                return [id, migratedItem];
             });
         }
 

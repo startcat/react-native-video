@@ -9,6 +9,7 @@ import { PlayerError } from '../../../core/errors';
 import { Logger, LogLevel } from '../../logger';
 
 import {
+    DownloadItem,
     ProfileContext,
     ProfileEventType,
     ProfileManagerConfig,
@@ -35,6 +36,7 @@ export class ProfileManager {
             logEnabled: true,
             logLevel: LogLevel.DEBUG,
             enableProfileFiltering: true,
+            activeProfileRequired: true,
         };
 
         this.currentLogger = new Logger({
@@ -157,36 +159,75 @@ export class ProfileManager {
 
     /*
      * Verifica si un contenido debe mostrarse para el perfil activo
+     * Sigue las reglas del contexto: Array vacío = disponible para todos
      *
      */
 
-    public shouldShowContent(contentProfileId?: string | null): boolean {
+    public shouldShowContent(downloadItem: DownloadItem): boolean {
         if (!this.config.enableProfileFiltering) {
             return true; // Si el filtrado está deshabilitado, mostrar todo
         }
 
         const activeProfileId = this.getActiveProfileId();
         
-        // Si no hay perfil activo, solo mostrar contenido sin perfil asignado
-        if (!activeProfileId) {
-            return !contentProfileId;
+        // Si array vacío = disponible para todos los perfiles
+        if (downloadItem.profileIds.length === 0) {
+            return true;
         }
-
-        // Si hay perfil activo, mostrar solo contenido de ese perfil o contenido sin perfil
-        return !contentProfileId || contentProfileId === activeProfileId;
+        
+        // Si no hay perfil activo, no mostrar contenido restringido
+        if (!activeProfileId) {
+            return false;
+        }
+        
+        // Mostrar solo si el perfil activo está en la lista
+        return downloadItem.profileIds.includes(activeProfileId);
     }
 
     /*
-     * Filtra una lista de elementos por perfil activo
+     * Verifica si se puede realizar una descarga según las reglas de perfil
      *
      */
 
-    public filterByActiveProfile<T extends { profileId?: string | null }>(items: T[]): T[] {
+    public canDownload(): boolean {
+        if (!this.isInitialized) {
+            throw new PlayerError('DOWNLOAD_PROFILE_MANAGER_NOT_INITIALIZED');
+        }
+
+        // Si se requiere perfil activo pero no hay ninguno
+        if (this.config.activeProfileRequired && !this.hasActiveProfile()) {
+            return false;
+        }
+
+        // Si hay perfil activo, permitir descarga solo si el contenido pertenece al perfil activo
+        return true;
+    }
+
+    /*
+     * Verifica si se puede descargar un contenido específico
+     *
+     */
+
+    public canDownloadContent(downloadItem: DownloadItem): boolean {
+        if (!this.canDownload()) {
+            return false;
+        }
+
+        // Aplicar filtrado de contenido si está habilitado
+        return this.shouldShowContent(downloadItem);
+    }
+
+    /*
+     * Filtra una lista de descargas por perfil activo
+     *
+     */
+
+    public filterByActiveProfile(items: DownloadItem[]): DownloadItem[] {
         if (!this.config.enableProfileFiltering) {
             return items; // Si el filtrado está deshabilitado, devolver todo
         }
 
-        return items.filter(item => this.shouldShowContent(item.profileId));
+        return items.filter(item => this.shouldShowContent(item));
     }
 
     /*
@@ -218,6 +259,26 @@ export class ProfileManager {
     }
 
     /*
+     * Habilita o deshabilita la requerimiento de perfil activo para descargar
+     *
+     */
+
+    public setActiveProfileRequired(required: boolean): void {
+        this.config.activeProfileRequired = required;
+        
+        if (required) {
+            this.currentLogger.info(TAG, 'Active profile now required for downloads');
+        } else {
+            this.currentLogger.info(TAG, 'Active profile no longer required for downloads');
+        }
+
+        // Emitir evento de cambio de configuración
+        this.eventEmitter.emit(ProfileEventType.CONFIG_CHANGED, { 
+            activeProfileRequired: required 
+        });
+    }
+
+    /*
      * Obtiene estadísticas del contexto actual
      *
      */
@@ -229,6 +290,7 @@ export class ProfileManager {
             activeProfileName: this.currentProfile?.name || null,
             isChildProfile: this.isChildProfile(),
             filteringEnabled: this.config.enableProfileFiltering,
+            activeProfileRequired: this.config.activeProfileRequired,
         };
     }
 
