@@ -38,6 +38,7 @@ export const DIRECTORIES = {
     STREAMS: 'Streams',
     BINARIES: 'Binaries',
     DRM_LICENSES: 'Licenses',
+    SUBTITLES: 'Subtitles',
 } as const;
 
 export const FILE_EXTENSIONS = {

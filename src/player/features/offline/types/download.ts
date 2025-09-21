@@ -1,4 +1,5 @@
 import { DownloadTask } from 'react-native-background-downloader';
+import { PlayerError } from "../../../types";
 import { LogLevel } from '../../logger';
 import { Drm } from './drm';
 
@@ -41,16 +42,23 @@ export enum DownloadErrorCode {
     UNKNOWN = 'UNKNOWN',
 }
 
-export type ConfigDownloads = {
+export enum DownloadType {
+    BINARY = 'BINARY',
+    STREAM = 'STREAM',
+}
+
+export interface ConfigDownloads {
+    logEnabled: boolean;
+    logLevel: LogLevel;
     download_just_wifi?: boolean;
     max_concurrent_downloads?: number;
+    activeProfileRequired: boolean; // Si es true, se requiere un perfil activo para poder descargar
     auto_resume_on_network?: boolean;
+    streamQuality?: 'auto' | 'low' | 'medium' | 'high' | 'max';
     storage_warning_threshold?: number; // 0-1 percentage
     min_free_space_mb?: number;
     retry_attempts?: number;
     retry_delay_ms?: number;
-    chunk_size_bytes?: number;
-    progress_update_interval_ms?: number;
 };
 
 export interface BinaryDownloadServiceConfig {
@@ -119,30 +127,107 @@ export interface ValidationResult {
     warnings?: string[];
 }
 
+export enum SubtitleDownloadState {
+    NOT_DOWNLOADED = 'NOT_DOWNLOADED',
+    DOWNLOADING = 'DOWNLOADING',
+    COMPLETED = 'COMPLETED',
+    FAILED = 'FAILED',
+    VALIDATING = 'VALIDATING',
+    CORRUPTED = 'CORRUPTED'
+}
+
+export enum SubtitleFormat {
+    VTT = 'vtt',        // WebVTT (HLS)
+    SRT = 'srt',        // SubRip
+    TTML = 'ttml',      // TTML/DFXP (DASH)
+    ASS = 'ass',        // Advanced SubStation Alpha
+    SSA = 'ssa',        // SubStation Alpha
+    SUB = 'sub'         // MicroDVD
+}
+
+export interface DownloadedSubtitleItem {
+    // Identificación
+    id: string; // Identificador único del subtítulo
+    language: string; // Código de idioma (es, en, fr, etc.)
+    label: string; // Nombre descriptivo ("Español", "English", "Français")
+    
+    // Estado
+    state: SubtitleDownloadState;
+    isDefault: boolean; // Si es el subtítulo por defecto
+    
+    // Archivo
+    uri: string; // URI original del subtítulo
+    localPath?: string; // Path local del archivo descargado
+    format: SubtitleFormat; // Formato del subtítulo
+    
+    // Metadata
+    encoding?: string; // Codificación del archivo (utf-8, etc.)
+    fileSize?: number; // Tamaño del archivo en bytes
+    
+    // Timestamps
+    downloadedAt?: number;
+    lastValidated?: number;
+    
+    // Error handling
+    error?: PlayerError;
+    retryCount: number;
+}
+
 export interface DownloadItem {
+    // Identificación
+    id: string;
+    type: DownloadType;
+    title: string;
+    uri: string;
+  
+    // Metadata
     media?: any; // Metadatos del video, que dependen de proyecto
-    profileId?: string | null; // ID del perfil asociado a la descarga
-    retryCount?: number; // Número de reintentos realizados
-    offlineData: {
-        session_ids: Array<string>;
-        source: {
-            id: string;
-            title: string;
-            uri: string;
-            type?: string;
-            drmScheme?: string;
-        };
-        state: DownloadStates;
-        drm?: Drm;
-        percent?: number;
-        isBinary?: boolean;
-        fileUri?: string;
-        bytesDownloaded?: number;
-        totalBytes?: number;
-        downloadedAt?: number;
+    licenseExpirationDate?: number; // Fecha de expiración de licencia
+  
+    // Perfiles asociados
+    profileIds: string[]; // Array de IDs de perfiles que tienen acceso
+  
+    // Configuración DRM
+    drm?: Drm; // Configuración DRM completa
+    drmScheme?: string; // Esquema DRM específico
+  
+    // Estado y archivos
+    state: DownloadStates;
+    fileUri?: string; // URI del archivo descargado (binarios)
+  
+    // Estadísticas consolidadas
+    stats: {
+        // Progreso
+        progressPercent: number; // 0-100
+        bytesDownloaded: number;
+        totalBytes: number;
+    
+        // Performance
+        downloadSpeed?: number; // bytes/second
+        remainingTime?: number; // seconds
+    
+        // Red y calidad
+        networkType?: 'wifi' | 'cellular';
+        streamQuality?: 'auto' | 'low' | 'medium' | 'high' | 'max'; // Solo streams
+    
+        // Streams específico
+        segmentsTotal?: number;
+        segmentsCompleted?: number;
+    
+        // DRM
+        drmLicenseStatus?: 'pending' | 'acquired' | 'expired' | 'none';
+    
+        // Timestamps
         startedAt?: number;
-        error?: DownloadError;
+        downloadedAt?: number;
+    
+        // Errores y reintentos
+        error?: PlayerError;
+        retryCount: number;
     };
+  
+    // Subtítulos
+    subtitles?: DownloadedSubtitleItem[];
 }
 
 export interface DownloadMetrics {

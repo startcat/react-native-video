@@ -219,6 +219,86 @@ export class StorageService {
     }
 
     /*
+     * Estima el espacio necesario para una descarga (implementación básica)
+     *
+     */
+
+    public async estimateSpaceNeeded(downloadId?: string, downloadType?: string, quality?: string): Promise<number> {
+        // Implementación básica de estimación
+        // En una implementación real, esto consultaría metadatos del contenido usando downloadId
+        // Por ahora, downloadId no se usa pero se mantiene para compatibilidad futura
+        void downloadId; // Silenciar warning de linter
+        
+        const estimates = {
+            'BINARY': 50 * 1024 * 1024,      // 50MB para archivos binarios
+            'STREAM': {
+                'low': 100 * 1024 * 1024,     // 100MB para calidad baja
+                'medium': 300 * 1024 * 1024,  // 300MB para calidad media
+                'high': 800 * 1024 * 1024,    // 800MB para calidad alta
+                'max': 1500 * 1024 * 1024,    // 1.5GB para calidad máxima
+                'auto': 500 * 1024 * 1024,    // 500MB para auto
+            }
+        };
+
+        if (downloadType === 'BINARY') {
+            return estimates.BINARY;
+        } else if (downloadType === 'STREAM') {
+            const streamEstimates = estimates.STREAM;
+            return streamEstimates[quality as keyof typeof streamEstimates] || streamEstimates.auto;
+        }
+
+        // Estimación por defecto si no se conoce el tipo
+        return 200 * 1024 * 1024; // 200MB por defecto
+    }
+
+    /*
+     * Obtiene el porcentaje de uso del almacenamiento
+     *
+     */
+
+    public async getUsagePercentage(): Promise<number> {
+        const info = await this.getStorageInfo();
+        return Math.round((info.usedSpace / info.totalSpace) * 100);
+    }
+
+    /*
+     * Obtiene el porcentaje de espacio usado por descargas
+     *
+     */
+
+    public async getDownloadPercentage(): Promise<number> {
+        const info = await this.getStorageInfo();
+        return Math.round((info.downloadsFolderSize / info.totalSpace) * 100);
+    }
+
+    /*
+     * Obtiene el nivel de advertencia de espacio
+     *
+     */
+
+    public async getSpaceWarningLevel(): Promise<'none' | 'warning' | 'critical'> {
+        const usagePercent = await this.getUsagePercentage();
+        
+        if (usagePercent >= DEFAULT_CONFIG.STORAGE_WARNING_THRESHOLD * 100) {
+            return 'critical';
+        } else if (usagePercent >= 80) {
+            return 'warning';
+        } else {
+            return 'none';
+        }
+    }
+
+    /*
+     * Verifica si el espacio está bajo
+     *
+     */
+
+    public async isLowSpace(): Promise<boolean> {
+        const warningLevel = await this.getSpaceWarningLevel();
+        return warningLevel !== 'none';
+    }
+
+    /*
      * Obtiene información completa del almacenamiento
      *
      */
@@ -522,6 +602,44 @@ export class StorageService {
     }
 
     /*
+     * Obtiene el directorio de descargas
+     *
+     */
+
+    public getDownloadDirectory(): string {
+        return this.downloadPath;
+    }
+
+    /*
+     * Obtiene el directorio temporal
+     *
+     */
+
+    public getTempDirectory(): string {
+        return this.tempPath;
+    }
+
+    /*
+     * Obtiene el directorio de subtítulos
+     *
+     */
+
+    public getSubtitlesDirectory(): string {
+        return `${this.downloadPath}/${DIRECTORIES.SUBTITLES}`;
+    }
+
+    /*
+     * Asegura que el directorio de subtítulos existe
+     *
+     */
+
+    public async ensureSubtitlesDirectory(): Promise<string> {
+        const subtitlesPath = this.getSubtitlesDirectory();
+        await this.createDirectory(subtitlesPath);
+        return subtitlesPath;
+    }
+
+    /*
      * Crea un directorio si no existe
      *
      */
@@ -580,6 +698,7 @@ export class StorageService {
         await this.createDirectory(`${this.downloadPath}/${DIRECTORIES.STREAMS}`);
         await this.createDirectory(`${this.downloadPath}/${DIRECTORIES.BINARIES}`);
         await this.createDirectory(`${this.downloadPath}/${DIRECTORIES.DRM_LICENSES}`);
+        await this.createDirectory(`${this.downloadPath}/${DIRECTORIES.SUBTITLES}`);
     }
 
     /*
