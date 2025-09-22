@@ -1,4 +1,4 @@
-import { DownloadTask } from 'react-native-background-downloader';
+import { DownloadTask } from '@kesha-antonov/react-native-background-downloader';
 import { PlayerError } from "../../../types";
 import { LogLevel } from '../../logger';
 import { Drm } from './drm';
