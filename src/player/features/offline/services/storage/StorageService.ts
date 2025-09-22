@@ -2,16 +2,7 @@ import { EventEmitter } from 'eventemitter3';
 import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { PlayerError } from '../../../../core/errors';
-import { Logger, LogLevel } from '../../../logger';
-
-import {
-    FileInfo,
-    StorageEventType,
-    StorageInfo,
-    StorageServiceConfig,
-    ValidationResult
-} from '../../types';
-
+import { Logger } from '../../../logger';
 import {
     DEFAULT_CONFIG,
     DIRECTORIES,
@@ -19,7 +10,14 @@ import {
     LOG_TAGS,
     PATTERNS
 } from '../../constants';
-
+import { DEFAULT_CONFIG_STORAGE, LOGGER_DEFAULTS } from '../../defaultConfigs';
+import {
+    FileInfo,
+    StorageEventType,
+    StorageInfo,
+    StorageServiceConfig,
+    ValidationResult
+} from '../../types';
 const TAG = LOG_TAGS.STORAGE_SERVICE;
 
 /*
@@ -42,23 +40,12 @@ export class StorageService {
     private constructor() {
         this.eventEmitter = new EventEmitter();
 
-        this.config = {
-            logEnabled: true,
-            logLevel: LogLevel.DEBUG,
-            downloadDirectory: DIRECTORIES.ROOT,
-            tempDirectory: DIRECTORIES.TEMP,
-            cleanupEnabled: true,
-            cleanupIntervalHours: DEFAULT_CONFIG.CLEANUP_INTERVAL_HOURS,
-        };
+        this.config = DEFAULT_CONFIG_STORAGE;
 
         this.currentLogger = new Logger({
+            ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: LOG_TAGS.MAIN,
-            useColors: true,
-            includeLevelName: false,
-            includeTimestamp: true,
-            includeInstanceId: true,
         });
 
         // Configurar paths según la plataforma

@@ -7,8 +7,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { ConfigEventCallback, configManager } from '../managers/ConfigManager';
-import { ConfigDownloads } from '../types';
+import { configManager } from '../managers/ConfigManager';
+import { ConfigDownloads, ConfigEventCallback } from '../types';
 
 export interface UseDownloadsConfigReturn {
     // Configuración actual

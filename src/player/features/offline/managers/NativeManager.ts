@@ -51,7 +51,6 @@ export class NativeManager {
             ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: LOG_TAGS.MAIN,
         });
         
         this.eventEmitter = new EventEmitter();
@@ -80,7 +79,6 @@ export class NativeManager {
                 this.currentLogger = new Logger({ 
                     enabled: this.config.logEnabled,
                     level: this.config.logLevel,
-                    prefix: TAG,
                 });
             }
 

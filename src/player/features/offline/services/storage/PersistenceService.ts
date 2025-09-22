@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EventEmitter } from 'eventemitter3';
 import { PlayerError } from '../../../../core/errors';
-import { Logger, LogLevel } from '../../../logger';
-
+import { Logger } from '../../../logger';
+import { LOG_TAGS } from '../../constants';
+import { DEFAULT_CONFIG_PERSISTENCE, LOGGER_DEFAULTS } from '../../defaultConfigs';
 import {
     BackupData,
     ConfigDownloads,
@@ -15,11 +16,6 @@ import {
     ProfileDownloadMapping
 } from '../../types';
 
-import {
-    DEFAULT_CONFIG,
-    LOG_TAGS,
-} from '../../constants';
-
 const TAG = LOG_TAGS.PERSISTENCE;
 
 /*
@@ -31,7 +27,7 @@ export class PersistenceService {
     
     private static instance: PersistenceService;
     private eventEmitter: EventEmitter;
-    private config: Required<PersistenceConfig>;
+    private config: PersistenceConfig;
     private currentLogger: Logger;
     private autoSaveInterval: ReturnType<typeof setTimeout> | null = null;
     private isDirty: boolean = false;
@@ -52,24 +48,12 @@ export class PersistenceService {
     private constructor() {
         this.eventEmitter = new EventEmitter();
 
-        this.config = {
-            logEnabled: true,
-            logLevel: LogLevel.INFO,
-            storageKey: DEFAULT_CONFIG.STORAGE_KEY,
-            encryptionEnabled: false,
-            compressionEnabled: true,
-            autoSave: true,
-            autoSaveInterval: DEFAULT_CONFIG.AUTO_SAVE_INTERVAL_MS,
-        };
+        this.config = DEFAULT_CONFIG_PERSISTENCE;
 
         this.currentLogger = new Logger({
+            ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: LOG_TAGS.MAIN,
-            useColors: true,
-            includeLevelName: false,
-            includeTimestamp: true,
-            includeInstanceId: true,
         });
     }
 
@@ -93,6 +77,11 @@ export class PersistenceService {
     public async initialize(config?: Partial<PersistenceConfig>): Promise<void> {
         // Actualizar configuración
         this.config = { ...this.config, ...config };
+
+        this.currentLogger.updateConfig({
+            enabled: this.config.logEnabled,
+            level: this.config.logLevel,
+        });
 
         this.currentLogger.info(TAG, 'Initializing PersistenceService', {
             encryptionEnabled: this.config.encryptionEnabled,

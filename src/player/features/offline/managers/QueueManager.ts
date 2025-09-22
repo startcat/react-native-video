@@ -47,7 +47,6 @@ export class QueueManager {
             ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: LOG_TAGS.MAIN,
         });
     }
 
