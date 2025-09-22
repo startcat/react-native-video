@@ -288,3 +288,32 @@ export interface DownloadFailedEvent {
     downloadId: string;
     error: DownloadError;
 }
+
+// Estrategias de descarga - Strategy Pattern
+export interface DownloadStrategy {
+    initialize(config?: any): Promise<void>;
+    startDownload(task: any): Promise<void>;
+    pauseDownload(downloadId: string): Promise<void>;
+    resumeDownload(downloadId: string): Promise<void>;
+    cancelDownload(downloadId: string): Promise<void>;
+    getDownloadState(downloadId: string): any;
+    getAllActiveDownloads(): any[];
+    getStats(): any;
+    subscribe(event: DownloadEventType | 'all', callback: (data: any) => void): () => void;
+    destroy(): void;
+}
+
+// Factory para crear estrategias
+export interface DownloadStrategyFactory {
+    createStrategy(type: DownloadType): DownloadStrategy;
+}
+
+// Configuración del DownloadService principal
+export interface DownloadServiceConfig {
+    logEnabled: boolean;
+    logLevel: LogLevel;
+    enableBinaryDownloads: boolean;
+    enableStreamDownloads: boolean;
+    eventBridgeEnabled: boolean;
+    autoInitializeStrategies: boolean;
+}
