@@ -8,10 +8,11 @@ import NetInfo, {
     NetInfoStateType,
     NetInfoSubscription
 } from '@react-native-community/netinfo';
-
+import { EventEmitter } from 'eventemitter3';
 import { PlayerError } from '../../../../core/errors';
-import { Logger, LogLevel } from '../../../logger';
-
+import { Logger } from '../../../logger';
+import { LOG_TAGS } from '../../constants';
+import { DEFAULT_CONFIG_NETWORK, DEFAULT_CONFIG_NETWORK_POLICY, LOGGER_DEFAULTS } from '../../defaultConfigs';
 import {
     NetworkEventType,
     NetworkPolicy,
@@ -19,12 +20,6 @@ import {
     NetworkStatus,
     NetworkStatusCallback,
 } from '../../types';
-
-import { EventEmitter } from 'eventemitter3';
-
-import {
-    LOG_TAGS,
-} from '../../constants';
 
 const TAG = LOG_TAGS.NETWORK_SERVICE;
 export class NetworkService {
@@ -51,27 +46,13 @@ export class NetworkService {
             isInternetReachable: false,
         };
 
-        this.config = {
-            logEnabled: true,
-            logLevel: LogLevel.DEBUG,
-            disableAutoStart: false,
-        };
-
-        this.networkPolicy = {
-            allowCellular: true,
-            requiresWifi: false,
-            pauseOnCellular: false,
-            resumeOnWifi: true,
-        };
+        this.config = DEFAULT_CONFIG_NETWORK;
+        this.networkPolicy = DEFAULT_CONFIG_NETWORK_POLICY;
 
         this.currentLogger = new Logger({
+            ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: LOG_TAGS.MAIN,
-            useColors: true,
-            includeLevelName: false,
-            includeTimestamp: true,
-            includeInstanceId: true,
         });
     }
   

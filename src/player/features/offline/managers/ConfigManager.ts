@@ -55,7 +55,6 @@ export class ConfigManager {
             ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: LOG_TAGS.MAIN,
         });
         
         this.eventEmitter = new EventEmitter();
@@ -79,8 +78,9 @@ export class ConfigManager {
             // Actualizar configuración del manager
             if (config) {
                 this.config = { ...this.config, ...config };
-                this.currentLogger = new Logger({ 
-                    enabled: this.config.logEnabled
+                this.currentLogger.updateConfig({
+                    enabled: this.config.logEnabled,
+                    level: this.config.logLevel,
                 });
             }
 
