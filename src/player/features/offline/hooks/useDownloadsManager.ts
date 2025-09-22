@@ -90,11 +90,16 @@ export function useDownloadsManager(
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
   const [queueStats, setQueueStats] = useState<QueueStats>({
     total: 0,
-    active: 0,
-    queued: 0,
+    pending: 0,
+    downloading: 0,
+    paused: 0,
     completed: 0,
     failed: 0,
-    paused: 0,
+    isPaused: false,
+    isProcessing: false,
+    // Propiedades opcionales para compatibilidad
+    active: 0,
+    queued: 0,
     totalBytesDownloaded: 0,
     totalBytesRemaining: 0,
     averageSpeed: 0,
@@ -261,7 +266,7 @@ export function useDownloadsManager(
   }, [downloads]);
 
   // Velocidad global
-  const globalSpeed = useMemo(() => queueStats.averageSpeed, [queueStats.averageSpeed]);
+  const globalSpeed = useMemo(() => queueStats.averageSpeed ?? 0, [queueStats.averageSpeed]);
 
   // API de acciones principales
   const addDownload = useCallback(

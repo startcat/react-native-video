@@ -481,10 +481,11 @@ export class DownloadsManager {
   private enforceGlobalLimits(): void {
     const stats = this.getQueueStats();
 
-    if (stats.active > this.config.maxConcurrentDownloads) {
+    const activeCount = stats.active ?? stats.downloading ?? 0;
+    if (activeCount > this.config.maxConcurrentDownloads) {
       this.currentLogger.warn(
         TAG,
-        `Active downloads (${stats.active}) exceed limit (${this.config.maxConcurrentDownloads})`
+        `Active downloads (${activeCount}) exceed limit (${this.config.maxConcurrentDownloads})`
       );
       // TODO: Implementar pausa selectiva cuando esté disponible el QueueManager
     }
@@ -701,11 +702,16 @@ export class DownloadsManager {
     if (!this.state.isInitialized) {
       return {
         total: 0,
-        active: 0,
-        queued: 0,
+        pending: 0,
+        downloading: 0,
+        paused: 0,
         completed: 0,
         failed: 0,
-        paused: 0,
+        isPaused: this.state.isPaused,
+        isProcessing: this.state.isProcessing,
+        // Propiedades opcionales para compatibilidad
+        active: 0,
+        queued: 0,
         totalBytesDownloaded: 0,
         totalBytesRemaining: 0,
         averageSpeed: 0,
@@ -714,7 +720,7 @@ export class DownloadsManager {
     }
 
     // Obtener estadísticas desde QueueManager (fuente de verdad)
-    const queueStats = queueManager.getStats();
+    const queueStats = queueManager.getQueueStats();
 
     // Combinar con estadísticas del DownloadService para velocidades
     const unifiedStats = downloadService.getUnifiedStats();
@@ -882,7 +888,8 @@ export class DownloadsManager {
 
     // Validar límites de concurrencia
     const stats = this.getQueueStats();
-    if (stats.active >= this.config.maxConcurrentDownloads) {
+    const activeCount = stats.active ?? stats.downloading ?? 0;
+    if (activeCount >= this.config.maxConcurrentDownloads) {
       // No lanzar error, sino encolar
       this.currentLogger.info(TAG, `Download queued due to concurrency limit: ${task.id}`);
     }
