@@ -225,9 +225,21 @@ export class ProfileManager {
      *
      */
 
-    public subscribe(event: ProfileEventType, callback: ProfileStatusCallback): () => void {
-        this.eventEmitter.on(event, callback);
-        return () => this.eventEmitter.off(event, callback);
+    public subscribe(event: ProfileEventType | 'all', callback: (data: any) => void): () => void {
+        if (event === 'all') {
+            Object.values(ProfileEventType).forEach((eventType) => {
+                this.eventEmitter.on(eventType, callback);
+            });
+
+            return () => {
+                Object.values(ProfileEventType).forEach((eventType) => {
+                    this.eventEmitter.off(eventType, callback);
+                });
+            };
+        } else {
+            this.eventEmitter.on(event, callback);
+            return () => this.eventEmitter.off(event, callback);
+        }
     }
 
     /*
