@@ -5,13 +5,13 @@
  * 
  */
 
-import { EventEmitter } from 'eventemitter3';
 import RNBackgroundDownloader, {
     DownloadTask,
     network,
     priority,
     TaskState
-} from 'react-native-background-downloader';
+} from '@kesha-antonov/react-native-background-downloader';
+import { EventEmitter } from 'eventemitter3';
 import { PlayerError } from '../../../../core/errors';
 import { Logger } from '../../../logger';
 import { LOG_TAGS } from '../../constants';
