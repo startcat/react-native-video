@@ -1,7 +1,7 @@
 import { LogLevel } from '../../logger';
 import { DownloadItem } from './download';
 
-export interface QueueServiceConfig {
+export interface QueueManagerConfig {
     logEnabled: boolean;
     logLevel: LogLevel;
     autoProcess: boolean;

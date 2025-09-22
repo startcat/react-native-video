@@ -118,6 +118,7 @@ export const LOG_TAGS = {
     STREAM_DOWNLOADER: 'Stream Downloader',
     PROFILE_MANAGER: 'Profile Manager',
     PERSISTENCE: 'Persistence',
+    NATIVE_MANAGER: 'Native Manager',
 } as const;
 
 export const METRIC_KEYS = {

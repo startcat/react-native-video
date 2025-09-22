@@ -6,8 +6,9 @@
 
 import { EventEmitter } from 'eventemitter3';
 import { PlayerError } from '../../../core/errors';
-import { Logger, LogLevel } from '../../logger';
-
+import { Logger } from '../../logger';
+import { LOG_TAGS } from "../constants";
+import { DEFAULT_CONFIG_PROFILE, LOGGER_DEFAULTS } from '../defaultConfigs';
 import {
     DownloadItem,
     ProfileContext,
@@ -15,8 +16,6 @@ import {
     ProfileManagerConfig,
     ProfileStatusCallback,
 } from '../types';
-
-import { LOG_TAGS } from "../constants";
 
 const TAG = LOG_TAGS.PROFILE_MANAGER;
 
@@ -32,21 +31,13 @@ export class ProfileManager {
     private constructor() {
         this.eventEmitter = new EventEmitter();
 
-        this.config = {
-            logEnabled: true,
-            logLevel: LogLevel.DEBUG,
-            enableProfileFiltering: true,
-            activeProfileRequired: true,
-        };
+        this.config = DEFAULT_CONFIG_PROFILE;
 
         this.currentLogger = new Logger({
+            ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
             prefix: LOG_TAGS.MAIN,
-            useColors: true,
-            includeLevelName: false,
-            includeTimestamp: true,
-            includeInstanceId: true,
         });
     }
 

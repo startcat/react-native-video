@@ -6,7 +6,9 @@
 
 import { EventEmitter } from 'eventemitter3';
 import { PlayerError } from '../../../core/errors';
-import { Logger, LogLevel } from '../../logger';
+import { Logger } from '../../logger';
+import { LOG_TAGS } from "../constants";
+import { DEFAULT_CONFIG_QUEUE, LOGGER_DEFAULTS } from '../defaultConfigs';
 import { persistenceService } from '../services/storage/PersistenceService';
 import { storageService } from '../services/storage/StorageService';
 
@@ -15,12 +17,10 @@ import {
     DownloadItem,
     DownloadStates,
     DownloadType,
-    QueueServiceConfig,
-    QueueStatusCallback,
+    QueueManagerConfig,
     QueueStats,
+    QueueStatusCallback,
 } from '../types';
-
-import { LOG_TAGS } from "../constants";
 
 const TAG = LOG_TAGS.QUEUE_MANAGER;
 
@@ -32,7 +32,7 @@ export class QueueManager {
     private isProcessing: boolean = false;
     private isPaused: boolean = false;
     private isInitialized: boolean = false;
-    private config: QueueServiceConfig;
+    private config: QueueManagerConfig;
     private processingInterval: ReturnType<typeof setTimeout> | null = null;
     private currentlyDownloading: Set<string> = new Set();
     private retryTracker: Map<string, number> = new Map();
@@ -41,23 +41,13 @@ export class QueueManager {
     private constructor() {
         this.eventEmitter = new EventEmitter();
 
-        this.config = {
-            logEnabled: true,
-            logLevel: LogLevel.DEBUG,
-            autoProcess: true,
-            processIntervalMs: 2000,
-            maxConcurrentDownloads: 3,
-            maxRetries: 3,
-        };
+        this.config = DEFAULT_CONFIG_QUEUE;
 
         this.currentLogger = new Logger({
+            ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
             prefix: LOG_TAGS.MAIN,
-            useColors: true,
-            includeLevelName: false,
-            includeTimestamp: true,
-            includeInstanceId: true,
         });
     }
 
@@ -78,7 +68,7 @@ export class QueueManager {
      *
      */
 
-    public async initialize(config?: Partial<QueueServiceConfig>): Promise<void> {
+    public async initialize(config?: Partial<QueueManagerConfig>): Promise<void> {
         
         if (this.isInitialized) {
             this.currentLogger.info(TAG, 'QueueManager already initialized');
