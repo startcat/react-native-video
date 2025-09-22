@@ -1,12 +1,12 @@
+import { Text } from '@ui-kitten/components';
 import React, { useCallback, useMemo } from 'react';
 import { View } from 'react-native';
-import { Button, LiveButton } from '../buttons';
-import { Text } from '@ui-kitten/components';
-import { 
-    CONTROL_ACTION,
+import {
     BUTTON_SIZE,
+    CONTROL_ACTION,
     type ControlsBarProps
 } from '../../../../types';
+import { Button, LiveButton } from '../buttons';
 import { styles } from './styles';
 
 const ControlsBottomBarBase = ({ 
@@ -49,6 +49,7 @@ const ControlsBottomBarBase = ({
             dvrTimeValue,
             isDVR,
             disabled: !isContentLoaded,
+            isLiveEdgePosition: playerProgress?.sliderValues?.isLiveEdgePosition,
             onPress
         }) : null
     , [liveButton, currentTime, duration, dvrTimeValue, isDVR, isContentLoaded, onPress]);
