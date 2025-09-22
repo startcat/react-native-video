@@ -1,7 +1,10 @@
+import { LogLevel } from '../../logger';
 import { DownloadItem } from "./download";
 import { ProfileDownloadMapping } from "./profiles";
 
 export interface PersistenceConfig {
+    logEnabled?: boolean;
+    logLevel?: LogLevel;
     storageKey?: string;
     encryptionEnabled?: boolean;
     compressionEnabled?: boolean;

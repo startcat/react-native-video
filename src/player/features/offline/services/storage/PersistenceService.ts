@@ -53,6 +53,8 @@ export class PersistenceService {
         this.eventEmitter = new EventEmitter();
 
         this.config = {
+            logEnabled: true,
+            logLevel: LogLevel.INFO,
             storageKey: DEFAULT_CONFIG.STORAGE_KEY,
             encryptionEnabled: false,
             compressionEnabled: true,
@@ -61,8 +63,8 @@ export class PersistenceService {
         };
 
         this.currentLogger = new Logger({
-            enabled: true,
-            level: LogLevel.DEBUG,
+            enabled: this.config.logEnabled,
+            level: this.config.logLevel,
             prefix: LOG_TAGS.MAIN,
             useColors: true,
             includeLevelName: false,
