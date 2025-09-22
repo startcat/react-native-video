@@ -35,6 +35,7 @@ export interface IPlayerMetadata {
     poster?: string;
     squaredPoster?: string;
     raw?: any;
+    artist?: string;
 }
 
 export interface IPlayerInitialState {

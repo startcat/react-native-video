@@ -34,6 +34,7 @@ export interface SourceClassProps {
     // Metadata
     id?:number,
     title?:string;
+    artist?:string;
     subtitle?:string;
     description?:string;
     poster?: string;
@@ -180,6 +181,7 @@ export class SourceClass {
             metadata: {
                 title: props.title,
                 subtitle: props.subtitle,
+                artist: props.artist,
                 description: props.description,
                 imageUri: props.squaredPoster || props.poster
             }
