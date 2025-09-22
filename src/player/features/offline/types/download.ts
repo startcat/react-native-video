@@ -317,3 +317,42 @@ export interface DownloadServiceConfig {
     eventBridgeEnabled: boolean;
     autoInitializeStrategies: boolean;
 }
+
+// Configuración del DownloadsManager principal
+export interface DownloadsManagerConfig {
+    logEnabled: boolean;
+    logLevel: LogLevel;
+    autoStart: boolean;
+    persistenceEnabled: boolean;
+    networkMonitoringEnabled: boolean;
+    storageMonitoringEnabled: boolean;
+    profileManagementEnabled: boolean;
+    enableBinaryDownloads: boolean;
+    enableStreamDownloads: boolean;
+    maxConcurrentDownloads: number;
+    autoRetryEnabled: boolean;
+    maxRetryAttempts: number;
+}
+
+// Estadísticas de la cola unificada
+export interface QueueStats {
+    total: number;
+    active: number;
+    queued: number;
+    completed: number;
+    failed: number;
+    paused: number;
+    totalBytesDownloaded: number;
+    totalBytesRemaining: number;
+    averageSpeed: number;
+    estimatedTimeRemaining: number;
+}
+
+// Estado del DownloadsManager
+export interface DownloadsManagerState {
+    isInitialized: boolean;
+    isProcessing: boolean;
+    isPaused: boolean;
+    error: PlayerError | null;
+    lastUpdated: number;
+}

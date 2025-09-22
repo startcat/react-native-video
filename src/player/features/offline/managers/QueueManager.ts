@@ -772,6 +772,42 @@ export class QueueManager {
     }
 
     /*
+     * API Pública - Consulta de información
+     *
+     */
+
+    public getDownload(downloadId: string): DownloadItem | undefined {
+        return this.downloadQueue.get(downloadId);
+    }
+
+    public getDownloadType(downloadId: string): DownloadType | undefined {
+        const item = this.downloadQueue.get(downloadId);
+        return item?.type;
+    }
+
+    public getAllDownloads(): DownloadItem[] {
+        return Array.from(this.downloadQueue.values());
+    }
+
+    public getStats(): QueueStats {
+        const downloads = this.getAllDownloads();
+        const now = Date.now();
+
+        return {
+            total: downloads.length,
+            active: downloads.filter(d => d.state === DownloadStates.DOWNLOADING).length,
+            queued: downloads.filter(d => d.state === DownloadStates.QUEUED).length,
+            completed: downloads.filter(d => d.state === DownloadStates.COMPLETED).length,
+            failed: downloads.filter(d => d.state === DownloadStates.FAILED).length,
+            paused: downloads.filter(d => d.state === DownloadStates.PAUSED).length,
+            totalBytesDownloaded: downloads.reduce((sum, d) => sum + (d.stats?.bytesDownloaded || 0), 0),
+            totalBytesRemaining: downloads.reduce((sum, d) => sum + Math.max(0, (d.stats?.totalBytes || 0) - (d.stats?.bytesDownloaded || 0)), 0),
+            averageSpeed: 0, // TODO: Calcular velocidad promedio
+            estimatedTimeRemaining: 0 // TODO: Calcular tiempo estimado
+        };
+    }
+
+    /*
      * Carga la cola persistida usando PersistenceService
      *
      */

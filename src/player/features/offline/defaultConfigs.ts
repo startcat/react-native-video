@@ -4,6 +4,7 @@ import {
     BinaryDownloadServiceConfig,
     ConfigManagerConfig,
     DownloadServiceConfig,
+    DownloadsManagerConfig,
     NativeManagerConfig,
     NetworkPolicy,
     NetworkServiceConfig,
@@ -118,4 +119,19 @@ export const DEFAULT_CONFIG_DOWNLOAD_SERVICE: DownloadServiceConfig = {
     enableStreamDownloads: true,
     eventBridgeEnabled: true,
     autoInitializeStrategies: true,
+};
+
+export const DEFAULT_CONFIG_DOWNLOADS_MANAGER: DownloadsManagerConfig = {
+    logEnabled: true,
+    logLevel: LogLevel.DEBUG,
+    autoStart: true,
+    persistenceEnabled: true,
+    networkMonitoringEnabled: true,
+    storageMonitoringEnabled: true,
+    profileManagementEnabled: true,
+    enableBinaryDownloads: true,
+    enableStreamDownloads: true,
+    maxConcurrentDownloads: 3,
+    autoRetryEnabled: true,
+    maxRetryAttempts: 3,
 };

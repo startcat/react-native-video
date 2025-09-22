@@ -117,6 +117,7 @@ export const LOG_TAGS = {
     BINARY_DOWNLOADER: 'Binary Downloader',
     STREAM_DOWNLOADER: 'Stream Downloader',
     DOWNLOAD_SERVICE: 'Download Service',
+    DOWNLOADS_MANAGER: 'Downloads Manager',
     PROFILE_MANAGER: 'Profile Manager',
     PERSISTENCE: 'Persistence',
     NATIVE_MANAGER: 'Native Manager',
