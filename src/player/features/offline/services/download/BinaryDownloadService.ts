@@ -12,12 +12,10 @@ import RNBackgroundDownloader, {
     priority,
     TaskState
 } from 'react-native-background-downloader';
-
 import { PlayerError } from '../../../../core/errors';
-import { Logger, LogLevel } from '../../../logger';
-import { networkService } from '../network/NetworkService';
-import { storageService } from '../storage/StorageService';
-
+import { Logger } from '../../../logger';
+import { LOG_TAGS } from '../../constants';
+import { DEFAULT_CONFIG_BINARY_DOWNLOAD, LOGGER_DEFAULTS } from '../../defaultConfigs';
 import {
     ActiveBinaryDownload,
     BinaryDownloadProgress,
@@ -29,10 +27,8 @@ import {
     DownloadStates,
     ValidationResult
 } from '../../types';
-
-import {
-    LOG_TAGS,
-} from '../../constants';
+import { networkService } from '../network/NetworkService';
+import { storageService } from '../storage/StorageService';
 
 const TAG = LOG_TAGS.BINARY_DOWNLOADER;
 
@@ -59,26 +55,12 @@ export class BinaryDownloadService {
     private constructor() {
         this.eventEmitter = new EventEmitter();
 
-        this.config = {
-            logEnabled: true,
-            logLevel: LogLevel.DEBUG,
-            maxConcurrentDownloads: 3,
-            progressUpdateInterval: 500, // 500ms
-            timeoutMs: 30000, // 30 seconds
-            maxRetries: 3,
-            showNotifications: true,
-            allowCellular: false, // Solo WiFi por defecto
-            requiresWifi: true,
-        };
+        this.config = DEFAULT_CONFIG_BINARY_DOWNLOAD;
 
         this.currentLogger = new Logger({
+            ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: LOG_TAGS.MAIN,
-            useColors: true,
-            includeLevelName: false,
-            includeTimestamp: true,
-            includeInstanceId: true,
         });
     }
 

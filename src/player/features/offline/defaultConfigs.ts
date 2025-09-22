@@ -1,6 +1,7 @@
 import { LogLevel } from '../logger';
 import { DEFAULT_CONFIG, DIRECTORIES, LOG_TAGS } from './constants';
 import {
+    BinaryDownloadServiceConfig,
     ConfigManagerConfig,
     NativeManagerConfig,
     NetworkPolicy,
@@ -81,4 +82,16 @@ export const DEFAULT_CONFIG_STORAGE: StorageServiceConfig = {
     tempDirectory: DIRECTORIES.TEMP,
     cleanupEnabled: true,
     cleanupIntervalHours: DEFAULT_CONFIG.CLEANUP_INTERVAL_HOURS,
+};
+
+export const DEFAULT_CONFIG_BINARY_DOWNLOAD: BinaryDownloadServiceConfig = {
+    logEnabled: true,
+    logLevel: LogLevel.DEBUG,
+    maxConcurrentDownloads: 3,
+    progressUpdateInterval: 1000, // 1 segundo
+    timeoutMs: 30000, // 30 seconds
+    maxRetries: 3,
+    showNotifications: true,
+    allowCellular: false, // Solo WiFi por defecto
+    requiresWifi: true,
 };
