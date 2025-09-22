@@ -353,6 +353,7 @@ export interface LiveButtonProps {
     dvrTimeValue?: number;
     isDVR?: boolean;
     disabled?: boolean;
+    isLiveEdgePosition?: boolean;
     accessibilityLabel?: string;
     onPress?: (id: Enums.CONTROL_ACTION, value?: any) => void;
 }
