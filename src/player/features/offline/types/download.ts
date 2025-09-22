@@ -334,19 +334,7 @@ export interface DownloadsManagerConfig {
     maxRetryAttempts: number;
 }
 
-// Estadísticas de la cola unificada
-export interface QueueStats {
-    total: number;
-    active: number;
-    queued: number;
-    completed: number;
-    failed: number;
-    paused: number;
-    totalBytesDownloaded: number;
-    totalBytesRemaining: number;
-    averageSpeed: number;
-    estimatedTimeRemaining: number;
-}
+// Nota: QueueStats se define en types/queue.ts para evitar duplicación
 
 // Estado del DownloadsManager
 export interface DownloadsManagerState {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { queueManager } from '../managers/QueueManager';
-import { DownloadItem, DownloadStates, QueueStats } from '../types';
+import { DownloadItem, DownloadStates } from '../types';
+import { QueueStats } from '../types/queue';
 
 /*
  * Hook para gestión de la cola de descargas según la interfaz del contexto
@@ -147,7 +148,7 @@ export function useDownloadsQueue(): UseDownloadsQueueReturn {
         });
     }, []);
 
-    // Valores derivados
+    // Valores derivados del stats (ahora disponibles en QueueStats de types/queue.ts)
     const isProcessing = stats.isProcessing;
     const isPaused = stats.isPaused;
 
