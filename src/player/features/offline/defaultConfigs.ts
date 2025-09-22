@@ -3,6 +3,7 @@ import { DEFAULT_CONFIG, DIRECTORIES, LOG_TAGS } from './constants';
 import {
     BinaryDownloadServiceConfig,
     ConfigManagerConfig,
+    DownloadServiceConfig,
     NativeManagerConfig,
     NetworkPolicy,
     NetworkServiceConfig,
@@ -108,4 +109,13 @@ export const DEFAULT_CONFIG_STREAM_DOWNLOAD: StreamDownloadServiceConfig = {
     requiresWifi: true,
     enableNotifications: true,
     defaultQuality: 'auto',
+};
+
+export const DEFAULT_CONFIG_DOWNLOAD_SERVICE: DownloadServiceConfig = {
+    logEnabled: true,
+    logLevel: LogLevel.DEBUG,
+    enableBinaryDownloads: true,
+    enableStreamDownloads: true,
+    eventBridgeEnabled: true,
+    autoInitializeStrategies: true,
 };
