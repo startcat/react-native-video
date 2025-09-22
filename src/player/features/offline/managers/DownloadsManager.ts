@@ -12,7 +12,7 @@ import { EventEmitter } from 'eventemitter3';
 import { PlayerError } from '../../../core/errors';
 import { Logger } from '../../logger';
 import { LOG_TAGS } from '../constants';
-import { DEFAULT_CONFIG_DOWNLOADS_MANAGER, LOGGER_DEFAULTS } from '../defaultConfigs';
+import { DEFAULT_CONFIG_MAIN_MANAGER, LOGGER_DEFAULTS } from '../defaultConfigs';
 import { downloadService } from '../services/download/DownloadService';
 import { networkService } from '../services/network/NetworkService';
 import { storageService } from '../services/storage/StorageService';
@@ -51,7 +51,7 @@ export class DownloadsManager {
     private constructor() {
 
         this.eventEmitter = new EventEmitter();
-        this.config = DEFAULT_CONFIG_DOWNLOADS_MANAGER;
+        this.config = DEFAULT_CONFIG_MAIN_MANAGER;
 
         this.currentLogger = new Logger({
             ...LOGGER_DEFAULTS,
