@@ -244,7 +244,7 @@ export function useDownloadsManager(options: UseDownloadsManagerOptions = {}): U
     const totalProgress = useMemo(() => {
         if (downloads.length === 0) return 0;
         
-        const totalProgressSum = downloads.reduce((sum, download) => 
+        const totalProgressSum = downloads.reduce((sum: number, download: DownloadItem) => 
             sum + (download.stats?.progressPercent || 0), 0
         );
         
