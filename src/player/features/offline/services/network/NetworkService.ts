@@ -67,7 +67,7 @@ export class NetworkService {
         this.currentLogger = new Logger({
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
-            prefix: "📶 Network",
+            prefix: LOG_TAGS.MAIN,
             useColors: true,
             includeLevelName: false,
             includeTimestamp: true,

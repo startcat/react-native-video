@@ -9,61 +9,32 @@ import { PlayerError } from '../../../core/errors';
 import { Logger, LogLevel } from '../../logger';
 import { LOG_TAGS } from '../constants';
 import { persistenceService } from '../services/storage/PersistenceService';
-import { ConfigDownloads } from '../types';
+import {
+    ConfigDownloads,
+    ConfigEventCallback,
+    ConfigEventType,
+    ConfigManagerConfig,
+    ConfigResetEvent,
+    ConfigUpdateEvent,
+    ConfigValidationFailedEvent
+} from '../types';
 
-const TAG = LOG_TAGS.CONFIG_MANAGER || 'ConfigManager';
+const TAG = LOG_TAGS.CONFIG_MANAGER;
 
 // Configuración por defecto
 const DEFAULT_CONFIG: ConfigDownloads = {
     logEnabled: true,
     logLevel: LogLevel.INFO,
-    download_just_wifi: false,
+    download_just_wifi: true,
     max_concurrent_downloads: 3,
-    activeProfileRequired: false,
+    activeProfileRequired: true,
     auto_resume_on_network: true,
     streamQuality: 'auto',
     storage_warning_threshold: 0.85, // 85%
-    min_free_space_mb: 100,
+    min_free_space_mb: 200,
     retry_attempts: 3,
     retry_delay_ms: 5000,
 };
-
-// Interfaz de configuración del servicio
-export interface ConfigManagerConfig {
-    logEnabled: boolean;
-    logLevel: LogLevel;
-    autoSaveInterval?: number; // ms
-    validateOnUpdate?: boolean;
-}
-
-// Eventos de configuración
-export interface ConfigUpdateEvent {
-    property: keyof ConfigDownloads | 'multiple';
-    oldValue: any;
-    newValue: any;
-    config: ConfigDownloads;
-}
-
-export interface ConfigResetEvent {
-    oldConfig: ConfigDownloads;
-    newConfig: ConfigDownloads;
-}
-
-export interface ConfigValidationFailedEvent {
-    property: keyof ConfigDownloads;
-    value: any;
-    error: Error;
-}
-
-// Tipos de eventos
-export type ConfigEventType = 
-    | 'config_updated'
-    | 'config_reset'
-    | 'config_loaded'
-    | 'config_validation_failed'
-    | 'config_saved';
-
-export type ConfigEventCallback = (data: any) => void;
 
 export class ConfigManager {
     private static instance: ConfigManager;
@@ -85,7 +56,13 @@ export class ConfigManager {
         
         // Logger setup
         this.currentLogger = new Logger({ 
-            enabled: this.config.logEnabled
+            enabled: this.config.logEnabled,
+            level: this.config.logLevel,
+            prefix: LOG_TAGS.MAIN,
+            useColors: true,
+            includeLevelName: false,
+            includeTimestamp: true,
+            includeInstanceId: true,
         });
         
         this.eventEmitter = new EventEmitter();
