@@ -138,7 +138,7 @@ export function useActiveProfile(): ProfileContext | null {
 
 export function useCanDownload(): {
     canDownload: boolean;
-    canDownloadContent: (contentProfileId?: string | null) => boolean;
+    canDownloadContent: (downloadItem: DownloadItem) => boolean;
     activeProfileRequired: boolean;
 } {
     const activeProfile = useActiveProfile();
@@ -176,6 +176,6 @@ export function useCanDownload(): {
     return {
         canDownload,
         canDownloadContent,
-        activeProfileRequired: stats.activeProfileRequired
+        activeProfileRequired: stats.activeProfileRequired ?? false
     };
 }
