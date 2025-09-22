@@ -340,6 +340,98 @@ export const PLAYER_ERROR_DEFINITIONS = {
         message: "Adaptive streaming quality adjustment failed.",
     },
 
+    // === ERRORES DEL SISTEMA NATIVO DE DESCARGAS ===
+    NATIVE_MANAGER_INITIALIZATION_FAILED: {
+        message: "Failed to initialize native downloads manager.",
+    },
+    NATIVE_MODULE_SETUP_FAILED: {
+        message: "Failed to setup native downloads module.",
+    },
+    NATIVE_MODULE_INIT_FAILED: {
+        message: "Failed to initialize native downloads module.",
+    },
+    NATIVE_MANAGER_NOT_INITIALIZED: {
+        message: "Native manager is not initialized.",
+    },
+
+    // === ERRORES DE GESTIÓN DE DESCARGAS NATIVAS ===
+    NATIVE_ADD_DOWNLOAD_FAILED: {
+        message: "Failed to add download to native module.",
+    },
+    NATIVE_REMOVE_DOWNLOAD_FAILED: {
+        message: "Failed to remove download from native module.",
+    },
+    NATIVE_PAUSE_DOWNLOAD_FAILED: {
+        message: "Failed to pause download in native module.",
+    },
+    NATIVE_RESUME_DOWNLOAD_FAILED: {
+        message: "Failed to resume download in native module.",
+    },
+    NATIVE_CANCEL_DOWNLOAD_FAILED: {
+        message: "Failed to cancel download in native module.",
+    },
+
+    // === ERRORES DE CONTROL MASIVO NATIVO ===
+    NATIVE_PAUSE_ALL_FAILED: {
+        message: "Failed to pause all downloads in native module.",
+    },
+    NATIVE_RESUME_ALL_FAILED: {
+        message: "Failed to resume all downloads in native module.",
+    },
+    NATIVE_CANCEL_ALL_FAILED: {
+        message: "Failed to cancel all downloads in native module.",
+    },
+
+    // === ERRORES DE CONSULTAS NATIVAS ===
+    NATIVE_GET_DOWNLOADS_FAILED: {
+        message: "Failed to get downloads list from native module.",
+    },
+    NATIVE_GET_DOWNLOAD_FAILED: {
+        message: "Failed to get download info from native module.",
+    },
+    NATIVE_GET_STATS_FAILED: {
+        message: "Failed to get download statistics from native module.",
+    },
+
+    // === ERRORES DE CONFIGURACIÓN NATIVA ===
+    NATIVE_SET_QUALITY_FAILED: {
+        message: "Failed to set stream quality in native module.",
+    },
+    NATIVE_SET_NETWORK_POLICY_FAILED: {
+        message: "Failed to set network policy in native module.",
+    },
+    NATIVE_SET_LIMITS_FAILED: {
+        message: "Failed to set download limits in native module.",
+    },
+    NATIVE_SET_DIRECTORIES_FAILED: {
+        message: "Failed to set download directories in native module.",
+    },
+
+    // === ERRORES DE DRM NATIVO ===
+    NATIVE_DOWNLOAD_LICENSE_FAILED: {
+        message: "Failed to download DRM license in native module.",
+    },
+    NATIVE_CHECK_LICENSE_FAILED: {
+        message: "Failed to check DRM license status in native module.",
+    },
+    NATIVE_RENEW_LICENSE_FAILED: {
+        message: "Failed to renew DRM license in native module.",
+    },
+    NATIVE_RELEASE_LICENSE_FAILED: {
+        message: "Failed to release DRM license in native module.",
+    },
+    NATIVE_RELEASE_ALL_LICENSES_FAILED: {
+        message: "Failed to release all DRM licenses in native module.",
+    },
+
+    // === ERRORES DE UTILIDADES NATIVAS ===
+    NATIVE_GENERATE_ID_FAILED: {
+        message: "Failed to generate download ID in native module.",
+    },
+    NATIVE_REFRESH_SYSTEM_INFO_FAILED: {
+        message: "Failed to refresh system info from native module.",
+    },
+
     // === ERROR DESCONOCIDO ===
 	PLAYER_UNKNOWN_999: {
 		message: "Unknown player error occurred.",

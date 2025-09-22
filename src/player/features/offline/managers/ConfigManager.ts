@@ -8,6 +8,7 @@ import { EventEmitter } from 'eventemitter3';
 import { PlayerError } from '../../../core/errors';
 import { Logger, LogLevel } from '../../logger';
 import { LOG_TAGS } from '../constants';
+import { DEFAULT_CONFIG_MANAGER, LOGGER_DEFAULTS } from '../defaultConfigs';
 import { persistenceService } from '../services/storage/PersistenceService';
 import {
     ConfigDownloads,
@@ -47,22 +48,14 @@ export class ConfigManager {
 
     private constructor() {
         // Configuración por defecto del manager
-        this.config = {
-            logEnabled: true,
-            logLevel: LogLevel.INFO,
-            autoSaveInterval: 2000, // 2 segundos
-            validateOnUpdate: true,
-        };
+        this.config = DEFAULT_CONFIG_MANAGER;
         
         // Logger setup
         this.currentLogger = new Logger({ 
+            ...LOGGER_DEFAULTS,
             enabled: this.config.logEnabled,
             level: this.config.logLevel,
             prefix: LOG_TAGS.MAIN,
-            useColors: true,
-            includeLevelName: false,
-            includeTimestamp: true,
-            includeInstanceId: true,
         });
         
         this.eventEmitter = new EventEmitter();
