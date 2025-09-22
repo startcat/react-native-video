@@ -9,7 +9,8 @@ import {
     PersistenceConfig,
     ProfileManagerConfig,
     QueueManagerConfig,
-    StorageServiceConfig
+    StorageServiceConfig,
+    StreamDownloadServiceConfig
 } from './types';
 
 export const LOGGER_DEFAULTS = {
@@ -88,10 +89,23 @@ export const DEFAULT_CONFIG_BINARY_DOWNLOAD: BinaryDownloadServiceConfig = {
     logEnabled: true,
     logLevel: LogLevel.DEBUG,
     maxConcurrentDownloads: 3,
-    progressUpdateInterval: 1000, // 1 segundo
+    progressUpdateInterval: 1500, // 1.5 segundos
     timeoutMs: 30000, // 30 seconds
     maxRetries: 3,
     showNotifications: true,
     allowCellular: false, // Solo WiFi por defecto
     requiresWifi: true,
+};
+
+export const DEFAULT_CONFIG_STREAM_DOWNLOAD: StreamDownloadServiceConfig = {
+    logEnabled: true,
+    logLevel: LogLevel.DEBUG,
+    maxConcurrentDownloads: 3,
+    progressUpdateInterval: 1500, // 1.5 segundos
+    timeoutMs: 30000, // 30 seconds
+    maxRetries: 3,
+    allowCellular: false,
+    requiresWifi: true,
+    enableNotifications: true,
+    defaultQuality: 'auto',
 };

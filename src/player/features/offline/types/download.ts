@@ -63,6 +63,19 @@ export interface BinaryDownloadServiceConfig {
     requiresWifi: boolean;
 }
 
+export interface StreamDownloadServiceConfig {
+    logEnabled: boolean;
+    logLevel: LogLevel;
+    maxConcurrentDownloads: number;
+    progressUpdateInterval: number;
+    timeoutMs: number;
+    maxRetries: number;
+    allowCellular: boolean;
+    requiresWifi: boolean;
+    enableNotifications: boolean;
+    defaultQuality: 'auto' | 'low' | 'medium' | 'high' | 'max';
+}
+
 export interface StreamDownloadConfig {
     type: 'DASH' | 'HLS';
     quality?: 'auto' | 'low' | 'medium' | 'high' | 'max';
@@ -91,8 +104,29 @@ export interface DownloadError {
 export interface StreamDownloadTask {
     id: string;
     manifestUrl: string;
+    title: string;
     config: StreamDownloadConfig;
     estimatedSize?: number;
+}
+
+export interface ActiveStreamDownload {
+    task: StreamDownloadTask;
+    startTime: number;
+    retryCount: number;
+    state: DownloadStates;
+    progress: StreamDownloadProgress;
+    error?: DownloadError;
+}
+
+export interface StreamDownloadProgress {
+    downloadId: string;
+    percent: number;
+    bytesDownloaded: number;
+    totalBytes: number;
+    segmentsCompleted?: number;
+    segmentsTotal?: number;
+    speed?: number;
+    remainingTime?: number;
 }
 
 export interface BinaryDownloadTask {
