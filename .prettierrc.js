@@ -1,34 +1,34 @@
 module.exports = {
   semi: true,
-  trailingComma: 'es5',
+  trailingComma: "es5",
   singleQuote: false, // Usando comillas dobles para coincidir con VS Code
   printWidth: 100,
-  tabWidth: 2, // Cambiado a 2 espacios (estándar para TS/React)
-  useTabs: false,
+  tabWidth: 4,
+  useTabs: true,
   bracketSpacing: true,
-  arrowParens: 'avoid',
-  endOfLine: 'auto',
+  arrowParens: "avoid",
+  endOfLine: "auto",
   // Removido parser global - se define en overrides
   // React Native specific overrides
   overrides: [
     {
-      files: '*.{js,jsx,ts,tsx}',
+      files: "*.{js,jsx,ts,tsx}",
       options: {
-        parser: 'typescript',
+        parser: "typescript",
         tabWidth: 2,
       },
     },
     {
-      files: '*.json',
+      files: "*.json",
       options: {
-        parser: 'json',
+        parser: "json",
         tabWidth: 2,
       },
     },
     {
-      files: '*.md',
+      files: "*.md",
       options: {
-        parser: 'markdown',
+        parser: "markdown",
         printWidth: 80,
         tabWidth: 2,
       },
