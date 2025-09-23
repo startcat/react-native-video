@@ -469,7 +469,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 }
             }
             
-            return AVPlayerItem(asset: localAsset.urlAsset)
+            guard let urlAsset = localAsset.urlAsset else {
+                throw VideoError.invalidAsset
+            }
+            return AVPlayerItem(asset: urlAsset)
         }
 
         return await playerItemPrepareText(asset: asset, assetOptions: assetOptions, uri: source.uri ?? "")
