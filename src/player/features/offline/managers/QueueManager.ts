@@ -72,7 +72,7 @@ export class QueueManager {
 
 	public async initialize(config?: Partial<QueueManagerConfig>): Promise<void> {
 		if (this.isInitialized) {
-			this.currentLogger.info(TAG, "QueueManager already initialized");
+			this.currentLogger.debug(TAG, "QueueManager already initialized");
 			return;
 		}
 
