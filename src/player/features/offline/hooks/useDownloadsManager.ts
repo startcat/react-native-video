@@ -9,61 +9,62 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlayerError } from "../../../core/errors";
 import { downloadsManager } from "../managers/DownloadsManager";
+import { profileManager } from "../managers/ProfileManager";
+import { queueManager } from "../managers/QueueManager";
 import {
-  BinaryDownloadTask,
-  DownloadEventType,
-  DownloadItem,
-  DownloadsManagerConfig,
-  DownloadStates,
-  DownloadType,
-  QueueStats,
-  StreamDownloadTask,
+	BinaryDownloadTask,
+	DownloadEventType,
+	DownloadItem,
+	DownloadsManagerConfig,
+	DownloadStates,
+	DownloadType,
+	QueueStats,
+	StreamDownloadTask,
+	UsableDownloadItem,
 } from "../types";
+import { ensureDownloadId, isValidDownloadUri } from "../utils/downloadsUtils";
 
 // Tipos específicos del hook
 interface UseDownloadsManagerOptions {
-  autoInit?: boolean;
-  config?: Partial<DownloadsManagerConfig>;
-  onError?: (error: PlayerError) => void;
-  onDownloadStarted?: (downloadId: string) => void;
-  onDownloadCompleted?: (downloadId: string) => void;
-  onDownloadFailed?: (downloadId: string, error: PlayerError) => void;
+	autoInit?: boolean;
+	config?: Partial<DownloadsManagerConfig>;
+	onError?: (error: PlayerError) => void;
+	onDownloadStarted?: (downloadId: string) => void;
+	onDownloadCompleted?: (downloadId: string) => void;
+	onDownloadFailed?: (downloadId: string, error: PlayerError) => void;
 }
 
 interface UseDownloadsManagerReturn {
-  // Estado
-  downloads: DownloadItem[];
-  activeDownloads: DownloadItem[];
-  queuedDownloads: DownloadItem[];
-  completedDownloads: DownloadItem[];
-  failedDownloads: DownloadItem[];
+	// Estado
+	downloads: DownloadItem[];
+	activeDownloads: DownloadItem[];
+	queuedDownloads: DownloadItem[];
+	completedDownloads: DownloadItem[];
+	failedDownloads: DownloadItem[];
 
-  // Estadísticas globales
-  queueStats: QueueStats;
-  totalProgress: number;
-  globalSpeed: number;
+	// Estadísticas globales
+	queueStats: QueueStats;
+	totalProgress: number;
+	globalSpeed: number;
 
-  // Acciones principales
-  addDownload: (
-    task: BinaryDownloadTask | StreamDownloadTask,
-    type: DownloadType
-  ) => Promise<string>;
-  removeDownload: (id: string) => Promise<void>;
-  pauseDownload: (id: string) => Promise<void>;
-  resumeDownload: (id: string) => Promise<void>;
-  cancelDownload: (id: string) => Promise<void>;
+	// Acciones principales
+	addDownload: (item: UsableDownloadItem) => Promise<string>;
+	removeDownload: (id: string) => Promise<void>;
+	pauseDownload: (id: string) => Promise<void>;
+	resumeDownload: (id: string) => Promise<void>;
+	cancelDownload: (id: string) => Promise<void>;
 
-  // Acciones masivas
-  clearCompleted: () => Promise<void>;
-  clearFailed: () => Promise<void>;
-  pauseAll: () => Promise<void>;
-  resumeAll: () => Promise<void>;
+	// Acciones masivas
+	clearCompleted: () => Promise<void>;
+	clearFailed: () => Promise<void>;
+	pauseAll: () => Promise<void>;
+	resumeAll: () => Promise<void>;
 
-  // Estado del sistema
-  isInitialized: boolean;
-  isProcessing: boolean;
-  isPaused: boolean;
-  error: PlayerError | null;
+	// Estado del sistema
+	isInitialized: boolean;
+	isProcessing: boolean;
+	isPaused: boolean;
+	error: PlayerError | null;
 }
 
 /*
@@ -75,372 +76,466 @@ interface UseDownloadsManagerReturn {
  */
 
 export function useDownloadsManager(
-  options: UseDownloadsManagerOptions = {}
+	options: UseDownloadsManagerOptions = {}
 ): UseDownloadsManagerReturn {
-  const {
-    autoInit = true,
-    config,
-    onError,
-    onDownloadStarted,
-    onDownloadCompleted,
-    onDownloadFailed,
-  } = options;
+	const {
+		autoInit = true,
+		config,
+		onError,
+		onDownloadStarted,
+		onDownloadCompleted,
+		onDownloadFailed,
+	} = options;
 
-  // Estado local del hook
-  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
-  const [queueStats, setQueueStats] = useState<QueueStats>({
-    total: 0,
-    pending: 0,
-    downloading: 0,
-    paused: 0,
-    completed: 0,
-    failed: 0,
-    isPaused: false,
-    isProcessing: false,
-    // Propiedades opcionales para compatibilidad
-    active: 0,
-    queued: 0,
-    totalBytesDownloaded: 0,
-    totalBytesRemaining: 0,
-    averageSpeed: 0,
-    estimatedTimeRemaining: 0,
-  });
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [error, setError] = useState<PlayerError | null>(null);
+	// Estado local del hook
+	const [downloads, setDownloads] = useState<DownloadItem[]>([]);
+	const [queueStats, setQueueStats] = useState<QueueStats>({
+		total: 0,
+		pending: 0,
+		downloading: 0,
+		paused: 0,
+		completed: 0,
+		failed: 0,
+		isPaused: false,
+		isProcessing: false,
+		// Propiedades opcionales para compatibilidad
+		active: 0,
+		queued: 0,
+		totalBytesDownloaded: 0,
+		totalBytesRemaining: 0,
+		averageSpeed: 0,
+		estimatedTimeRemaining: 0,
+	});
+	const [isInitialized, setIsInitialized] = useState(false);
+	const [isProcessing, setIsProcessing] = useState(false);
+	const [isPaused, setIsPaused] = useState(false);
+	const [error, setError] = useState<PlayerError | null>(null);
 
-  // Inicialización automática
-  useEffect(() => {
-    if (autoInit && !isInitialized) {
-      initializeManager();
-    }
-  }, [autoInit, isInitialized]);
+	// Inicialización automática
+	useEffect(() => {
+		if (autoInit && !isInitialized) {
+			initializeManager();
+		}
+	}, [autoInit, isInitialized]);
 
-  const initializeManager = useCallback(async () => {
-    try {
-      await downloadsManager.initialize(config);
-      updateState();
-      setIsInitialized(true);
-      setError(null);
-    } catch (err) {
-      const error =
-        err instanceof PlayerError
-          ? err
-          : new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", { originalError: err });
-      setError(error);
-      onError?.(error);
-    }
-  }, [config, onError]);
+	const initializeManager = useCallback(async () => {
+		try {
+			await downloadsManager.initialize(config);
+			updateState();
+			setIsInitialized(true);
+			setError(null);
+		} catch (err) {
+			const error =
+				err instanceof PlayerError
+					? err
+					: new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", { originalError: err });
+			setError(error);
+			onError?.(error);
+		}
+	}, [config, onError]);
 
-  // Actualizar estado desde el manager
-  const updateState = useCallback(() => {
-    if (downloadsManager.isInitialized()) {
-      setDownloads(downloadsManager.getDownloads());
-      setQueueStats(downloadsManager.getQueueStats());
-      setIsProcessing(downloadsManager.isProcessing());
-      setIsPaused(downloadsManager.isPaused());
-    }
-  }, []);
+	// Actualizar estado desde el manager
+	const updateState = useCallback(() => {
+		if (downloadsManager.isInitialized()) {
+			setDownloads(downloadsManager.getDownloads());
+			setQueueStats(downloadsManager.getQueueStats());
+			setIsProcessing(downloadsManager.isProcessing());
+			setIsPaused(downloadsManager.isPaused());
+		}
+	}, []);
 
-  // Suscripción a eventos del sistema
-  useEffect(() => {
-    if (!downloadsManager.isInitialized()) return;
+	// Suscripción a eventos del sistema
+	useEffect(() => {
+		if (!downloadsManager.isInitialized()) return;
 
-    const unsubscribers: (() => void)[] = [];
+		const unsubscribers: (() => void)[] = [];
 
-    // Eventos de sistema
-    unsubscribers.push(
-      downloadsManager.subscribe("system:started", () => {
-        updateState();
-      })
-    );
+		// Eventos de sistema
+		unsubscribers.push(
+			downloadsManager.subscribe("system:started", () => {
+				updateState();
+			})
+		);
 
-    unsubscribers.push(
-      downloadsManager.subscribe("system:stopped", () => {
-        updateState();
-      })
-    );
+		unsubscribers.push(
+			downloadsManager.subscribe("system:stopped", () => {
+				updateState();
+			})
+		);
 
-    // Eventos de descarga
-    unsubscribers.push(
-      downloadsManager.subscribe(DownloadEventType.STARTED, (data: any) => {
-        updateState();
-        onDownloadStarted?.(data.taskId);
-      })
-    );
+		// Eventos de descarga
+		unsubscribers.push(
+			downloadsManager.subscribe(DownloadEventType.STARTED, (data: any) => {
+				updateState();
+				onDownloadStarted?.(data.taskId);
+			})
+		);
 
-    unsubscribers.push(
-      downloadsManager.subscribe(DownloadEventType.COMPLETED, (data: any) => {
-        updateState();
-        onDownloadCompleted?.(data.taskId);
-      })
-    );
+		unsubscribers.push(
+			downloadsManager.subscribe(DownloadEventType.COMPLETED, (data: any) => {
+				updateState();
+				onDownloadCompleted?.(data.taskId);
+			})
+		);
 
-    unsubscribers.push(
-      downloadsManager.subscribe(DownloadEventType.FAILED, (data: any) => {
-        updateState();
-        onDownloadFailed?.(data.taskId, data.error);
-      })
-    );
+		unsubscribers.push(
+			downloadsManager.subscribe(DownloadEventType.FAILED, (data: any) => {
+				updateState();
+				onDownloadFailed?.(data.taskId, data.error);
+			})
+		);
 
-    // Eventos de progreso y cambios
-    unsubscribers.push(
-      downloadsManager.subscribe(DownloadEventType.PROGRESS, () => {
-        updateState();
-      })
-    );
+		// Eventos de progreso y cambios
+		unsubscribers.push(
+			downloadsManager.subscribe(DownloadEventType.PROGRESS, () => {
+				updateState();
+			})
+		);
 
-    unsubscribers.push(
-      downloadsManager.subscribe("downloads:change", () => {
-        updateState();
-      })
-    );
+		unsubscribers.push(
+			downloadsManager.subscribe("downloads:change", () => {
+				updateState();
+			})
+		);
 
-    // Eventos de cola
-    unsubscribers.push(
-      downloadsManager.subscribe("queue:item_added", () => {
-        updateState();
-      })
-    );
+		// Eventos de cola
+		unsubscribers.push(
+			downloadsManager.subscribe("queue:item_added", () => {
+				updateState();
+			})
+		);
 
-    unsubscribers.push(
-      downloadsManager.subscribe("queue:item_removed", () => {
-        updateState();
-      })
-    );
+		unsubscribers.push(
+			downloadsManager.subscribe("queue:item_removed", () => {
+				updateState();
+			})
+		);
 
-    // Eventos de red y almacenamiento que pueden afectar el estado
-    unsubscribers.push(
-      downloadsManager.subscribe("network:change", () => {
-        updateState();
-      })
-    );
+		// Eventos de red y almacenamiento que pueden afectar el estado
+		unsubscribers.push(
+			downloadsManager.subscribe("network:change", () => {
+				updateState();
+			})
+		);
 
-    unsubscribers.push(
-      downloadsManager.subscribe("storage:change", () => {
-        updateState();
-      })
-    );
+		unsubscribers.push(
+			downloadsManager.subscribe("storage:change", () => {
+				updateState();
+			})
+		);
 
-    return () => {
-      unsubscribers.forEach(unsubscriber => unsubscriber());
-    };
-  }, [isInitialized, updateState, onDownloadStarted, onDownloadCompleted, onDownloadFailed]);
+		return () => {
+			unsubscribers.forEach(unsubscriber => unsubscriber());
+		};
+	}, [isInitialized, updateState, onDownloadStarted, onDownloadCompleted, onDownloadFailed]);
 
-  // Derivar listas filtradas
-  const activeDownloads = useMemo(
-    () =>
-      downloads.filter(
-        (item: DownloadItem) =>
-          item.state === DownloadStates.DOWNLOADING || item.state === DownloadStates.PREPARING
-      ),
-    [downloads]
-  );
+	// Derivar listas filtradas
+	const activeDownloads = useMemo(
+		() =>
+			downloads.filter(
+				(item: DownloadItem) =>
+					item.state === DownloadStates.DOWNLOADING ||
+					item.state === DownloadStates.PREPARING
+			),
+		[downloads]
+	);
 
-  const queuedDownloads = useMemo(
-    () => downloads.filter((item: DownloadItem) => item.state === DownloadStates.QUEUED),
-    [downloads]
-  );
+	const queuedDownloads = useMemo(
+		() => downloads.filter((item: DownloadItem) => item.state === DownloadStates.QUEUED),
+		[downloads]
+	);
 
-  const completedDownloads = useMemo(
-    () => downloads.filter((item: DownloadItem) => item.state === DownloadStates.COMPLETED),
-    [downloads]
-  );
+	const completedDownloads = useMemo(
+		() => downloads.filter((item: DownloadItem) => item.state === DownloadStates.COMPLETED),
+		[downloads]
+	);
 
-  const failedDownloads = useMemo(
-    () => downloads.filter((item: DownloadItem) => item.state === DownloadStates.FAILED),
-    [downloads]
-  );
+	const failedDownloads = useMemo(
+		() => downloads.filter((item: DownloadItem) => item.state === DownloadStates.FAILED),
+		[downloads]
+	);
 
-  // Calcular progreso total
-  const totalProgress = useMemo(() => {
-    if (downloads.length === 0) return 0;
+	// Calcular progreso total
+	const totalProgress = useMemo(() => {
+		if (downloads.length === 0) return 0;
 
-    const totalProgressSum = downloads.reduce(
-      (sum: number, download: DownloadItem) => sum + (download.stats?.progressPercent || 0),
-      0
-    );
+		const totalProgressSum = downloads.reduce(
+			(sum: number, download: DownloadItem) => sum + (download.stats?.progressPercent || 0),
+			0
+		);
 
-    return Math.round(totalProgressSum / downloads.length);
-  }, [downloads]);
+		return Math.round(totalProgressSum / downloads.length);
+	}, [downloads]);
 
-  // Velocidad global
-  const globalSpeed = useMemo(() => queueStats.averageSpeed ?? 0, [queueStats.averageSpeed]);
+	// Velocidad global
+	const globalSpeed = useMemo(() => queueStats.averageSpeed ?? 0, [queueStats.averageSpeed]);
 
-  // API de acciones principales
-  const addDownload = useCallback(
-    async (task: BinaryDownloadTask | StreamDownloadTask, type: DownloadType): Promise<string> => {
-      try {
-        const downloadId = await downloadsManager.addDownload(task, type);
-        updateState();
-        return downloadId ?? "";
-      } catch (err) {
-        const error =
-          err instanceof PlayerError
-            ? err
-            : new PlayerError("DOWNLOAD_FAILED", { originalError: err, taskId: task.id });
-        setError(error);
-        onError?.(error);
-        throw error;
-      }
-    },
-    [updateState, onError]
-  );
+	// API de acciones principales
+	const addDownload = useCallback(
+		async (item: UsableDownloadItem): Promise<string> => {
+			try {
+				// 1. Validar URI
+				if (!isValidDownloadUri(item.uri)) {
+					throw new PlayerError("DOWNLOAD_FAILED", {
+						downloadId: item.id,
+						title: item.title,
+						message: `Invalid download URI: ${item.uri}`,
+					});
+				}
 
-  const removeDownload = useCallback(
-    async (id: string): Promise<void> => {
-      try {
-        await downloadsManager.removeDownload(id);
-        updateState();
-      } catch (err) {
-        const error =
-          err instanceof PlayerError
-            ? err
-            : new PlayerError("DOWNLOAD_FAILED", { originalError: err, downloadId: id });
-        setError(error);
-        onError?.(error);
-        throw error;
-      }
-    },
-    [updateState, onError]
-  );
+				// 2. Asegurar que el item tenga ID (generar desde URI si no tiene)
+				const itemWithId = ensureDownloadId(item);
 
-  const pauseDownload = useCallback(
-    async (id: string): Promise<void> => {
-      try {
-        await downloadsManager.pauseDownload(id);
-        updateState();
-      } catch (err) {
-        const error =
-          err instanceof PlayerError
-            ? err
-            : new PlayerError("DOWNLOAD_FAILED", { originalError: err, downloadId: id });
-        setError(error);
-        onError?.(error);
-        throw error;
-      }
-    },
-    [updateState, onError]
-  );
+				// 3. Verificar si se puede descargar según perfil activo
+				if (!profileManager.canDownload()) {
+					throw new PlayerError("DOWNLOAD_FAILED", {
+						downloadId: itemWithId.id,
+						title: itemWithId.title,
+						message: "No active profile available for downloads",
+					});
+				}
 
-  const resumeDownload = useCallback(
-    async (id: string): Promise<void> => {
-      try {
-        await downloadsManager.resumeDownload(id);
-        updateState();
-      } catch (err) {
-        const error =
-          err instanceof PlayerError
-            ? err
-            : new PlayerError("DOWNLOAD_FAILED", { originalError: err, downloadId: id });
-        setError(error);
-        onError?.(error);
-        throw error;
-      }
-    },
-    [updateState, onError]
-  );
+				// 4. Verificar que no exista ya la descarga
+				const existingDownload = queueManager.getDownload(itemWithId.id);
+				if (existingDownload) {
+					console.log(`[useDownloadsManager] Download already exists: ${itemWithId.title} (${itemWithId.id})`);
+					return itemWithId.id;
+				}
 
-  // cancelDownload es igual que removeDownload en este contexto
-  const cancelDownload = useCallback(
-    async (id: string): Promise<void> => {
-      return removeDownload(id);
-    },
-    [removeDownload]
-  );
+				// 5. Obtener el perfil activo y asignarlo
+				const activeProfileId = profileManager.getActiveProfileId();
+				const profileIds = activeProfileId ? [activeProfileId] : [];
 
-  // API de acciones masivas
-  const clearCompleted = useCallback(async (): Promise<void> => {
-    try {
-      await downloadsManager.clearCompleted();
-      updateState();
-    } catch (err) {
-      const error =
-        err instanceof PlayerError
-          ? err
-          : new PlayerError("DOWNLOAD_FAILED", { originalError: err });
-      setError(error);
-      onError?.(error);
-      throw error;
-    }
-  }, [updateState, onError]);
+				// 6. Crear DownloadItem completo con perfil asignado
+				const downloadItem: DownloadItem = {
+					...itemWithId,
+					profileIds,
+					state: DownloadStates.QUEUED,
+					stats: {
+						progressPercent: 0,
+						bytesDownloaded: 0,
+						totalBytes: 0,
+						retryCount: 0,
+					},
+				};
 
-  const clearFailed = useCallback(async (): Promise<void> => {
-    try {
-      await downloadsManager.clearFailed();
-      updateState();
-    } catch (err) {
-      const error =
-        err instanceof PlayerError
-          ? err
-          : new PlayerError("DOWNLOAD_FAILED", { originalError: err });
-      setError(error);
-      onError?.(error);
-      throw error;
-    }
-  }, [updateState, onError]);
+				// 7. Agregar el DownloadItem completo al QueueManager
+				const downloadId = await queueManager.addDownloadItem(downloadItem);
 
-  const pauseAll = useCallback(async (): Promise<void> => {
-    try {
-      await downloadsManager.pauseAll();
-      updateState();
-    } catch (err) {
-      const error =
-        err instanceof PlayerError
-          ? err
-          : new PlayerError("DOWNLOAD_FAILED", { originalError: err });
-      setError(error);
-      onError?.(error);
-      throw error;
-    }
-  }, [updateState, onError]);
+				// 8. Crear tareas específicas según el tipo para el DownloadsManager
+				let task: BinaryDownloadTask | StreamDownloadTask;
 
-  const resumeAll = useCallback(async (): Promise<void> => {
-    try {
-      await downloadsManager.resumeAll();
-      updateState();
-    } catch (err) {
-      const error =
-        err instanceof PlayerError
-          ? err
-          : new PlayerError("DOWNLOAD_FAILED", { originalError: err });
-      setError(error);
-      onError?.(error);
-      throw error;
-    }
-  }, [updateState, onError]);
+				if (itemWithId.type === DownloadType.BINARY) {
+					task = {
+						id: itemWithId.id,
+						url: itemWithId.uri,
+						destination: `/downloads/binary/${itemWithId.id}`,
+						headers: {},
+						resumable: true,
+					} as BinaryDownloadTask;
+				} else if (itemWithId.type === DownloadType.STREAM) {
+					task = {
+						id: itemWithId.id,
+						manifestUrl: itemWithId.uri,
+						title: itemWithId.title,
+						config: {
+							type: itemWithId.uri.includes('.m3u8') ? 'HLS' : 'DASH',
+							quality: 'auto',
+							drm: itemWithId.drm,
+						},
+					} as StreamDownloadTask;
+				} else {
+					throw new PlayerError("DOWNLOAD_FAILED", {
+						downloadType: itemWithId.type,
+						downloadId: itemWithId.id,
+						message: `Invalid download type: ${itemWithId.type}`,
+					});
+				}
 
-  return {
-    // Estado
-    downloads,
-    activeDownloads,
-    queuedDownloads,
-    completedDownloads,
-    failedDownloads,
+				// 9. Iniciar la descarga a través del DownloadsManager
+				await downloadsManager.addDownload(task, itemWithId.type);
 
-    // Estadísticas globales
-    queueStats,
-    totalProgress,
-    globalSpeed,
+				updateState();
+				return downloadId;
+			} catch (err) {
+				const error =
+					err instanceof PlayerError
+						? err
+						: new PlayerError("DOWNLOAD_FAILED", {
+								originalError: err,
+								downloadId: item.id || "unknown",
+								title: item.title,
+							});
+				setError(error);
+				onError?.(error);
+				throw error;
+			}
+		},
+		[updateState, onError]
+	);
 
-    // Acciones principales
-    addDownload,
-    removeDownload,
-    pauseDownload,
-    resumeDownload,
-    cancelDownload,
+	const removeDownload = useCallback(
+		async (id: string): Promise<void> => {
+			try {
+				await downloadsManager.removeDownload(id);
+				updateState();
+			} catch (err) {
+				const error =
+					err instanceof PlayerError
+						? err
+						: new PlayerError("DOWNLOAD_FAILED", {
+								originalError: err,
+								downloadId: id,
+							});
+				setError(error);
+				onError?.(error);
+				throw error;
+			}
+		},
+		[updateState, onError]
+	);
 
-    // Acciones masivas
-    clearCompleted,
-    clearFailed,
-    pauseAll,
-    resumeAll,
+	const pauseDownload = useCallback(
+		async (id: string): Promise<void> => {
+			try {
+				await downloadsManager.pauseDownload(id);
+				updateState();
+			} catch (err) {
+				const error =
+					err instanceof PlayerError
+						? err
+						: new PlayerError("DOWNLOAD_FAILED", {
+								originalError: err,
+								downloadId: id,
+							});
+				setError(error);
+				onError?.(error);
+				throw error;
+			}
+		},
+		[updateState, onError]
+	);
 
-    // Estado del sistema
-    isInitialized,
-    isProcessing,
-    isPaused,
-    error,
-  };
+	const resumeDownload = useCallback(
+		async (id: string): Promise<void> => {
+			try {
+				await downloadsManager.resumeDownload(id);
+				updateState();
+			} catch (err) {
+				const error =
+					err instanceof PlayerError
+						? err
+						: new PlayerError("DOWNLOAD_FAILED", {
+								originalError: err,
+								downloadId: id,
+							});
+				setError(error);
+				onError?.(error);
+				throw error;
+			}
+		},
+		[updateState, onError]
+	);
+
+	// cancelDownload es igual que removeDownload en este contexto
+	const cancelDownload = useCallback(
+		async (id: string): Promise<void> => {
+			return removeDownload(id);
+		},
+		[removeDownload]
+	);
+
+	// API de acciones masivas
+	const clearCompleted = useCallback(async (): Promise<void> => {
+		try {
+			await downloadsManager.clearCompleted();
+			updateState();
+		} catch (err) {
+			const error =
+				err instanceof PlayerError
+					? err
+					: new PlayerError("DOWNLOAD_FAILED", { originalError: err });
+			setError(error);
+			onError?.(error);
+			throw error;
+		}
+	}, [updateState, onError]);
+
+	const clearFailed = useCallback(async (): Promise<void> => {
+		try {
+			await downloadsManager.clearFailed();
+			updateState();
+		} catch (err) {
+			const error =
+				err instanceof PlayerError
+					? err
+					: new PlayerError("DOWNLOAD_FAILED", { originalError: err });
+			setError(error);
+			onError?.(error);
+			throw error;
+		}
+	}, [updateState, onError]);
+
+	const pauseAll = useCallback(async (): Promise<void> => {
+		try {
+			await downloadsManager.pauseAll();
+			updateState();
+		} catch (err) {
+			const error =
+				err instanceof PlayerError
+					? err
+					: new PlayerError("DOWNLOAD_FAILED", { originalError: err });
+			setError(error);
+			onError?.(error);
+			throw error;
+		}
+	}, [updateState, onError]);
+
+	const resumeAll = useCallback(async (): Promise<void> => {
+		try {
+			await downloadsManager.resumeAll();
+			updateState();
+		} catch (err) {
+			const error =
+				err instanceof PlayerError
+					? err
+					: new PlayerError("DOWNLOAD_FAILED", { originalError: err });
+			setError(error);
+			onError?.(error);
+			throw error;
+		}
+	}, [updateState, onError]);
+
+	return {
+		// Estado
+		downloads,
+		activeDownloads,
+		queuedDownloads,
+		completedDownloads,
+		failedDownloads,
+
+		// Estadísticas globales
+		queueStats,
+		totalProgress,
+		globalSpeed,
+
+		// Acciones principales
+		addDownload,
+		removeDownload,
+		pauseDownload,
+		resumeDownload,
+		cancelDownload,
+
+		// Acciones masivas
+		clearCompleted,
+		clearFailed,
+		pauseAll,
+		resumeAll,
+
+		// Estado del sistema
+		isInitialized,
+		isProcessing,
+		isPaused,
+		error,
+	};
 }

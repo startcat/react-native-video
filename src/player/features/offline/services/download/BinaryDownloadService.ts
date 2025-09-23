@@ -435,7 +435,7 @@ export class BinaryDownloadService {
 
       // Crear tarea de descarga usando la API correcta
       const downloadTask = RNBackgroundDownloader.download(downloadOptions)
-        .begin(({ expectedBytes }) => {
+        .begin(({ expectedBytes }: { expectedBytes: number }) => {
           // Callback de inicio
           activeDownload.progress.totalBytes = expectedBytes || 0;
           this.activeDownloads.set(task.id, activeDownload);
@@ -452,26 +452,28 @@ export class BinaryDownloadService {
             `Download started: ${task.id} - ${task.url} (${expectedBytes} bytes)`
           );
         })
-        .progress(({ bytesDownloaded, bytesTotal }) => {
-          // Callback de progreso
-          const progress: BinaryDownloadProgress = {
-            taskId: task.id,
-            bytesWritten: bytesDownloaded,
-            totalBytes: bytesTotal,
-            percent: bytesTotal > 0 ? Math.round((bytesDownloaded / bytesTotal) * 100) : 0,
-          };
+        .progress(
+          ({ bytesDownloaded, bytesTotal }: { bytesDownloaded: number; bytesTotal: number }) => {
+            // Callback de progreso
+            const progress: BinaryDownloadProgress = {
+              taskId: task.id,
+              bytesWritten: bytesDownloaded,
+              totalBytes: bytesTotal,
+              percent: bytesTotal > 0 ? Math.round((bytesDownloaded / bytesTotal) * 100) : 0,
+            };
 
-          activeDownload.progress = progress;
-          this.activeDownloads.set(task.id, activeDownload);
+            activeDownload.progress = progress;
+            this.activeDownloads.set(task.id, activeDownload);
 
-          this.eventEmitter.emit(DownloadEventType.PROGRESS, progress);
-          this.currentLogger.debug(TAG, `Download progress: ${task.id} - ${progress.percent}%`);
-        })
+            this.eventEmitter.emit(DownloadEventType.PROGRESS, progress);
+            this.currentLogger.debug(TAG, `Download progress: ${task.id} - ${progress.percent}%`);
+          }
+        )
         .done(() => {
           // Callback de completado
           this.handleDownloadSuccess(task.id);
         })
-        .error(({ error, errorCode }) => {
+        .error(({ error, errorCode }: { error: string; errorCode: number }) => {
           // Callback de error
           this.handleDownloadError(task.id, { message: error, code: errorCode });
         });
@@ -830,7 +832,7 @@ export class BinaryDownloadService {
     this.config.showNotifications = enabled;
     // No hay configuración global de notificaciones en esta librería
     // Las notificaciones se configuran por descarga en downloadOptions.isNotificationVisible
-    
+
     this.currentLogger.info(TAG, `Notifications ${enabled ? "enabled" : "disabled"}`);
   }
 

@@ -254,6 +254,25 @@ export interface DownloadItem {
     subtitles?: DownloadedSubtitleItem[];
 }
 
+export interface UsableDownloadItem {
+    // Identificación
+    id?: string; // Opcional - se genera automáticamente desde la URI si no se proporciona
+    type: DownloadType;
+    title: string;
+    uri: string;
+
+    // Metadata
+    media?: any; // Metadatos del video, que dependen de proyecto
+    licenseExpirationDate?: number; // Fecha de expiración de licencia
+
+    // Configuración DRM
+    drm?: Drm; // Configuración DRM completa
+    drmScheme?: string; // Esquema DRM específico
+
+    // Subtítulos
+    subtitles?: DownloadedSubtitleItem[];
+}
+
 export interface DownloadMetrics {
     totalDownloaded: number;
     totalFailed: number;
