@@ -77,7 +77,7 @@ export class NetworkService {
 
 	public async initialize(config?: Partial<NetworkServiceConfig>): Promise<void> {
 		if (this.isMonitoring) {
-			this.currentLogger.info(TAG, "NetworkService already initialized");
+			this.currentLogger.debug(TAG, "NetworkService already initialized");
 			return;
 		}
 

@@ -6,39 +6,47 @@
 import { useCallback, useEffect, useState } from "react";
 import { PlayerError } from "../../../core/errors";
 import { queueManager } from "../managers/QueueManager";
-import { DownloadEventType, DownloadStates, DownloadType } from "../types";
+import { DownloadEventType, DownloadItemMetadata, DownloadStates, DownloadType } from "../types";
 import { calculateRemainingTime, generateDownloadIdFromUri, isValidUri } from "../utils";
 
 interface UseDownloadsProgressReturn {
 	// Progreso actual
-	progress: number; // number (0-100)
-	bytesDownloaded: number; // number
-	totalBytes: number; // number
+	progress: number; // (0-100)
+	bytesDownloaded: number;
+	totalBytes: number;
 
 	// Performance
-	speed: number; // number (bytes/sec)
-	remainingTime: number; // number (seconds)
-	elapsedTime: number; // number (seconds)
+	speed: number; // (bytes/sec)
+	remainingTime: number; // (seconds)
+	elapsedTime: number; // (seconds)
 
 	// Estado
-	state: DownloadStates; // DownloadStates
-	error: PlayerError | null; // PlayerError | null
-	retryCount: number; // number
+	state: DownloadStates;
+	error: PlayerError | null;
+	retryCount: number;
 
 	// Acciones específicas
-	pause: () => Promise<void>; // () => Promise<void>
-	resume: () => Promise<void>; // () => Promise<void>
-	cancel: () => Promise<void>; // () => Promise<void>
-	retry: () => Promise<void>; // () => Promise<void>
+	pause: () => Promise<void>;
+	resume: () => Promise<void>;
+	cancel: () => Promise<void>;
+	retry: () => Promise<void>;
 
 	// Metadata
-	startTime: number | null; // number | null
-	completionTime: number | null; // number | null
-	downloadType: DownloadType; // DownloadType
-	isActive: boolean; // boolean
-	canPause: boolean; // boolean
-	canResume: boolean; // boolean
-	canRetry: boolean; // boolean
+	metadata: DownloadItemMetadata | null;
+	startTime: number | null;
+	completionTime: number | null;
+	downloadType: DownloadType;
+	isActive: boolean;
+	canPause: boolean;
+	canResume: boolean;
+	canRetry: boolean;
+
+	// DRM
+	drmLicenseStatus: "pending" | "acquired" | "expired" | "none";
+
+	// Red y calidad
+	networkType?: "wifi" | "cellular";
+	streamQuality?: "auto" | "low" | "medium" | "high" | "max";
 }
 
 /*
@@ -121,6 +129,7 @@ export function useDownloadsProgress(
 			retry: () => retryDownload(downloadId),
 
 			// Metadata
+			metadata: createMetadataFromDownloadItem(downloadItem),
 			startTime,
 			completionTime,
 			downloadType: downloadItem.type || DownloadType.BINARY,
@@ -128,6 +137,13 @@ export function useDownloadsProgress(
 			canPause,
 			canResume,
 			canRetry,
+
+			// DRM
+			drmLicenseStatus: stats.drmLicenseStatus || "none",
+
+			// Red y calidad
+			networkType: stats.networkType,
+			streamQuality: stats.streamQuality,
 		};
 	}, [downloadId]);
 
@@ -266,6 +282,7 @@ function createInitialState(): UseDownloadsProgressReturn {
 		retry: noopAsync,
 
 		// Metadata
+		metadata: null,
 		startTime: null,
 		completionTime: null,
 		downloadType: DownloadType.BINARY,
@@ -273,6 +290,13 @@ function createInitialState(): UseDownloadsProgressReturn {
 		canPause: false,
 		canResume: false,
 		canRetry: false,
+
+		// DRM
+		drmLicenseStatus: "none",
+
+		// Red y calidad
+		networkType: undefined,
+		streamQuality: undefined,
 	};
 }
 
@@ -302,6 +326,7 @@ function createNotDownloadedState(): UseDownloadsProgressReturn {
 		retry: noopAsync,
 
 		// Metadata
+		metadata: null,
 		startTime: null,
 		completionTime: null,
 		downloadType: DownloadType.BINARY,
@@ -309,5 +334,48 @@ function createNotDownloadedState(): UseDownloadsProgressReturn {
 		canPause: false,
 		canResume: false,
 		canRetry: false,
+
+		// DRM
+		drmLicenseStatus: "none",
+
+		// Red y calidad
+		networkType: undefined,
+		streamQuality: undefined,
+	};
+}
+
+/*
+ * Crea un objeto DownloadItemMetadata a partir de un DownloadItem
+ *
+ * @param downloadItem - Item de descarga del cual extraer metadata
+ * @returns Metadata estructurada o null si no hay suficiente información
+ *
+ */
+
+function createMetadataFromDownloadItem(downloadItem: any): DownloadItemMetadata | null {
+	if (!downloadItem || !downloadItem.id) {
+		return null;
+	}
+
+	return {
+		// Identificación
+		id: downloadItem.id,
+		title: downloadItem.title || "",
+		uri: downloadItem.uri || "",
+
+		// Metadata
+		media: downloadItem.media,
+		licenseExpirationDate: downloadItem.licenseExpirationDate,
+
+		// Perfiles asociados
+		profileIds: downloadItem.profileIds || [],
+
+		// Configuración DRM
+		drm: downloadItem.drm,
+		drmScheme: downloadItem.drmScheme,
+
+		// Estado y archivos
+		state: downloadItem.state,
+		fileUri: downloadItem.fileUri,
 	};
 }
