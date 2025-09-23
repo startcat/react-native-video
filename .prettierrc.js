@@ -15,7 +15,8 @@ module.exports = {
       files: "*.{js,jsx,ts,tsx}",
       options: {
         parser: "typescript",
-        tabWidth: 2,
+        tabWidth: 4,
+        useTabs: true,
       },
     },
     {
