@@ -6,11 +6,11 @@
 import { UsableDownloadItem } from "../types";
 
 /*
- * Genera un ID único basado en la URI de descarga
- * Maneja espacios, query strings y caracteres especiales
+ * Genera un ID consistente basado en la URI de descarga
+ * SIEMPRE devuelve el mismo ID para la misma URI
  *
  * @param uri - URI de la descarga
- * @returns ID único limpio para la descarga
+ * @returns ID consistente para la descarga
  *
  */
 
@@ -40,15 +40,11 @@ export function generateDownloadIdFromUri(uri: string): string {
 			cleanUri = cleanUri.substring(0, 80) + "-" + hash;
 		}
 
-		// Agregar timestamp para asegurar unicidad
-		const timestamp = Date.now().toString(36);
-
-		return `download-${cleanUri}-${timestamp}`;
+		return `download-${cleanUri}`;
 	} catch (error) {
 		// Fallback si hay algún error procesando la URI
-		const timestamp = Date.now().toString(36);
-		const randomId = Math.random().toString(36).substring(2, 9);
-		return `download-fallback-${timestamp}-${randomId}`;
+		const hash = simpleHash(uri);
+		return `download-fallback-${hash}`;
 	}
 }
 
@@ -86,20 +82,26 @@ export function ensureDownloadId(item: UsableDownloadItem): UsableDownloadItem &
 }
 
 /*
- * Valida si una URI es válida para descargas
+ * Valida si una URI es válida para descargas (validación completa)
  *
  * @param uri - URI a validar
+ * @param strict - Si true, usa validación estricta con URL parsing
  * @returns true si la URI es válida
  *
  */
 
-export function isValidDownloadUri(uri: string): boolean {
+export function isValidDownloadUri(uri: string, strict: boolean = true): boolean {
 	if (!uri || typeof uri !== "string" || uri.trim() === "") {
 		return false;
 	}
 
+	if (!strict) {
+		// Validación rápida con regex
+		return /^https?:\/\//.test(uri.trim());
+	}
+
 	try {
-		// Intentar crear un objeto URL para validar
+		// Validación estricta con URL parsing
 		const url = new URL(uri);
 
 		// Verificar protocolos soportados
@@ -135,4 +137,36 @@ export function normalizeUri(uri: string): string {
 		// Si falla el parsing, devolver la URI original limpia
 		return uri.trim().toLowerCase();
 	}
+}
+
+/*
+ * Valida si una cadena es una URI válida (validación rápida con regex)
+ * Alias para isValidDownloadUri con strict=false
+ *
+ * @param input - Cadena a validar
+ * @returns true si es una URI válida
+ *
+ */
+
+export function isValidUri(input: string): boolean {
+	return isValidDownloadUri(input, false);
+}
+
+/*
+ * Calcula el tiempo restante de descarga basado en estadísticas
+ *
+ * @param stats - Objeto con estadísticas de descarga
+ * @returns Tiempo restante en segundos
+ *
+ */
+
+export function calculateRemainingTime(stats: any): number {
+	const { bytesDownloaded = 0, totalBytes = 0, downloadSpeed = 0 } = stats;
+
+	if (downloadSpeed <= 0 || totalBytes <= 0 || bytesDownloaded >= totalBytes) {
+		return 0;
+	}
+
+	const remainingBytes = totalBytes - bytesDownloaded;
+	return Math.round(remainingBytes / downloadSpeed);
 }
