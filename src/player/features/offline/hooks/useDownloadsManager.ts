@@ -274,7 +274,7 @@ export function useDownloadsManager(
       try {
         const downloadId = await downloadsManager.addDownload(task, type);
         updateState();
-        return downloadId;
+        return downloadId ?? "";
       } catch (err) {
         const error =
           err instanceof PlayerError

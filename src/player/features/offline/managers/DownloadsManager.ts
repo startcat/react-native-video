@@ -844,7 +844,9 @@ export class DownloadsManager {
       services: {
         download: downloadService.getConfig(),
         network: this.config.networkMonitoringEnabled ? networkService.getCurrentStatus() : null,
-        storage: this.config.storageMonitoringEnabled ? await storageService.getStorageInfo() : null,
+        storage: this.config.storageMonitoringEnabled
+          ? await storageService.getStorageInfo()
+          : null,
       },
     };
   }
