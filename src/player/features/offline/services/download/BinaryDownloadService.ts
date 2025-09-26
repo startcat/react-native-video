@@ -760,12 +760,8 @@ export class BinaryDownloadService {
 	 */
 
 	private isValidUrl(url: string): boolean {
-		try {
-			const parsed = new URL(url);
-			return parsed.protocol === "http:" || parsed.protocol === "https:";
-		} catch {
-			return false;
-		}
+		// Usar regex para evitar bug de React Native con new URL()
+		return /^https?:\/\//.test(url.trim());
 	}
 
 	/*

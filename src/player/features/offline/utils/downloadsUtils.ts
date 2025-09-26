@@ -81,40 +81,6 @@ export function ensureDownloadId(item: UsableDownloadItem): UsableDownloadItem &
 	};
 }
 
-/*
- * Valida si una URI es válida para descargas (validación completa)
- *
- * @param uri - URI a validar
- * @param strict - Si true, usa validación estricta con URL parsing
- * @returns true si la URI es válida
- *
- */
-
-export function isValidDownloadUri(uri: string, strict: boolean = true): boolean {
-	if (!uri || typeof uri !== "string" || uri.trim() === "") {
-		return false;
-	}
-
-	if (!strict) {
-		// Validación rápida con regex
-		return /^https?:\/\//.test(uri.trim());
-	}
-
-	try {
-		// Validación estricta con URL parsing
-		const url = new URL(uri);
-
-		// Verificar protocolos soportados
-		const supportedProtocols = ["http:", "https:"];
-		if (!supportedProtocols.includes(url.protocol)) {
-			return false;
-		}
-
-		return true;
-	} catch (error) {
-		return false;
-	}
-}
 
 /*
  * Normaliza una URI para comparaciones
@@ -125,31 +91,38 @@ export function isValidDownloadUri(uri: string, strict: boolean = true): boolean
  */
 
 export function normalizeUri(uri: string): string {
+	// Normalización simple sin new URL() para evitar bug de React Native
 	try {
-		const url = new URL(uri);
-		// Normalizar eliminando fragment y ordenando query params
-		url.hash = "";
-		const params = new URLSearchParams(url.search);
-		params.sort();
-		url.search = params.toString();
-		return url.toString();
+		// Limpiar espacios y convertir a minúsculas
+		let normalized = uri.trim().toLowerCase();
+		
+		// Remover fragment (#hash)
+		const hashIndex = normalized.indexOf('#');
+		if (hashIndex !== -1) {
+			normalized = normalized.substring(0, hashIndex);
+		}
+		
+		return normalized;
 	} catch (error) {
-		// Si falla el parsing, devolver la URI original limpia
+		// Fallback: devolver la URI original limpia
 		return uri.trim().toLowerCase();
 	}
 }
 
 /*
  * Valida si una cadena es una URI válida (validación rápida con regex)
- * Alias para isValidDownloadUri con strict=false
  *
- * @param input - Cadena a validar
+ * @param uri - Cadena a validar
  * @returns true si es una URI válida
  *
  */
 
-export function isValidUri(input: string): boolean {
-	return isValidDownloadUri(input, false);
+export function isValidUri(uri: string): boolean {
+	if (!uri || typeof uri !== "string" || uri.trim() === "") {
+		return false;
+	}
+
+	return /^https?:\/\//.test(uri.trim());
 }
 
 /*

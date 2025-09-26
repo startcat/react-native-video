@@ -22,7 +22,7 @@ import {
 	StreamDownloadTask,
 	UsableDownloadItem,
 } from "../types";
-import { ensureDownloadId, isValidDownloadUri } from "../utils/downloadsUtils";
+import { ensureDownloadId, isValidUri } from "../utils/downloadsUtils";
 
 // Tipos específicos del hook
 interface UseDownloadsManagerOptions {
@@ -275,7 +275,7 @@ export function useDownloadsManager(
 		async (item: UsableDownloadItem): Promise<string> => {
 			try {
 				// 1. Validar URI
-				if (!isValidDownloadUri(item.uri)) {
+				if (!isValidUri(item.uri)) {
 					throw new PlayerError("DOWNLOAD_FAILED", {
 						downloadId: item.id,
 						title: item.title,
@@ -298,7 +298,9 @@ export function useDownloadsManager(
 				// 4. Verificar que no exista ya la descarga
 				const existingDownload = queueManager.getDownload(itemWithId.id);
 				if (existingDownload) {
-					console.log(`[useDownloadsManager] Download already exists: ${itemWithId.title} (${itemWithId.id})`);
+					console.log(
+						`[useDownloadsManager] Download already exists: ${itemWithId.title} (${itemWithId.id})`
+					);
 					return itemWithId.id;
 				}
 
@@ -319,8 +321,16 @@ export function useDownloadsManager(
 					},
 				};
 
+				console.log(
+					`[useDownloadsManager] DownloadItem created: ${itemWithId.title} (${itemWithId.id}) ${JSON.stringify(downloadItem)}`
+				);
+
 				// 7. Agregar el DownloadItem completo al QueueManager
 				const downloadId = await queueManager.addDownloadItem(downloadItem);
+
+				console.log(
+					`[useDownloadsManager] DownloadItem added to queue: ${itemWithId.title} (${itemWithId.id}) ${downloadId}`
+				);
 
 				// 8. Crear tareas específicas según el tipo para el DownloadsManager
 				let task: BinaryDownloadTask | StreamDownloadTask;
@@ -339,8 +349,8 @@ export function useDownloadsManager(
 						manifestUrl: itemWithId.uri,
 						title: itemWithId.title,
 						config: {
-							type: itemWithId.uri.includes('.m3u8') ? 'HLS' : 'DASH',
-							quality: 'auto',
+							type: itemWithId.uri.includes(".m3u8") ? "HLS" : "DASH",
+							quality: "auto",
 							drm: itemWithId.drm,
 						},
 					} as StreamDownloadTask;
@@ -352,12 +362,22 @@ export function useDownloadsManager(
 					});
 				}
 
+				console.log(
+					`[useDownloadsManager] Download task created: ${itemWithId.title} (${itemWithId.id}) ${JSON.stringify(task)}`
+				);
+
 				// 9. Iniciar la descarga a través del DownloadsManager
+				console.log(`[useDownloadsManager] About to call downloadsManager.addDownload for: ${itemWithId.id}`);
 				await downloadsManager.addDownload(task, itemWithId.type);
+
+				console.log(
+					`[useDownloadsManager] Download task added to manager: ${itemWithId.title} (${itemWithId.id}) ${JSON.stringify(task)}`
+				);
 
 				updateState();
 				return downloadId;
 			} catch (err) {
+				console.error(`[useDownloadsManager] Download failed: ${JSON.stringify(err)}`);
 				const error =
 					err instanceof PlayerError
 						? err
