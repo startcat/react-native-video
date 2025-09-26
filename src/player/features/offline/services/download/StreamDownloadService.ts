@@ -54,7 +54,6 @@ export class StreamDownloadService {
 
 	public async initialize(config?: Partial<StreamDownloadServiceConfig>): Promise<void> {
 		if (this.isInitialized) {
-			this.currentLogger.debug(TAG, "StreamDownloadService already initialized");
 			return;
 		}
 

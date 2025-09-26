@@ -52,7 +52,6 @@ export class ProfileManager {
 
 	public async initialize(config?: Partial<ProfileManagerConfig>): Promise<void> {
 		if (this.isInitialized) {
-			this.currentLogger.debug(TAG, "ProfileManager already initialized");
 			return;
 		}
 

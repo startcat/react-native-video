@@ -68,7 +68,6 @@ export class BinaryDownloadService {
 
 	public async initialize(config?: Partial<BinaryDownloadServiceConfig>): Promise<void> {
 		if (this.isInitialized) {
-			this.currentLogger.debug(TAG, "BinaryDownloadService already initialized");
 			return;
 		}
 

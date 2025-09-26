@@ -73,7 +73,6 @@ export class ConfigManager {
 
 	public async initialize(config?: Partial<ConfigManagerConfig>): Promise<void> {
 		if (this.isInitialized) {
-			this.currentLogger.debug(TAG, "ConfigManager already initialized");
 			return;
 		}
 
