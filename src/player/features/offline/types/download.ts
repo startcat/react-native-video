@@ -1,7 +1,6 @@
 import { DownloadTask } from "@kesha-antonov/react-native-background-downloader";
-import { PlayerError } from "../../../types";
+import { IDrm, PlayerError } from "../../../types";
 import { LogLevel } from "../../logger";
-import { Drm } from "./drm";
 
 export enum DownloadStates {
 	RESTART = "RESTART",
@@ -81,7 +80,7 @@ export interface StreamDownloadConfig {
 	quality?: "auto" | "low" | "medium" | "high" | "max";
 	audioLanguages?: string[];
 	subtitleLanguages?: string[];
-	drm?: Drm;
+	drm?: IDrm;
 }
 
 export interface ActiveBinaryDownload {
@@ -211,7 +210,7 @@ export interface DownloadItemMetadata {
 	profileIds: string[];
 
 	// Configuración DRM
-	drm?: Drm; // Configuración DRM completa
+	drm?: IDrm; // Configuración DRM completa
 	drmScheme?: string; // Esquema DRM específico
 
 	// Estado y archivos
@@ -234,7 +233,7 @@ export interface DownloadItem {
 	profileIds: string[]; // Array de IDs de perfiles que tienen acceso
 
 	// Configuración DRM
-	drm?: Drm; // Configuración DRM completa
+	drm?: IDrm; // Configuración DRM completa
 	drmScheme?: string; // Esquema DRM específico
 
 	// Estado y archivos
@@ -288,7 +287,7 @@ export interface UsableDownloadItem {
 	licenseExpirationDate?: number; // Fecha de expiración de licencia
 
 	// Configuración DRM
-	drm?: Drm; // Configuración DRM completa
+	drm?: IDrm; // Configuración DRM completa
 	drmScheme?: string; // Esquema DRM específico
 
 	// Subtítulos

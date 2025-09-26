@@ -602,23 +602,15 @@ export class DownloadService {
 	 */
 
 	private isValidUrl(url: string): boolean {
-		try {
-			const parsed = new URL(url);
-			return parsed.protocol === "http:" || parsed.protocol === "https:";
-		} catch {
-			return false;
-		}
+		// Usar regex para evitar bug de React Native con new URL()
+		return /^https?:\/\//.test(url.trim());
 	}
 
 	private isValidManifestUrl(url: string): boolean {
-		try {
-			const parsed = new URL(url);
-			const isHttps = parsed.protocol === "http:" || parsed.protocol === "https:";
-			const isManifest = url.includes(".m3u8") || url.includes(".mpd");
-			return isHttps && isManifest;
-		} catch {
-			return false;
-		}
+		// Usar regex para evitar bug de React Native con new URL()
+		const isHttps = /^https?:\/\//.test(url.trim());
+		const isManifest = url.includes(".m3u8") || url.includes(".mpd");
+		return isHttps && isManifest;
 	}
 
 	/*
