@@ -72,7 +72,6 @@ export class QueueManager {
 
 	public async initialize(config?: Partial<QueueManagerConfig>): Promise<void> {
 		if (this.isInitialized) {
-			this.currentLogger.debug(TAG, "QueueManager already initialized");
 			return;
 		}
 

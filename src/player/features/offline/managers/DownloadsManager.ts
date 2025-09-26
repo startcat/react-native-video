@@ -76,7 +76,6 @@ export class DownloadsManager {
 
 	public async initialize(config?: Partial<DownloadsManagerConfig>): Promise<void> {
 		if (this.state.isInitialized) {
-			this.currentLogger.debug(TAG, "DownloadsManager already initialized");
 			return;
 		}
 

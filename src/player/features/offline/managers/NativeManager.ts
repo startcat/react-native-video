@@ -68,7 +68,6 @@ export class NativeManager {
 
 	public async initialize(config?: Partial<NativeManagerConfig>): Promise<void> {
 		if (this.isInitialized) {
-			this.currentLogger.debug(TAG, "NativeManager already initialized");
 			return;
 		}
 

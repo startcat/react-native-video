@@ -192,7 +192,6 @@ export class DownloadService {
 
 	public async initialize(config?: Partial<DownloadServiceConfig>): Promise<void> {
 		if (this.isInitialized) {
-			this.currentLogger.debug(TAG, "DownloadService already initialized");
 			return;
 		}
 
