@@ -658,7 +658,16 @@ export class QueueManager {
 	}
 
 	/*
-	 * Inicia el procesamiento de descargas
+	 * Inicia el procesamiento de descargas (método público)
+	 *
+	 */
+
+	public start(): void {
+		this.startProcessing();
+	}
+
+	/*
+	 * Inicia el procesamiento de descargas (método interno)
 	 *
 	 */
 
