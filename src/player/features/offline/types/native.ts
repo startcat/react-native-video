@@ -1,5 +1,5 @@
 import { LogLevel } from '../../logger';
-import { Drm } from '../types/drm';
+import { IDrm } from '../../../types';
 
 export interface NativeManagerConfig {
     logEnabled: boolean;
@@ -26,7 +26,7 @@ export interface NativeDownloadConfig {
     title: string;
     quality?: 'auto' | 'low' | 'medium' | 'high' | 'max';
     allowCellular?: boolean;
-    drm?: Drm;
+    drm?: IDrm | null;
     subtitles?: Array<{
         language: string;
         uri: string;
