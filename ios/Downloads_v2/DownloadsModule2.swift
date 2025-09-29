@@ -130,6 +130,9 @@ class DownloadsModule2: RCTEventEmitter {
                 self.setupContentKeySession()
                 self.setupNetworkMonitoring()
                 
+                // Pausar todas las descargas por defecto - JavaScript controlará cuando resumir
+                self.pauseAllDownloads()
+                
                 self.isInitialized = true
                 
                 DispatchQueue.main.async {
@@ -820,6 +823,21 @@ class DownloadsModule2: RCTEventEmitter {
                         "state": downloadInfo.state.stringValue
                     ])
                 }
+            }
+        }
+    }
+    
+    private func pauseAllDownloads() {
+        // Pausar todas las descargas activas
+        for (_, downloadTask) in downloadTasks {
+            downloadTask.suspend()
+        }
+        
+        // Actualizar estado de todas las descargas
+        for (downloadId, var downloadInfo) in activeDownloads {
+            if downloadInfo.state == .downloading || downloadInfo.state == .queued {
+                downloadInfo.state = .paused
+                activeDownloads[downloadId] = downloadInfo
             }
         }
     }

@@ -67,6 +67,41 @@ export class QueueManager {
 	}
 
 	/*
+	 * Configura los event listeners para conectar con eventos nativos
+	 */
+	private setupNativeEventListeners(): void {
+		// Suscribirse a eventos de progreso del NativeManager
+		nativeManager.subscribe("download_progress", (data: any) => {
+			this.handleNativeProgressEvent(data).catch(error => {
+				this.currentLogger.error(TAG, "Failed to handle native progress event", error);
+			});
+		});
+
+		// Suscribirse a eventos de estado del NativeManager
+		nativeManager.subscribe("download_state_changed", (data: any) => {
+			this.handleNativeStateEvent(data).catch(error => {
+				this.currentLogger.error(TAG, "Failed to handle native state event", error);
+			});
+		});
+
+		// Suscribirse a eventos de completado del NativeManager
+		nativeManager.subscribe("download_completed", (data: any) => {
+			this.handleNativeCompletedEvent(data).catch(error => {
+				this.currentLogger.error(TAG, "Failed to handle native completed event", error);
+			});
+		});
+
+		// Suscribirse a eventos de error del NativeManager
+		nativeManager.subscribe("download_error", (data: any) => {
+			this.handleNativeErrorEvent(data).catch(error => {
+				this.currentLogger.error(TAG, "Failed to handle native error event", error);
+			});
+		});
+
+		this.currentLogger.debug(TAG, "Native event listeners configured");
+	}
+
+	/*
 	 * Inicializa el servicio de cola de descargas
 	 *
 	 */
@@ -87,6 +122,9 @@ export class QueueManager {
 		try {
 			// Cargar cola persistida usando PersistenceService
 			await this.loadPersistedQueue();
+
+			// Configurar event listeners para eventos nativos
+			this.setupNativeEventListeners();
 
 			// Inicializar procesamiento automático
 			if (this.config.autoProcess) {
@@ -1209,6 +1247,89 @@ export class QueueManager {
 	 * Limpia recursos al destruir
 	 *
 	 */
+
+	/*
+	 * Handlers para eventos nativos
+	 */
+	private async handleNativeProgressEvent(data: any): Promise<void> {
+		const { downloadId, percent } = data;
+		
+		if (this.downloadQueue.has(downloadId)) {
+			// Actualizar progreso en el item de la cola (solo acepta 2 argumentos)
+			await this.updateDownloadProgress(downloadId, percent);
+			
+			// También actualizar bytes si están disponibles
+			const item = this.downloadQueue.get(downloadId);
+			if (item && item.stats) {
+				item.stats.bytesDownloaded = data.bytesDownloaded || item.stats.bytesDownloaded || 0;
+				item.stats.totalBytes = data.totalBytes || item.stats.totalBytes || 0;
+				item.stats.downloadSpeed = data.speed || item.stats.downloadSpeed || 0;
+			}
+			
+			// Re-emitir evento para que los hooks lo reciban
+			this.eventEmitter.emit(DownloadEventType.PROGRESS, {
+				downloadId,
+				percent: Math.floor(percent),
+				item: this.downloadQueue.get(downloadId),
+				bytesDownloaded: data.bytesDownloaded || 0,
+				totalBytes: data.totalBytes || 0,
+				speed: data.speed || 0,
+				remainingTime: data.remainingTime || 0,
+			});
+		}
+	}
+
+	private async handleNativeStateEvent(data: any): Promise<void> {
+		const { downloadId, state } = data;
+		
+		if (this.downloadQueue.has(downloadId)) {
+			// Convertir estado nativo a estado interno si es necesario
+			const mappedState = this.mapNativeStateToInternal(state);
+			await this.updateDownloadState(downloadId, mappedState);
+		}
+	}
+
+	private async handleNativeCompletedEvent(data: any): Promise<void> {
+		const { downloadId } = data;
+		
+		if (this.downloadQueue.has(downloadId)) {
+			await this.notifyDownloadCompleted(downloadId, data.fileUri || data.path);
+		}
+	}
+
+	private async handleNativeErrorEvent(data: any): Promise<void> {
+		const { downloadId, error } = data;
+		
+		if (this.downloadQueue.has(downloadId)) {
+			const playerError = new PlayerError(error.code || "DOWNLOAD_FAILED", {
+				originalError: error,
+				downloadId,
+				message: error.message || "Native download error",
+			});
+			await this.notifyDownloadFailed(downloadId, playerError);
+		}
+	}
+
+	private mapNativeStateToInternal(nativeState: string): DownloadStates {
+		// Mapear estados nativos a estados internos
+		switch (nativeState.toUpperCase()) {
+			case "DOWNLOADING":
+			case "ACTIVE":
+				return DownloadStates.DOWNLOADING;
+			case "QUEUED":
+			case "PENDING":
+				return DownloadStates.QUEUED;
+			case "PAUSED":
+				return DownloadStates.PAUSED;
+			case "COMPLETED":
+				return DownloadStates.COMPLETED;
+			case "FAILED":
+			case "ERROR":
+				return DownloadStates.FAILED;
+			default:
+				return DownloadStates.QUEUED;
+		}
+	}
 
 	public destroy(): void {
 		this.stopProcessing();
