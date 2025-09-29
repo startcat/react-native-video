@@ -28,6 +28,7 @@ import {
 	StreamDownloadTask,
 } from "../types";
 import { configManager } from "./ConfigManager";
+import { nativeManager } from "./NativeManager";
 import { profileManager } from "./ProfileManager";
 import { queueManager } from "./QueueManager";
 
@@ -627,6 +628,9 @@ export class DownloadsManager {
 			// Coordinar con QueueManager para pausar todas las descargas
 			await queueManager.pauseAll();
 
+			// Pausar explícitamente el procesamiento nativo
+			await nativeManager.stopDownloadProcessing();
+
 			this.eventEmitter.emit("downloads:paused_all", {
 				timestamp: Date.now(),
 				systemState: await this.getSystemState(),
@@ -659,6 +663,9 @@ export class DownloadsManager {
 
 			// Reanudar todas las descargas pausadas a través del QueueManager
 			await queueManager.resumeAll();
+
+			// Iniciar explícitamente el procesamiento nativo
+			await nativeManager.startDownloadProcessing();
 
 			this.eventEmitter.emit("downloads:resumed_all", {
 				timestamp: Date.now(),
@@ -780,6 +787,9 @@ export class DownloadsManager {
 		// Coordinar con QueueManager para iniciar procesamiento
 		this.currentLogger.info(TAG, "Starting queue processing (via start() method)");
 		queueManager.start();
+
+		// Iniciar explícitamente el procesamiento nativo
+		await nativeManager.startDownloadProcessing();
 
 		this.eventEmitter.emit("system:started", {
 			timestamp: Date.now(),

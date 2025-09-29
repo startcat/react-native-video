@@ -209,6 +209,16 @@ export class NativeManager {
 				};
 			}
 
+			// Asegurar que todas las descargas estén pausadas por defecto después de la inicialización
+			// El módulo nativo debe inicializar en estado pausado, pero lo garantizamos explícitamente
+			try {
+				await this.nativeModule.pauseAll();
+				this.currentLogger.info(TAG, "All downloads paused after native initialization");
+			} catch (error) {
+				this.currentLogger.warn(TAG, "Failed to pause downloads after initialization", error);
+				// No es crítico si falla el pauseAll inicial
+			}
+
 			this.currentLogger.info(TAG, "Native module initialized", this.systemInfo);
 		} catch (error) {
 			this.currentLogger.error(TAG, "Failed to initialize native module", error);
@@ -515,6 +525,43 @@ export class NativeManager {
 			this.currentLogger.error(TAG, "Failed to resume all downloads", error);
 			throw new PlayerError("NATIVE_RESUME_ALL_FAILED", {
 				originalError: error,
+			});
+		}
+	}
+
+	/**
+	 * Inicia el procesamiento de descargas de forma controlada
+	 * Este método debe ser llamado explícitamente cuando se quiera empezar las descargas
+	 */
+	public async startDownloadProcessing(): Promise<void> {
+		this.validateInitialized();
+
+		try {
+			await this.nativeModule.resumeAll();
+			this.currentLogger.info(TAG, "Download processing started via startDownloadProcessing()");
+		} catch (error) {
+			this.currentLogger.error(TAG, "Failed to start download processing", error);
+			throw new PlayerError("DOWNLOAD_FAILED", {
+				originalError: error,
+				operation: "startDownloadProcessing",
+			});
+		}
+	}
+
+	/**
+	 * Pausa todo el procesamiento de descargas
+	 */
+	public async stopDownloadProcessing(): Promise<void> {
+		this.validateInitialized();
+
+		try {
+			await this.nativeModule.pauseAll();
+			this.currentLogger.info(TAG, "Download processing stopped via stopDownloadProcessing()");
+		} catch (error) {
+			this.currentLogger.error(TAG, "Failed to stop download processing", error);
+			throw new PlayerError("DOWNLOAD_FAILED", {
+				originalError: error,
+				operation: "stopDownloadProcessing",
 			});
 		}
 	}

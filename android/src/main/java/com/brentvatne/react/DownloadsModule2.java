@@ -802,13 +802,15 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 if (this.reactContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE)
                         == PackageManager.PERMISSION_GRANTED) {
                     DownloadService.start(this.reactContext, AxDownloadService.class);
-                    DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+                    // Inicializar en estado PAUSADO por defecto - JavaScript controlará cuando resumir
+                    DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
                 } else {
                     throw new SecurityException("Foreground service permission required");
                 }
             } else {
                 DownloadService.start(this.reactContext, AxDownloadService.class);
-                DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+                // Inicializar en estado PAUSADO por defecto - JavaScript controlará cuando resumir
+                DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
             }
         }
     }
