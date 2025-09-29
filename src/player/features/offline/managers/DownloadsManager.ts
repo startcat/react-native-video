@@ -149,11 +149,13 @@ export class DownloadsManager {
 		}
 
 		// Inicializar QueueManager (antes del DownloadService)
+		// COORDINAR autoProcess con autoStart para respetar configuración de inicio automático
 		initPromises.push(
 			queueManager.initialize({
 				logEnabled: this.config.logEnabled,
 				logLevel: this.config.logLevel,
 				maxConcurrentDownloads: this.config.maxConcurrentDownloads,
+				autoProcess: this.config.autoStart,
 			})
 		);
 
@@ -622,8 +624,8 @@ export class DownloadsManager {
 			this.state.isPaused = true;
 			this.state.lastUpdated = Date.now();
 
-			// TODO: Implementar pausa masiva cuando esté disponible el QueueManager
-			// Por ahora, usar el DownloadService directamente
+			// Coordinar con QueueManager para pausar todas las descargas
+			await queueManager.pauseAll();
 
 			this.eventEmitter.emit("downloads:paused_all", {
 				timestamp: Date.now(),
@@ -646,7 +648,17 @@ export class DownloadsManager {
 			this.state.isPaused = false;
 			this.state.lastUpdated = Date.now();
 
-			// TODO: Implementar reanudación masiva cuando esté disponible el QueueManager
+			// Inicializar procesamiento del QueueManager si no se había iniciado automáticamente
+			if (!this.config.autoStart) {
+				this.currentLogger.info(
+					TAG,
+					"Manually starting queue processing (autoStart was disabled)"
+				);
+				queueManager.start();
+			}
+
+			// Reanudar todas las descargas pausadas a través del QueueManager
+			await queueManager.resumeAll();
 
 			this.eventEmitter.emit("downloads:resumed_all", {
 				timestamp: Date.now(),
@@ -764,6 +776,10 @@ export class DownloadsManager {
 		this.state.isProcessing = true;
 		this.state.isPaused = false;
 		this.state.lastUpdated = Date.now();
+
+		// Coordinar con QueueManager para iniciar procesamiento
+		this.currentLogger.info(TAG, "Starting queue processing (via start() method)");
+		queueManager.start();
 
 		this.eventEmitter.emit("system:started", {
 			timestamp: Date.now(),

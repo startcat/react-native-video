@@ -7,6 +7,8 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.ReadableArray;
+import com.facebook.react.bridge.ReadableType;
+import com.facebook.react.bridge.ReadableMapKeySetIterator;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.Arguments;
@@ -134,7 +136,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 params.putDouble("speed", calculateDownloadSpeed(contentID));
                 params.putInt("remainingTime", estimateRemainingTime(contentID, progress));
 
-                sendEvent("downloadProgress", params);
+                sendEvent("overonDownloadProgress", params);
             }
         }
     };
@@ -241,7 +243,9 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         Log.d(TAG, "Adding download");
 
         try {
+            Log.d(TAG, "Step 1: Validating config");
             if (!validateDownloadConfig(config)) {
+                Log.e(TAG, "Config validation failed");
                 promise.reject("INVALID_CONFIG", "Invalid download configuration");
                 return;
             }
@@ -249,33 +253,57 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             String id = config.getString(PROP_ID);
             String uri = config.getString(PROP_URI);
             String title = config.getString(PROP_TITLE);
+            Log.d(TAG, "Step 2: Config validated - ID: " + id + ", URI: " + uri);
 
             // Check if download already exists
             if (findDownloadById(id) != null) {
+                Log.e(TAG, "Download already exists: " + id);
                 promise.reject("DOWNLOAD_EXISTS", "Download with this ID already exists");
                 return;
             }
+            Log.d(TAG, "Step 3: Download does not exist, proceeding");
 
             // Create media item
+            Log.d(TAG, "Step 4: Creating MediaItem");
             MediaItem mediaItem = createMediaItemFromConfig(config);
+            if (mediaItem == null) {
+                Log.e(TAG, "Failed to create MediaItem");
+                promise.reject("MEDIA_ITEM_FAILED", "Failed to create MediaItem");
+                return;
+            }
+            Log.d(TAG, "Step 5: MediaItem created successfully");
 
             // Download DRM license if needed
             if (config.hasKey(PROP_DRM)) {
+                Log.d(TAG, "Step 6: Processing DRM license");
                 downloadLicenseForItem(mediaItem);
+            } else {
+                Log.d(TAG, "Step 6: No DRM, skipping license");
             }
 
             // Prepare download helper
+            Log.d(TAG, "Step 7: Checking AxDownloadTracker availability");
             if (mAxDownloadTracker != null) {
+                Log.d(TAG, "Step 8: Getting DownloadHelper");
                 DownloadHelper helper = mAxDownloadTracker.getDownloadHelper(mediaItem, this.reactContext);
+                if (helper == null) {
+                    Log.e(TAG, "Failed to get DownloadHelper");
+                    promise.reject("HELPER_FAILED", "Failed to get DownloadHelper");
+                    return;
+                }
+                
+                Log.d(TAG, "Step 9: Storing helper and calling prepare");
                 activeHelpers.put(id, helper);
                 helper.prepare(this);
+                Log.d(TAG, "Step 10: Prepare called, resolving promise");
                 promise.resolve(null);
             } else {
+                Log.e(TAG, "AxDownloadTracker is null");
                 promise.reject("DOWNLOAD_TRACKER_NULL", "DownloadTracker is not initialized");
             }
 
         } catch (Exception e) {
-            Log.e(TAG, "Error adding download: " + e.getMessage(), e);
+            Log.e(TAG, "Error adding download at step: " + e.getMessage(), e);
             promise.reject("ADD_DOWNLOAD_FAILED", "Failed to add download: " + e.getMessage());
         }
     }
@@ -296,6 +324,11 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             if (manager != null) {
                 DownloadService.sendRemoveDownload(reactContext, AxDownloadService.class, id, false);
             }
+
+            // Clean up speed tracking
+            downloadStartTimes.remove(id);
+            lastBytesDownloaded.remove(id);
+            lastSpeedCheckTime.remove(id);
 
             // Release license if exists
             releaseLicenseForDownload(id);
@@ -384,7 +417,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
                 WritableMap params = Arguments.createMap();
                 params.putString("message", "Downloads will resume when app returns to foreground");
-                sendEvent("downloadResumeDeferred", params);
+                sendEvent("overonDownloadResumeDeferred", params);
                 return;
             }
 
@@ -845,10 +878,27 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         // Add headers if present
         if (drm.hasKey("headers")) {
             ReadableMap headers = drm.getMap("headers");
-            Map<String, String> requestHeaders = new HashMap<>();
-            // Convert ReadableMap to Map<String, String>
-            // Implementation depends on your specific needs
-            drmBuilder.setLicenseRequestHeaders(requestHeaders);
+            if (headers != null) {
+                Map<String, String> requestHeaders = new HashMap<>();
+                
+                // Convert ReadableMap to Map<String, String>
+                try {
+                    ReadableMapKeySetIterator iterator = headers.keySetIterator();
+                    while (iterator.hasNextKey()) {
+                        String key = iterator.nextKey();
+                        if (headers.hasKey(key) && headers.getType(key) == ReadableType.String) {
+                            String value = headers.getString(key);
+                            if (value != null) {
+                                requestHeaders.put(key, value);
+                            }
+                        }
+                    }
+                    Log.d(TAG, "Added DRM headers: " + requestHeaders.size() + " entries");
+                    drmBuilder.setLicenseRequestHeaders(requestHeaders);
+                } catch (Exception e) {
+                    Log.w(TAG, "Error processing DRM headers", e);
+                }
+            }
         }
 
         return drmBuilder.build();
@@ -912,16 +962,69 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         return info;
     }
 
+    // Speed tracking for downloads
+    private Map<String, Long> downloadStartTimes = new ConcurrentHashMap<>();
+    private Map<String, Long> lastBytesDownloaded = new ConcurrentHashMap<>();
+    private Map<String, Long> lastSpeedCheckTime = new ConcurrentHashMap<>();
+
     private double calculateDownloadSpeed(String downloadId) {
-        // Implementation depends on your speed tracking mechanism
-        // This is a placeholder
-        return 0.0;
+        try {
+            Download download = findDownloadById(downloadId);
+            if (download == null) return 0.0;
+
+            long currentTime = System.currentTimeMillis();
+            long currentBytes = download.getBytesDownloaded();
+            
+            Long lastTime = lastSpeedCheckTime.get(downloadId);
+            Long lastBytes = lastBytesDownloaded.get(downloadId);
+            
+            if (lastTime != null && lastBytes != null && currentTime > lastTime) {
+                long timeDiff = currentTime - lastTime;
+                long bytesDiff = currentBytes - lastBytes;
+                
+                if (timeDiff > 0) {
+                    // Speed in bytes per second
+                    double speed = (double) bytesDiff / (timeDiff / 1000.0);
+                    
+                    // Update tracking data
+                    lastSpeedCheckTime.put(downloadId, currentTime);
+                    lastBytesDownloaded.put(downloadId, currentBytes);
+                    
+                    return Math.max(0, speed); // Ensure non-negative
+                }
+            }
+            
+            // Initialize tracking for new downloads
+            lastSpeedCheckTime.put(downloadId, currentTime);
+            lastBytesDownloaded.put(downloadId, currentBytes);
+            return 0.0;
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Error calculating download speed for " + downloadId, e);
+            return 0.0;
+        }
     }
 
     private int estimateRemainingTime(String downloadId, int progress) {
-        // Implementation depends on your speed tracking mechanism
-        // This is a placeholder
-        return 0;
+        try {
+            if (progress >= 100) return 0;
+            
+            double speed = calculateDownloadSpeed(downloadId);
+            if (speed <= 0) return 0;
+            
+            Download download = findDownloadById(downloadId);
+            if (download == null || download.contentLength <= 0) return 0;
+            
+            long remainingBytes = download.contentLength - download.getBytesDownloaded();
+            if (remainingBytes <= 0) return 0;
+            
+            // Estimate in seconds
+            return (int) Math.ceil(remainingBytes / speed);
+            
+        } catch (Exception e) {
+            Log.w(TAG, "Error estimating remaining time for " + downloadId, e);
+            return 0;
+        }
     }
 
     private String generateUniqueId(String uri) {
@@ -1023,7 +1126,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             WritableMap params = Arguments.createMap();
             params.putString("message", "Downloads cannot start now due to Android restrictions. Will retry when app returns to foreground.");
             params.putString("error", e.getMessage());
-            sendEvent("downloadResumeDeferred", params);
+            sendEvent("overonDownloadResumeDeferred", params);
 
         } else {
             Log.e(TAG, "Unexpected error in resumeAll", e);
@@ -1061,7 +1164,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
                         WritableMap params = Arguments.createMap();
                         params.putString("message", "Downloads resumed successfully");
-                        sendEvent("downloadResumedAfterDefer", params);
+                        sendEvent("overonDownloadResumedAfterDefer", params);
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to execute pending resumeAll()", e);
@@ -1099,6 +1202,11 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         }
         activeHelpers.clear();
 
+        // Clear speed tracking maps
+        downloadStartTimes.clear();
+        lastBytesDownloaded.clear();
+        lastSpeedCheckTime.clear();
+
         if (mAxDownloadTracker != null) {
             mAxDownloadTracker.removeListener(this);
             mAxDownloadTracker = null;
@@ -1129,27 +1237,71 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         WritableMap params = Arguments.createMap();
         params.putString("id", id);
         params.putString("state", mapDownloadState(state));
-        sendEvent("downloadStateChanged", params);
+        sendEvent("overonDownloadStateChanged", params);
     }
 
     @Override
     public void onPrepared(@NonNull DownloadHelper helper) {
-        Log.d(TAG, "Download prepared");
+        Log.d(TAG, "onPrepared callback triggered");
 
-        // Find the corresponding download and start it
-        // Implementation depends on how you track helper-to-download mapping
+        try {
+            // Find the download ID associated with this helper
+            String downloadId = null;
+            for (Map.Entry<String, DownloadHelper> entry : activeHelpers.entrySet()) {
+                if (entry.getValue() == helper) {
+                    downloadId = entry.getKey();
+                    break;
+                }
+            }
 
-        WritableMap params = Arguments.createMap();
-        sendEvent("downloadPrepared", params);
+            if (downloadId == null) {
+                Log.e(TAG, "Could not find download ID for prepared helper");
+                return;
+            }
+
+            Log.d(TAG, "Starting download for prepared helper: " + downloadId);
+
+            // Create download request from the prepared helper with our custom ID
+            DownloadRequest downloadRequest = helper.getDownloadRequest(downloadId, downloadId.getBytes());
+            
+            // Add the download to the DownloadManager
+            DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
+            if (manager != null) {
+                manager.addDownload(downloadRequest);
+                Log.d(TAG, "Download added to DownloadManager: " + downloadId);
+            } else {
+                Log.e(TAG, "DownloadManager is null, cannot start download");
+                return;
+            }
+
+            // Release the helper as it's no longer needed
+            helper.release();
+            activeHelpers.remove(downloadId);
+
+            WritableMap params = Arguments.createMap();
+            params.putString("downloadId", downloadId);
+            params.putString("message", "Download started successfully");
+            Log.d(TAG, "Sending downloadPrepared event for: " + downloadId);
+            sendEvent("overonDownloadPrepared", params);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error in onPrepared: " + e.getMessage(), e);
+            
+            WritableMap params = Arguments.createMap();
+            params.putString("error", e.getMessage());
+            sendEvent("overonDownloadPrepareError", params);
+        }
     }
 
     @Override
     public void onPrepareError(@NonNull DownloadHelper helper, @NonNull IOException e) {
-        Log.e(TAG, "Download prepare error", e);
+        Log.e(TAG, "onPrepareError callback triggered: " + e.getMessage(), e);
 
         WritableMap params = Arguments.createMap();
         params.putString("error", e.getMessage());
-        sendEvent("downloadPrepareError", params);
+        params.putString("details", e.toString());
+        Log.d(TAG, "Sending downloadPrepareError event");
+        sendEvent("overonDownloadPrepareError", params);
     }
 
     // =============================================================================
@@ -1160,14 +1312,14 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     public void onLicenseDownloaded(String manifestUrl) {
         WritableMap params = Arguments.createMap();
         params.putString("contentId", manifestUrl);
-        sendEvent("licenseDownloaded", params);
+        sendEvent("overonLicenseDownloaded", params);
     }
 
     @Override
     public void onLicenseDownloadedWithResult(String manifestUrl, byte[] keyIds) {
         WritableMap params = Arguments.createMap();
         params.putString("contentId", manifestUrl);
-        sendEvent("licenseDownloaded", params);
+        sendEvent("overonLicenseDownloaded", params);
     }
 
     @Override
@@ -1176,7 +1328,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         params.putString("contentId", manifestUrl);
         params.putString("error", description);
         params.putInt("code", code);
-        sendEvent("licenseError", params);
+        sendEvent("overonLicenseError", params);
     }
 
     @Override
@@ -1184,7 +1336,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         WritableMap params = Arguments.createMap();
         params.putString("contentId", manifestUrl);
         params.putBoolean("isValid", isValid);
-        sendEvent("licenseCheck", params);
+        sendEvent("overonLicenseCheck", params);
     }
 
     @Override
@@ -1193,14 +1345,14 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         params.putString("contentId", manifestUrl);
         params.putString("error", description);
         params.putInt("code", code);
-        sendEvent("licenseCheckFailed", params);
+        sendEvent("overonLicenseCheckFailed", params);
     }
 
     @Override
     public void onLicenseReleased(String manifestUrl) {
         WritableMap params = Arguments.createMap();
         params.putString("contentId", manifestUrl);
-        sendEvent("licenseReleased", params);
+        sendEvent("overonLicenseReleased", params);
     }
 
     @Override
@@ -1209,14 +1361,14 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         params.putString("contentId", manifestUrl);
         params.putString("error", description);
         params.putInt("code", code);
-        sendEvent("licenseReleaseFailed", params);
+        sendEvent("overonLicenseReleaseFailed", params);
     }
 
     @Override
     public void onLicenseKeysRestored(String manifestUrl, byte[] keyIds) {
         WritableMap params = Arguments.createMap();
         params.putString("contentId", manifestUrl);
-        sendEvent("licenseKeysRestored", params);
+        sendEvent("overonLicenseKeysRestored", params);
     }
 
     @Override
@@ -1225,13 +1377,13 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         params.putString("contentId", manifestUrl);
         params.putString("error", description);
         params.putInt("code", code);
-        sendEvent("licenseRestoreFailed", params);
+        sendEvent("overonLicenseRestoreFailed", params);
     }
 
     @Override
     public void onAllLicensesReleased() {
         WritableMap params = Arguments.createMap();
-        sendEvent("allLicensesReleased", params);
+        sendEvent("overonAllLicensesReleased", params);
     }
 
     @Override
@@ -1239,6 +1391,6 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         WritableMap params = Arguments.createMap();
         params.putString("error", description);
         params.putInt("code", code);
-        sendEvent("allLicensesReleaseFailed", params);
+        sendEvent("overonAllLicensesReleaseFailed", params);
     }
 }

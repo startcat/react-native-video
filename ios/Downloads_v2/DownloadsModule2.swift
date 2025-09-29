@@ -89,29 +89,29 @@ class DownloadsModule2: RCTEventEmitter {
     
     override func supportedEvents() -> [String]! {
         return [
-            "downloadProgress",
-            "downloadStateChanged",
-            "downloadCompleted",
-            "downloadError",
-            "licenseDownloaded",
-            "licenseError",
-            "licenseExpired",
-            "licenseCheck",
-            "licenseCheckFailed",
-            "licenseReleased",
-            "licenseReleaseFailed",
-            "licenseKeysRestored",
-            "licenseRestoreFailed",
-            "allLicensesReleased",
-            "allLicensesReleaseFailed",
-            "networkChanged",
-            "storageWarning",
-            "downloadsPaused",
-            "downloadsResumed",
-            "downloadResumeDeferred",
-            "downloadResumedAfterDefer",
-            "downloadPrepared",
-            "downloadPrepareError"
+            "overonDownloadProgress",
+            "overonDownloadStateChanged",
+            "overonDownloadCompleted",
+            "overonDownloadError",
+            "overonLicenseDownloaded",
+            "overonLicenseError",
+            "overonLicenseExpired",
+            "overonLicenseCheck",
+            "overonLicenseCheckFailed",
+            "overonLicenseReleased",
+            "overonLicenseReleaseFailed",
+            "overonLicenseKeysRestored",
+            "overonLicenseRestoreFailed",
+            "overonAllLicensesReleased",
+            "overonAllLicensesReleaseFailed",
+            "overonNetworkChanged",
+            "overonStorageWarning",
+            "overonDownloadsPaused",
+            "overonDownloadsResumed",
+            "overonDownloadResumeDeferred",
+            "overonDownloadResumedAfterDefer",
+            "overonDownloadPrepared",
+            "overonDownloadPrepareError"
         ]
     }
     
@@ -318,7 +318,7 @@ class DownloadsModule2: RCTEventEmitter {
                 downloadInfo.state = .paused
                 self.activeDownloads[downloadId] = downloadInfo
                 
-                self.sendEvent(withName: "downloadStateChanged", body: [
+                self.sendEvent(withName: "overonDownloadStateChanged", body: [
                     "id": downloadId,
                     "state": downloadInfo.state.stringValue
                 ])
@@ -346,7 +346,7 @@ class DownloadsModule2: RCTEventEmitter {
                 downloadInfo.state = .downloading
                 self.activeDownloads[downloadId] = downloadInfo
                 
-                self.sendEvent(withName: "downloadStateChanged", body: [
+                self.sendEvent(withName: "overonDownloadStateChanged", body: [
                     "id": downloadId,
                     "state": downloadInfo.state.stringValue
                 ])
@@ -376,7 +376,7 @@ class DownloadsModule2: RCTEventEmitter {
                 }
             }
             
-            self.sendEvent(withName: "downloadsPaused", body: ["reason": "user"])
+            self.sendEvent(withName: "overonDownloadsPaused", body: ["reason": "user"])
             
             DispatchQueue.main.async {
                 resolve(nil)
@@ -396,7 +396,7 @@ class DownloadsModule2: RCTEventEmitter {
                 }
             }
             
-            self.sendEvent(withName: "downloadsResumed", body: ["reason": "user"])
+            self.sendEvent(withName: "overonDownloadsResumed", body: ["reason": "user"])
             
             DispatchQueue.main.async {
                 resolve(nil)
@@ -548,7 +548,7 @@ class DownloadsModule2: RCTEventEmitter {
             
             let isValid = self.checkLicenseValidity(for: contentId)
             
-            self.sendEvent(withName: "licenseCheck", body: [
+            self.sendEvent(withName: "overonLicenseCheck", body: [
                 "contentId": contentId,
                 "isValid": isValid
             ])
@@ -815,7 +815,7 @@ class DownloadsModule2: RCTEventEmitter {
                     downloadInfo.state = .downloading
                     activeDownloads[downloadId] = downloadInfo
                     
-                    sendEvent(withName: "downloadStateChanged", body: [
+                    sendEvent(withName: "overonDownloadStateChanged", body: [
                         "id": downloadId,
                         "state": downloadInfo.state.stringValue
                     ])
@@ -917,7 +917,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             downloadInfo.completionTime = Date()
             activeDownloads[downloadId] = downloadInfo
             
-            sendEvent(withName: "downloadCompleted", body: [
+            sendEvent(withName: "overonDownloadCompleted", body: [
                 "id": downloadId,
                 "path": location.path,
                 "duration": Date().timeIntervalSince(downloadInfo.startTime!)
@@ -940,7 +940,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 downloadInfo.progress = progress
                 activeDownloads[downloadId] = downloadInfo
                 
-                sendEvent(withName: "downloadProgress", body: [
+                sendEvent(withName: "overonDownloadProgress", body: [
                     "id": downloadId,
                     "progress": Int(progress * 100),
                     "speed": downloadInfo.speed,
@@ -958,7 +958,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 downloadInfo.error = error
                 activeDownloads[downloadId] = downloadInfo
                 
-                sendEvent(withName: "downloadError", body: [
+                sendEvent(withName: "overonDownloadError", body: [
                     "id": downloadId,
                     "error": [
                         "code": "DOWNLOAD_FAILED",
