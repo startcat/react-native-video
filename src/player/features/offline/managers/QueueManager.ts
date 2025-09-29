@@ -12,6 +12,7 @@ import { DEFAULT_CONFIG_QUEUE, LOGGER_DEFAULTS } from "../defaultConfigs";
 import { persistenceService } from "../services/storage/PersistenceService";
 import { storageService } from "../services/storage/StorageService";
 import { downloadsManager } from "./DownloadsManager";
+import { nativeManager } from "./NativeManager";
 import { profileManager } from "./ProfileManager";
 
 import {
@@ -387,6 +388,22 @@ export class QueueManager {
 	public resumeAll(): void {
 		this.isPaused = false;
 		this.currentLogger.info(TAG, "All downloads resumed");
+		
+		// Sincronizar estado con el módulo nativo después de reanudar
+		// Esto es crítico cuando hay descargas existentes que fueron reanudadas
+		this.syncWithNativeState().catch(error => {
+			this.currentLogger.error(TAG, "Failed to sync with native state after resumeAll", error);
+		});
+		
+		// Forzar procesamiento inmediato del queue después de reanudar
+		// Esto es necesario cuando hay descargas existentes que fueron reanudadas
+		// en el módulo nativo y necesitan ser procesadas inmediatamente
+		if (this.isProcessing && !this.isPaused) {
+			this.currentLogger.info(TAG, "Forcing immediate queue processing after resumeAll");
+			this.processQueue().catch(error => {
+				this.currentLogger.error(TAG, "Failed to process queue after resumeAll", error);
+			});
+		}
 	}
 
 	/*
@@ -1126,6 +1143,65 @@ export class QueueManager {
 			}
 		} catch (error) {
 			this.currentLogger.error(TAG, `Failed to load persisted queue: ${error}`);
+		}
+	}
+
+	/*
+	 * Sincroniza el estado del QueueManager con el estado del módulo nativo
+	 * Esto es crítico después de reanudar descargas existentes
+	 *
+	 */
+
+	private async syncWithNativeState(): Promise<void> {
+		try {
+			this.currentLogger.info(TAG, "Syncing queue state with native module");
+			
+			// Obtener todas las descargas del módulo nativo
+			const nativeDownloads = await nativeManager.getDownloads();
+			
+			if (!nativeDownloads || nativeDownloads.length === 0) {
+				this.currentLogger.debug(TAG, "No native downloads found during sync");
+				return;
+			}
+			
+			// Sincronizar estado para cada descarga
+			let syncedCount = 0;
+			for (const nativeDownload of nativeDownloads) {
+				if (!nativeDownload.id) continue;
+				
+				const localItem = this.downloadQueue.get(nativeDownload.id);
+				if (localItem && localItem.state !== nativeDownload.state) {
+					this.currentLogger.info(
+						TAG, 
+						`Syncing state for ${nativeDownload.id}: ${localItem.state} -> ${nativeDownload.state}`
+					);
+					
+					// Actualizar estado local con estado nativo
+					localItem.state = nativeDownload.state as DownloadStates;
+					
+					// Si está descargando en nativo, marcarlo como tal localmente
+					if (nativeDownload.state === 'DOWNLOADING') {
+						this.currentlyDownloading.add(nativeDownload.id);
+					} else {
+						this.currentlyDownloading.delete(nativeDownload.id);
+					}
+					
+					this.downloadQueue.set(nativeDownload.id, localItem);
+					syncedCount++;
+				}
+			}
+			
+			// Persistir cambios si hubo sincronizaciones
+			if (syncedCount > 0) {
+				await persistenceService.saveDownloadState(this.downloadQueue);
+				this.currentLogger.info(TAG, `Synced ${syncedCount} downloads with native state`);
+			} else {
+				this.currentLogger.debug(TAG, "All download states already in sync");
+			}
+			
+		} catch (error: any) {
+			this.currentLogger.error(TAG, "Failed to sync with native state", error);
+			// No lanzar error - esto es una operación de sincronización que no debe fallar
 		}
 	}
 

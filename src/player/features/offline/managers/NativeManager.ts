@@ -15,7 +15,6 @@ import {
 	DownloadFailedEvent,
 	DownloadItem,
 	DownloadProgressEvent,
-	Drm,
 	NativeDownloadConfig,
 	NativeDownloadStats,
 	NativeManagerConfig,
@@ -23,6 +22,8 @@ import {
 	NativeManagerEventType,
 	SystemInfo,
 } from "../types";
+
+import { IDrm } from "../../../types";
 
 const TAG = LOG_TAGS.NATIVE_MANAGER;
 
@@ -119,18 +120,29 @@ export class NativeManager {
 			// Buscar el módulo nativo
 			this.nativeModule = NativeModules.DownloadsModule2;
 
+			console.log(
+				`[NativeManager] Available native modules:`,
+				Object.keys(NativeModules).filter(name => name.includes("Download"))
+			);
+			console.log(`[NativeManager] DownloadsModule2 available:`, !!this.nativeModule);
+
 			if (this.nativeModule) {
 				// Crear event emitter nativo
 				this.nativeEventEmitter = new NativeEventEmitter(this.nativeModule);
 				this.currentLogger.debug(TAG, `Native module found for ${Platform.OS}`);
+				console.log(`[NativeManager] Native module DownloadsModule2 loaded successfully`);
 			} else {
 				this.currentLogger.warn(
 					TAG,
 					`Native module DownloadsModule2 not found for ${Platform.OS}`
 				);
+				console.warn(
+					`[NativeManager] DownloadsModule2 not available. Stream downloads will not work.`
+				);
 			}
 		} catch (error) {
 			this.currentLogger.error(TAG, "Error setting up native module", error);
+			console.error(`[NativeManager] Error setting up native module:`, error);
 			throw new PlayerError("NATIVE_MODULE_SETUP_FAILED", {
 				originalError: error,
 				platform: Platform.OS,
@@ -144,25 +156,32 @@ export class NativeManager {
 		}
 
 		const events = [
-			"downloadProgress",
-			"downloadStateChanged",
-			"downloadCompleted",
-			"downloadError",
-			"licenseDownloaded",
-			"licenseError",
-			"licenseExpired",
-			"licenseCheck",
-			"licenseCheckFailed",
+			"overonDownloadProgress",
+			"overonDownloadStateChanged",
+			"overonDownloadCompleted",
+			"overonDownloadError",
+			"overonDownloadPrepared",
+			"overonDownloadPrepareError",
+			"overonLicenseDownloaded",
+			"overonLicenseError",
+			"overonLicenseExpired",
+			"overonLicenseCheck",
+			"overonLicenseCheckFailed",
 		];
+
+		console.log(`[NativeManager] Setting up native event listeners for:`, events);
 
 		events.forEach(eventName => {
 			const subscription = this.nativeEventEmitter!.addListener(eventName, (data: any) => {
+				console.log(`[NativeManager] Native event listener triggered: ${eventName}`, data);
 				this.handleNativeEvent(eventName, data);
 			});
 
 			this.eventSubscriptions.set(eventName, subscription);
+			console.log(`[NativeManager] Event listener configured for: ${eventName}`);
 		});
 
+		console.log(`[NativeManager] All ${events.length} native event listeners configured`);
 		this.currentLogger.debug(TAG, `Configured ${events.length} native event listeners`);
 	}
 
@@ -207,34 +226,51 @@ export class NativeManager {
 
 	private handleNativeEvent(eventName: string, data: any): void {
 		try {
+			console.log(`[NativeManager] Received native event: ${eventName}`, data);
+
 			// Buffer del evento para debugging
 			this.bufferEvent(eventName, data);
 
 			// Mapear evento nativo a evento del manager
 			switch (eventName) {
-				case "downloadProgress":
+				case "overonDownloadProgress":
+					console.log(`[NativeManager] Handling overonDownloadProgress:`, data);
 					this.handleDownloadProgress(data);
 					break;
-				case "downloadStateChanged":
+				case "overonDownloadStateChanged":
+					console.log(`[NativeManager] Handling overonDownloadStateChanged:`, data);
 					this.handleDownloadStateChanged(data);
 					break;
-				case "downloadCompleted":
+				case "overonDownloadCompleted":
+					console.log(`[NativeManager] Handling overonDownloadCompleted:`, data);
 					this.handleDownloadCompleted(data);
 					break;
-				case "downloadError":
+				case "overonDownloadError":
+					console.log(`[NativeManager] Handling overonDownloadError:`, data);
 					this.handleDownloadError(data);
 					break;
-				case "licenseDownloaded":
-				case "licenseError":
-				case "licenseExpired":
-				case "licenseCheck":
-				case "licenseCheckFailed":
+				case "overonDownloadPrepared":
+					console.log(`[NativeManager] Handling overonDownloadPrepared:`, data);
+					this.handleDownloadPrepared(data);
+					break;
+				case "overonDownloadPrepareError":
+					console.log(`[NativeManager] Handling overonDownloadPrepareError:`, data);
+					this.handleDownloadPrepareError(data);
+					break;
+				case "overonLicenseDownloaded":
+				case "overonLicenseError":
+				case "overonLicenseExpired":
+				case "overonLicenseCheck":
+				case "overonLicenseCheckFailed":
+					console.log(`[NativeManager] Handling license event: ${eventName}`, data);
 					this.handleLicenseEvent(eventName, data);
 					break;
 				default:
+					console.warn(`[NativeManager] Unhandled native event: ${eventName}`, data);
 					this.currentLogger.warn(TAG, `Unhandled native event: ${eventName}`, data);
 			}
 		} catch (error) {
+			console.error(`[NativeManager] Error handling native event ${eventName}:`, error);
 			this.currentLogger.error(TAG, `Error handling native event ${eventName}`, error);
 			this.eventEmitter.emit("module_error", {
 				event: eventName,
@@ -291,6 +327,16 @@ export class NativeManager {
 		this.eventEmitter.emit("download_error", errorEvent);
 	}
 
+	private handleDownloadPrepared(data: any): void {
+		console.log(`[NativeManager] Download prepared successfully:`, data);
+		this.eventEmitter.emit("download_prepared", data);
+	}
+
+	private handleDownloadPrepareError(data: any): void {
+		console.log(`[NativeManager] Download prepare failed:`, data);
+		this.eventEmitter.emit("download_prepare_error", data);
+	}
+
 	private handleLicenseEvent(eventName: string, data: any): void {
 		this.eventEmitter.emit(eventName.replace(/([A-Z])/g, "_$1").toLowerCase(), data);
 	}
@@ -316,10 +362,61 @@ export class NativeManager {
 		this.validateInitialized();
 
 		try {
+			console.log(
+				`[NativeManager] About to call nativeModule.addDownload with config:`,
+				JSON.stringify(config, null, 2)
+			);
+			console.log(
+				`[NativeManager] Config validation - ID: ${config.id}, URI: ${config.uri}, Title: ${config.title}`
+			);
+
+			// Verificar que nativeModule tiene la función
+			console.log(
+				`[NativeManager] Available nativeModule methods:`,
+				Object.keys(this.nativeModule)
+			);
+			if (typeof this.nativeModule.addDownload !== "function") {
+				throw new Error("nativeModule.addDownload is not a function");
+			}
+
+			// Verificar si el download ya existe antes de llamar al nativo
+			try {
+				const existingDownload = await this.nativeModule.hasDownload(config.id);
+				console.log(
+					`[NativeManager] hasDownload(${config.id}) returned:`,
+					existingDownload
+				);
+				
+				if (existingDownload) {
+					console.log(`[NativeManager] Download ${config.id} already exists, attempting to resume...`);
+					try {
+						await this.nativeModule.resumeDownload(config.id);
+						console.log(`[NativeManager] Successfully resumed existing download: ${config.id}`);
+						return config.id;
+					} catch (resumeError) {
+						console.warn(`[NativeManager] Failed to resume download, will try to remove and re-add:`, resumeError);
+						try {
+							await this.nativeModule.removeDownload(config.id);
+							console.log(`[NativeManager] Removed existing download: ${config.id}`);
+						} catch (removeError) {
+							console.warn(`[NativeManager] Failed to remove existing download:`, removeError);
+						}
+					}
+				}
+			} catch (e) {
+				console.warn(`[NativeManager] Failed to check existing download:`, e);
+			}
+
+			console.log(`[NativeManager] Calling nativeModule.addDownload...`);
 			const result = await this.nativeModule.addDownload(config);
+			console.log(`[NativeManager] addDownload completed, result:`, result);
+
+			console.log(`[NativeManager] nativeModule.addDownload returned:`, result);
 			this.currentLogger.debug(TAG, `Download added: ${config.id}`);
 			return result || config.id;
 		} catch (error) {
+			console.error(`[NativeManager] nativeModule.addDownload failed:`, error);
+			console.error(`[NativeManager] Failed config was:`, JSON.stringify(config, null, 2));
 			this.currentLogger.error(TAG, `Failed to add download: ${config.id}`, error);
 			throw new PlayerError("NATIVE_ADD_DOWNLOAD_FAILED", {
 				originalError: error,
@@ -445,9 +542,16 @@ export class NativeManager {
 		this.validateInitialized();
 
 		try {
-			const downloads = await this.nativeModule.getDownloads();
-			return downloads || [];
+			const result = await this.nativeModule.getDownloads();
+			console.log(`[NativeManager] getDownloads raw result:`, result);
+
+			// El módulo Android devuelve { downloads: [...] } en lugar de [...]
+			const downloads = result?.downloads || result || [];
+			console.log(`[NativeManager] extracted downloads:`, downloads);
+
+			return Array.isArray(downloads) ? downloads : [];
 		} catch (error) {
+			console.error(`[NativeManager] getDownloads failed:`, error);
 			this.currentLogger.error(TAG, "Failed to get downloads", error);
 			throw new PlayerError("NATIVE_GET_DOWNLOADS_FAILED", {
 				originalError: error,
@@ -569,7 +673,7 @@ export class NativeManager {
 	 *
 	 */
 
-	public async downloadLicense(contentId: string, drmConfig: Drm): Promise<void> {
+	public async downloadLicense(contentId: string, drmConfig: IDrm): Promise<void> {
 		this.validateInitialized();
 
 		try {
