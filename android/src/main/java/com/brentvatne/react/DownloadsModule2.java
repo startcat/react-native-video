@@ -284,18 +284,36 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             // Prepare download helper
             Log.d(TAG, "Step 7: Checking AxDownloadTracker availability");
             if (mAxDownloadTracker != null) {
-                Log.d(TAG, "Step 8: Getting DownloadHelper");
+                Log.d(TAG, "Step 8: Getting DownloadHelper for ID: " + id);
+                Log.d(TAG, "Active helpers before: " + activeHelpers.size());
+                
                 DownloadHelper helper = mAxDownloadTracker.getDownloadHelper(mediaItem, this.reactContext);
                 if (helper == null) {
-                    Log.e(TAG, "Failed to get DownloadHelper");
-                    promise.reject("HELPER_FAILED", "Failed to get DownloadHelper");
+                    Log.e(TAG, "Failed to get DownloadHelper for ID: " + id);
+                    Log.e(TAG, "MediaItem details - ID: " + mediaItem.mediaId + ", URI: " + mediaItem.localConfiguration.uri);
+                    promise.reject("HELPER_FAILED", "Failed to create DownloadHelper for ID: " + id);
                     return;
                 }
                 
-                Log.d(TAG, "Step 9: Storing helper and calling prepare");
+                Log.d(TAG, "Step 9: Storing helper for ID: " + id);
+                // Clean up any existing helper for this ID (shouldn't happen, but safety check)
+                DownloadHelper existingHelper = activeHelpers.get(id);
+                if (existingHelper != null) {
+                    Log.w(TAG, "Found existing helper for ID: " + id + ", releasing it");
+                    try {
+                        existingHelper.release();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error releasing existing helper", e);
+                    }
+                }
+                
                 activeHelpers.put(id, helper);
+                Log.d(TAG, "Active helpers after: " + activeHelpers.size());
+                
+                Log.d(TAG, "Step 10: Calling helper.prepare() for ID: " + id);
                 helper.prepare(this);
-                Log.d(TAG, "Step 10: Prepare called, resolving promise");
+                
+                Log.d(TAG, "Step 11: Prepare called, resolving promise for ID: " + id);
                 promise.resolve(null);
             } else {
                 Log.e(TAG, "AxDownloadTracker is null");
@@ -1244,12 +1262,14 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
     @Override
     public void onPrepared(@NonNull DownloadHelper helper) {
-        Log.d(TAG, "onPrepared callback triggered");
+        Log.d(TAG, "===== onPrepared callback triggered =====");
+        Log.d(TAG, "Active helpers count: " + activeHelpers.size());
 
         try {
             // Find the download ID associated with this helper
             String downloadId = null;
             for (Map.Entry<String, DownloadHelper> entry : activeHelpers.entrySet()) {
+                Log.d(TAG, "Checking helper for ID: " + entry.getKey() + " (match: " + (entry.getValue() == helper) + ")");
                 if (entry.getValue() == helper) {
                     downloadId = entry.getKey();
                     break;
@@ -1258,27 +1278,43 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
             if (downloadId == null) {
                 Log.e(TAG, "Could not find download ID for prepared helper");
+                Log.e(TAG, "Active helpers: " + activeHelpers.keySet());
+                
+                WritableMap errorParams = Arguments.createMap();
+                errorParams.putString("error", "Could not find download ID for prepared helper");
+                sendEvent("overonDownloadPrepareError", errorParams);
                 return;
             }
 
-            Log.d(TAG, "Starting download for prepared helper: " + downloadId);
+            Log.d(TAG, "Found download ID: " + downloadId + " for prepared helper");
+            Log.d(TAG, "Creating DownloadRequest with ID: " + downloadId);
 
             // Create download request from the prepared helper with our custom ID
             DownloadRequest downloadRequest = helper.getDownloadRequest(downloadId, downloadId.getBytes());
             
+            Log.d(TAG, "DownloadRequest created - ID: " + downloadRequest.id + ", URI: " + downloadRequest.uri);
+            
             // Add the download to the DownloadManager
             DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
             if (manager != null) {
+                Log.d(TAG, "Adding download to DownloadManager: " + downloadId);
                 manager.addDownload(downloadRequest);
-                Log.d(TAG, "Download added to DownloadManager: " + downloadId);
+                Log.d(TAG, "Download successfully added to DownloadManager: " + downloadId);
             } else {
                 Log.e(TAG, "DownloadManager is null, cannot start download");
+                
+                WritableMap errorParams = Arguments.createMap();
+                errorParams.putString("error", "DownloadManager is null");
+                errorParams.putString("downloadId", downloadId);
+                sendEvent("overonDownloadPrepareError", errorParams);
                 return;
             }
 
             // Release the helper as it's no longer needed
+            Log.d(TAG, "Releasing helper for: " + downloadId);
             helper.release();
             activeHelpers.remove(downloadId);
+            Log.d(TAG, "Active helpers after removal: " + activeHelpers.size());
 
             WritableMap params = Arguments.createMap();
             params.putString("downloadId", downloadId);
@@ -1288,22 +1324,53 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
         } catch (Exception e) {
             Log.e(TAG, "Error in onPrepared: " + e.getMessage(), e);
+            Log.e(TAG, "Stack trace:", e);
             
             WritableMap params = Arguments.createMap();
             params.putString("error", e.getMessage());
+            params.putString("details", e.toString());
             sendEvent("overonDownloadPrepareError", params);
         }
     }
 
     @Override
     public void onPrepareError(@NonNull DownloadHelper helper, @NonNull IOException e) {
-        Log.e(TAG, "onPrepareError callback triggered: " + e.getMessage(), e);
+        Log.e(TAG, "===== onPrepareError callback triggered =====");
+        Log.e(TAG, "Error: " + e.getMessage(), e);
+        
+        // Try to find which download failed
+        String failedDownloadId = null;
+        for (Map.Entry<String, DownloadHelper> entry : activeHelpers.entrySet()) {
+            if (entry.getValue() == helper) {
+                failedDownloadId = entry.getKey();
+                break;
+            }
+        }
+        
+        if (failedDownloadId != null) {
+            Log.e(TAG, "Download preparation failed for ID: " + failedDownloadId);
+            // Clean up the failed helper
+            activeHelpers.remove(failedDownloadId);
+            Log.d(TAG, "Removed failed helper from activeHelpers. Remaining: " + activeHelpers.size());
+        } else {
+            Log.e(TAG, "Could not identify which download failed");
+        }
 
         WritableMap params = Arguments.createMap();
         params.putString("error", e.getMessage());
         params.putString("details", e.toString());
+        if (failedDownloadId != null) {
+            params.putString("downloadId", failedDownloadId);
+        }
         Log.d(TAG, "Sending downloadPrepareError event");
         sendEvent("overonDownloadPrepareError", params);
+        
+        // Release the helper
+        try {
+            helper.release();
+        } catch (Exception releaseError) {
+            Log.e(TAG, "Error releasing failed helper", releaseError);
+        }
     }
 
     // =============================================================================

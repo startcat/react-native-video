@@ -211,22 +211,35 @@ public class AxDownloadTracker {
         return download.state != Download.STATE_FAILED ? download.request : null;
     }
 
-    // Returns DownloadHelper
+    // Returns DownloadHelper - ALWAYS creates a new one
     public DownloadHelper getDownloadHelper(MediaItem mediaItem, Context context) {
-        if (mDownloadHelper == null) {
-            try {
-                mDownloadHelper = getDownloadHelper(mediaItem, new DefaultRenderersFactory(context));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        // IMPORTANT: Always create a NEW helper for each download request
+        // The old helper (if any) should have been released by the caller
+        try {
+            Log.d(TAG, "Creating new DownloadHelper for MediaItem: " + mediaItem.mediaId);
+            DownloadHelper newHelper = getDownloadHelper(mediaItem, new DefaultRenderersFactory(context));
+            
+            // Store the new helper (replacing any old one)
+            // This allows tracking of the current helper for cleanup if needed
+            mDownloadHelper = newHelper;
+            
+            return newHelper;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to create DownloadHelper for MediaItem: " + mediaItem.mediaId, e);
+            e.printStackTrace();
+            return null;
         }
-        return mDownloadHelper;
     }
 
     // Clears DownloadHelper
     public void clearDownloadHelper() {
         if (mDownloadHelper != null) {
-            mDownloadHelper.release();
+            Log.d(TAG, "Releasing and clearing DownloadHelper");
+            try {
+                mDownloadHelper.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing DownloadHelper", e);
+            }
             mDownloadHelper = null;
         }
     }
