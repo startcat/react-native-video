@@ -895,6 +895,16 @@ export class QueueManager {
 				return;
 			}
 
+			// DELAY ESCALONADO: Si hay descargas activas, esperar 500ms antes de iniciar la siguiente
+			// Esto previene race conditions en el módulo nativo cuando se lanzan múltiples descargas simultáneas
+			if (activeDownloads > 0) {
+				this.currentLogger.debug(
+					TAG,
+					`Waiting 500ms before starting next download (${activeDownloads} active downloads)`
+				);
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+
 			this.currentLogger.info(
 				TAG,
 				`Starting download: ${nextDownload.title} (${nextDownloadId})`

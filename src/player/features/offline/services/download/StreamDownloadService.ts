@@ -78,9 +78,24 @@ export class StreamDownloadService {
 				});
 			}
 
-			// Configurar NativeManager si no está inicializado
+			// Verificar si el módulo nativo está disponible
 			if (!nativeManager.isNativeModuleAvailable()) {
+				console.warn(`[StreamDownloadService] Native module DownloadsModule2 not available. Stream downloads will not work.`);
+				throw new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", {
+					originalError: new Error("DownloadsModule2 native module not found"),
+					message: "Stream downloads require native module support"
+				});
+			}
+			
+			// Inicializar el manager si no está inicializado
+			try {
 				await nativeManager.initialize();
+			} catch (error) {
+				console.error(`[StreamDownloadService] Failed to initialize NativeManager:`, error);
+				throw new PlayerError("DOWNLOAD_FAILED", {
+					originalError: error,
+					message: "Failed to initialize native download manager"
+				});
 			}
 
 			// Suscribirse a eventos nativos
@@ -110,9 +125,21 @@ export class StreamDownloadService {
 	 */
 
 	private setupNativeEventListeners(): void {
-		// Suscribirse a todos los eventos del NativeManager
-		nativeManager.subscribe("all", (data: any) => {
-			this.handleNativeEvent(data);
+		// Suscribirse a eventos específicos del NativeManager
+		nativeManager.subscribe("download_progress", (data: any) => {
+			this.handleNativeEvent("download_progress", data);
+		});
+
+		nativeManager.subscribe("download_state_changed", (data: any) => {
+			this.handleNativeEvent("download_state_changed", data);
+		});
+
+		nativeManager.subscribe("download_completed", (data: any) => {
+			this.handleNativeEvent("download_completed", data);
+		});
+
+		nativeManager.subscribe("download_error", (data: any) => {
+			this.handleNativeEvent("download_error", data);
 		});
 
 		this.currentLogger.debug(TAG, "Native event listeners configured");
@@ -123,13 +150,131 @@ export class StreamDownloadService {
 	 *
 	 */
 
-	private handleNativeEvent(data: any): void {
+	private handleNativeEvent(eventName: string, data: any): void {
 		try {
-			// Los eventos nativos ya están mapeados por el NativeManager
-			// Solo necesitamos reenviarlos con el contexto correcto
-			this.eventEmitter.emit(data.type || "unknown", data);
+			// Manejar eventos específicos que nos interesan
+			switch (eventName) {
+				case "download_progress":
+					this.handleProgressEvent(data);
+					break;
+				case "download_state_changed":
+					this.handleStateChangeEvent(data);
+					break;
+				case "download_completed":
+					this.handleCompletedEvent(data);
+					break;
+				case "download_error":
+					this.handleErrorEvent(data);
+					break;
+				default:
+					// Reenviar otros eventos tal como están
+					this.eventEmitter.emit(eventName, data);
+			}
 		} catch (error) {
-			this.currentLogger.error(TAG, "Error handling native event", error);
+			this.currentLogger.error(TAG, "Error handling native event", { eventName, error });
+		}
+	}
+
+	private handleProgressEvent(data: any): void {
+		const { downloadId, percent, bytesDownloaded, totalBytes, speed, remainingTime } = data;
+		
+		if (this.activeDownloads.has(downloadId)) {
+			const activeDownload = this.activeDownloads.get(downloadId)!;
+			
+			// Actualizar progreso interno
+			activeDownload.progress = {
+				downloadId,
+				percent: percent || 0,
+				bytesDownloaded: bytesDownloaded || 0,
+				totalBytes: totalBytes || 0,
+			};
+			
+			// Re-emitir evento con formato correcto para QueueManager
+			this.eventEmitter.emit(DownloadEventType.PROGRESS, {
+				taskId: downloadId,
+				progress: percent || 0,
+				bytesDownloaded: bytesDownloaded || 0,
+				totalBytes: totalBytes || 0,
+				speed: speed || 0,
+				remainingTime: remainingTime || 0,
+			});
+		}
+	}
+
+	private handleStateChangeEvent(data: any): void {
+		const { downloadId, state } = data;
+		
+		if (this.activeDownloads.has(downloadId)) {
+			const activeDownload = this.activeDownloads.get(downloadId)!;
+			const mappedState = this.mapNativeStateToInternal(state);
+			activeDownload.state = mappedState;
+			
+			// Emitir eventos específicos según el estado
+			switch (mappedState) {
+				case DownloadStates.COMPLETED:
+					this.eventEmitter.emit(DownloadEventType.COMPLETED, {
+						taskId: downloadId,
+						progress: activeDownload.progress.percent,
+					});
+					break;
+				case DownloadStates.FAILED:
+					this.eventEmitter.emit(DownloadEventType.FAILED, {
+						taskId: downloadId,
+						error: data.error || "Download failed",
+					});
+					break;
+				case DownloadStates.PAUSED:
+					this.eventEmitter.emit(DownloadEventType.PAUSED, {
+						taskId: downloadId,
+						progress: activeDownload.progress.percent,
+					});
+					break;
+			}
+		}
+	}
+
+	private handleCompletedEvent(data: any): void {
+		const { downloadId } = data;
+		
+		if (this.activeDownloads.has(downloadId)) {
+			this.eventEmitter.emit(DownloadEventType.COMPLETED, {
+				taskId: downloadId,
+				fileUri: data.fileUri || data.localPath,
+			});
+			
+			// Remover de descargas activas cuando se complete
+			this.activeDownloads.delete(downloadId);
+		}
+	}
+
+	private handleErrorEvent(data: any): void {
+		const { downloadId, error } = data;
+		
+		if (this.activeDownloads.has(downloadId)) {
+			this.eventEmitter.emit(DownloadEventType.FAILED, {
+				taskId: downloadId,
+				error: error?.message || "Native download error",
+			});
+		}
+	}
+
+	private mapNativeStateToInternal(nativeState: string): DownloadStates {
+		switch (nativeState?.toUpperCase()) {
+			case "DOWNLOADING":
+			case "ACTIVE":
+				return DownloadStates.DOWNLOADING;
+			case "QUEUED":
+			case "PENDING":
+				return DownloadStates.QUEUED;
+			case "PAUSED":
+				return DownloadStates.PAUSED;
+			case "COMPLETED":
+				return DownloadStates.COMPLETED;
+			case "FAILED":
+			case "ERROR":
+				return DownloadStates.FAILED;
+			default:
+				return DownloadStates.QUEUED;
 		}
 	}
 
@@ -140,10 +285,21 @@ export class StreamDownloadService {
 
 	private async recoverPendingDownloads(): Promise<void> {
 		try {
+			console.log(`[StreamDownloadService] Attempting to recover pending downloads...`);
 			const downloads = await nativeManager.getDownloads();
+			
+			console.log(`[StreamDownloadService] getDownloads() returned:`, downloads);
+			console.log(`[StreamDownloadService] getDownloads() type:`, typeof downloads);
+			console.log(`[StreamDownloadService] getDownloads() is array:`, Array.isArray(downloads));
+
+			// Validar que downloads es un array válido
+			if (!downloads || !Array.isArray(downloads)) {
+				console.warn(`[StreamDownloadService] Invalid downloads response, skipping recovery`);
+				return;
+			}
 
 			for (const download of downloads) {
-				if (download.type === "STREAM") {
+				if (download && download.type === "STREAM") {
 					this.currentLogger.info(
 						TAG,
 						`Recovered stream download: ${download.id} - State: ${download.state}`
@@ -423,10 +579,14 @@ export class StreamDownloadService {
 	 */
 
 	private async executeStreamDownload(task: StreamDownloadTask): Promise<void> {
+		// Preservar retryCount existente si hay un download previo
+		const existingDownload = this.activeDownloads.get(task.id);
+		const currentRetryCount = existingDownload ? existingDownload.retryCount : 0;
+
 		const activeDownload: ActiveStreamDownload = {
 			task,
 			startTime: Date.now(),
-			retryCount: 0,
+			retryCount: currentRetryCount,  // Preservar contador existente
 			state: DownloadStates.PREPARING,
 			progress: {
 				downloadId: task.id,
@@ -436,30 +596,41 @@ export class StreamDownloadService {
 			},
 		};
 
+		console.log(`[StreamDownloadService] ExecuteStreamDownload - Preserving retryCount: ${currentRetryCount} for ${task.id}`);
 		this.activeDownloads.set(task.id, activeDownload);
 
 		try {
 			// Configurar descarga nativa
-			const nativeConfig = {
+			const nativeConfig: any = {
 				id: task.id,
 				uri: task.manifestUrl,
 				title: task.title,
 				quality: task.config.quality || this.config.defaultQuality,
 				allowCellular: this.config.allowCellular,
-				drm: task.config.drm,
-				subtitles: task.config.subtitleLanguages?.map(lang => ({
-					language: lang,
-					uri: "", // Will be resolved by native module
-					label: lang,
-				})),
+				subtitles: [], // Sin subtítulos por ahora para simplificar
 			};
 
+			// Solo agregar DRM si existe configuración
+			if (task.config.drm) {
+				nativeConfig.drm = task.config.drm;
+			}
+
+			console.log(`[StreamDownloadService] Creating native config for ${task.id}:`, JSON.stringify(nativeConfig, null, 2));
+			console.log(`[StreamDownloadService] Task config details:`, JSON.stringify(task.config, null, 2));
+
+			// Pequeño delay para evitar problemas de concurrencia
+			await new Promise(resolve => setTimeout(resolve, 100));
+			
 			// Iniciar descarga nativa
+			console.log(`[StreamDownloadService] About to call nativeManager.addDownload for ${task.id}`);
 			await nativeManager.addDownload(nativeConfig);
+			console.log(`[StreamDownloadService] nativeManager.addDownload completed for ${task.id}`);
 
 			// Actualizar estado
 			activeDownload.state = DownloadStates.DOWNLOADING;
 			this.activeDownloads.set(task.id, activeDownload);
+
+			// Los eventos nativos se manejan automáticamente vía setupNativeEventListeners
 
 			// Emitir evento de inicio
 			this.eventEmitter.emit(DownloadEventType.STARTED, {
@@ -700,6 +871,12 @@ export class StreamDownloadService {
 			return () => this.eventEmitter.off(event, callback);
 		}
 	}
+
+	/*
+	 * Debug utilities
+	 *
+	 */
+
 
 	/*
 	 * Utilidades privadas
