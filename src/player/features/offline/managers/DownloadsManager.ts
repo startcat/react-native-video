@@ -115,7 +115,7 @@ export class DownloadsManager {
 			this.state.error =
 				error instanceof PlayerError
 					? error
-					: new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
+					: new PlayerError("DOWNLOAD_MANAGER_INITIALIZATION_FAILED", {
 							originalError: error,
 						});
 
@@ -324,7 +324,7 @@ export class DownloadsManager {
 				...data,
 				timestamp: Date.now(),
 			});
-			
+
 			this.currentLogger.debug(TAG, `Re-emitted queue event: ${eventType}`);
 
 			this.invalidateStatsCache();
@@ -536,12 +536,15 @@ export class DownloadsManager {
 
 			return task.id;
 		} catch (error) {
-			throw error instanceof PlayerError
-				? error
-				: new PlayerError("DOWNLOAD_FAILED", {
-						originalError: error,
-						taskId: task.id,
-					});
+			// Propagar PlayerError de servicios/managers directamente
+			if (error instanceof PlayerError) {
+				throw error;
+			}
+			// Solo envolver errores no tipados
+			throw new PlayerError("DOWNLOAD_MANAGER_ADD_FAILED", {
+				originalError: error,
+				taskId: task.id,
+			});
 		}
 	}
 
@@ -551,7 +554,7 @@ export class DownloadsManager {
 			// Obtener el item completo desde QueueManager para verificar estado
 			this.currentLogger.debug(TAG, `Getting download item for: ${downloadId}`);
 			const downloadItem = queueManager.getDownload(downloadId);
-			
+
 			if (!downloadItem) {
 				this.currentLogger.error(TAG, `Download not found in queue: ${downloadId}`);
 				throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
@@ -559,11 +562,14 @@ export class DownloadsManager {
 
 			const downloadType = downloadItem.type;
 			const downloadState = downloadItem.state;
-			this.currentLogger.debug(TAG, `Download ${downloadId}: type=${downloadType}, state=${downloadState}`);
+			this.currentLogger.debug(
+				TAG,
+				`Download ${downloadId}: type=${downloadType}, state=${downloadState}`
+			);
 
 			// Solo cancelar si la descarga está en progreso, en cola o pausada
 			// No intentar cancelar descargas completadas o fallidas
-			const shouldCancel = 
+			const shouldCancel =
 				downloadState === DownloadStates.DOWNLOADING ||
 				downloadState === DownloadStates.QUEUED ||
 				downloadState === DownloadStates.PAUSED ||
@@ -571,12 +577,18 @@ export class DownloadsManager {
 
 			if (shouldCancel) {
 				// Cancelar descarga activa usando el servicio
-				this.currentLogger.debug(TAG, `Cancelling active download via service: ${downloadId} (${downloadType})`);
+				this.currentLogger.debug(
+					TAG,
+					`Cancelling active download via service: ${downloadId} (${downloadType})`
+				);
 				await downloadService.cancelDownload(downloadId, downloadType);
 				this.currentLogger.debug(TAG, `Download cancelled via service: ${downloadId}`);
 			} else {
 				// Para descargas completadas o fallidas, solo eliminar de la cola
-				this.currentLogger.debug(TAG, `Skipping cancellation for ${downloadState} download: ${downloadId}`);
+				this.currentLogger.debug(
+					TAG,
+					`Skipping cancellation for ${downloadState} download: ${downloadId}`
+				);
 			}
 
 			// Remover de la cola (siempre)
@@ -590,12 +602,15 @@ export class DownloadsManager {
 			);
 		} catch (error) {
 			this.currentLogger.error(TAG, `Error removing download ${downloadId}:`, error);
-			throw error instanceof PlayerError
-				? error
-				: new PlayerError("DOWNLOAD_FAILED", {
-						originalError: error,
-						downloadId,
-					});
+			// Propagar PlayerError de servicios/managers directamente
+			if (error instanceof PlayerError) {
+				throw error;
+			}
+			// Solo envolver errores no tipados
+			throw new PlayerError("DOWNLOAD_MANAGER_REMOVE_FAILED", {
+				originalError: error,
+				downloadId,
+			});
 		}
 	}
 
@@ -615,12 +630,15 @@ export class DownloadsManager {
 				`Download paused via manager: ${downloadId} (${downloadType})`
 			);
 		} catch (error) {
-			throw error instanceof PlayerError
-				? error
-				: new PlayerError("DOWNLOAD_FAILED", {
-						originalError: error,
-						downloadId,
-					});
+			// Propagar PlayerError de servicios/managers directamente
+			if (error instanceof PlayerError) {
+				throw error;
+			}
+			// Solo envolver errores no tipados
+			throw new PlayerError("DOWNLOAD_MANAGER_PAUSE_FAILED", {
+				originalError: error,
+				downloadId,
+			});
 		}
 	}
 
@@ -640,12 +658,15 @@ export class DownloadsManager {
 				`Download resumed via manager: ${downloadId} (${downloadType})`
 			);
 		} catch (error) {
-			throw error instanceof PlayerError
-				? error
-				: new PlayerError("DOWNLOAD_FAILED", {
-						originalError: error,
-						downloadId,
-					});
+			// Propagar PlayerError de servicios/managers directamente
+			if (error instanceof PlayerError) {
+				throw error;
+			}
+			// Solo envolver errores no tipados
+			throw new PlayerError("DOWNLOAD_MANAGER_RESUME_FAILED", {
+				originalError: error,
+				downloadId,
+			});
 		}
 	}
 
@@ -677,7 +698,12 @@ export class DownloadsManager {
 			this.currentLogger.info(TAG, "All downloads paused via manager");
 		} catch (error) {
 			this.state.isPaused = false;
-			throw new PlayerError("DOWNLOAD_FAILED", { originalError: error });
+			// Propagar PlayerError de servicios/managers directamente
+			if (error instanceof PlayerError) {
+				throw error;
+			}
+			// Solo envolver errores no tipados
+			throw new PlayerError("DOWNLOAD_MANAGER_PAUSE_ALL_FAILED", { originalError: error });
 		}
 	}
 
@@ -712,7 +738,12 @@ export class DownloadsManager {
 
 			this.currentLogger.info(TAG, "All downloads resumed via manager");
 		} catch (error) {
-			throw new PlayerError("DOWNLOAD_FAILED", { originalError: error });
+			// Propagar PlayerError de servicios/managers directamente
+			if (error instanceof PlayerError) {
+				throw error;
+			}
+			// Solo envolver errores no tipados
+			throw new PlayerError("DOWNLOAD_MANAGER_RESUME_ALL_FAILED", { originalError: error });
 		}
 	}
 

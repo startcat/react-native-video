@@ -278,7 +278,10 @@ export class QueueManager {
 				if (item.fileUri) {
 					try {
 						await storageService.deleteFile(item.fileUri);
-						this.currentLogger.info(TAG, `Completed download file deleted from disk: ${item.fileUri}`);
+						this.currentLogger.info(
+							TAG,
+							`Completed download file deleted from disk: ${item.fileUri}`
+						);
 					} catch (error) {
 						this.currentLogger.warn(
 							TAG,
@@ -291,12 +294,18 @@ export class QueueManager {
 				// Para descargas INCOMPLETAS o EN PROGRESO: eliminar archivos temporales vía módulo nativo
 				// El módulo nativo (ExoPlayer/AVPlayer) gestiona sus propios archivos temporales
 				// y debe limpiarlos cuando se cancela la descarga
-				if (originalState !== DownloadStates.COMPLETED && item.type === DownloadType.STREAM) {
+				if (
+					originalState !== DownloadStates.COMPLETED &&
+					item.type === DownloadType.STREAM
+				) {
 					try {
 						// El módulo nativo ya debería haber limpiado archivos temporales en cancelDownload,
 						// pero lo llamamos explícitamente para asegurarnos
 						await nativeManager.removeDownload(downloadId);
-						this.currentLogger.info(TAG, `Temporary files cleaned via native manager: ${downloadId}`);
+						this.currentLogger.info(
+							TAG,
+							`Temporary files cleaned via native manager: ${downloadId}`
+						);
 					} catch (error) {
 						this.currentLogger.warn(
 							TAG,
@@ -461,18 +470,22 @@ export class QueueManager {
 	public resumeAll(): void {
 		this.isPaused = false;
 		this.currentLogger.info(TAG, "All downloads resumed");
-		
+
 		// Sincronizar estado con el módulo nativo después de reanudar
 		// Esto es crítico cuando hay descargas existentes que fueron reanudadas
 		this.syncWithNativeState().catch(error => {
-			this.currentLogger.error(TAG, "Failed to sync with native state after resumeAll", error);
+			this.currentLogger.error(
+				TAG,
+				"Failed to sync with native state after resumeAll",
+				error
+			);
 		});
-		
+
 		// Forzar procesamiento inmediato del queue después de reanudar
 		// Esto es necesario cuando hay descargas existentes que fueron reanudadas
 		// en el módulo nativo y necesitan ser procesadas inmediatamente
 		if (this.isProcessing && !this.isPaused) {
-			this.currentLogger.info(TAG, "Forcing immediate queue processing after resumeAll");
+			this.currentLogger.debug(TAG, "Forcing immediate queue processing after resumeAll");
 			this.processQueue().catch(error => {
 				this.currentLogger.error(TAG, "Failed to process queue after resumeAll", error);
 			});
@@ -671,6 +684,24 @@ export class QueueManager {
 		const completed = items.filter(item => item.state === DownloadStates.COMPLETED).length;
 		const failed = items.filter(item => item.state === DownloadStates.FAILED).length;
 
+		// Calcular velocidad promedio de descargas activas
+		const activeDownloads = items.filter(item => item.state === DownloadStates.DOWNLOADING);
+
+		let averageSpeed = 0;
+		let totalBytesDownloaded = 0;
+		let totalBytes = 0;
+
+		if (activeDownloads.length > 0) {
+			const totalSpeed = activeDownloads.reduce((sum, item) => {
+				const speed = item.stats?.downloadSpeed || 0;
+				totalBytesDownloaded += item.stats?.bytesDownloaded || 0;
+				totalBytes += item.stats?.totalBytes || 0;
+				return sum + speed;
+			}, 0);
+
+			averageSpeed = totalSpeed / activeDownloads.length;
+		}
+
 		return {
 			total: this.downloadQueue.size,
 			pending,
@@ -680,6 +711,16 @@ export class QueueManager {
 			failed,
 			isPaused: this.isPaused,
 			isProcessing: this.isProcessing,
+			// Propiedades opcionales para compatibilidad
+			active: downloading,
+			queued: pending,
+			totalBytesDownloaded,
+			totalBytesRemaining: totalBytes - totalBytesDownloaded,
+			averageSpeed,
+			estimatedTimeRemaining:
+				averageSpeed > 0
+					? Math.round((totalBytes - totalBytesDownloaded) / averageSpeed)
+					: 0,
 		};
 	}
 
@@ -800,7 +841,8 @@ export class QueueManager {
 		// Verificar límite de descargas concurrentes
 		// IMPORTANTE: Solo contar descargas activas (DOWNLOADING o PAUSED), no COMPLETED ni FAILED
 		const activeDownloads = Array.from(this.downloadQueue.values()).filter(
-			item => item.state === DownloadStates.DOWNLOADING || item.state === DownloadStates.PAUSED
+			item =>
+				item.state === DownloadStates.DOWNLOADING || item.state === DownloadStates.PAUSED
 		).length;
 
 		const queuedDownloads = Array.from(this.downloadQueue.values()).filter(
@@ -1127,13 +1169,16 @@ export class QueueManager {
 		if (item) {
 			const previousState = item.state;
 			item.state = state;
-			
+
 			if (fileUri) {
 				item.fileUri = fileUri;
 			}
-			
+
 			// Establecer timestamps según el estado
-			if (state === DownloadStates.DOWNLOADING && previousState !== DownloadStates.DOWNLOADING) {
+			if (
+				state === DownloadStates.DOWNLOADING &&
+				previousState !== DownloadStates.DOWNLOADING
+			) {
 				// Iniciar descarga - establecer startedAt si no existe
 				if (!item.stats.startedAt) {
 					item.stats.startedAt = Date.now();
@@ -1273,42 +1318,42 @@ export class QueueManager {
 	private async syncWithNativeState(): Promise<void> {
 		try {
 			this.currentLogger.info(TAG, "Syncing queue state with native module");
-			
+
 			// Obtener todas las descargas del módulo nativo
 			const nativeDownloads = await nativeManager.getDownloads();
-			
+
 			if (!nativeDownloads || nativeDownloads.length === 0) {
 				this.currentLogger.debug(TAG, "No native downloads found during sync");
 				return;
 			}
-			
+
 			// Sincronizar estado para cada descarga
 			let syncedCount = 0;
 			for (const nativeDownload of nativeDownloads) {
 				if (!nativeDownload.id) continue;
-				
+
 				const localItem = this.downloadQueue.get(nativeDownload.id);
 				if (localItem && localItem.state !== nativeDownload.state) {
 					this.currentLogger.info(
-						TAG, 
+						TAG,
 						`Syncing state for ${nativeDownload.id}: ${localItem.state} -> ${nativeDownload.state}`
 					);
-					
+
 					// Actualizar estado local con estado nativo
 					localItem.state = nativeDownload.state as DownloadStates;
-					
+
 					// Si está descargando en nativo, marcarlo como tal localmente
-					if (nativeDownload.state === 'DOWNLOADING') {
+					if (nativeDownload.state === "DOWNLOADING") {
 						this.currentlyDownloading.add(nativeDownload.id);
 					} else {
 						this.currentlyDownloading.delete(nativeDownload.id);
 					}
-					
+
 					this.downloadQueue.set(nativeDownload.id, localItem);
 					syncedCount++;
 				}
 			}
-			
+
 			// Persistir cambios si hubo sincronizaciones
 			if (syncedCount > 0) {
 				await persistenceService.saveDownloadState(this.downloadQueue);
@@ -1316,7 +1361,6 @@ export class QueueManager {
 			} else {
 				this.currentLogger.debug(TAG, "All download states already in sync");
 			}
-			
 		} catch (error: any) {
 			this.currentLogger.error(TAG, "Failed to sync with native state", error);
 			// No lanzar error - esto es una operación de sincronización que no debe fallar
@@ -1331,87 +1375,103 @@ export class QueueManager {
 	/*
 	 * Handlers para eventos nativos
 	 */
-	
+
 	// Track last progress event times to avoid spam
 	private lastProgressEventTime: Map<string, number> = new Map();
-	
+
 	private async handleNativeProgressEvent(data: any): Promise<void> {
 		const { downloadId, percent } = data;
-		
+
 		if (this.downloadQueue.has(downloadId)) {
 			// FILTRAR eventos innecesarios para evitar ruido
 			const item = this.downloadQueue.get(downloadId);
-			
+
 			// No procesar si la descarga no está realmente activa
 			if (!item || item.state !== DownloadStates.DOWNLOADING) {
 				// Solo log ocasional para debugging, no spam
-				if (Math.random() < 0.1) { // 10% de los eventos
-					this.currentLogger.debug(TAG, `Ignoring progress event for inactive download: ${downloadId} (state: ${item?.state})`);
+				if (Math.random() < 0.1) {
+					// 10% de los eventos
+					this.currentLogger.debug(
+						TAG,
+						`Ignoring progress event for inactive download: ${downloadId} (state: ${item?.state})`
+					);
 				}
 				return;
 			}
-			
+
 			// No procesar eventos "estáticos" (sin velocidad y sin cambios)
 			if (data.speed === 0 && !item.stats.startedAt) {
 				// Solo log ocasional para debugging, no spam
-				if (Math.random() < 0.1) { // 10% de los eventos
-					this.currentLogger.debug(TAG, `Ignoring static progress event for ${downloadId}: no speed and not started`);
+				if (Math.random() < 0.1) {
+					// 10% de los eventos
+					this.currentLogger.debug(
+						TAG,
+						`Ignoring static progress event for ${downloadId}: no speed and not started`
+					);
 				}
 				return;
 			}
-			
+
 			// No procesar si el progreso no ha cambiado significativamente
 			const currentPercent = item.stats.progressPercent || 0;
 			if (Math.abs(percent - currentPercent) < 1 && data.speed === 0) {
-				// Solo log ocasional para debugging, no spam  
-				if (Math.random() < 0.1) { // 10% de los eventos
-					this.currentLogger.debug(TAG, `Ignoring duplicate progress event for ${downloadId}: ${percent}% (no change)`);
+				// Solo log ocasional para debugging, no spam
+				if (Math.random() < 0.1) {
+					// 10% de los eventos
+					this.currentLogger.debug(
+						TAG,
+						`Ignoring duplicate progress event for ${downloadId}: ${percent}% (no change)`
+					);
 				}
 				return;
 			}
-			
+
 			// FILTRO TEMPORAL: Evitar procesar eventos muy frecuentes (menos de 2 segundos de diferencia)
 			const now = Date.now();
 			const lastEventTime = this.lastProgressEventTime.get(downloadId) || 0;
 			const timeSinceLastEvent = now - lastEventTime;
-			
+
 			// Solo procesar si han pasado al menos 2 segundos o hay cambio significativo de progreso/velocidad
 			const significantChange = Math.abs(percent - currentPercent) >= 5 || data.speed > 0;
 			if (timeSinceLastEvent < 2000 && !significantChange) {
 				// Solo log ocasional para debugging, no spam
-				if (Math.random() < 0.05) { // 5% de los eventos
-					this.currentLogger.debug(TAG, `Throttling progress event for ${downloadId}: too frequent (${timeSinceLastEvent}ms ago)`);
+				if (Math.random() < 0.05) {
+					// 5% de los eventos
+					this.currentLogger.debug(
+						TAG,
+						`Throttling progress event for ${downloadId}: too frequent (${timeSinceLastEvent}ms ago)`
+					);
 				}
 				return;
 			}
-			
+
 			// Actualizar tiempo del último evento procesado
 			this.lastProgressEventTime.set(downloadId, now);
 			// Actualizar progreso en el item de la cola (solo acepta 2 argumentos)
 			await this.updateDownloadProgress(downloadId, percent);
-			
+
 			// También actualizar bytes y otros datos si están disponibles
 			if (item && item.stats) {
 				// Actualizar velocidad
 				if (data.speed !== undefined) {
 					item.stats.downloadSpeed = data.speed;
 				}
-				
+
 				// Actualizar tiempo restante
 				if (data.remainingTime !== undefined) {
 					item.stats.remainingTime = data.remainingTime;
 				}
-				
+
 				// Actualizar bytes descargados si viene del evento nativo
 				if (data.bytesDownloaded !== undefined && data.bytesDownloaded > 0) {
 					item.stats.bytesDownloaded = data.bytesDownloaded;
 				}
-				
+
 				// Actualizar total bytes si viene del evento nativo
 				if (data.totalBytes !== undefined && data.totalBytes > 0) {
 					item.stats.totalBytes = data.totalBytes;
 				}
-				
+
 				// CALCULAR bytes si no vienen del nativo (usando speed y tiempo transcurrido)
 				if (!data.bytesDownloaded && item.stats.startedAt && data.speed > 0) {
 					const elapsedSeconds = (Date.now() - item.stats.startedAt) / 1000;
@@ -1420,23 +1480,33 @@ export class QueueManager {
 						item.stats.bytesDownloaded = estimatedBytes;
 					}
 				}
-				
+
 				// CALCULAR totalBytes si no viene del nativo (usando progress y bytesDownloaded)
 				if (item.stats.totalBytes <= 0 && percent > 0 && item.stats.bytesDownloaded > 0) {
-					item.stats.totalBytes = Math.floor(item.stats.bytesDownloaded / (percent / 100));
+					item.stats.totalBytes = Math.floor(
+						item.stats.bytesDownloaded / (percent / 100)
+					);
 				}
-				
+
 				// CALCULAR remainingTime si es 0 o no viene del nativo
-				if ((!data.remainingTime || data.remainingTime === 0) && data.speed > 0 && item.stats.totalBytes > 0 && item.stats.bytesDownloaded > 0) {
+				if (
+					(!data.remainingTime || data.remainingTime === 0) &&
+					data.speed > 0 &&
+					item.stats.totalBytes > 0 &&
+					item.stats.bytesDownloaded > 0
+				) {
 					const remainingBytes = item.stats.totalBytes - item.stats.bytesDownloaded;
 					item.stats.remainingTime = Math.floor(remainingBytes / data.speed);
 				}
+
+				// Guardar el item actualizado de vuelta en el Map
+				this.downloadQueue.set(downloadId, item);
 			}
-			
+
 			// Re-emitir evento para que los hooks lo reciban (usar valores calculados)
 			const updatedItem = this.downloadQueue.get(downloadId);
 			const stats = updatedItem?.stats;
-			
+
 			const progressData = {
 				downloadId,
 				percent: Math.floor(percent),
@@ -1446,7 +1516,7 @@ export class QueueManager {
 				speed: stats?.downloadSpeed || 0,
 				remainingTime: stats?.remainingTime || 0,
 			};
-			
+
 			// Log para debug de los valores calculados
 			this.currentLogger.debug(TAG, `Progress event data for ${downloadId}:`, {
 				percent: progressData.percent,
@@ -1456,23 +1526,23 @@ export class QueueManager {
 				remainingTime: progressData.remainingTime,
 				startedAt: stats?.startedAt,
 			});
-			
+
 			this.eventEmitter.emit(DownloadEventType.PROGRESS, progressData);
 		}
 	}
 
 	private async handleNativeStateEvent(data: any): Promise<void> {
 		const { downloadId, state } = data;
-		
+
 		this.currentLogger.debug(TAG, `Handling native state event: ${downloadId} → ${state}`);
-		
+
 		if (this.downloadQueue.has(downloadId)) {
 			// Convertir estado nativo a estado interno si es necesario
 			const mappedState = this.mapNativeStateToInternal(state);
 			const previousState = this.downloadQueue.get(downloadId)?.state;
-			
+
 			await this.updateDownloadState(downloadId, mappedState);
-			
+
 			// Re-emitir evento específico según el estado
 			const item = this.downloadQueue.get(downloadId);
 			if (item) {
@@ -1515,17 +1585,23 @@ export class QueueManager {
 							newState: mappedState,
 						});
 				}
-				
-				this.currentLogger.debug(TAG, `Re-emitted event for state change: ${downloadId} ${previousState} → ${mappedState}`);
+
+				this.currentLogger.debug(
+					TAG,
+					`Re-emitted event for state change: ${downloadId} ${previousState} → ${mappedState}`
+				);
 			}
 		} else {
-			this.currentLogger.warn(TAG, `Received state change for unknown download: ${downloadId}`);
+			this.currentLogger.warn(
+				TAG,
+				`Received state change for unknown download: ${downloadId}`
+			);
 		}
 	}
 
 	private async handleNativeCompletedEvent(data: any): Promise<void> {
 		const { downloadId } = data;
-		
+
 		if (this.downloadQueue.has(downloadId)) {
 			await this.notifyDownloadCompleted(downloadId, data.fileUri || data.path);
 		}
@@ -1533,7 +1609,7 @@ export class QueueManager {
 
 	private async handleNativeErrorEvent(data: any): Promise<void> {
 		const { downloadId, error } = data;
-		
+
 		if (this.downloadQueue.has(downloadId)) {
 			const playerError = new PlayerError(error.code || "DOWNLOAD_FAILED", {
 				originalError: error,
