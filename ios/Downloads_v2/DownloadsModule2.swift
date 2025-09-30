@@ -945,10 +945,29 @@ class DownloadsModule2: RCTEventEmitter {
         // Get storage information
         do {
             let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let resourceValues = try documentsURL.resourceValues(forKeys: [.volumeAvailableCapacityKey, .volumeTotalCapacityKey])
             
-            let availableSpace = resourceValues.volumeAvailableCapacity ?? 0
-            let totalSpace = resourceValues.volumeTotalCapacity ?? 0
+            // IMPORTANTE: Usar volumeAvailableCapacityForImportantUsageKey en lugar de volumeAvailableCapacityKey
+            // volumeAvailableCapacityForImportantUsageKey incluye espacio que iOS puede liberar automáticamente
+            // (caché, archivos temporales, etc.) y coincide con el valor mostrado en Configuración de iOS
+            let resourceValues = try documentsURL.resourceValues(forKeys: [
+                .volumeAvailableCapacityForImportantUsageKey,
+                .volumeTotalCapacityKey
+            ])
+            
+            // Preferir volumeAvailableCapacityForImportantUsage (incluye espacio purgeable)
+            // Fallback a volumeAvailableCapacity si no está disponible (iOS < 11)
+            let availableSpace: Int64
+            if let importantUsageCapacity = resourceValues.volumeAvailableCapacityForImportantUsage {
+                availableSpace = importantUsageCapacity
+            } else if let regularCapacity = resourceValues.volumeAvailableCapacity {
+                availableSpace = Int64(regularCapacity)
+            } else {
+                availableSpace = 0
+            }
+            
+            let totalSpace = resourceValues.volumeTotalCapacity.map { Int64($0) } ?? 0
+            
+            print("📥 [DownloadsModule2] Storage info - Total: \(totalSpace), Available: \(availableSpace)")
             
             return [
                 "totalSpace": totalSpace,
@@ -959,6 +978,7 @@ class DownloadsModule2: RCTEventEmitter {
                 "isCellularConnected": false // Get from network monitoring
             ]
         } catch {
+            print("❌ [DownloadsModule2] Error getting storage info: \(error.localizedDescription)")
             return [:]
         }
     }

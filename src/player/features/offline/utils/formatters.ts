@@ -86,7 +86,7 @@ export function formatRemainingTime(seconds: number, showSeconds: boolean = true
 export function formatFileSize(
 	bytes: number,
 	decimals: number = 2,
-	useBinary: boolean = true
+	useBinary: boolean = false
 ): string {
 	if (bytes === 0) return "0 B";
 	if (bytes < 0) return "N/A";
