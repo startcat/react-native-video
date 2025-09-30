@@ -262,18 +262,31 @@ export function useDownloadsManager(
 		[downloads]
 	);
 
-	// Calcular progreso total
+	// Calcular progreso total (solo de descargas activas: downloading, preparing, queued)
 	const totalProgress = useMemo(() => {
-		if (downloads.length === 0) return 0;
+		// Filtrar solo descargas activas (no completadas ni fallidas)
+		const activeItems = downloads.filter(
+			(item: DownloadItem) =>
+				item.state === DownloadStates.DOWNLOADING ||
+				item.state === DownloadStates.PREPARING ||
+				item.state === DownloadStates.QUEUED ||
+				item.state === DownloadStates.PAUSED
+		);
 
-		const totalProgressSum = downloads.reduce((sum: number, download: DownloadItem) => {
+		// Si no hay descargas activas, progreso es 0
+		if (activeItems.length === 0) {
+			console.log(`[useDownloadsManager] totalProgress calculated: 0% (no active downloads)`);
+			return 0;
+		}
+
+		const totalProgressSum = activeItems.reduce((sum: number, download: DownloadItem) => {
 			const progress = download.stats?.progressPercent || 0;
 			return sum + progress;
 		}, 0);
 
-		const avgProgress = Math.round(totalProgressSum / downloads.length);
+		const avgProgress = Math.round(totalProgressSum / activeItems.length);
 		console.log(
-			`[useDownloadsManager] totalProgress calculated: ${avgProgress}% (from ${downloads.length} downloads)`
+			`[useDownloadsManager] totalProgress calculated: ${avgProgress}% (from ${activeItems.length} active downloads)`
 		);
 		return avgProgress;
 	}, [downloads]);

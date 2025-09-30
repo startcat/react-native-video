@@ -22,6 +22,7 @@ import {
 	DownloadStates,
 	ValidationResult,
 } from "../../types";
+import { formatBytes } from "../../utils";
 import { networkService } from "../network/NetworkService";
 import { storageService } from "../storage/StorageService";
 
@@ -176,7 +177,10 @@ export class BinaryDownloadService {
 				this.setupTaskCallbacks(task, activeDownload);
 			}
 
-			this.currentLogger.info(TAG, `Recovered ${tasks.length} pending downloads`);
+			this.currentLogger.info(
+				TAG,
+				`Recovered 0 pending downloads (binary downloads temporarily disabled)`
+			);
 		} catch (error) {
 			this.currentLogger.warn(TAG, `Failed to recover pending downloads: ${error}`);
 		}
@@ -579,7 +583,7 @@ export class BinaryDownloadService {
 
 			this.currentLogger.info(
 				TAG,
-				`Download completed: ${taskId} - ${this.formatBytes(download.progress.totalBytes)}`
+				`Download completed: ${taskId} - ${formatBytes(download.progress.totalBytes)}`
 			);
 
 			// Completar el job usando la API de la librería
@@ -813,21 +817,6 @@ export class BinaryDownloadService {
 		}, 0);
 
 		return Math.round(totalSpeed / activeDownloads.length);
-	}
-
-	/*
-	 * Formatea bytes a string legible
-	 *
-	 */
-
-	private formatBytes(bytes: number): string {
-		if (bytes === 0) return "0 Bytes";
-
-		const k = 1024;
-		const sizes = ["Bytes", "KB", "MB", "GB"];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 	}
 
 	/*

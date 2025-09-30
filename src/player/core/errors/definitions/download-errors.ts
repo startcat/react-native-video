@@ -136,6 +136,38 @@ export const DOWNLOAD_ERROR_DEFINITIONS = {
         message: "Failed to cancel binary download.",
     },
 
+    // === ERRORES CON EL GESTOR PRINCIPAL DE DESCARGAS (DownloadsManager) ===
+    DOWNLOAD_MANAGER_INITIALIZATION_FAILED: {
+        message: "Failed to initialize downloads manager.",
+    },
+    DOWNLOAD_MANAGER_NOT_INITIALIZED: {
+        message: "Downloads manager not initialized.",
+    },
+    DOWNLOAD_MANAGER_ADD_FAILED: {
+        message: "Failed to add download via downloads manager.",
+    },
+    DOWNLOAD_MANAGER_REMOVE_FAILED: {
+        message: "Failed to remove download via downloads manager.",
+    },
+    DOWNLOAD_MANAGER_PAUSE_FAILED: {
+        message: "Failed to pause download via downloads manager.",
+    },
+    DOWNLOAD_MANAGER_RESUME_FAILED: {
+        message: "Failed to resume download via downloads manager.",
+    },
+    DOWNLOAD_MANAGER_PAUSE_ALL_FAILED: {
+        message: "Failed to pause all downloads.",
+    },
+    DOWNLOAD_MANAGER_RESUME_ALL_FAILED: {
+        message: "Failed to resume all downloads.",
+    },
+    DOWNLOAD_MANAGER_START_FAILED: {
+        message: "Failed to start downloads manager processing.",
+    },
+    DOWNLOAD_MANAGER_STOP_FAILED: {
+        message: "Failed to stop downloads manager processing.",
+    },
+
     // === ERRORES CON EL GESTOR DE CONFIGURACIÓN ===
     CONFIG_MANAGER_INITIALIZATION_FAILED: {
         message: "Failed to initialize config manager.",

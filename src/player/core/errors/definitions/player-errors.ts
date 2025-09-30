@@ -381,6 +381,15 @@ export const PLAYER_ERROR_DEFINITIONS = {
     NATIVE_CANCEL_ALL_FAILED: {
         message: "Failed to cancel all downloads in native module.",
     },
+    NATIVE_START_PROCESSING_FAILED: {
+        message: "Failed to start download processing in native module.",
+    },
+    NATIVE_STOP_PROCESSING_FAILED: {
+        message: "Failed to stop download processing in native module.",
+    },
+    NATIVE_EVENT_HANDLING_FAILED: {
+        message: "Failed to handle native event.",
+    },
 
     // === ERRORES DE CONSULTAS NATIVAS ===
     NATIVE_GET_DOWNLOADS_FAILED: {

@@ -89,9 +89,6 @@ export class ConfigManager {
 			// Cargar configuración persistida usando PersistenceService
 			await this.loadPersistedConfig();
 
-			// REMOVIDO: Auto-save ya que persistimos inmediatamente en cada cambio
-			// No necesitamos guardar cada 2000ms si ya guardamos cuando hay cambios reales
-
 			this.isInitialized = true;
 			this.currentLogger.info(TAG, "ConfigManager initialized successfully");
 
