@@ -137,8 +137,15 @@ export function useDownloadsManager(
 	// Actualizar estado desde el manager
 	const updateState = useCallback(() => {
 		if (downloadsManager.isInitialized()) {
-			setDownloads(downloadsManager.getDownloads());
-			setQueueStats(downloadsManager.getQueueStats());
+			const newDownloads = downloadsManager.getDownloads();
+			const newQueueStats = downloadsManager.getQueueStats();
+
+			console.log(
+				`[useDownloadsManager] updateState - downloads: ${newDownloads.length}, averageSpeed: ${newQueueStats.averageSpeed}`
+			);
+
+			setDownloads(newDownloads);
+			setQueueStats(newQueueStats);
 			setIsProcessing(downloadsManager.isProcessing());
 			setIsPaused(downloadsManager.isPaused());
 		}
@@ -259,16 +266,26 @@ export function useDownloadsManager(
 	const totalProgress = useMemo(() => {
 		if (downloads.length === 0) return 0;
 
-		const totalProgressSum = downloads.reduce(
-			(sum: number, download: DownloadItem) => sum + (download.stats?.progressPercent || 0),
-			0
-		);
+		const totalProgressSum = downloads.reduce((sum: number, download: DownloadItem) => {
+			const progress = download.stats?.progressPercent || 0;
+			return sum + progress;
+		}, 0);
 
-		return Math.round(totalProgressSum / downloads.length);
+		const avgProgress = Math.round(totalProgressSum / downloads.length);
+		console.log(
+			`[useDownloadsManager] totalProgress calculated: ${avgProgress}% (from ${downloads.length} downloads)`
+		);
+		return avgProgress;
 	}, [downloads]);
 
 	// Velocidad global
-	const globalSpeed = useMemo(() => queueStats.averageSpeed ?? 0, [queueStats.averageSpeed]);
+	const globalSpeed = useMemo(() => {
+		const speed = queueStats.averageSpeed ?? 0;
+		console.log(
+			`[useDownloadsManager] globalSpeed calculated: ${speed} B/s (from queueStats.averageSpeed: ${queueStats.averageSpeed})`
+		);
+		return speed;
+	}, [queueStats.averageSpeed]);
 
 	// API de acciones principales
 	const addDownload = useCallback(
@@ -367,7 +384,9 @@ export function useDownloadsManager(
 				);
 
 				// 9. Iniciar la descarga a través del DownloadsManager
-				console.log(`[useDownloadsManager] About to call downloadsManager.addDownload for: ${itemWithId.id}`);
+				console.log(
+					`[useDownloadsManager] About to call downloadsManager.addDownload for: ${itemWithId.id}`
+				);
 				await downloadsManager.addDownload(task, itemWithId.type);
 
 				console.log(
@@ -396,10 +415,19 @@ export function useDownloadsManager(
 
 	const removeDownload = useCallback(
 		async (id: string): Promise<void> => {
+			console.log(`[useDownloadsManager] removeDownload called for: ${id}`);
 			try {
+				console.log(
+					`[useDownloadsManager] Calling downloadsManager.removeDownload for: ${id}`
+				);
 				await downloadsManager.removeDownload(id);
+				console.log(
+					`[useDownloadsManager] downloadsManager.removeDownload completed for: ${id}`
+				);
 				updateState();
+				console.log(`[useDownloadsManager] State updated after removing: ${id}`);
 			} catch (err) {
+				console.error(`[useDownloadsManager] Error removing download ${id}:`, err);
 				const error =
 					err instanceof PlayerError
 						? err

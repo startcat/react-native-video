@@ -291,15 +291,55 @@ export class NativeManager {
 	}
 
 	private handleDownloadProgress(data: any): void {
+		// FILTRAR eventos innecesarios desde la fuente nativa
+		const percent = data.progress || 0;
+		const speed = data.speed || 0;
+		
+		// Log de debug para entender qué está pasando con descargas al 100%
+		if (percent >= 100 && speed === 0) {
+			this.currentLogger.warn(TAG, `Native module sending progress events for completed download: ${data.id}`, {
+				progress: percent,
+				speed: speed,
+				remainingTime: data.remainingTime,
+				state: 'unknown_from_progress_event'
+			});
+		}
+		
+		// No reenviar eventos de descargas completadas que no tienen actividad
+		if (percent >= 100 && speed === 0) {
+			// PERO SÍ emitir evento de completado si el módulo nativo no lo hizo
+			// Solo log ocasional para debug, no spam
+			if (Math.random() < 0.02) { // 2% de los eventos
+				this.currentLogger.debug(TAG, `Auto-completing download that reached 100%: ${data.id}`);
+				
+				// Emitir evento de completado ya que el módulo nativo no lo está haciendo
+				this.eventEmitter.emit("download_completed", {
+					downloadId: data.id,
+					fileUri: data.localPath || data.fileUri,
+					totalBytes: data.totalBytes || 0,
+					duration: 0,
+				});
+			}
+			return;
+		}
+		
+		// No reenviar eventos estáticos repetitivos (sin cambios y sin actividad)
+		if (speed === 0 && data.remainingTime === 0 && percent < 100) {
+			// Solo log ocasional para debug, no spam
+			if (Math.random() < 0.02) { // 2% de los eventos
+				this.currentLogger.debug(TAG, `Filtering static progress event: ${data.id} (${percent}%, no activity)`);
+			}
+			return;
+		}
+		
 		const progressEvent: DownloadProgressEvent = {
 			downloadId: data.id,
-			percent: data.progress || 0,
+			percent: percent,
 			bytesDownloaded: data.bytesDownloaded || 0,
 			totalBytes: data.totalBytes || 0,
-			speed: data.speed,
+			speed: speed,
 			remainingTime: data.remainingTime,
 		};
-
 		this.eventEmitter.emit("download_progress", progressEvent);
 	}
 
@@ -606,14 +646,18 @@ export class NativeManager {
 		}
 	}
 
+	/*
+	 * Método público para obtener información de una descarga específica
+	 */
 	public async getDownload(downloadId: string): Promise<DownloadItem | null> {
 		this.validateInitialized();
-
+		
 		try {
-			const download = await this.nativeModule.getDownload(downloadId);
+			const downloads = await this.nativeModule.getDownloads();
+			const download = downloads.find((d: any) => d.id === downloadId);
 			return download || null;
 		} catch (error) {
-			this.currentLogger.error(TAG, `Failed to get download: ${downloadId}`, error);
+			this.currentLogger.error(TAG, `Failed to get download info: ${downloadId}`, error);
 			throw new PlayerError("NATIVE_GET_DOWNLOAD_FAILED", {
 				originalError: error,
 				downloadId,
@@ -822,6 +866,35 @@ export class NativeManager {
 		} catch (error) {
 			this.currentLogger.error(TAG, `Failed to validate URI: ${uri}`, error);
 			return { isValid: false, errors: ["Validation failed"] };
+		}
+	}
+
+	/*
+	 * Método para limpiar descargas problemáticas que siguen enviando eventos
+	 */
+	public async cleanupCompletedDownload(downloadId: string): Promise<boolean> {
+		this.validateInitialized();
+		
+		try {
+			this.currentLogger.info(TAG, `Attempting to cleanup completed download: ${downloadId}`);
+			
+			// Primero intentar obtener info de la descarga
+			const downloadInfo = await this.getDownload(downloadId);
+			if (downloadInfo) {
+				this.currentLogger.info(TAG, `Download info before cleanup:`, downloadInfo);
+				
+				// Si está al 100%, intentar removerla del módulo nativo
+				if (downloadInfo.stats?.progressPercent >= 100) {
+					await this.nativeModule.removeDownload(downloadId);
+					this.currentLogger.info(TAG, `Successfully removed completed download: ${downloadId}`);
+					return true;
+				}
+			}
+			
+			return false;
+		} catch (error) {
+			this.currentLogger.error(TAG, `Failed to cleanup download ${downloadId}`, error);
+			return false;
 		}
 	}
 
