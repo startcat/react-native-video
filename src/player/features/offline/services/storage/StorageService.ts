@@ -1,5 +1,5 @@
 import { EventEmitter } from 'eventemitter3';
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { PlayerError } from '../../../../core/errors';
 import { Logger } from '../../../logger';
@@ -19,6 +19,9 @@ import {
     ValidationResult
 } from '../../types';
 const TAG = LOG_TAGS.STORAGE_SERVICE;
+
+// Obtener módulo nativo para información de almacenamiento precisa
+const { DownloadsModule2 } = NativeModules;
 
 /*
  * Servicio singleton para gestión de almacenamiento
@@ -112,6 +115,13 @@ export class StorageService {
     
     public async getTotalSpace(): Promise<number> {
         try {
+            // Usar DownloadsModule2 si está disponible para obtener valores precisos
+            if (DownloadsModule2 && DownloadsModule2.getSystemInfo) {
+                const systemInfo = await DownloadsModule2.getSystemInfo();
+                return systemInfo.totalSpace;
+            }
+            
+            // Fallback a RNFS si el módulo nativo no está disponible
             const info = await RNFS.getFSInfo();
             return info.totalSpace;
         } catch (error) {
@@ -130,6 +140,13 @@ export class StorageService {
     
     public async getUsedSpace(): Promise<number> {
         try {
+            // Usar DownloadsModule2 si está disponible para obtener valores precisos
+            if (DownloadsModule2 && DownloadsModule2.getSystemInfo) {
+                const systemInfo = await DownloadsModule2.getSystemInfo();
+                return systemInfo.totalSpace - systemInfo.availableSpace;
+            }
+            
+            // Fallback a RNFS si el módulo nativo no está disponible
             const info = await RNFS.getFSInfo();
             return info.totalSpace - info.freeSpace;
         } catch (error) {
@@ -143,11 +160,29 @@ export class StorageService {
 
     /*
      * Obtiene el espacio disponible del dispositivo
+     * IMPORTANTE: En iOS usa volumeAvailableCapacityForImportantUsage que incluye espacio purgeable
+     * Coincide con el valor mostrado en Configuración de iOS
      *
      */
 
     public async getAvailableSpace(): Promise<number> {
         try {
+            // Usar DownloadsModule2 si está disponible para obtener valores precisos
+            // iOS: usa volumeAvailableCapacityForImportantUsage (incluye espacio purgeable)
+            // Android: usa valores correctos del sistema
+            if (DownloadsModule2 && DownloadsModule2.getSystemInfo) {
+                const systemInfo = await DownloadsModule2.getSystemInfo();
+                this.currentLogger.debug(TAG, 'Using native module for storage info', {
+                    totalSpace: systemInfo.totalSpace,
+                    availableSpace: systemInfo.availableSpace,
+                    platform: Platform.OS
+                });
+                return systemInfo.availableSpace;
+            }
+            
+            // Fallback a RNFS si el módulo nativo no está disponible
+            // ADVERTENCIA: En iOS esto usa volumeAvailableCapacity (valor conservador sin purgeable)
+            this.currentLogger.warn(TAG, 'Using RNFS fallback for storage info (may be inaccurate on iOS)');
             const info = await RNFS.getFSInfo();
             return info.freeSpace;
         } catch (error) {
