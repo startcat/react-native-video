@@ -181,6 +181,13 @@ export class QueueManager {
 				TAG,
 				`Download queued: ${downloadItem.title} (${downloadItem.id})`
 			);
+
+			// OPTIMIZACIÓN: Iniciar procesamiento si hay trabajo y no está procesando
+			if (!this.isProcessing && !this.isPaused) {
+				this.currentLogger.debug(TAG, "Starting processing due to new download added");
+				this.startProcessing();
+			}
+
 			return downloadItem.id;
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_QUEUE_ADD_ITEM_FAILED", {
@@ -258,28 +265,50 @@ export class QueueManager {
 					`No profiles remaining for download ${downloadId}. Removing from disk and queue.`
 				);
 
-				// Cambiar estado a removing
-				item.state = DownloadStates.REMOVING;
-				this.downloadQueue.set(downloadId, item);
+				// Guardar estado original antes de cambiar a REMOVING
+				const originalState = item.state;
 
 				// Si se está descargando, detenerla
 				if (this.currentlyDownloading.has(downloadId)) {
 					this.currentlyDownloading.delete(downloadId);
 				}
 
-				// Eliminar archivos del disco usando StorageService
+				// Eliminar archivos del disco
+				// Para descargas COMPLETADAS: eliminar archivo final usando fileUri
 				if (item.fileUri) {
 					try {
 						await storageService.deleteFile(item.fileUri);
-						this.currentLogger.info(TAG, `File deleted from disk: ${item.fileUri}`);
+						this.currentLogger.info(TAG, `Completed download file deleted from disk: ${item.fileUri}`);
 					} catch (error) {
 						this.currentLogger.warn(
 							TAG,
-							`Failed to delete file: ${item.fileUri}`,
+							`Failed to delete completed download file: ${item.fileUri}`,
 							error
 						);
 					}
 				}
+
+				// Para descargas INCOMPLETAS o EN PROGRESO: eliminar archivos temporales vía módulo nativo
+				// El módulo nativo (ExoPlayer/AVPlayer) gestiona sus propios archivos temporales
+				// y debe limpiarlos cuando se cancela la descarga
+				if (originalState !== DownloadStates.COMPLETED && item.type === DownloadType.STREAM) {
+					try {
+						// El módulo nativo ya debería haber limpiado archivos temporales en cancelDownload,
+						// pero lo llamamos explícitamente para asegurarnos
+						await nativeManager.removeDownload(downloadId);
+						this.currentLogger.info(TAG, `Temporary files cleaned via native manager: ${downloadId}`);
+					} catch (error) {
+						this.currentLogger.warn(
+							TAG,
+							`Failed to clean temporary files via native manager: ${downloadId}`,
+							error
+						);
+					}
+				}
+
+				// Cambiar estado a removing
+				item.state = DownloadStates.REMOVING;
+				this.downloadQueue.set(downloadId, item);
 
 				// Remover completamente de la cola y tracking
 				this.downloadQueue.delete(downloadId);
@@ -405,6 +434,12 @@ export class QueueManager {
 			await this.updateDownloadState(downloadId, DownloadStates.QUEUED);
 
 			this.eventEmitter.emit(DownloadEventType.RESUMED, { downloadId, item });
+
+			// OPTIMIZACIÓN: Iniciar procesamiento si no está procesando
+			if (!this.isProcessing && !this.isPaused) {
+				this.currentLogger.debug(TAG, "Starting processing due to download resumed");
+				this.startProcessing();
+			}
 		}
 	}
 
@@ -763,10 +798,34 @@ export class QueueManager {
 
 	private async processQueue(): Promise<void> {
 		// Verificar límite de descargas concurrentes
-		if (this.currentlyDownloading.size >= this.config.maxConcurrentDownloads) {
+		// IMPORTANTE: Solo contar descargas activas (DOWNLOADING o PAUSED), no COMPLETED ni FAILED
+		const activeDownloads = Array.from(this.downloadQueue.values()).filter(
+			item => item.state === DownloadStates.DOWNLOADING || item.state === DownloadStates.PAUSED
+		).length;
+
+		const queuedDownloads = Array.from(this.downloadQueue.values()).filter(
+			item => item.state === DownloadStates.QUEUED
+		).length;
+
+		// OPTIMIZACIÓN: Si no hay nada en cola ni activas, detener el intervalo
+		if (queuedDownloads === 0 && activeDownloads === 0) {
+			if (this.isProcessing) {
+				this.currentLogger.debug(TAG, "No work to do, stopping processing interval");
+				this.stopProcessing();
+			}
+			return;
+		}
+
+		// Solo loggear cuando hay trabajo real que procesar
+		this.currentLogger.debug(
+			TAG,
+			`processQueue - Active: ${activeDownloads}, Queued: ${queuedDownloads}, Max: ${this.config.maxConcurrentDownloads}`
+		);
+
+		if (activeDownloads >= this.config.maxConcurrentDownloads) {
 			this.currentLogger.debug(
 				TAG,
-				`Max concurrent downloads reached (${this.config.maxConcurrentDownloads}), keeping items in queue`
+				`Max concurrent downloads reached (${activeDownloads}/${this.config.maxConcurrentDownloads}), keeping items in queue`
 			);
 			return;
 		}
@@ -952,8 +1011,12 @@ export class QueueManager {
 			this.currentLogger.info(TAG, `Download completed: ${item.title}`);
 		}
 
-		// Procesar siguiente item en cola
-		this.processQueue();
+		// Procesar siguiente item en cola (puede iniciar procesamiento si estaba detenido)
+		if (!this.isProcessing && !this.isPaused) {
+			this.startProcessing();
+		} else {
+			this.processQueue();
+		}
 	}
 
 	/*
@@ -970,8 +1033,12 @@ export class QueueManager {
 		// Remover de descargas activas
 		this.currentlyDownloading.delete(downloadId);
 
-		// Procesar siguiente item en cola
-		this.processQueue();
+		// Procesar siguiente item en cola (puede iniciar procesamiento si estaba detenido)
+		if (!this.isProcessing && !this.isPaused) {
+			this.startProcessing();
+		} else {
+			this.processQueue();
+		}
 	}
 
 	/*
@@ -990,8 +1057,12 @@ export class QueueManager {
 			this.eventEmitter.emit(DownloadEventType.PAUSED, { downloadId, item });
 		}
 
-		// Procesar siguiente item en cola
-		this.processQueue();
+		// Procesar siguiente item en cola (puede iniciar procesamiento si estaba detenido)
+		if (!this.isProcessing && !this.isPaused) {
+			this.startProcessing();
+		} else {
+			this.processQueue();
+		}
 	}
 
 	/*
@@ -1054,11 +1125,20 @@ export class QueueManager {
 	): Promise<void> {
 		const item = this.downloadQueue.get(downloadId);
 		if (item) {
+			const previousState = item.state;
 			item.state = state;
+			
 			if (fileUri) {
 				item.fileUri = fileUri;
 			}
-			if (state === DownloadStates.COMPLETED) {
+			
+			// Establecer timestamps según el estado
+			if (state === DownloadStates.DOWNLOADING && previousState !== DownloadStates.DOWNLOADING) {
+				// Iniciar descarga - establecer startedAt si no existe
+				if (!item.stats.startedAt) {
+					item.stats.startedAt = Date.now();
+				}
+			} else if (state === DownloadStates.COMPLETED) {
 				item.stats.downloadedAt = Date.now();
 			}
 
@@ -1251,41 +1331,195 @@ export class QueueManager {
 	/*
 	 * Handlers para eventos nativos
 	 */
+	
+	// Track last progress event times to avoid spam
+	private lastProgressEventTime: Map<string, number> = new Map();
+	
 	private async handleNativeProgressEvent(data: any): Promise<void> {
 		const { downloadId, percent } = data;
 		
 		if (this.downloadQueue.has(downloadId)) {
+			// FILTRAR eventos innecesarios para evitar ruido
+			const item = this.downloadQueue.get(downloadId);
+			
+			// No procesar si la descarga no está realmente activa
+			if (!item || item.state !== DownloadStates.DOWNLOADING) {
+				// Solo log ocasional para debugging, no spam
+				if (Math.random() < 0.1) { // 10% de los eventos
+					this.currentLogger.debug(TAG, `Ignoring progress event for inactive download: ${downloadId} (state: ${item?.state})`);
+				}
+				return;
+			}
+			
+			// No procesar eventos "estáticos" (sin velocidad y sin cambios)
+			if (data.speed === 0 && !item.stats.startedAt) {
+				// Solo log ocasional para debugging, no spam
+				if (Math.random() < 0.1) { // 10% de los eventos
+					this.currentLogger.debug(TAG, `Ignoring static progress event for ${downloadId}: no speed and not started`);
+				}
+				return;
+			}
+			
+			// No procesar si el progreso no ha cambiado significativamente
+			const currentPercent = item.stats.progressPercent || 0;
+			if (Math.abs(percent - currentPercent) < 1 && data.speed === 0) {
+				// Solo log ocasional para debugging, no spam  
+				if (Math.random() < 0.1) { // 10% de los eventos
+					this.currentLogger.debug(TAG, `Ignoring duplicate progress event for ${downloadId}: ${percent}% (no change)`);
+				}
+				return;
+			}
+			
+			// FILTRO TEMPORAL: Evitar procesar eventos muy frecuentes (menos de 2 segundos de diferencia)
+			const now = Date.now();
+			const lastEventTime = this.lastProgressEventTime.get(downloadId) || 0;
+			const timeSinceLastEvent = now - lastEventTime;
+			
+			// Solo procesar si han pasado al menos 2 segundos o hay cambio significativo de progreso/velocidad
+			const significantChange = Math.abs(percent - currentPercent) >= 5 || data.speed > 0;
+			if (timeSinceLastEvent < 2000 && !significantChange) {
+				// Solo log ocasional para debugging, no spam
+				if (Math.random() < 0.05) { // 5% de los eventos
+					this.currentLogger.debug(TAG, `Throttling progress event for ${downloadId}: too frequent (${timeSinceLastEvent}ms ago)`);
+				}
+				return;
+			}
+			
+			// Actualizar tiempo del último evento procesado
+			this.lastProgressEventTime.set(downloadId, now);
 			// Actualizar progreso en el item de la cola (solo acepta 2 argumentos)
 			await this.updateDownloadProgress(downloadId, percent);
 			
-			// También actualizar bytes si están disponibles
-			const item = this.downloadQueue.get(downloadId);
+			// También actualizar bytes y otros datos si están disponibles
 			if (item && item.stats) {
-				item.stats.bytesDownloaded = data.bytesDownloaded || item.stats.bytesDownloaded || 0;
-				item.stats.totalBytes = data.totalBytes || item.stats.totalBytes || 0;
-				item.stats.downloadSpeed = data.speed || item.stats.downloadSpeed || 0;
+				// Actualizar velocidad
+				if (data.speed !== undefined) {
+					item.stats.downloadSpeed = data.speed;
+				}
+				
+				// Actualizar tiempo restante
+				if (data.remainingTime !== undefined) {
+					item.stats.remainingTime = data.remainingTime;
+				}
+				
+				// Actualizar bytes descargados si viene del evento nativo
+				if (data.bytesDownloaded !== undefined && data.bytesDownloaded > 0) {
+					item.stats.bytesDownloaded = data.bytesDownloaded;
+				}
+				
+				// Actualizar total bytes si viene del evento nativo
+				if (data.totalBytes !== undefined && data.totalBytes > 0) {
+					item.stats.totalBytes = data.totalBytes;
+				}
+				
+				// CALCULAR bytes si no vienen del nativo (usando speed y tiempo transcurrido)
+				if (!data.bytesDownloaded && item.stats.startedAt && data.speed > 0) {
+					const elapsedSeconds = (Date.now() - item.stats.startedAt) / 1000;
+					const estimatedBytes = Math.floor(data.speed * elapsedSeconds);
+					if (estimatedBytes > item.stats.bytesDownloaded) {
+						item.stats.bytesDownloaded = estimatedBytes;
+					}
+				}
+				
+				// CALCULAR totalBytes si no viene del nativo (usando progress y bytesDownloaded)
+				if (item.stats.totalBytes <= 0 && percent > 0 && item.stats.bytesDownloaded > 0) {
+					item.stats.totalBytes = Math.floor(item.stats.bytesDownloaded / (percent / 100));
+				}
+				
+				// CALCULAR remainingTime si es 0 o no viene del nativo
+				if ((!data.remainingTime || data.remainingTime === 0) && data.speed > 0 && item.stats.totalBytes > 0 && item.stats.bytesDownloaded > 0) {
+					const remainingBytes = item.stats.totalBytes - item.stats.bytesDownloaded;
+					item.stats.remainingTime = Math.floor(remainingBytes / data.speed);
+				}
 			}
 			
-			// Re-emitir evento para que los hooks lo reciban
-			this.eventEmitter.emit(DownloadEventType.PROGRESS, {
+			// Re-emitir evento para que los hooks lo reciban (usar valores calculados)
+			const updatedItem = this.downloadQueue.get(downloadId);
+			const stats = updatedItem?.stats;
+			
+			const progressData = {
 				downloadId,
 				percent: Math.floor(percent),
-				item: this.downloadQueue.get(downloadId),
-				bytesDownloaded: data.bytesDownloaded || 0,
-				totalBytes: data.totalBytes || 0,
-				speed: data.speed || 0,
-				remainingTime: data.remainingTime || 0,
+				item: updatedItem,
+				bytesDownloaded: stats?.bytesDownloaded || 0,
+				totalBytes: stats?.totalBytes || 0,
+				speed: stats?.downloadSpeed || 0,
+				remainingTime: stats?.remainingTime || 0,
+			};
+			
+			// Log para debug de los valores calculados
+			this.currentLogger.debug(TAG, `Progress event data for ${downloadId}:`, {
+				percent: progressData.percent,
+				bytesDownloaded: progressData.bytesDownloaded,
+				totalBytes: progressData.totalBytes,
+				speed: progressData.speed,
+				remainingTime: progressData.remainingTime,
+				startedAt: stats?.startedAt,
 			});
+			
+			this.eventEmitter.emit(DownloadEventType.PROGRESS, progressData);
 		}
 	}
 
 	private async handleNativeStateEvent(data: any): Promise<void> {
 		const { downloadId, state } = data;
 		
+		this.currentLogger.debug(TAG, `Handling native state event: ${downloadId} → ${state}`);
+		
 		if (this.downloadQueue.has(downloadId)) {
 			// Convertir estado nativo a estado interno si es necesario
 			const mappedState = this.mapNativeStateToInternal(state);
+			const previousState = this.downloadQueue.get(downloadId)?.state;
+			
 			await this.updateDownloadState(downloadId, mappedState);
+			
+			// Re-emitir evento específico según el estado
+			const item = this.downloadQueue.get(downloadId);
+			if (item) {
+				switch (mappedState) {
+					case DownloadStates.COMPLETED:
+						this.eventEmitter.emit(DownloadEventType.COMPLETED, {
+							downloadId,
+							item,
+						});
+						// Limpiar tracking de eventos para esta descarga
+						this.lastProgressEventTime.delete(downloadId);
+						break;
+					case DownloadStates.FAILED:
+						this.eventEmitter.emit(DownloadEventType.FAILED, {
+							downloadId,
+							item,
+							error: data.error || null,
+						});
+						// Limpiar tracking de eventos para esta descarga
+						this.lastProgressEventTime.delete(downloadId);
+						break;
+					case DownloadStates.PAUSED:
+						this.eventEmitter.emit(DownloadEventType.PAUSED, {
+							downloadId,
+							item,
+						});
+						break;
+					case DownloadStates.DOWNLOADING:
+						this.eventEmitter.emit(DownloadEventType.STARTED, {
+							downloadId,
+							item,
+						});
+						break;
+					default:
+						// Para otros estados, emitir un evento genérico de cambio
+						this.eventEmitter.emit("state_changed", {
+							downloadId,
+							item,
+							previousState,
+							newState: mappedState,
+						});
+				}
+				
+				this.currentLogger.debug(TAG, `Re-emitted event for state change: ${downloadId} ${previousState} → ${mappedState}`);
+			}
+		} else {
+			this.currentLogger.warn(TAG, `Received state change for unknown download: ${downloadId}`);
 		}
 	}
 

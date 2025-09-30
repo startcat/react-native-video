@@ -224,10 +224,13 @@ export class DownloadsManager {
 
 	private setupServiceCoordination(): void {
 		// Coordinar con QueueManager para eventos de cola
-		const queueUnsubscriber = queueManager.subscribe("all", data => {
-			this.handleQueueEvent(data);
+		// Suscribirse a cada evento individualmente para capturar el tipo de evento
+		Object.values(DownloadEventType).forEach(eventType => {
+			const unsubscriber = queueManager.subscribe(eventType, data => {
+				this.handleQueueEvent(eventType, data);
+			});
+			this.eventUnsubscribers.push(unsubscriber);
 		});
-		this.eventUnsubscribers.push(queueUnsubscriber);
 
 		// Coordinar con ConfigManager para cambios de configuración
 		const configUnsubscriber = configManager.subscribe("all", data => {
@@ -306,14 +309,23 @@ export class DownloadsManager {
 	 *
 	 */
 
-	private handleQueueEvent(data: any): void {
+	private handleQueueEvent(eventType: DownloadEventType, data: any): void {
 		try {
 			// Los eventos de cola se propagan directamente ya que son de alto nivel
-			this.eventEmitter.emit("queue:" + (data.type || "unknown"), {
+			this.eventEmitter.emit("queue:" + eventType, {
 				...data,
 				timestamp: Date.now(),
 				managerState: this.getState(),
 			});
+
+			// CRÍTICO: Re-emitir eventos de descarga importantes para que los hooks los reciban
+			// Re-emitir como evento de descarga directo (sin prefijo "queue:")
+			this.eventEmitter.emit(eventType, {
+				...data,
+				timestamp: Date.now(),
+			});
+			
+			this.currentLogger.debug(TAG, `Re-emitted queue event: ${eventType}`);
 
 			this.invalidateStatsCache();
 			this.state.lastUpdated = Date.now();
@@ -534,24 +546,50 @@ export class DownloadsManager {
 	}
 
 	public async removeDownload(downloadId: string): Promise<void> {
+		this.currentLogger.debug(TAG, `removeDownload called for: ${downloadId}`);
 		try {
-			// Obtener el tipo de descarga desde QueueManager
-			const downloadType = queueManager.getDownloadType(downloadId);
-			if (!downloadType) {
+			// Obtener el item completo desde QueueManager para verificar estado
+			this.currentLogger.debug(TAG, `Getting download item for: ${downloadId}`);
+			const downloadItem = queueManager.getDownload(downloadId);
+			
+			if (!downloadItem) {
+				this.currentLogger.error(TAG, `Download not found in queue: ${downloadId}`);
 				throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
 			}
 
-			// Cancelar descarga usando el tipo correcto
-			await downloadService.cancelDownload(downloadId, downloadType);
+			const downloadType = downloadItem.type;
+			const downloadState = downloadItem.state;
+			this.currentLogger.debug(TAG, `Download ${downloadId}: type=${downloadType}, state=${downloadState}`);
 
-			// Remover de la cola
+			// Solo cancelar si la descarga está en progreso, en cola o pausada
+			// No intentar cancelar descargas completadas o fallidas
+			const shouldCancel = 
+				downloadState === DownloadStates.DOWNLOADING ||
+				downloadState === DownloadStates.QUEUED ||
+				downloadState === DownloadStates.PAUSED ||
+				downloadState === DownloadStates.PREPARING;
+
+			if (shouldCancel) {
+				// Cancelar descarga activa usando el servicio
+				this.currentLogger.debug(TAG, `Cancelling active download via service: ${downloadId} (${downloadType})`);
+				await downloadService.cancelDownload(downloadId, downloadType);
+				this.currentLogger.debug(TAG, `Download cancelled via service: ${downloadId}`);
+			} else {
+				// Para descargas completadas o fallidas, solo eliminar de la cola
+				this.currentLogger.debug(TAG, `Skipping cancellation for ${downloadState} download: ${downloadId}`);
+			}
+
+			// Remover de la cola (siempre)
+			this.currentLogger.debug(TAG, `Removing from queue: ${downloadId}`);
 			await queueManager.removeDownload(downloadId);
+			this.currentLogger.debug(TAG, `Removed from queue: ${downloadId}`);
 
 			this.currentLogger.info(
 				TAG,
-				`Download removed via manager: ${downloadId} (${downloadType})`
+				`Download removed via manager: ${downloadId} (${downloadType}, ${downloadState})`
 			);
 		} catch (error) {
+			this.currentLogger.error(TAG, `Error removing download ${downloadId}:`, error);
 			throw error instanceof PlayerError
 				? error
 				: new PlayerError("DOWNLOAD_FAILED", {
