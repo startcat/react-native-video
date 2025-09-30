@@ -325,8 +325,6 @@ export class DownloadsManager {
 				timestamp: Date.now(),
 			});
 
-			this.currentLogger.debug(TAG, `Re-emitted queue event: ${eventType}`);
-
 			this.invalidateStatsCache();
 			this.state.lastUpdated = Date.now();
 		} catch (error) {
