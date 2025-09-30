@@ -247,7 +247,7 @@ export class NativeManager {
 
 	private handleNativeEvent(eventName: string, data: any): void {
 		try {
-			this.currentLogger.debug(TAG, `Received native event: ${eventName}`, data);
+			// this.currentLogger.debug(TAG, `Received native event: ${eventName}`, data);
 
 			// Buffer del evento para debugging
 			this.bufferEvent(eventName, data);

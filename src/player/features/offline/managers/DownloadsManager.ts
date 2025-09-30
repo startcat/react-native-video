@@ -826,13 +826,11 @@ export class DownloadsManager {
 		// Obtener estadísticas desde QueueManager (fuente de verdad)
 		const queueStats = queueManager.getQueueStats();
 
-		// Combinar con estadísticas del DownloadService para velocidades
-		const unifiedStats = downloadService.getUnifiedStats();
-
+		// QueueManager ya calcula correctamente averageSpeed desde los eventos nativos
+		// No sobrescribir con cálculos derivados de DownloadService
 		this.cachedStats = {
 			...queueStats,
-			averageSpeed: unifiedStats.combined.averageSpeed,
-			// Las estadísticas del QueueManager ya incluyen los totales de bytes
+			// averageSpeed ya viene correcto desde queueStats
 		};
 
 		this.lastStatsUpdate = Date.now();

@@ -140,9 +140,9 @@ export function useDownloadsManager(
 			const newDownloads = downloadsManager.getDownloads();
 			const newQueueStats = downloadsManager.getQueueStats();
 
-			console.log(
-				`[useDownloadsManager] updateState - downloads: ${newDownloads.length}, averageSpeed: ${newQueueStats.averageSpeed}`
-			);
+			// console.log(
+			// 	`[useDownloadsManager] updateState - downloads: ${newDownloads.length}, averageSpeed: ${newQueueStats.averageSpeed}`
+			// );
 
 			setDownloads(newDownloads);
 			setQueueStats(newQueueStats);
@@ -275,7 +275,6 @@ export function useDownloadsManager(
 
 		// Si no hay descargas activas, progreso es 0
 		if (activeItems.length === 0) {
-			console.log(`[useDownloadsManager] totalProgress calculated: 0% (no active downloads)`);
 			return 0;
 		}
 
@@ -285,18 +284,12 @@ export function useDownloadsManager(
 		}, 0);
 
 		const avgProgress = Math.round(totalProgressSum / activeItems.length);
-		console.log(
-			`[useDownloadsManager] totalProgress calculated: ${avgProgress}% (from ${activeItems.length} active downloads)`
-		);
 		return avgProgress;
 	}, [downloads]);
 
 	// Velocidad global
 	const globalSpeed = useMemo(() => {
 		const speed = queueStats.averageSpeed ?? 0;
-		console.log(
-			`[useDownloadsManager] globalSpeed calculated: ${speed} B/s (from queueStats.averageSpeed: ${queueStats.averageSpeed})`
-		);
 		return speed;
 	}, [queueStats.averageSpeed]);
 
@@ -328,9 +321,6 @@ export function useDownloadsManager(
 				// 4. Verificar que no exista ya la descarga
 				const existingDownload = queueManager.getDownload(itemWithId.id);
 				if (existingDownload) {
-					console.log(
-						`[useDownloadsManager] Download already exists: ${itemWithId.title} (${itemWithId.id})`
-					);
 					return itemWithId.id;
 				}
 
@@ -351,16 +341,8 @@ export function useDownloadsManager(
 					},
 				};
 
-				console.log(
-					`[useDownloadsManager] DownloadItem created: ${itemWithId.title} (${itemWithId.id}) ${JSON.stringify(downloadItem)}`
-				);
-
 				// 7. Agregar el DownloadItem completo al QueueManager
 				const downloadId = await queueManager.addDownloadItem(downloadItem);
-
-				console.log(
-					`[useDownloadsManager] DownloadItem added to queue: ${itemWithId.title} (${itemWithId.id}) ${downloadId}`
-				);
 
 				// 8. Crear tareas específicas según el tipo para el DownloadsManager
 				let task: BinaryDownloadTask | StreamDownloadTask;
@@ -409,7 +391,6 @@ export function useDownloadsManager(
 				updateState();
 				return downloadId;
 			} catch (err) {
-				console.error(`[useDownloadsManager] Download failed: ${JSON.stringify(err)}`);
 				const error =
 					err instanceof PlayerError
 						? err
