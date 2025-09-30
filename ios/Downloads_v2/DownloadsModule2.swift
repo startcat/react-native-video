@@ -197,7 +197,9 @@ class DownloadsModule2: RCTEventEmitter {
             }
             
             do {
+                print("📥 [DownloadsModule2] Step 1: Validating config")
                 guard self.validateDownloadConfig(config) else {
+                    print("❌ [DownloadsModule2] Config validation failed")
                     DispatchQueue.main.async {
                         reject("INVALID_CONFIG", "Invalid download configuration", nil)
                     }
@@ -207,16 +209,20 @@ class DownloadsModule2: RCTEventEmitter {
                 let id = config["id"] as! String
                 let uri = config["uri"] as! String
                 let title = config["title"] as! String
+                print("📥 [DownloadsModule2] Step 2: Config validated - ID: \(id), URI: \(uri)")
                 
                 // Check if download already exists
                 if self.activeDownloads[id] != nil {
+                    print("❌ [DownloadsModule2] Download already exists: \(id)")
                     DispatchQueue.main.async {
                         reject("DOWNLOAD_EXISTS", "Download with this ID already exists", nil)
                     }
                     return
                 }
+                print("📥 [DownloadsModule2] Step 3: Download does not exist, proceeding")
                 
                 // Create download info
+                print("📥 [DownloadsModule2] Step 4: Creating download info")
                 var downloadInfo = DownloadInfo(
                     id: id,
                     uri: uri,
@@ -235,9 +241,12 @@ class DownloadsModule2: RCTEventEmitter {
                 )
                 
                 self.activeDownloads[id] = downloadInfo
+                print("📥 [DownloadsModule2] Active downloads: \(self.activeDownloads.count)")
                 
                 // Create AVURLAsset
+                print("📥 [DownloadsModule2] Step 5: Creating AVURLAsset")
                 guard let url = URL(string: uri) else {
+                    print("❌ [DownloadsModule2] Invalid URI: \(uri)")
                     DispatchQueue.main.async {
                         reject("INVALID_URI", "Invalid download URI", nil)
                     }
@@ -245,27 +254,47 @@ class DownloadsModule2: RCTEventEmitter {
                 }
                 
                 let asset = AVURLAsset(url: url)
+                print("📥 [DownloadsModule2] AVURLAsset created successfully")
                 
                 // Handle DRM if present
                 if let drmConfig = config["drm"] as? NSDictionary {
+                    print("📥 [DownloadsModule2] Step 6: Processing DRM configuration")
                     try self.setupDRMForAsset(asset, config: drmConfig, contentId: id)
+                } else {
+                    print("📥 [DownloadsModule2] Step 6: No DRM, skipping")
                 }
                 
                 // Create download task
+                print("📥 [DownloadsModule2] Step 7: Creating download task for ID: \(id)")
+                print("📥 [DownloadsModule2] Active tasks before: \(self.downloadTasks.count)")
+                
+                // Clean up any existing task for this ID (safety check)
+                if let existingTask = self.downloadTasks[id] {
+                    print("⚠️ [DownloadsModule2] Found existing task for ID: \(id), cancelling it")
+                    existingTask.cancel()
+                    self.downloadTasks.removeValue(forKey: id)
+                }
+                
                 let downloadTask = try self.createDownloadTask(for: asset, with: downloadInfo)
                 self.downloadTasks[id] = downloadTask
+                print("📥 [DownloadsModule2] Step 8: Download task created and stored")
+                print("📥 [DownloadsModule2] Active tasks after: \(self.downloadTasks.count)")
                 
                 // Update state and start download
                 downloadInfo.state = .queued
                 self.activeDownloads[id] = downloadInfo
                 
+                print("📥 [DownloadsModule2] Step 9: Starting download if possible")
                 self.startDownloadIfPossible(id)
                 
+                print("📥 [DownloadsModule2] Step 10: Download added successfully, resolving promise")
                 DispatchQueue.main.async {
                     resolve(nil)
                 }
                 
             } catch {
+                print("❌ [DownloadsModule2] Error adding download: \(error.localizedDescription)")
+                print("❌ [DownloadsModule2] Error details: \(error)")
                 DispatchQueue.main.async {
                     reject("ADD_DOWNLOAD_FAILED", "Failed to add download: \(error.localizedDescription)", error)
                 }
@@ -277,15 +306,21 @@ class DownloadsModule2: RCTEventEmitter {
         downloadQueue.async { [weak self] in
             guard let self = self else { return }
             
+            print("📥 [DownloadsModule2] Removing download: \(downloadId)")
             do {
                 // Cancel download task if active
                 if let downloadTask = self.downloadTasks[downloadId] {
+                    print("📥 [DownloadsModule2] Cancelling download task for: \(downloadId)")
                     downloadTask.cancel()
                     self.downloadTasks.removeValue(forKey: downloadId)
+                    print("📥 [DownloadsModule2] Task removed. Remaining tasks: \(self.downloadTasks.count)")
+                } else {
+                    print("⚠️ [DownloadsModule2] No active task found for: \(downloadId)")
                 }
                 
                 // Remove download info
                 self.activeDownloads.removeValue(forKey: downloadId)
+                print("📥 [DownloadsModule2] Download info removed. Remaining downloads: \(self.activeDownloads.count)")
                 
                 // Remove downloaded files
                 try self.removeDownloadedFiles(for: downloadId)
@@ -293,11 +328,13 @@ class DownloadsModule2: RCTEventEmitter {
                 // Release license if DRM
                 self.releaseLicenseForDownload(downloadId)
                 
+                print("✅ [DownloadsModule2] Download removed successfully: \(downloadId)")
                 DispatchQueue.main.async {
                     resolve(nil)
                 }
                 
             } catch {
+                print("❌ [DownloadsModule2] Error removing download \(downloadId): \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     reject("REMOVE_DOWNLOAD_FAILED", "Failed to remove download: \(error.localizedDescription)", error)
                 }
@@ -795,9 +832,11 @@ class DownloadsModule2: RCTEventEmitter {
     
     private func createDownloadTask(for asset: AVURLAsset, with downloadInfo: DownloadInfo) throws -> AVAssetDownloadTask {
         guard let session = downloadsSession else {
+            print("❌ [DownloadsModule2] Download session not initialized")
             throw NSError(domain: "DownloadsModule2", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download session not initialized"])
         }
         
+        print("📥 [DownloadsModule2] Creating download task for: \(downloadInfo.title)")
         let downloadTask = session.makeAssetDownloadTask(
             asset: asset,
             assetTitle: downloadInfo.title,
@@ -805,14 +844,27 @@ class DownloadsModule2: RCTEventEmitter {
             options: [AVAssetDownloadTaskMinimumRequiredMediaBitrateKey: 265_000]
         )
         
-        return downloadTask!
+        // Safe unwrap instead of force unwrap to prevent crashes
+        guard let task = downloadTask else {
+            print("❌ [DownloadsModule2] Failed to create download task for asset")
+            throw NSError(
+                domain: "DownloadsModule2",
+                code: -2,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to create download task for asset: \(downloadInfo.title)"]
+            )
+        }
+        
+        print("✅ [DownloadsModule2] Download task created successfully")
+        return task
     }
     
     private func startDownloadIfPossible(_ downloadId: String) {
         let activeCount = activeDownloads.values.filter { $0.state == .downloading }.count
+        print("📥 [DownloadsModule2] Checking if can start download \(downloadId) (active: \(activeCount)/\(maxConcurrentDownloads))")
         
         if activeCount < maxConcurrentDownloads {
             if let downloadTask = downloadTasks[downloadId] {
+                print("📥 [DownloadsModule2] Starting download task: \(downloadId)")
                 downloadTask.resume()
                 if var downloadInfo = activeDownloads[downloadId] {
                     downloadInfo.state = .downloading
@@ -822,8 +874,13 @@ class DownloadsModule2: RCTEventEmitter {
                         "id": downloadId,
                         "state": downloadInfo.state.stringValue
                     ])
+                    print("✅ [DownloadsModule2] Download started: \(downloadId)")
                 }
+            } else {
+                print("⚠️ [DownloadsModule2] No task found for download: \(downloadId)")
             }
+        } else {
+            print("⚠️ [DownloadsModule2] Max concurrent downloads reached (\(maxConcurrentDownloads)), queuing: \(downloadId)")
         }
     }
     
@@ -929,7 +986,11 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     
     func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask, didFinishDownloadingTo location: URL) {
         // Handle download completion
+        print("📥 [DownloadsModule2] Download finished, finding ID...")
         if let downloadId = findDownloadId(for: assetDownloadTask) {
+            print("✅ [DownloadsModule2] Download completed: \(downloadId)")
+            print("📥 [DownloadsModule2] Location: \(location.path)")
+            
             var downloadInfo = activeDownloads[downloadId]!
             downloadInfo.state = .completed
             downloadInfo.completionTime = Date()
@@ -940,6 +1001,8 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 "path": location.path,
                 "duration": Date().timeIntervalSince(downloadInfo.startTime!)
             ])
+        } else {
+            print("⚠️ [DownloadsModule2] Could not find download ID for completed task")
         }
     }
     
@@ -970,7 +1033,9 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error {
+            print("❌ [DownloadsModule2] Download task completed with error: \(error.localizedDescription)")
             if let downloadId = findDownloadId(for: task as! AVAssetDownloadTask) {
+                print("❌ [DownloadsModule2] Download failed: \(downloadId)")
                 var downloadInfo = activeDownloads[downloadId]!
                 downloadInfo.state = .failed
                 downloadInfo.error = error
@@ -983,6 +1048,8 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                         "message": error.localizedDescription
                     ]
                 ])
+            } else {
+                print("⚠️ [DownloadsModule2] Could not find download ID for failed task")
             }
         }
     }
