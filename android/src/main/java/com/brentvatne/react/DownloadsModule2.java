@@ -47,8 +47,11 @@ import androidx.media3.exoplayer.offline.DownloadIndex;
 import androidx.media3.exoplayer.offline.DownloadManager;
 import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.exoplayer.offline.DownloadService;
+import androidx.media3.common.C;
+import androidx.media3.common.Format;
 import androidx.media3.common.TrackGroup;
 import androidx.media3.exoplayer.source.TrackGroupArray;
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector;
 import androidx.media3.common.util.Util;
 
@@ -107,6 +110,9 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     // State tracking
     private volatile boolean pendingResumeAll = false;
     private volatile Promise pendingResumePromise = null;
+    
+    // Track quality setting per download
+    private Map<String, String> activeDownloadQuality = new ConcurrentHashMap<>();
 
     public DownloadsModule2(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -318,7 +324,12 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             String id = config.getString(PROP_ID);
             String uri = config.getString(PROP_URI);
             String title = config.getString(PROP_TITLE);
-            Log.d(TAG, "Step 2: Config validated - ID: " + id + ", URI: " + uri);
+            String quality = config.hasKey(PROP_QUALITY) ? config.getString(PROP_QUALITY) : currentStreamQuality;
+            
+            // Store quality for later use in onPrepared
+            activeDownloadQuality.put(id, quality);
+            
+            Log.d(TAG, "Step 2: Config validated - ID: " + id + ", URI: " + uri + ", Quality: " + quality);
 
             // Check if download already exists
             if (findDownloadById(id) != null) {
@@ -400,24 +411,41 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             DownloadHelper helper = activeHelpers.remove(id);
             if (helper != null) {
                 helper.release();
+                Log.d(TAG, "Download helper released for: " + id);
             }
 
             // Remove from download manager
             DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
             if (manager != null) {
+                // Send remove with foreground=false (will delete files)
                 DownloadService.sendRemoveDownload(reactContext, AxDownloadService.class, id, false);
+                Log.d(TAG, "Remove download command sent to DownloadService for: " + id);
+                
+                // Wait a bit for the download manager to process the removal
+                // This ensures files are actually deleted before we resolve the promise
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                    Log.d(TAG, "Download removal completed (after delay) for: " + id);
+                    promise.resolve(null);
+                }, 500);
+                return; // Don't resolve immediately
+            } else {
+                Log.w(TAG, "DownloadManager is null, cannot remove download: " + id);
             }
 
             // Clean up speed tracking
             downloadStartTimes.remove(id);
             lastBytesDownloaded.remove(id);
             lastSpeedCheckTime.remove(id);
+            
+            // Clean up quality setting
+            activeDownloadQuality.remove(id);
 
             // Release license if exists
             releaseLicenseForDownload(id);
 
             promise.resolve(null);
         } catch (Exception e) {
+            Log.e(TAG, "Failed to remove download: " + id, e);
             promise.reject("REMOVE_DOWNLOAD_FAILED", "Failed to remove download: " + e.getMessage());
         }
     }
@@ -561,7 +589,25 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                     downloadInfo.putString("uri", download.request.uri.toString());
                     downloadInfo.putString("state", mapDownloadState(download.state));
                     downloadInfo.putInt("progress", (int) download.getPercentDownloaded());
-                    downloadInfo.putDouble("totalBytes", (double) download.contentLength);
+                    
+                    // Calculate accurate total bytes (same logic as createDownloadInfoMap)
+                    long reportedBytes = download.contentLength;
+                    long estimatedBytes = 0;
+                    long totalBytes = reportedBytes;
+                    
+                    if (download.getPercentDownloaded() >= 5) {
+                        estimatedBytes = (long) (download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
+                        
+                        if (reportedBytes != C.LENGTH_UNSET && estimatedBytes > 0) {
+                            double difference = Math.abs(reportedBytes - estimatedBytes) / (double) reportedBytes;
+                            
+                            if (difference > 0.20 && estimatedBytes < reportedBytes) {
+                                totalBytes = estimatedBytes;
+                            }
+                        }
+                    }
+                    
+                    downloadInfo.putDouble("totalBytes", (double) totalBytes);
                     downloadInfo.putDouble("downloadedBytes", (double) download.getBytesDownloaded());
                     downloadInfo.putDouble("speed", calculateDownloadSpeed(download.request.id));
                     downloadInfo.putInt("remainingTime", estimateRemainingTime(download.request.id,
@@ -1034,7 +1080,49 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         info.putString("uri", download.request.uri.toString());
         info.putString("state", mapDownloadState(download.state));
         info.putInt("progress", (int) download.getPercentDownloaded());
-        info.putDouble("totalBytes", (double) download.contentLength);
+        
+        // ExoPlayer's contentLength may report full manifest size instead of selected tracks
+        // Estimate actual size from current progress and use the smaller value
+        long reportedBytes = download.contentLength;
+        long estimatedBytes = 0;
+        long totalBytes = reportedBytes;
+        
+        // If we have progress > 5%, we can estimate the real total size
+        if (download.getPercentDownloaded() >= 5) {
+            estimatedBytes = (long) (download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
+            
+            // If reported size is much larger than estimated (>20% difference), use estimated
+            // This happens when quality selection reduces download size
+            if (reportedBytes != C.LENGTH_UNSET && estimatedBytes > 0) {
+                double difference = Math.abs(reportedBytes - estimatedBytes) / (double) reportedBytes;
+                
+                if (difference > 0.20 && estimatedBytes < reportedBytes) {
+                    // Use estimated size as it's more accurate for selected quality
+                    totalBytes = estimatedBytes;
+                    Log.d(TAG, String.format("Using estimated size for %s: %.2f MB (reported: %.2f MB, difference: %.1f%%, progress: %d%%)",
+                        download.request.id, 
+                        estimatedBytes / (1024.0 * 1024.0),
+                        reportedBytes / (1024.0 * 1024.0),
+                        difference * 100,
+                        (int) download.getPercentDownloaded()));
+                } else {
+                    Log.d(TAG, String.format("Using reported size for %s: %.2f MB (estimated: %.2f MB, downloaded: %.2f MB, progress: %d%%)",
+                        download.request.id,
+                        reportedBytes / (1024.0 * 1024.0),
+                        estimatedBytes / (1024.0 * 1024.0),
+                        download.getBytesDownloaded() / (1024.0 * 1024.0),
+                        (int) download.getPercentDownloaded()));
+                }
+            }
+        } else if (reportedBytes != C.LENGTH_UNSET) {
+            Log.d(TAG, String.format("Early progress for %s: %.2f MB total, %.2f MB downloaded (%d%%)",
+                download.request.id,
+                reportedBytes / (1024.0 * 1024.0),
+                download.getBytesDownloaded() / (1024.0 * 1024.0),
+                (int) download.getPercentDownloaded()));
+        }
+        
+        info.putDouble("totalBytes", (double) totalBytes);
         info.putDouble("downloadedBytes", (double) download.getBytesDownloaded());
         info.putDouble("speed", calculateDownloadSpeed(download.request.id));
         info.putInt("remainingTime", estimateRemainingTime(download.request.id,
@@ -1375,6 +1463,17 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             Log.d(TAG, "Found download ID: " + downloadId + " for prepared helper");
             Log.d(TAG, "Creating DownloadRequest with ID: " + downloadId);
 
+            // Apply quality-based track selection
+            String quality = activeDownloadQuality.getOrDefault(downloadId, "auto");
+            Log.d(TAG, "Applying track selection for quality: " + quality);
+            
+            if (!"auto".equals(quality)) {
+                // Select specific quality variant
+                selectQualityTracks(helper, quality);
+            } else {
+                Log.d(TAG, "Using auto quality - all tracks will be downloaded");
+            }
+
             // Create download request from the prepared helper with our custom ID
             DownloadRequest downloadRequest = helper.getDownloadRequest(downloadId, downloadId.getBytes());
             
@@ -1400,6 +1499,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             Log.d(TAG, "Releasing helper for: " + downloadId);
             helper.release();
             activeHelpers.remove(downloadId);
+            // Note: Keep quality in map until download is removed, not just prepared
             Log.d(TAG, "Active helpers after removal: " + activeHelpers.size());
 
             WritableMap params = Arguments.createMap();
@@ -1416,6 +1516,138 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             params.putString("error", e.getMessage());
             params.putString("details", e.toString());
             sendEvent("overonDownloadPrepareError", params);
+        }
+    }
+
+    /**
+     * Select tracks based on quality setting.
+     * Selects the lowest bitrate video track that meets the quality requirements.
+     */
+    private void selectQualityTracks(DownloadHelper helper, String quality) {
+        try {
+            int maxBitrate;
+            String qualityDesc;
+            
+            switch (quality) {
+                case "low":
+                    maxBitrate = 1500000; // 1.5 Mbps - will select 576p (1.47 Mbps)
+                    qualityDesc = "low (≤1.5Mbps)";
+                    break;
+                case "medium":
+                    maxBitrate = 3000000; // 3 Mbps - will select 720p (2.3 Mbps)
+                    qualityDesc = "medium (≤3Mbps)";
+                    break;
+                case "high":
+                    maxBitrate = 6000000; // 6 Mbps - will select 1080p (5.18 Mbps)
+                    qualityDesc = "high (≤6Mbps)";
+                    break;
+                default:
+                    Log.w(TAG, "Unknown quality: " + quality + ", using auto");
+                    return;
+            }
+            
+            Log.d(TAG, "Selecting " + qualityDesc + " quality tracks");
+            
+            // Iterate through all periods
+            for (int periodIndex = 0; periodIndex < helper.getPeriodCount(); periodIndex++) {
+                androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo mappedTrackInfo = 
+                    helper.getMappedTrackInfo(periodIndex);
+                
+                if (mappedTrackInfo == null) {
+                    Log.w(TAG, "MappedTrackInfo is null for period " + periodIndex);
+                    continue;
+                }
+                
+                // Clear default selections
+                helper.clearTrackSelections(periodIndex);
+                
+                // For each renderer (video, audio, text)
+                for (int rendererIndex = 0; rendererIndex < mappedTrackInfo.getRendererCount(); rendererIndex++) {
+                    int trackType = mappedTrackInfo.getRendererType(rendererIndex);
+                    
+                    if (trackType == C.TRACK_TYPE_VIDEO) {
+                        // Video track - select based on bitrate
+                        selectVideoTrackByBitrate(helper, mappedTrackInfo, periodIndex, rendererIndex, maxBitrate);
+                    } else {
+                        // Audio and text tracks - select all
+                        helper.addTrackSelectionForSingleRenderer(
+                            periodIndex,
+                            rendererIndex,
+                            androidx.media3.exoplayer.offline.DownloadHelper.getDefaultTrackSelectorParameters(reactContext),
+                            new ArrayList<>()  // Empty list = select all tracks for this renderer
+                        );
+                        Log.d(TAG, "Period " + periodIndex + ", Renderer " + rendererIndex + " (type " + trackType + "): selecting all tracks");
+                    }
+                }
+            }
+            
+            Log.d(TAG, "Track selection completed for quality: " + quality);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error selecting quality tracks: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Select the video track with highest bitrate that doesn't exceed maxBitrate.
+     */
+    private void selectVideoTrackByBitrate(DownloadHelper helper, 
+                                          androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo mappedTrackInfo,
+                                          int periodIndex, 
+                                          int rendererIndex, 
+                                          int maxBitrate) {
+        try {
+            androidx.media3.exoplayer.source.TrackGroupArray trackGroups = mappedTrackInfo.getTrackGroups(rendererIndex);
+            
+            int bestGroupIndex = -1;
+            int bestTrackIndex = -1;
+            int bestBitrate = 0;
+            
+            // Find the best quality track that doesn't exceed maxBitrate
+            for (int groupIndex = 0; groupIndex < trackGroups.length; groupIndex++) {
+                androidx.media3.common.TrackGroup trackGroup = trackGroups.get(groupIndex);
+                
+                for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
+                    androidx.media3.common.Format format = trackGroup.getFormat(trackIndex);
+                    int bitrate = format.bitrate;
+                    
+                    if (bitrate != androidx.media3.common.Format.NO_VALUE && 
+                        bitrate <= maxBitrate && 
+                        bitrate > bestBitrate) {
+                        bestBitrate = bitrate;
+                        bestGroupIndex = groupIndex;
+                        bestTrackIndex = trackIndex;
+                    }
+                }
+            }
+            
+            if (bestGroupIndex >= 0) {
+                // Select the best matching track
+                List<androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride> overrides = new ArrayList<>();
+                overrides.add(new androidx.media3.exoplayer.trackselection.DefaultTrackSelector.SelectionOverride(bestGroupIndex, bestTrackIndex));
+                
+                helper.addTrackSelectionForSingleRenderer(
+                    periodIndex,
+                    rendererIndex,
+                    androidx.media3.exoplayer.offline.DownloadHelper.getDefaultTrackSelectorParameters(reactContext),
+                    overrides
+                );
+                
+                Log.d(TAG, String.format("Period %d, Renderer %d (VIDEO): selected group %d, track %d, bitrate %.2f Mbps",
+                    periodIndex, rendererIndex, bestGroupIndex, bestTrackIndex, bestBitrate / 1000000.0));
+            } else {
+                // No track found within limit, select all (fallback)
+                helper.addTrackSelectionForSingleRenderer(
+                    periodIndex,
+                    rendererIndex,
+                    androidx.media3.exoplayer.offline.DownloadHelper.getDefaultTrackSelectorParameters(reactContext),
+                    new ArrayList<>()
+                );
+                Log.w(TAG, "No video track found within bitrate limit, selecting all");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error selecting video track: " + e.getMessage(), e);
         }
     }
 

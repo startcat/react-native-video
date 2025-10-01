@@ -193,6 +193,15 @@ public class AxDownloadService extends DownloadService {
 
         @Override
         public void onDownloadChanged(DownloadManager manager, Download download, Exception exception) {
+            
+            // Log para estado REMOVING (cuando se está borrando)
+            if (download.state == Download.STATE_REMOVING) {
+                Log.d("Downloads", "===== DOWNLOAD REMOVING =====");
+                Log.d("Downloads", "Download ID: " + download.request.id);
+                Log.d("Downloads", "URI: " + download.request.uri);
+                Log.d("Downloads", "Bytes downloaded: " + download.getBytesDownloaded());
+                Log.d("Downloads", "Files will be deleted by ExoPlayer");
+            }
 
             // Añadir logging detallado para diagnóstico de fallas
             if (download.state == Download.STATE_FAILED) {
@@ -243,6 +252,13 @@ public class AxDownloadService extends DownloadService {
             }
             NotificationUtil.setNotification(context, nextNotificationId++, notification);
 
+        }
+        
+        @Override
+        public void onDownloadRemoved(DownloadManager manager, Download download) {
+            Log.d("Downloads", "===== DOWNLOAD REMOVED =====");
+            Log.d("Downloads", "Download ID: " + download.request.id);
+            Log.d("Downloads", "Files have been deleted by ExoPlayer");
         }
 
     }

@@ -22,6 +22,8 @@ import {
 	ValidationResult,
 } from "../../types";
 import { networkService } from "../network/NetworkService";
+import { subtitleDownloadService } from "./SubtitleDownloadService";
+import { SubtitleDownloadTask } from "../../types";
 
 const TAG = LOG_TAGS.STREAM_DOWNLOADER;
 
@@ -233,10 +235,42 @@ export class StreamDownloadService {
 		}
 	}
 
-	private handleCompletedEvent(data: any): void {
+	private async handleCompletedEvent(data: any): Promise<void> {
 		const { downloadId } = data;
 		
 		if (this.activeDownloads.has(downloadId)) {
+			const activeDownload = this.activeDownloads.get(downloadId);
+			
+			// Descargar subtítulos si existen
+			if (activeDownload?.task.subtitles && activeDownload.task.subtitles.length > 0) {
+				this.currentLogger.info(
+					TAG,
+					`Starting subtitle downloads for ${downloadId} (${activeDownload.task.subtitles.length} subtitles)`
+				);
+				
+				try {
+					// Convertir a formato de SubtitleDownloadTask
+					const subtitleTasks: SubtitleDownloadTask[] = activeDownload.task.subtitles.map((sub) => ({
+						id: sub.id,
+						downloadId: downloadId,
+						uri: sub.uri,
+						language: sub.language,
+						label: sub.label,
+						format: sub.format,
+						isDefault: sub.isDefault,
+						encoding: sub.encoding,
+					}));
+					
+					// Descargar subtítulos (en paralelo, sin cola)
+					await subtitleDownloadService.downloadSubtitles(downloadId, subtitleTasks);
+					
+					this.currentLogger.info(TAG, `Subtitles downloaded successfully for ${downloadId}`);
+				} catch (error) {
+					this.currentLogger.error(TAG, `Failed to download subtitles for ${downloadId}`, error);
+					// No fallar la descarga principal por subtítulos fallidos
+				}
+			}
+			
 			this.eventEmitter.emit(DownloadEventType.COMPLETED, {
 				taskId: downloadId,
 				fileUri: data.fileUri || data.localPath,
@@ -600,14 +634,32 @@ export class StreamDownloadService {
 		this.activeDownloads.set(task.id, activeDownload);
 
 		try {
+			// Normalizar quality: si no está definido o es "auto", usar defaultQuality del servicio
+			let effectiveQuality = task.config.quality;
+			if (!effectiveQuality || effectiveQuality === "auto") {
+				effectiveQuality = this.config.defaultQuality;
+				console.log(`[StreamDownloadService] Quality normalized from "${task.config.quality}" to "${effectiveQuality}" (using service default)`);
+				
+				// Actualizar el task para que refleje la calidad efectiva
+				task.config.quality = effectiveQuality;
+			}
+			
 			// Configurar descarga nativa
 			const nativeConfig: any = {
 				id: task.id,
 				uri: task.manifestUrl,
 				title: task.title,
-				quality: task.config.quality || this.config.defaultQuality,
+				quality: effectiveQuality,
 				allowCellular: this.config.allowCellular,
-				subtitles: [], // Sin subtítulos por ahora para simplificar
+				subtitles: task.subtitles ? task.subtitles.map(subtitle => ({
+					id: subtitle.id,
+					uri: subtitle.uri,
+					language: subtitle.language,
+					label: subtitle.label,
+					format: subtitle.format,
+					isDefault: subtitle.isDefault,
+					encoding: subtitle.encoding,
+				})) : [],
 			};
 
 			// Solo agregar DRM si existe configuración
