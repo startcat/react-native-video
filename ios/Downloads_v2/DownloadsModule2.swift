@@ -82,6 +82,9 @@ class DownloadsModule2: RCTEventEmitter {
     private let downloadQueue = DispatchQueue(label: "com.downloads.queue", qos: .background)
     private let progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in }
     
+    // Speed tracking
+    private var lastProgressUpdate: [String: (bytes: Int64, time: Date)] = [:]
+    
     // MARK: - RCTEventEmitter Overrides
     override static func requiresMainQueueSetup() -> Bool {
         return false
@@ -320,6 +323,7 @@ class DownloadsModule2: RCTEventEmitter {
                 
                 // Remove download info
                 self.activeDownloads.removeValue(forKey: downloadId)
+                self.lastProgressUpdate.removeValue(forKey: downloadId)
                 print("📥 [DownloadsModule2] Download info removed. Remaining downloads: \(self.activeDownloads.count)")
                 
                 // Remove downloaded files
@@ -865,7 +869,14 @@ class DownloadsModule2: RCTEventEmitter {
         if activeCount < maxConcurrentDownloads {
             if let downloadTask = downloadTasks[downloadId] {
                 print("📥 [DownloadsModule2] Starting download task: \(downloadId)")
+                print("📥 [DownloadsModule2] Task state before resume: \(downloadTask.state.rawValue)")
+                
                 downloadTask.resume()
+                
+                print("📥 [DownloadsModule2] Task state after resume: \(downloadTask.state.rawValue)")
+                print("📥 [DownloadsModule2] Task description: \(downloadTask.taskDescription ?? "nil")")
+                print("📥 [DownloadsModule2] Task identifier: \(downloadTask.taskIdentifier)")
+                
                 if var downloadInfo = activeDownloads[downloadId] {
                     downloadInfo.state = .downloading
                     activeDownloads[downloadId] = downloadInfo
@@ -1028,7 +1039,11 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     
     func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask, didLoad timeRange: CMTimeRange, totalTimeRangesLoaded loadedTimeRanges: [NSValue], timeRangeExpectedToLoad: CMTimeRange) {
         // Handle progress updates
+        print("📥 [DownloadsModule2] Progress delegate called")
+        
         if let downloadId = findDownloadId(for: assetDownloadTask) {
+            print("📥 [DownloadsModule2] Progress for download: \(downloadId)")
+            
             let totalDuration = CMTimeGetSeconds(timeRangeExpectedToLoad.duration)
             let loadedDuration = loadedTimeRanges.reduce(0.0) { total, value in
                 let timeRange = value.timeRangeValue
@@ -1036,24 +1051,82 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             }
             
             let progress = Float(loadedDuration / totalDuration)
+            print("📥 [DownloadsModule2] Progress: \(progress * 100)% (\(loadedDuration)/\(totalDuration))")
             
             if var downloadInfo = activeDownloads[downloadId] {
+                // Estimate bytes based on duration and bitrate
+                // For HLS with quality "low", estimate ~1.5 Mbps (1,500,000 bits/sec = 187,500 bytes/sec)
+                // For other qualities, use higher estimate
+                let estimatedBitrate: Double
+                switch downloadInfo.quality {
+                case "low":
+                    estimatedBitrate = 187_500 // ~1.5 Mbps in bytes/sec
+                case "medium":
+                    estimatedBitrate = 312_500 // ~2.5 Mbps in bytes/sec
+                case "high":
+                    estimatedBitrate = 625_000 // ~5 Mbps in bytes/sec
+                default:
+                    estimatedBitrate = 300_000 // ~2.4 Mbps default
+                }
+                
+                let totalBytes = Int64(totalDuration * estimatedBitrate)
+                let downloadedBytes = Int64(loadedDuration * estimatedBitrate)
+                
+                // Calculate speed based on previous progress update
+                let now = Date()
+                var speed: Double = 0
+                var remainingTime: Int = 0
+                
+                if let lastUpdate = lastProgressUpdate[downloadId] {
+                    let timeDiff = now.timeIntervalSince(lastUpdate.time)
+                    if timeDiff > 0 {
+                        let bytesDiff = downloadedBytes - lastUpdate.bytes
+                        speed = Double(bytesDiff) / timeDiff // bytes per second
+                        
+                        // Calculate remaining time
+                        let remainingBytes = totalBytes - downloadedBytes
+                        if speed > 0 {
+                            remainingTime = Int(Double(remainingBytes) / speed)
+                        }
+                    }
+                }
+                
+                // Update last progress tracking
+                lastProgressUpdate[downloadId] = (bytes: downloadedBytes, time: now)
+                
+                // Update downloadInfo
                 downloadInfo.progress = progress
+                downloadInfo.totalBytes = totalBytes
+                downloadInfo.downloadedBytes = downloadedBytes
+                downloadInfo.speed = speed
+                downloadInfo.remainingTime = remainingTime
                 activeDownloads[downloadId] = downloadInfo
                 
+                print("📥 [DownloadsModule2] Sending progress event: \(Int(progress * 100))%, \(downloadedBytes) / \(totalBytes) bytes, \(Int(speed)) bytes/s")
                 sendEvent(withName: "overonDownloadProgress", body: [
                     "id": downloadId,
                     "progress": Int(progress * 100),
-                    "speed": downloadInfo.speed,
-                    "remainingTime": downloadInfo.remainingTime
+                    "bytesDownloaded": downloadedBytes,
+                    "totalBytes": totalBytes,
+                    "speed": speed,
+                    "remainingTime": remainingTime
                 ])
+            } else {
+                print("⚠️ [DownloadsModule2] Download info not found for: \(downloadId)")
             }
+        } else {
+            print("⚠️ [DownloadsModule2] Could not find download ID for progress update")
+            print("⚠️ [DownloadsModule2] Active tasks: \(downloadTasks.keys)")
         }
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+        print("📥 [DownloadsModule2] Task completed delegate called")
+        
         if let error = error {
             print("❌ [DownloadsModule2] Download task completed with error: \(error.localizedDescription)")
+            print("❌ [DownloadsModule2] Error domain: \((error as NSError).domain), code: \((error as NSError).code)")
+            
             if let downloadId = findDownloadId(for: task as! AVAssetDownloadTask) {
                 print("❌ [DownloadsModule2] Download failed: \(downloadId)")
                 var downloadInfo = activeDownloads[downloadId]!
@@ -1071,6 +1144,8 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             } else {
                 print("⚠️ [DownloadsModule2] Could not find download ID for failed task")
             }
+        } else {
+            print("✅ [DownloadsModule2] Task completed successfully without error")
         }
     }
     
