@@ -93,10 +93,10 @@ public class AxOfflineManager {
             
             DEFAULT_DOWNLOADS_FOLDER = filesDir.getAbsolutePath();
             DEFAULT_DOWNLOADS_FOLDER = DEFAULT_DOWNLOADS_FOLDER.endsWith("/") ? DEFAULT_DOWNLOADS_FOLDER : (DEFAULT_DOWNLOADS_FOLDER + "/");
-            DEFAULT_DOWNLOADS_FOLDER += "downloads";
+            DEFAULT_DOWNLOADS_FOLDER += "Downloads/Streams";  // Usar subdirectorio Streams dentro de Downloads
 
             File folder = new File(DEFAULT_DOWNLOADS_FOLDER);
-            Log.d(TAG, "init() called with: folder = [" + folder + "]");
+            Log.d(TAG, "init() called with: folder = [" + folder + "] (Streams directory)");
 
             if (mDownloadManager == null) {
                 mDownloadDirectory = folder;

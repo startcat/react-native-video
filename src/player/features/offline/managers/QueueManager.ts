@@ -265,54 +265,23 @@ export class QueueManager {
 					`No profiles remaining for download ${downloadId}. Removing from disk and queue.`
 				);
 
-				// Guardar estado original antes de cambiar a REMOVING
-				const originalState = item.state;
-
 				// Si se está descargando, detenerla
 				if (this.currentlyDownloading.has(downloadId)) {
 					this.currentlyDownloading.delete(downloadId);
 				}
 
 				// Eliminar archivos del disco
-				// Para descargas COMPLETADAS: eliminar archivo final usando fileUri
-				if (item.fileUri) {
-					try {
-						await storageService.deleteFile(item.fileUri);
-						this.currentLogger.info(
-							TAG,
-							`Completed download file deleted from disk: ${item.fileUri}`
-						);
-					} catch (error) {
-						this.currentLogger.warn(
-							TAG,
-							`Failed to delete completed download file: ${item.fileUri}`,
-							error
-						);
-					}
-				}
-
-				// Para descargas INCOMPLETAS o EN PROGRESO: eliminar archivos temporales vía módulo nativo
-				// El módulo nativo (ExoPlayer/AVPlayer) gestiona sus propios archivos temporales
-				// y debe limpiarlos cuando se cancela la descarga
-				if (
-					originalState !== DownloadStates.COMPLETED &&
-					item.type === DownloadType.STREAM
-				) {
-					try {
-						// El módulo nativo ya debería haber limpiado archivos temporales en cancelDownload,
-						// pero lo llamamos explícitamente para asegurarnos
-						await nativeManager.removeDownload(downloadId);
-						this.currentLogger.info(
-							TAG,
-							`Temporary files cleaned via native manager: ${downloadId}`
-						);
-					} catch (error) {
-						this.currentLogger.warn(
-							TAG,
-							`Failed to clean temporary files via native manager: ${downloadId}`,
-							error
-						);
-					}
+				try {
+					// Llamar al módulo nativo para eliminar la descarga
+					// Esto debería limpiar tanto la base de datos interna como los archivos físicos
+					await nativeManager.removeDownload(downloadId);
+					this.currentLogger.info(TAG, `Download removed via native manager: ${downloadId}`);
+				} catch (error) {
+					this.currentLogger.warn(
+						TAG,
+						`Failed to remove download via native manager: ${downloadId}`,
+						error
+					);
 				}
 
 				// Cambiar estado a removing
