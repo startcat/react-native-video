@@ -13,6 +13,7 @@ import {
 	QueueManagerConfig,
 	StorageServiceConfig,
 	StreamDownloadServiceConfig,
+	SubtitleServiceConfig,
 } from "./types";
 
 export const LOGGER_DEFAULTS = {
@@ -88,7 +89,6 @@ export const DEFAULT_CONFIG_PERSISTENCE: PersistenceConfig = {
 	storageKey: DEFAULT_CONFIG.STORAGE_KEY,
 	encryptionEnabled: false,
 	compressionEnabled: true,
-	// REMOVIDO: autoSave y autoSaveInterval - PersistenceService guarda bajo demanda
 };
 
 export const DEFAULT_CONFIG_STORAGE: StorageServiceConfig = {
@@ -122,7 +122,7 @@ export const DEFAULT_CONFIG_STREAM_DOWNLOAD: StreamDownloadServiceConfig = {
 	allowCellular: false,
 	requiresWifi: true,
 	enableNotifications: true,
-	defaultQuality: "auto",
+	defaultQuality: "low",
 };
 
 export const DEFAULT_CONFIG_DOWNLOAD_SERVICE: DownloadServiceConfig = {
@@ -132,4 +132,13 @@ export const DEFAULT_CONFIG_DOWNLOAD_SERVICE: DownloadServiceConfig = {
 	enableStreamDownloads: true,
 	eventBridgeEnabled: true,
 	autoInitializeStrategies: true,
+};
+
+export const DEFAULT_CONFIG_SUBTITLE: SubtitleServiceConfig = {
+	logEnabled: true,
+	logLevel: LogLevel.INFO,
+	maxConcurrentDownloads: 5, // Pueden descargar varios a la vez
+	requestTimeout: 30000, // 30 segundos
+	maxRetries: 2,
+	validateContent: true,
 };

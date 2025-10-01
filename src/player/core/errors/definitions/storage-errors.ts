@@ -112,12 +112,18 @@ export const STORAGE_ERROR_DEFINITIONS = {
 		message: "Failed to create directory.",
 	},
 	STORAGE_FILE_SYSTEM_604: {
-		message: "Failed to delete file or directory.",
+		message: "Failed to delete file.",
 	},
 	STORAGE_FILE_SYSTEM_605: {
-		message: "Failed to move file or directory.",
+		message: "Path is not a directory.",
 	},
 	STORAGE_FILE_SYSTEM_606: {
+		message: "Failed to delete directory.",
+	},
+	STORAGE_FILE_SYSTEM_607_OLD: {
+		message: "Failed to move file or directory.",
+	},
+	STORAGE_FILE_SYSTEM_608_OLD: {
 		message: "Failed to copy file or directory.",
 	},
 	STORAGE_FILE_SYSTEM_607: {

@@ -194,18 +194,23 @@ export class NativeManager {
 			}
 
 			// CRÍTICO: Configurar directorios de descarga antes de poder descargar
-			// El módulo nativo necesita saber dónde guardar los archivos
+			// IMPORTANTE: El módulo nativo construye paths como reactContext.getFilesDir() + downloadDir
+			// Por lo tanto, debemos pasar SOLO el nombre del directorio, no paths absolutos
 			try {
 				const downloadDirs = {
-					downloadDir: this.systemInfo?.downloadDirectory,
-					tempDir: this.systemInfo?.tempDirectory,
-					subtitlesDir: this.systemInfo?.downloadDirectory
-						? `${this.systemInfo.downloadDirectory}/Subtitles`
-						: undefined,
+					downloadDir: "Downloads",
+					tempDir: "TempDownloads",
+					streamsDir: "Streams",
+					binariesDir: "Binaries",
+					licensesDir: "Licenses",
+					subtitlesDir: "Subtitles",
 				};
 
 				await this.nativeModule.setDownloadDirectories(downloadDirs);
-				this.currentLogger.info(TAG, "Download directories configured", downloadDirs);
+				this.currentLogger.info(TAG, "Download directories configured", {
+					...downloadDirs,
+					note: "Native module will construct absolute paths"
+				});
 			} catch (error) {
 				this.currentLogger.error(TAG, "Failed to configure download directories", error);
 				// Este error es crítico - sin directorios configurados, addDownload fallará con "null"

@@ -71,6 +71,9 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     // Configuration constants
     private static final String DEFAULT_DOWNLOAD_DIR = "downloads";
     private static final String DEFAULT_TEMP_DIR = "temp";
+    private static final String DEFAULT_STREAMS_DIR = "streams";
+    private static final String DEFAULT_BINARIES_DIR = "binaries";
+    private static final String DEFAULT_LICENSES_DIR = "licenses";
     private static final String DEFAULT_SUBTITLES_DIR = "subtitles";
 
     // Property keys
@@ -91,6 +94,9 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     private Map<String, Object> moduleConfig = new HashMap<>();
     private String downloadDirectory = DEFAULT_DOWNLOAD_DIR;
     private String tempDirectory = DEFAULT_TEMP_DIR;
+    private String streamsDirectory = DEFAULT_STREAMS_DIR;
+    private String binariesDirectory = DEFAULT_BINARIES_DIR;
+    private String licensesDirectory = DEFAULT_LICENSES_DIR;
     private String subtitlesDirectory = DEFAULT_SUBTITLES_DIR;
     private int maxConcurrentDownloads = 3;
     private boolean notificationsEnabled = true;
@@ -189,12 +195,24 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             if (config.hasKey("tempDir")) {
                 tempDirectory = config.getString("tempDir");
             }
+            if (config.hasKey("streamsDir")) {
+                streamsDirectory = config.getString("streamsDir");
+            }
+            if (config.hasKey("binariesDir")) {
+                binariesDirectory = config.getString("binariesDir");
+            }
+            if (config.hasKey("licensesDir")) {
+                licensesDirectory = config.getString("licensesDir");
+            }
             if (config.hasKey("subtitlesDir")) {
                 subtitlesDirectory = config.getString("subtitlesDir");
             }
 
             // Create directories if they don't exist
             createDirectoriesIfNeeded();
+
+            Log.d(TAG, "Download directories configured - Streams: " + streamsDirectory + 
+                       ", Binaries: " + binariesDirectory + ", Licenses: " + licensesDirectory);
 
             promise.resolve(null);
         } catch (Exception e) {
@@ -208,14 +226,60 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             WritableMap systemInfo = Arguments.createMap();
 
             // Storage information
-            StatFs stat = new StatFs(reactContext.getFilesDir().getPath());
-            long totalSpace = stat.getTotalBytes();
-            long availableSpace = stat.getAvailableBytes();
+            // IMPORTANTE: Samsung y otros fabricantes reservan espacio que StatFs no cuenta
+            // Usar StorageStatsManager en Android 8.0+ para obtener el espacio real del sistema
+            long totalSpace = 0;
+            long availableSpace = 0;
+            
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                try {
+                    // Android 8.0+: Usar StorageStatsManager para obtener stats precisos
+                    android.app.usage.StorageStatsManager storageStatsManager = 
+                        (android.app.usage.StorageStatsManager) reactContext.getSystemService(Context.STORAGE_STATS_SERVICE);
+                    
+                    if (storageStatsManager != null) {
+                        java.util.UUID uuid = android.os.storage.StorageManager.UUID_DEFAULT;
+                        totalSpace = storageStatsManager.getTotalBytes(uuid);
+                        availableSpace = storageStatsManager.getFreeBytes(uuid);
+                        Log.d(TAG, "Device: " + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL + ", Android: " + android.os.Build.VERSION.RELEASE);
+                    } else {
+                        Log.w(TAG, "StorageStatsManager service is null");
+                    }
+                } catch (SecurityException e) {
+                    Log.w(TAG, "StorageStatsManager SecurityException (might need PACKAGE_USAGE_STATS permission): " + e.getMessage());
+                } catch (Exception e) {
+                    Log.w(TAG, "StorageStatsManager failed: " + e.getClass().getName() + " - " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
+            
+            // Fallback a StatFs si StorageStatsManager no está disponible
+            if (totalSpace == 0) {
+                try {
+                    File externalStorage = android.os.Environment.getExternalStorageDirectory();
+                    StatFs stat = new StatFs(externalStorage.getPath());
+                    totalSpace = stat.getTotalBytes();
+                    availableSpace = stat.getAvailableBytes();
+                } catch (Exception e) {
+                    Log.e(TAG, "StatFs also failed: " + e.getMessage());
+                }
+            }
+            
             long downloadSpace = getDownloadDirectorySize();
+            Log.d(TAG, "Storage info - Total: " + totalSpace + ", Available: " + availableSpace + ", Used: " + (totalSpace - availableSpace));
 
             systemInfo.putDouble("totalSpace", (double) totalSpace);
             systemInfo.putDouble("availableSpace", (double) availableSpace);
             systemInfo.putDouble("downloadSpace", (double) downloadSpace);
+
+            // Directory paths information
+            File downloadDir = new File(reactContext.getFilesDir(), downloadDirectory);
+            File tempDir = new File(reactContext.getCacheDir(), tempDirectory);
+            systemInfo.putString("downloadDirectory", downloadDir.getAbsolutePath());
+            systemInfo.putString("tempDirectory", tempDir.getAbsolutePath());
+            
+            Log.d(TAG, "Download directory: " + downloadDir.getAbsolutePath());
+            Log.d(TAG, "Temp directory: " + tempDir.getAbsolutePath());
 
             // Network information
             ConnectivityManager cm = (ConnectivityManager) reactContext.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -230,6 +294,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
             promise.resolve(systemInfo);
         } catch (Exception e) {
+            Log.e(TAG, "Error getting system info", e);
             promise.reject("SYSTEM_INFO_FAILED", "Failed to get system info: " + e.getMessage());
         }
     }
@@ -1077,6 +1142,27 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         File tempDir = new File(reactContext.getFilesDir(), tempDirectory);
         if (!tempDir.exists()) {
             tempDir.mkdirs();
+        }
+
+        // Create streams subdirectory within Downloads
+        File streamsDir = new File(reactContext.getFilesDir(), downloadDirectory + "/" + streamsDirectory);
+        if (!streamsDir.exists()) {
+            streamsDir.mkdirs();
+            Log.d(TAG, "Created streams directory: " + streamsDir.getAbsolutePath());
+        }
+
+        // Create binaries subdirectory within Downloads
+        File binariesDir = new File(reactContext.getFilesDir(), downloadDirectory + "/" + binariesDirectory);
+        if (!binariesDir.exists()) {
+            binariesDir.mkdirs();
+            Log.d(TAG, "Created binaries directory: " + binariesDir.getAbsolutePath());
+        }
+
+        // Create licenses subdirectory within Downloads
+        File licensesDir = new File(reactContext.getFilesDir(), downloadDirectory + "/" + licensesDirectory);
+        if (!licensesDir.exists()) {
+            licensesDir.mkdirs();
+            Log.d(TAG, "Created licenses directory: " + licensesDir.getAbsolutePath());
         }
 
         File subtitlesDir = new File(reactContext.getFilesDir(), subtitlesDirectory);

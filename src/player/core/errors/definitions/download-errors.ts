@@ -190,4 +190,12 @@ export const DOWNLOAD_ERROR_DEFINITIONS = {
     CONFIG_SAVE_FAILED: {
         message: "Failed to save configuration.",
     },
+
+    // === ERRORES CON DESCARGAS DE SUBTÍTULOS ===
+    SUBTITLE_DOWNLOAD_FAILED: {
+        message: "Failed to download subtitle file.",
+    },
+    SUBTITLE_VALIDATION_FAILED: {
+        message: "Subtitle file validation failed.",
+    },
 };

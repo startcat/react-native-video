@@ -106,6 +106,15 @@ export interface StreamDownloadTask {
 	title: string;
 	config: StreamDownloadConfig;
 	estimatedSize?: number;
+	subtitles?: Array<{
+		id: string;
+		uri: string;
+		language: string;
+		label: string;
+		format: SubtitleFormat;
+		isDefault: boolean;
+		encoding?: string;
+	}>;
 }
 
 export interface ActiveStreamDownload {
