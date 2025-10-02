@@ -1,5 +1,4 @@
 import Video from "./Video";
-export { default as Downloads } from "./Downloads";
 export * from "./Player";
 export * from "./player/index";
 export { VideoDecoderProperties } from "./specs/VideoNativeComponent";
