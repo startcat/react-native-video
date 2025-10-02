@@ -935,22 +935,30 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
     }
 
     @Override
-    public void onDownloadsChanged(int state, String id) {
+    public void onDownloadsChanged(int state, String id, Exception exception) {
 
         WritableMap params = Arguments.createMap();
         params.putString("id", id);
-
         params.putString("state", getDownloadStateAsString(state));
+        
+        // Añadir información del error si la descarga falló
+        if (state == Download.STATE_FAILED && exception != null) {
+            params.putString("errorMessage", exception.getMessage() != null ? exception.getMessage() : "Unknown error");
+            params.putString("errorClass", exception.getClass().getName());
+            
+            if (exception.getCause() != null) {
+                params.putString("errorCause", exception.getCause().getMessage() != null ? 
+                    exception.getCause().getMessage() : exception.getCause().getClass().getName());
+            }
+        }
 
         getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
                 .emit("onDownloadStateChanged", params);
-
     }
 
     @Override
     public void onPrepared(@NonNull DownloadHelper helper) {
         Log.d(TAG, "+++ [Downloads] onPrepared " + currentMediaItem.mediaId);
-
         int [][] tracks = getTracks();
         mAxDownloadTracker.download(currentMediaItem.mediaMetadata.title.toString(), tracks);
 

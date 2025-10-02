@@ -19,6 +19,9 @@ RCT_EXTERN_METHOD(setDownloadDirectories:(NSDictionary *)config
 RCT_EXTERN_METHOD(getSystemInfo:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(getDownloadsFolderSize:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 // =============================================================================
 // DOWNLOAD MANAGEMENT METHODS
 // =============================================================================
