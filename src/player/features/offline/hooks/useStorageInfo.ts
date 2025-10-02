@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_CONFIG, LIMITS } from "../constants";
 import { storageService } from "../services/storage/StorageService";
 import { StorageEventType } from "../types";
@@ -64,90 +64,129 @@ export function useStorageInfo(): UseStorageInfoReturn {
 	const tempDirectory = storageService.getTempDirectory();
 	const subtitlesDirectory = storageService.getSubtitlesDirectory();
 
-	// Función para actualizar todos los valores
-	const updateStorageInfo = useCallback(async () => {
-		try {
-			const [
-				total,
-				available,
-				used,
-				downloads,
-				usagePercent,
-				downloadPercent,
-				lowSpace,
-				warningLevel,
-			] = await Promise.all([
-				storageService.getTotalSpace(),
-				storageService.getAvailableSpace(),
-				storageService.getUsedSpace(),
-				storageService.getDownloadsFolderSize(),
-				storageService.getUsagePercentage(),
-				storageService.getDownloadPercentage(),
-				storageService.isLowSpace(),
-				storageService.getSpaceWarningLevel(),
-			]);
+	// Debounce para evitar llamadas excesivas
+	const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
+	const isUpdatingRef = useRef<boolean>(false);
+	const pendingUpdatePromiseRef = useRef<Promise<void> | null>(null);
 
-			setTotalSpace(total);
-			setAvailableSpace(available);
-			setUsedSpace(used);
-			setDownloadSpace(downloads);
-			setUsagePercentage(usagePercent);
-			setDownloadPercentage(downloadPercent);
-			setIsLowSpace(lowSpace);
-			setSpaceWarningLevel(warningLevel);
-		} catch (error) {
-			console.error("Error updating storage info:", error);
+	// Función para actualizar todos los valores con debounce
+	// Usamos useRef para mantener la función estable y evitar re-suscripciones
+	const updateStorageInfoRef = useRef<() => Promise<void>>();
+
+	updateStorageInfoRef.current = async () => {
+		// Si ya hay una actualización en progreso, cancelar el timer anterior
+		if (updateTimerRef.current) {
+			clearTimeout(updateTimerRef.current);
 		}
-	}, []);
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		const updatePromise = (async () => {
+			// Si ya hay una actualización en progreso, cancelar el timer anterior
+			if (updateTimerRef.current) {
+				clearTimeout(updateTimerRef.current);
+			}
+
+			// Si ya está actualizando, programar para después
+			if (isUpdatingRef.current) {
+				updateTimerRef.current = setTimeout(() => {
+					updateStorageInfoRef.current?.();
+				}, 500);
+				return;
+			}
+
+			try {
+				isUpdatingRef.current = true;
+
+				const [
+					total,
+					available,
+					used,
+					downloads,
+					usagePercent,
+					downloadPercent,
+					lowSpace,
+					warningLevel,
+				] = await Promise.all([
+					storageService.getTotalSpace(),
+					storageService.getAvailableSpace(),
+					storageService.getUsedSpace(),
+					storageService.getDownloadsFolderSize(),
+					storageService.getUsagePercentage(),
+					storageService.getDownloadPercentage(),
+					storageService.isLowSpace(),
+					storageService.getSpaceWarningLevel(),
+				]);
+
+				setTotalSpace(total);
+				setAvailableSpace(available);
+				setUsedSpace(used);
+				setDownloadSpace(downloads);
+				setUsagePercentage(usagePercent);
+				setDownloadPercentage(downloadPercent);
+				setIsLowSpace(lowSpace);
+				setSpaceWarningLevel(warningLevel);
+			} catch (error) {
+				console.error("Error updating storage info:", error);
+			} finally {
+				isUpdatingRef.current = false;
+			}
+		})();
+
+		pendingUpdatePromiseRef.current = updatePromise;
+		return updatePromise;
+	};
 
 	// Inicialización y suscripción a eventos
+	// IMPORTANTE: Sin dependencias para evitar re-suscripciones
 	useEffect(() => {
 		const initializeStorage = async () => {
-			// Inicializar StorageService
-			await storageService.initialize();
-
-			// Obtener información inicial
-			await updateStorageInfo();
+			// NOTA: No llamar a initialize() aquí - ya se inicializa en DownloadsManager
+			// Solo obtener información inicial y configurar suscripciones
+			await updateStorageInfoRef.current?.();
 
 			// Iniciar monitoreo automático
-			storageService.startMonitoring(120000); // Cada minuto
+			storageService.startMonitoring(120000); // Cada 2 minutos
 		};
 
 		initializeStorage();
 
-		// Suscribirse a eventos de almacenamiento
-		const unsubscribeInfoUpdated = storageService.subscribe(
-			StorageEventType.INFO_UPDATED,
-			updateStorageInfo
+		// Suscribirse a eventos de almacenamiento usando la ref
+		const unsubscribeInfoUpdated = storageService.subscribe(StorageEventType.INFO_UPDATED, () =>
+			updateStorageInfoRef.current?.()
 		);
 
 		const unsubscribeSpaceWarning = storageService.subscribe(
 			StorageEventType.SPACE_WARNING,
-			updateStorageInfo
+			() => updateStorageInfoRef.current?.()
 		);
 
 		const unsubscribeSpaceCritical = storageService.subscribe(
 			StorageEventType.SPACE_CRITICAL,
-			updateStorageInfo
+			() => updateStorageInfoRef.current?.()
 		);
 
 		const unsubscribeSpaceRecovered = storageService.subscribe(
 			StorageEventType.SPACE_RECOVERED,
-			updateStorageInfo
+			() => updateStorageInfoRef.current?.()
 		);
 
 		return () => {
+			// Limpiar timer si existe
+			if (updateTimerRef.current) {
+				clearTimeout(updateTimerRef.current);
+			}
+
 			unsubscribeInfoUpdated();
 			unsubscribeSpaceWarning();
 			unsubscribeSpaceCritical();
 			unsubscribeSpaceRecovered();
 		};
-	}, [updateStorageInfo]);
+	}, []); // ✅ Sin dependencias - se ejecuta solo al montar
 
 	// Acciones
 	const checkSpace = useCallback(async (): Promise<void> => {
-		await updateStorageInfo();
-	}, [updateStorageInfo]);
+		await updateStorageInfoRef.current?.();
+	}, []);
 
 	const cleanupTemp = useCallback(async (): Promise<{
 		filesRemoved: number;
@@ -156,7 +195,7 @@ export function useStorageInfo(): UseStorageInfoReturn {
 		const freedBytes = await storageService.cleanupOrphanedFiles();
 
 		// Actualizar información después de la limpieza
-		await updateStorageInfo();
+		await updateStorageInfoRef.current?.();
 
 		// Simular número de archivos eliminados (no disponible en StorageService actual)
 		// En una implementación real, esto vendría del servicio
@@ -166,7 +205,7 @@ export function useStorageInfo(): UseStorageInfoReturn {
 			filesRemoved,
 			spaceFreed: freedBytes,
 		};
-	}, [updateStorageInfo]);
+	}, []);
 
 	const estimateSpaceNeeded = useCallback(
 		async (downloadId?: string, type?: string, quality?: string): Promise<number> => {

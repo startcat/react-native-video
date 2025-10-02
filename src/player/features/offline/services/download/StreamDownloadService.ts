@@ -33,6 +33,7 @@ export class StreamDownloadService {
 	private config: StreamDownloadServiceConfig;
 	private currentLogger: Logger;
 	private isInitialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 	private activeDownloads: Map<string, ActiveStreamDownload> = new Map();
 	private downloadQueue: StreamDownloadTask[] = [];
 	private isProcessingQueue: boolean = false;
@@ -59,66 +60,79 @@ export class StreamDownloadService {
 			return;
 		}
 
-		// Actualizar configuración
-		this.config = { ...this.config, ...config };
-		this.currentLogger.updateConfig({
-			enabled: this.config.logEnabled,
-			level: this.config.logLevel,
-		});
-
-		try {
-			// Verificar dependencias
-			if (!nativeManager) {
-				throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
-					originalError: new Error("NativeManager is required"),
-				});
-			}
-
-			if (!networkService) {
-				throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
-					originalError: new Error("NetworkService is required"),
-				});
-			}
-
-			// Verificar si el módulo nativo está disponible
-			if (!nativeManager.isNativeModuleAvailable()) {
-				console.warn(`[StreamDownloadService] Native module DownloadsModule2 not available. Stream downloads will not work.`);
-				throw new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", {
-					originalError: new Error("DownloadsModule2 native module not found"),
-					message: "Stream downloads require native module support"
-				});
-			}
-			
-			// Inicializar el manager si no está inicializado
-			try {
-				await nativeManager.initialize();
-			} catch (error) {
-				console.error(`[StreamDownloadService] Failed to initialize NativeManager:`, error);
-				throw new PlayerError("DOWNLOAD_FAILED", {
-					originalError: error,
-					message: "Failed to initialize native download manager"
-				});
-			}
-
-			// Suscribirse a eventos nativos
-			this.setupNativeEventListeners();
-
-			// Suscribirse a eventos de red
-			networkService.subscribe("all", this.handleNetworkChange.bind(this));
-
-			// Recuperar descargas pendientes
-			await this.recoverPendingDownloads();
-
-			this.isInitialized = true;
-			this.currentLogger.info(TAG, "StreamDownloadService initialized with NativeManager");
-
-			// Iniciar procesamiento de cola
-			this.startQueueProcessing();
-		} catch (error) {
-			throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
-				originalError: error,
-			});
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
 		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			// Actualizar configuración
+			this.config = { ...this.config, ...config };
+			this.currentLogger.updateConfig({
+				enabled: this.config.logEnabled,
+				level: this.config.logLevel,
+			});
+
+			try {
+				// Verificar dependencias
+				if (!nativeManager) {
+					throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
+						originalError: new Error("NativeManager is required"),
+					});
+				}
+
+				if (!networkService) {
+					throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
+						originalError: new Error("NetworkService is required"),
+					});
+				}
+
+				// Verificar si el módulo nativo está disponible
+				if (!nativeManager.isNativeModuleAvailable()) {
+					console.warn(`[StreamDownloadService] Native module DownloadsModule2 not available. Stream downloads will not work.`);
+					throw new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", {
+						originalError: new Error("DownloadsModule2 native module not found"),
+						message: "Stream downloads require native module support"
+					});
+				}
+				
+				// Inicializar el manager si no está inicializado
+				try {
+					await nativeManager.initialize();
+				} catch (error) {
+					console.error(`[StreamDownloadService] Failed to initialize NativeManager:`, error);
+					throw new PlayerError("DOWNLOAD_FAILED", {
+						originalError: error,
+						message: "Failed to initialize native download manager"
+					});
+				}
+
+				// Suscribirse a eventos nativos
+				this.setupNativeEventListeners();
+
+				// Suscribirse a eventos de red
+				networkService.subscribe("all", this.handleNetworkChange.bind(this));
+
+				// Recuperar descargas pendientes
+				await this.recoverPendingDownloads();
+
+				this.isInitialized = true;
+				this.currentLogger.info(TAG, "StreamDownloadService initialized with NativeManager");
+
+				// Iniciar procesamiento de cola
+				this.startQueueProcessing();
+			} catch (error) {
+				throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
+					originalError: error,
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*

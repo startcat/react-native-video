@@ -22,7 +22,7 @@ import {
 	DownloadStates,
 	ValidationResult,
 } from "../../types";
-import { formatBytes } from "../../utils";
+import { formatFileSize } from "../../utils/formatters";
 import { networkService } from "../network/NetworkService";
 import { storageService } from "../storage/StorageService";
 
@@ -34,6 +34,7 @@ export class BinaryDownloadService {
 	private config: BinaryDownloadServiceConfig;
 	private currentLogger: Logger;
 	private isInitialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 	private activeDownloads: Map<string, ActiveBinaryDownload> = new Map();
 	private downloadQueue: BinaryDownloadTask[] = [];
 	private isProcessingQueue: boolean = false;
@@ -72,50 +73,63 @@ export class BinaryDownloadService {
 			return;
 		}
 
-		// Actualizar configuración
-		this.config = { ...this.config, ...config };
-
-		this.currentLogger.updateConfig({
-			enabled: this.config.logEnabled,
-			level: this.config.logLevel,
-		});
-
-		try {
-			// Verificar dependencias
-			if (!storageService) {
-				throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
-					originalError: new Error("StorageService is required"),
-				});
-			}
-
-			if (!networkService) {
-				throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
-					originalError: new Error("NetworkService is required"),
-				});
-			}
-
-			// Configurar RNBackgroundDownloader
-			await this.configureBackgroundDownloader();
-
-			// Suscribirse a eventos de red
-			networkService.subscribe("all", this.handleNetworkChange.bind(this));
-
-			// Recuperar descargas pendientes del background downloader
-			await this.recoverPendingDownloads();
-
-			this.isInitialized = true;
-			this.currentLogger.info(
-				TAG,
-				"BinaryDownloadService initialized with background downloader"
-			);
-
-			// Iniciar procesamiento de cola
-			this.startQueueProcessing();
-		} catch (error) {
-			throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
-				originalError: error,
-			});
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
 		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			// Actualizar configuración
+			this.config = { ...this.config, ...config };
+
+			this.currentLogger.updateConfig({
+				enabled: this.config.logEnabled,
+				level: this.config.logLevel,
+			});
+
+			try {
+				// Verificar dependencias
+				if (!storageService) {
+					throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
+						originalError: new Error("StorageService is required"),
+					});
+				}
+
+				if (!networkService) {
+					throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
+						originalError: new Error("NetworkService is required"),
+					});
+				}
+
+				// Configurar RNBackgroundDownloader
+				await this.configureBackgroundDownloader();
+
+				// Suscribirse a eventos de red
+				networkService.subscribe("all", this.handleNetworkChange.bind(this));
+
+				// Recuperar descargas pendientes del background downloader
+				await this.recoverPendingDownloads();
+
+				this.isInitialized = true;
+				this.currentLogger.info(
+					TAG,
+					"BinaryDownloadService initialized with background downloader"
+				);
+
+				// Iniciar procesamiento de cola
+				this.startQueueProcessing();
+			} catch (error) {
+				throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
+					originalError: error,
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*
@@ -583,7 +597,7 @@ export class BinaryDownloadService {
 
 			this.currentLogger.info(
 				TAG,
-				`Download completed: ${taskId} - ${formatBytes(download.progress.totalBytes)}`
+				`Download completed: ${taskId} - ${formatFileSize(download.progress.totalBytes)}`
 			);
 
 			// Completar el job usando la API de la librería

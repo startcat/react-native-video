@@ -43,6 +43,7 @@ export class ConfigManager {
 	private config: ConfigManagerConfig;
 	private currentLogger: Logger;
 	private isInitialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 	private currentDownloadsConfig: ConfigDownloads;
 	// REMOVIDO: autoSaveTimer ya que no usamos auto-save periódico
 	private pendingSave: boolean = false;
@@ -76,32 +77,45 @@ export class ConfigManager {
 			return;
 		}
 
-		try {
-			// Actualizar configuración del manager
-			if (config) {
-				this.config = { ...this.config, ...config };
-				this.currentLogger.updateConfig({
-					enabled: this.config.logEnabled,
-					level: this.config.logLevel,
-				});
-			}
-
-			// Cargar configuración persistida usando PersistenceService
-			await this.loadPersistedConfig();
-
-			this.isInitialized = true;
-			this.currentLogger.info(TAG, "ConfigManager initialized successfully");
-
-			// Emitir evento de carga
-			this.eventEmitter.emit("config_loaded", {
-				config: this.currentDownloadsConfig,
-			});
-		} catch (error) {
-			this.currentLogger.error(TAG, "Failed to initialize ConfigManager", error);
-			throw new PlayerError("CONFIG_MANAGER_INITIALIZATION_FAILED", {
-				originalError: error,
-			});
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
 		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			try {
+				// Actualizar configuración del manager
+				if (config) {
+					this.config = { ...this.config, ...config };
+					this.currentLogger.updateConfig({
+						enabled: this.config.logEnabled,
+						level: this.config.logLevel,
+					});
+				}
+
+				// Cargar configuración persistida usando PersistenceService
+				await this.loadPersistedConfig();
+
+				this.isInitialized = true;
+				this.currentLogger.info(TAG, "ConfigManager initialized successfully");
+
+				// Emitir evento de carga
+				this.eventEmitter.emit("config_loaded", {
+					config: this.currentDownloadsConfig,
+				});
+			} catch (error) {
+				this.currentLogger.error(TAG, "Failed to initialize ConfigManager", error);
+				throw new PlayerError("CONFIG_MANAGER_INITIALIZATION_FAILED", {
+					originalError: error,
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*

@@ -36,6 +36,7 @@ export class QueueManager {
 	private isProcessing: boolean = false;
 	private isPaused: boolean = false;
 	private isInitialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 	private config: QueueManagerConfig;
 	private processingInterval: ReturnType<typeof setTimeout> | null = null;
 	private currentlyDownloading: Set<string> = new Set();
@@ -111,36 +112,49 @@ export class QueueManager {
 			return;
 		}
 
-		// Actualizar configuración
-		this.config = { ...this.config, ...config };
-
-		this.currentLogger.updateConfig({
-			enabled: this.config.logEnabled,
-			level: this.config.logLevel,
-		});
-
-		try {
-			// Cargar cola persistida usando PersistenceService
-			await this.loadPersistedQueue();
-
-			// Configurar event listeners para eventos nativos
-			this.setupNativeEventListeners();
-
-			// Inicializar procesamiento automático
-			if (this.config.autoProcess) {
-				this.startProcessing();
-			}
-
-			this.isInitialized = true;
-			this.currentLogger.info(
-				TAG,
-				`QueueManager initialized with ${this.downloadQueue.size} downloads`
-			);
-		} catch (error) {
-			throw new PlayerError("DOWNLOAD_QUEUE_MANAGER_INITIALIZATION_FAILED", {
-				originalError: error,
-			});
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
 		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			// Actualizar configuración
+			this.config = { ...this.config, ...config };
+
+			this.currentLogger.updateConfig({
+				enabled: this.config.logEnabled,
+				level: this.config.logLevel,
+			});
+
+			try {
+				// Cargar cola persistida usando PersistenceService
+				await this.loadPersistedQueue();
+
+				// Configurar event listeners para eventos nativos
+				this.setupNativeEventListeners();
+
+				// Inicializar procesamiento automático
+				if (this.config.autoProcess) {
+					this.startProcessing();
+				}
+
+				this.isInitialized = true;
+				this.currentLogger.info(
+					TAG,
+					`QueueManager initialized with ${this.downloadQueue.size} downloads`
+				);
+			} catch (error) {
+				throw new PlayerError("DOWNLOAD_QUEUE_MANAGER_INITIALIZATION_FAILED", {
+					originalError: error,
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*

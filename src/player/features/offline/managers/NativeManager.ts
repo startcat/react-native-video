@@ -33,6 +33,7 @@ export class NativeManager {
 	private config: NativeManagerConfig;
 	private currentLogger: Logger;
 	private isInitialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 
 	// Referencias a módulos nativos
 	private nativeModule: any = null;
@@ -72,42 +73,55 @@ export class NativeManager {
 			return;
 		}
 
-		try {
-			// Actualizar configuración del manager
-			if (config) {
-				this.config = { ...this.config, ...config };
-				this.currentLogger = new Logger({
-					enabled: this.config.logEnabled,
-					level: this.config.logLevel,
-				});
-			}
-
-			// Verificar que el módulo nativo esté disponible
-			if (!this.nativeModule) {
-				throw new Error("Native downloads module not available");
-			}
-
-			// Configurar event listeners nativos
-			this.setupNativeEventListeners();
-
-			// Inicializar módulo nativo
-			await this.initializeNativeModule();
-
-			this.isInitialized = true;
-			this.currentLogger.info(TAG, "NativeManager initialized successfully");
-
-			// Emitir evento de listo
-			this.eventEmitter.emit("module_ready", {
-				platform: Platform.OS,
-				systemInfo: this.systemInfo,
-			});
-		} catch (error) {
-			this.currentLogger.error(TAG, "Failed to initialize NativeManager", error);
-			throw new PlayerError("NATIVE_MANAGER_INITIALIZATION_FAILED", {
-				originalError: error,
-				platform: Platform.OS,
-			});
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
 		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			try {
+				// Actualizar configuración del manager
+				if (config) {
+					this.config = { ...this.config, ...config };
+					this.currentLogger = new Logger({
+						enabled: this.config.logEnabled,
+						level: this.config.logLevel,
+					});
+				}
+
+				// Verificar que el módulo nativo esté disponible
+				if (!this.nativeModule) {
+					throw new Error("Native downloads module not available");
+				}
+
+				// Configurar event listeners nativos
+				this.setupNativeEventListeners();
+
+				// Inicializar módulo nativo
+				await this.initializeNativeModule();
+
+				this.isInitialized = true;
+				this.currentLogger.info(TAG, "NativeManager initialized successfully");
+
+				// Emitir evento de listo
+				this.eventEmitter.emit("module_ready", {
+					platform: Platform.OS,
+					systemInfo: this.systemInfo,
+				});
+			} catch (error) {
+				this.currentLogger.error(TAG, "Failed to initialize NativeManager", error);
+				throw new PlayerError("NATIVE_MANAGER_INITIALIZATION_FAILED", {
+					originalError: error,
+					platform: Platform.OS,
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*
@@ -388,6 +402,12 @@ export class NativeManager {
 			duration: data.duration || 0,
 		};
 
+		// Invalidar cache de download space en iOS
+		if (Platform.OS === "ios") {
+			const { storageService } = require("../services/storage/StorageService");
+			storageService.invalidateDownloadSpaceCache();
+		}
+
 		this.eventEmitter.emit("download_completed", completeEvent);
 	}
 
@@ -499,6 +519,12 @@ export class NativeManager {
 		try {
 			await this.nativeModule.removeDownload(downloadId);
 			this.currentLogger.debug(TAG, `Download removed: ${downloadId}`);
+			
+			// Invalidar cache de download space en iOS
+			if (Platform.OS === "ios") {
+				const { storageService } = require("../services/storage/StorageService");
+				storageService.invalidateDownloadSpaceCache();
+			}
 		} catch (error) {
 			this.currentLogger.error(TAG, `Failed to remove download: ${downloadId}`, error);
 			throw new PlayerError("NATIVE_REMOVE_DOWNLOAD_FAILED", {
