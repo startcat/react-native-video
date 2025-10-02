@@ -88,6 +88,9 @@ class DownloadsModule2: RCTEventEmitter {
     private let DOWNLOAD_SPACE_CACHE_TTL: TimeInterval = 5.0 // 5 segundos
     private let progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in }
     
+    // Persistencia de asset paths para recuperar después de restart
+    private let ASSET_PATHS_KEY = "com.downloads.assetPaths"
+    
     // Speed tracking
     private var lastProgressUpdate: [String: (bytes: Int64, time: Date)] = [:]
     
@@ -1137,6 +1140,9 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             downloadInfo.assetPath = location.path
             activeDownloads[downloadId] = downloadInfo
             
+            // Persistir asset path para recuperarlo después de restart
+            saveAssetPath(location.path, forDownloadId: downloadId)
+            
             // Invalidar cache de downloadSpace
             invalidateDownloadSpaceCache()
             
@@ -1320,23 +1326,79 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         print("🔄 [DownloadsModule2] Calculating download space (cache miss or expired)")
         var totalSize: Int64 = 0
         
-        // Calculate size of all completed downloads
+        // OPCIÓN 1: Calcular tamaño de activeDownloads (descargas activas en memoria)
+        var activeDownloadsSize: Int64 = 0
         for (_, downloadInfo) in activeDownloads {
             if downloadInfo.state == .completed, let assetPath = downloadInfo.assetPath {
                 let assetURL = URL(fileURLWithPath: assetPath)
                 let size = calculateAssetSize(at: assetURL)
-                totalSize += size
+                activeDownloadsSize += size
             } else if downloadInfo.state == .downloading || downloadInfo.state == .paused {
-                // For in-progress downloads, use the estimated downloaded bytes
-                totalSize += downloadInfo.downloadedBytes
+                activeDownloadsSize += downloadInfo.downloadedBytes
             }
         }
+        
+        // OPCIÓN 2: Calcular tamaño REAL de los assets persistidos
+        // iOS AVAssetDownloadTask guarda assets en ubicación del sistema, no en /Documents
+        // Usamos los paths persistidos que guardamos al completar cada descarga
+        var persistedAssetsSize: Int64 = 0
+        let savedPaths = loadAssetPaths()
+        
+        print("📂 [DownloadsModule2] Found \(savedPaths.count) persisted asset paths")
+        
+        for (downloadId, assetPath) in savedPaths {
+            let assetURL = URL(fileURLWithPath: assetPath)
+            let fileManager = FileManager.default
+            
+            if fileManager.fileExists(atPath: assetPath) {
+                let size = calculateAssetSize(at: assetURL)
+                persistedAssetsSize += size
+                print("📄 [DownloadsModule2] Asset \(downloadId): \(Double(size) / 1024.0 / 1024.0) MB at \(assetPath)")
+            } else {
+                print("⚠️ [DownloadsModule2] Asset path not found (may have been deleted): \(assetPath)")
+                // Limpiar path que ya no existe
+                removeAssetPath(forDownloadId: downloadId)
+            }
+        }
+        
+        print("📁 [DownloadsModule2] Persisted assets total: \(persistedAssetsSize) bytes (\(Double(persistedAssetsSize) / 1024.0 / 1024.0) MB)")
+        
+        // Usar el MAYOR de los dos valores (más conservador y preciso)
+        totalSize = max(activeDownloadsSize, persistedAssetsSize)
+        
+        print("📥 [DownloadsModule2] Active downloads: \(activeDownloadsSize) bytes (\(Double(activeDownloadsSize) / 1024.0 / 1024.0) MB)")
+        print("📥 [DownloadsModule2] Persisted assets: \(persistedAssetsSize) bytes (\(Double(persistedAssetsSize) / 1024.0 / 1024.0) MB)")
+        print("📥 [DownloadsModule2] Total (max): \(totalSize) bytes (\(Double(totalSize) / 1024.0 / 1024.0) MB)")
         
         // Actualizar cache
         cachedDownloadSpace = totalSize
         downloadSpaceCacheTime = Date()
         
-        print("📥 [DownloadsModule2] Total downloads size: \(totalSize) bytes (\(Double(totalSize) / 1024.0 / 1024.0) MB)")
+        return totalSize
+    }
+    
+    // Helper para calcular tamaño de directorio recursivamente
+    private func calculateDirectorySize(at url: URL) -> Int64 {
+        let fileManager = FileManager.default
+        var totalSize: Int64 = 0
+        
+        guard let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey]) else {
+            return 0
+        }
+        
+        for case let fileURL as URL in enumerator {
+            do {
+                let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
+                if let isDirectory = resourceValues.isDirectory, !isDirectory {
+                    if let fileSize = resourceValues.fileSize {
+                        totalSize += Int64(fileSize)
+                    }
+                }
+            } catch {
+                print("⚠️ [DownloadsModule2] Error getting file size: \(error.localizedDescription)")
+            }
+        }
+        
         return totalSize
     }
     
@@ -1344,6 +1406,38 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     private func invalidateDownloadSpaceCache() {
         downloadSpaceCacheTime = nil
         print("🗑️ [DownloadsModule2] Download space cache invalidated")
+    }
+    
+    // MARK: - Asset Path Persistence Helpers
+    
+    /// Guardar asset path en UserDefaults para recuperarlo después de restart
+    private func saveAssetPath(_ path: String, forDownloadId downloadId: String) {
+        var paths = loadAssetPaths()
+        paths[downloadId] = path
+        UserDefaults.standard.set(paths, forKey: ASSET_PATHS_KEY)
+        UserDefaults.standard.synchronize()
+        print("💾 [DownloadsModule2] Saved asset path for \(downloadId): \(path)")
+    }
+    
+    /// Cargar todos los asset paths guardados
+    private func loadAssetPaths() -> [String: String] {
+        return UserDefaults.standard.dictionary(forKey: ASSET_PATHS_KEY) as? [String: String] ?? [:]
+    }
+    
+    /// Eliminar asset path de un download específico
+    private func removeAssetPath(forDownloadId downloadId: String) {
+        var paths = loadAssetPaths()
+        paths.removeValue(forKey: downloadId)
+        UserDefaults.standard.set(paths, forKey: ASSET_PATHS_KEY)
+        UserDefaults.standard.synchronize()
+        print("🗑️ [DownloadsModule2] Removed asset path for \(downloadId)")
+    }
+    
+    /// Limpiar todos los asset paths (útil para debugging o reset completo)
+    private func clearAllAssetPaths() {
+        UserDefaults.standard.removeObject(forKey: ASSET_PATHS_KEY)
+        UserDefaults.standard.synchronize()
+        print("🗑️ [DownloadsModule2] Cleared all asset paths")
     }
 }
 
