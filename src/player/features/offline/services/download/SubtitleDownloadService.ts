@@ -35,6 +35,8 @@ export class SubtitleDownloadService {
 	private currentLogger: Logger;
 	private activeDownloads: Map<string, AbortController>;
 	private downloadedSubtitles: Map<string, DownloadedSubtitleItem[]>; // downloadId -> subtitles
+	private isInitialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
@@ -62,22 +64,42 @@ export class SubtitleDownloadService {
 	 */
 
 	public async initialize(config?: Partial<SubtitleServiceConfig>): Promise<void> {
-		if (config) {
-			this.config = { ...this.config, ...config };
-			this.currentLogger.updateConfig({
-				enabled: this.config.logEnabled,
-				level: this.config.logLevel,
-			});
+		if (this.isInitialized) {
+			return;
 		}
 
-		// Asegurar que el directorio de subtítulos existe
-		const subtitlesDir = storageService.getSubtitlesDirectory();
-		await storageService.createDirectory(subtitlesDir);
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
+		}
 
-		this.currentLogger.info(TAG, "SubtitleDownloadService initialized", {
-			subtitlesDirectory: subtitlesDir,
-			config: this.config,
-		});
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			if (config) {
+				this.config = { ...this.config, ...config };
+				this.currentLogger.updateConfig({
+					enabled: this.config.logEnabled,
+					level: this.config.logLevel,
+				});
+			}
+
+			try {
+				// Asegurar que el directorio de subtítulos existe
+				const subtitlesDir = storageService.getSubtitlesDirectory();
+				await storageService.createDirectory(subtitlesDir);
+				this.isInitialized = true;
+
+				this.currentLogger.info(TAG, "SubtitleDownloadService initialized", {
+					subtitlesDirectory: subtitlesDir,
+					config: this.config,
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*
@@ -535,6 +557,7 @@ export class SubtitleDownloadService {
 		this.cancelAllDownloads();
 		this.eventEmitter.removeAllListeners();
 		this.downloadedSubtitles.clear();
+		this.isInitialized = false;
 		this.currentLogger.info(TAG, "SubtitleDownloadService destroyed");
 	}
 

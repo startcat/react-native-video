@@ -169,6 +169,7 @@ export class DownloadService {
 	private config: DownloadServiceConfig;
 	private currentLogger: Logger;
 	private isInitialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
 	private strategyFactory: DownloadStrategyFactory;
 	private eventUnsubscribers: Map<DownloadType, () => void> = new Map();
 
@@ -195,31 +196,44 @@ export class DownloadService {
 			return;
 		}
 
-		// Actualizar configuración
-		this.config = { ...this.config, ...config };
-		this.currentLogger.updateConfig({
-			enabled: this.config.logEnabled,
-			level: this.config.logLevel,
-		});
-
-		try {
-			// Inicializar estrategias si está habilitado
-			if (this.config.autoInitializeStrategies) {
-				await this.initializeStrategies();
-			}
-
-			// Configurar bridge de eventos si está habilitado
-			if (this.config.eventBridgeEnabled) {
-				this.setupEventBridge();
-			}
-
-			this.isInitialized = true;
-			this.currentLogger.info(TAG, "DownloadService initialized with strategy pattern");
-		} catch (error) {
-			throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
-				originalError: error,
-			});
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
 		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			// Actualizar configuración
+			this.config = { ...this.config, ...config };
+			this.currentLogger.updateConfig({
+				enabled: this.config.logEnabled,
+				level: this.config.logLevel,
+			});
+
+			try {
+				// Inicializar estrategias si está habilitado
+				if (this.config.autoInitializeStrategies) {
+					await this.initializeStrategies();
+				}
+
+				// Configurar bridge de eventos si está habilitado
+				if (this.config.eventBridgeEnabled) {
+					this.setupEventBridge();
+				}
+
+				this.isInitialized = true;
+				this.currentLogger.info(TAG, "DownloadService initialized with strategy pattern");
+			} catch (error) {
+				throw new PlayerError("DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED", {
+					originalError: error,
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*

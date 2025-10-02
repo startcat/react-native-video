@@ -33,6 +33,7 @@ export class NetworkService {
 	private currentStatus: NetworkStatus;
 	private previousStatus: NetworkStatus | null = null;
 	private isMonitoring: boolean = false;
+	private initPromise: Promise<void> | null = null;
 	private config: NetworkServiceConfig;
 	private currentLogger: Logger;
 	private networkPolicy: NetworkPolicy;
@@ -80,31 +81,44 @@ export class NetworkService {
 			return;
 		}
 
-		// Actualizar configuración
-		this.config = { ...this.config, ...config };
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
+		}
 
-		this.currentLogger.updateConfig({
-			enabled: this.config.logEnabled,
-			level: this.config.logLevel,
-		});
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			// Actualizar configuración
+			this.config = { ...this.config, ...config };
 
-		// Obtener estado inicial
-		try {
-			await this.fetchNetworkStatus();
-		} catch (error) {
-			throw new PlayerError("NETWORK_SERVICE_INITIALIZATION_FAILED", {
-				originalError: error,
+			this.currentLogger.updateConfig({
+				enabled: this.config.logEnabled,
+				level: this.config.logLevel,
 			});
-		}
 
-		this.currentLogger.info(
-			TAG,
-			`NetworkService initialized: ${JSON.stringify(this.currentStatus)}`
-		);
+			// Obtener estado inicial
+			try {
+				await this.fetchNetworkStatus();
+			} catch (error) {
+				throw new PlayerError("NETWORK_SERVICE_INITIALIZATION_FAILED", {
+					originalError: error,
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
 
-		if (!this.config.disableAutoStart) {
-			this.startMonitoring();
-		}
+			this.currentLogger.info(
+				TAG,
+				`NetworkService initialized: ${JSON.stringify(this.currentStatus)}`
+			);
+
+			if (!this.config.disableAutoStart) {
+				this.startMonitoring();
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*

@@ -32,7 +32,24 @@ export class StorageService {
 	private tempPath: string;
 	private isMonitoring: boolean = false;
 	private monitoringInterval: ReturnType<typeof setTimeout> | null = null;
-	private lastStorageInfo: StorageInfo | null = null;
+	private isInitialized: boolean = false;
+	private initPromise: Promise<void> | null = null;
+	private lastWarningLevel: "none" | "warning" | "critical" = "none";
+
+	// Cache para getSystemInfo (evitar exceso de llamadas nativas)
+	private systemInfoCache: {
+		totalSpace: number;
+		availableSpace: number;
+		downloadSpace: number;
+		timestamp: number;
+	} | null = null;
+	private readonly CACHE_TTL_MS = 5000; // Cache válido por 5 segundos
+	private pendingSystemInfoPromise: Promise<{
+		totalSpace: number;
+		availableSpace: number;
+		downloadSpace: number;
+	}> | null = null;
+	private pendingDownloadsFolderSizePromise: Promise<number> | null = null;
 
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
@@ -63,11 +80,33 @@ export class StorageService {
 	}
 
 	/*
-	 * Inicializa el servicio de almacenamiento
+	 * Inicializa el servicio de almacenamiento (idempotente)
 	 *
 	 */
 
 	public async initialize(config?: Partial<StorageServiceConfig>): Promise<void> {
+		if (this.isInitialized) {
+			return;
+		}
+
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
+		}
+
+		// Crear promesa de inicialización
+		this.initPromise = this.doInitialize(config);
+		await this.initPromise;
+		this.isInitialized = true;
+		this.initPromise = null;
+	}
+
+	/*
+	 * Realiza la inicialización real (llamado solo una vez)
+	 *
+	 */
+
+	private async doInitialize(config?: Partial<StorageServiceConfig>): Promise<void> {
 		// Actualizar configuración
 		this.config = { ...this.config, ...config };
 
@@ -106,6 +145,7 @@ export class StorageService {
 		// Verificar información del módulo nativo si está disponible
 		if (DownloadsModule2 && DownloadsModule2.getSystemInfo) {
 			try {
+				// No usar cache en init, es solo una vez
 				const systemInfo = await DownloadsModule2.getSystemInfo();
 				this.currentLogger.info(TAG, "Native module system info", {
 					nativeDownloadDirectory: systemInfo.downloadDirectory,
@@ -124,16 +164,78 @@ export class StorageService {
 						TAG,
 						"⚠️ PATH MISMATCH: Native module is using different download directory!",
 						{
-							nativePath: systemInfo.downloadDirectory,
 							storageServicePath: this.downloadPath,
 							issue: "Downloads will not be counted correctly in downloadSpace calculations",
 						}
 					);
 				}
 			} catch (error) {
-				this.currentLogger.debug(TAG, "Could not get native module system info", error);
+				// Ignore system info errors during init
+				this.currentLogger.warn(TAG, "Ignoring system info error during init", error);
 			}
 		}
+	}
+
+	/*
+	 * Obtiene system info con cache para evitar exceso de llamadas nativas
+	 *
+	 */
+
+	private async getCachedSystemInfo(): Promise<{
+		totalSpace: number;
+		availableSpace: number;
+		downloadSpace: number;
+	}> {
+		// Cache funciona para iOS y Android
+		if (!DownloadsModule2?.getSystemInfo) {
+			return { totalSpace: 0, availableSpace: 0, downloadSpace: 0 };
+		}
+
+		const now = Date.now();
+
+		// Verificar cache primero
+		if (this.systemInfoCache && now - this.systemInfoCache.timestamp < this.CACHE_TTL_MS) {
+			return {
+				totalSpace: this.systemInfoCache.totalSpace,
+				availableSpace: this.systemInfoCache.availableSpace,
+				downloadSpace: this.systemInfoCache.downloadSpace,
+			};
+		}
+
+		// Si ya hay una llamada en progreso, esperar a que termine
+		if (this.pendingSystemInfoPromise) {
+			return this.pendingSystemInfoPromise;
+		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.pendingSystemInfoPromise = (async () => {
+			try {
+				this.currentLogger.debug(TAG, "Getting system info from native");
+				const systemInfo = await DownloadsModule2.getSystemInfo();
+
+				// Actualizar cache
+				this.systemInfoCache = {
+					totalSpace: systemInfo.totalSpace || 0,
+					availableSpace: systemInfo.availableSpace || 0,
+					downloadSpace: systemInfo.downloadSpace || 0,
+					timestamp: Date.now(), // Usar timestamp actualizado
+				};
+
+				return {
+					totalSpace: this.systemInfoCache.totalSpace,
+					availableSpace: this.systemInfoCache.availableSpace,
+					downloadSpace: this.systemInfoCache.downloadSpace,
+				};
+			} catch (error) {
+				this.currentLogger.warn(TAG, "Failed to get system info from native", error);
+				return { totalSpace: 0, availableSpace: 0, downloadSpace: 0 };
+			} finally {
+				// Limpiar promesa pendiente
+				this.pendingSystemInfoPromise = null;
+			}
+		})();
+
+		return this.pendingSystemInfoPromise;
 	}
 
 	/*
@@ -145,13 +247,13 @@ export class StorageService {
 		try {
 			// Usar DownloadsModule2 si está disponible para obtener valores precisos
 			if (DownloadsModule2 && DownloadsModule2.getSystemInfo) {
-				const systemInfo = await DownloadsModule2.getSystemInfo();
-				return systemInfo.totalSpace;
+				// Siempre usar cache si es iOS o Android
+				const cached = await this.getCachedSystemInfo();
+				return cached.totalSpace;
 			}
 
-			// Fallback a RNFS si el módulo nativo no está disponible
-			const info = await RNFS.getFSInfo();
-			return info.totalSpace;
+			// Fallback usando RNFS
+			return 0; // RNFS no proporciona espacio total en iOS
 		} catch (error) {
 			this.currentLogger.error(TAG, "Error getting total space", error);
 			throw new PlayerError("STORAGE_FILE_SYSTEM_601", {
@@ -170,8 +272,8 @@ export class StorageService {
 		try {
 			// Usar DownloadsModule2 si está disponible para obtener valores precisos
 			if (DownloadsModule2 && DownloadsModule2.getSystemInfo) {
-				const systemInfo = await DownloadsModule2.getSystemInfo();
-				return systemInfo.totalSpace - systemInfo.availableSpace;
+				const cached = await this.getCachedSystemInfo();
+				return cached.totalSpace - cached.availableSpace;
 			}
 
 			// Fallback a RNFS si el módulo nativo no está disponible
@@ -199,13 +301,9 @@ export class StorageService {
 			// iOS: usa volumeAvailableCapacityForImportantUsage (incluye espacio purgeable)
 			// Android: usa valores correctos del sistema
 			if (DownloadsModule2 && DownloadsModule2.getSystemInfo) {
-				const systemInfo = await DownloadsModule2.getSystemInfo();
-				this.currentLogger.debug(TAG, "Using native module for storage info", {
-					totalSpace: systemInfo.totalSpace,
-					availableSpace: systemInfo.availableSpace,
-					platform: Platform.OS,
-				});
-				return systemInfo.availableSpace;
+				// Siempre usar cache para evitar llamadas excesivas
+				const cached = await this.getCachedSystemInfo();
+				return cached.availableSpace;
 			}
 
 			// Fallback a RNFS si el módulo nativo no está disponible
@@ -227,53 +325,89 @@ export class StorageService {
 
 	/*
 	 * Obtiene el tamaño de la carpeta de descargas usando RNFS
+	 *
 	 */
 
 	public async getDownloadsFolderSize(): Promise<number> {
-		try {
-			let totalSize = 0;
-
-			// Calcular tamaño del directorio de descargas
-			const downloadSize = await this.calculateDirectorySize(this.downloadPath);
-			totalSize += downloadSize;
-
-			this.currentLogger.debug(TAG, "Download path size calculated", {
-				path: this.downloadPath,
-				size: downloadSize,
-				sizeFormatted: formatFileSize(downloadSize),
-			});
-
-			// Calcular tamaño del directorio temporal
-			const tempSize = await this.calculateDirectorySize(this.tempPath);
-			totalSize += tempSize;
-
-			if (tempSize > 0) {
-				this.currentLogger.debug(TAG, "Temp path size calculated", {
-					path: this.tempPath,
-					size: tempSize,
-					sizeFormatted: formatFileSize(tempSize),
-				});
-			}
-
-			this.currentLogger.info(TAG, "Total downloads folder size", {
-				downloadPath: this.downloadPath,
-				tempPath: this.tempPath,
-				totalSize,
-				sizeFormatted: formatFileSize(totalSize),
-			});
-
-			return totalSize;
-		} catch (error) {
-			this.currentLogger.error(TAG, "Error getting downloads folder size", error);
-			throw new PlayerError("STORAGE_FILE_SYSTEM_612", {
-				originalError: error,
-				context: "StorageService.getDownloadsFolderSize",
-			});
+		// Si ya hay una llamada en progreso, esperar a que termine
+		if (this.pendingDownloadsFolderSizePromise) {
+			return this.pendingDownloadsFolderSizePromise;
 		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.pendingDownloadsFolderSizePromise = (async () => {
+			try {
+				// En iOS, usar el tamaño del native module porque los assets se guardan
+				// en una ubicación especial del sistema que RNFS no puede acceder
+				if (Platform.OS === "ios" && DownloadsModule2?.getSystemInfo) {
+					try {
+						const cached = await this.getCachedSystemInfo();
+						this.currentLogger.info(TAG, "Using native download space (iOS)", {
+							downloadSpace: cached.downloadSpace,
+							sizeFormatted: formatFileSize(cached.downloadSpace),
+						});
+						return cached.downloadSpace;
+					} catch (error) {
+						this.currentLogger.warn(
+							TAG,
+							"Failed to get native download space, falling back to RNFS",
+							error
+						);
+						// Fall through to RNFS calculation
+					}
+				}
+
+				// Android o fallback para iOS: usar RNFS
+				let totalSize = 0;
+
+				// Calcular tamaño del directorio de descargas
+				const downloadSize = await this.calculateDirectorySize(this.downloadPath);
+				totalSize += downloadSize;
+
+				this.currentLogger.debug(TAG, "Download path size calculated", {
+					path: this.downloadPath,
+					size: downloadSize,
+					sizeFormatted: formatFileSize(downloadSize),
+				});
+
+				// Calcular tamaño del directorio temporal
+				const tempSize = await this.calculateDirectorySize(this.tempPath);
+				totalSize += tempSize;
+
+				if (tempSize > 0) {
+					this.currentLogger.debug(TAG, "Temp path size calculated", {
+						path: this.tempPath,
+						size: tempSize,
+						sizeFormatted: formatFileSize(tempSize),
+					});
+				}
+
+				this.currentLogger.info(TAG, "Total downloads folder size", {
+					downloadPath: this.downloadPath,
+					tempPath: this.tempPath,
+					totalSize,
+					sizeFormatted: formatFileSize(totalSize),
+				});
+
+				return totalSize;
+			} catch (error) {
+				this.currentLogger.error(TAG, "Error getting downloads folder size", error);
+				throw new PlayerError("STORAGE_FILE_SYSTEM_612", {
+					originalError: error,
+					context: "StorageService.getDownloadsFolderSize",
+				});
+			} finally {
+				// Limpiar promesa pendiente
+				this.pendingDownloadsFolderSizePromise = null;
+			}
+		})();
+
+		return this.pendingDownloadsFolderSizePromise;
 	}
 
 	/*
 	 * Obtiene el tamaño de la carpeta temporal usando RNFS
+	 *
 	 */
 
 	public async getTempFolderSize(): Promise<number> {
@@ -286,6 +420,18 @@ export class StorageService {
 				context: "StorageService.getTempFolderSize",
 			});
 		}
+	}
+
+	/*
+	 * Invalida el cache de system info
+	 * Llamar cuando se complete o elimine una descarga
+	 *
+	 */
+
+	public invalidateDownloadSpaceCache(): void {
+		this.systemInfoCache = null;
+		this.pendingDownloadsFolderSizePromise = null;
+		this.currentLogger.debug(TAG, "Download space cache invalidated");
 	}
 
 	/*
@@ -405,7 +551,6 @@ export class StorageService {
 			lastUpdated: Date.now(),
 		};
 
-		this.lastStorageInfo = info;
 		this.checkStorageThresholds(info);
 
 		return info;
@@ -864,6 +1009,7 @@ export class StorageService {
 
 	/*
 	 * Calcula el tamaño de un directorio recursivamente usando RNFS
+	 *
 	 */
 
 	private async calculateDirectorySize(dirPath: string): Promise<number> {
@@ -890,24 +1036,24 @@ export class StorageService {
 					totalSize += item.size;
 
 					// Log cada archivo encontrado con su tamaño
-					// if (item.size > 0) {
-					// 	this.currentLogger.debug(TAG, `📄 File: ${item.name}`, {
-					// 		path: item.path,
-					// 		size: item.size,
-					// 		sizeFormatted: formatFileSize(item.size),
-					// 	});
-					// }
+					if (item.size > 0) {
+						this.currentLogger.debug(TAG, `📄 File: ${item.name}`, {
+							path: item.path,
+							size: item.size,
+							sizeFormatted: formatFileSize(item.size),
+						});
+					}
 				}
 			}
 
-			// if (fileCount > 0 || dirCount > 0) {
-			// 	this.currentLogger.debug(TAG, `📁 Directory scanned: ${dirPath}`, {
-			// 		files: fileCount,
-			// 		directories: dirCount,
-			// 		totalSize,
-			// 		sizeFormatted: formatFileSize(totalSize),
-			// 	});
-			// }
+			if (fileCount > 0 || dirCount > 0) {
+				this.currentLogger.debug(TAG, `📁 Directory scanned: ${dirPath}`, {
+					files: fileCount,
+					directories: dirCount,
+					totalSize,
+					sizeFormatted: formatFileSize(totalSize),
+				});
+			}
 
 			return totalSize;
 		} catch (error) {
@@ -1004,27 +1150,40 @@ export class StorageService {
 
 	private checkStorageThresholds(info: StorageInfo): void {
 		const usagePercent = info.usedSpace / info.totalSpace;
+		let currentLevel: "none" | "warning" | "critical" = "none";
 
 		if (usagePercent >= DEFAULT_CONFIG.STORAGE_WARNING_THRESHOLD) {
-			this.eventEmitter.emit(StorageEventType.SPACE_CRITICAL, {
-				usagePercent,
-				availableSpace: info.availableSpace,
-			});
+			currentLevel = "critical";
 		} else if (usagePercent >= 0.8) {
-			this.eventEmitter.emit(StorageEventType.SPACE_WARNING, {
-				usagePercent,
-				availableSpace: info.availableSpace,
-			});
-		} else if (this.lastStorageInfo) {
-			const prevUsagePercent =
-				this.lastStorageInfo.usedSpace / this.lastStorageInfo.totalSpace;
+			currentLevel = "warning";
+		}
 
-			if (prevUsagePercent >= 0.8 && usagePercent < 0.8) {
+		// Solo emitir eventos si el nivel cambió
+		if (currentLevel !== this.lastWarningLevel) {
+			this.currentLogger.debug(
+				TAG,
+				`Storage warning level changed: ${this.lastWarningLevel} -> ${currentLevel}`
+			);
+
+			if (currentLevel === "critical") {
+				this.eventEmitter.emit(StorageEventType.SPACE_CRITICAL, {
+					usagePercent,
+					availableSpace: info.availableSpace,
+				});
+			} else if (currentLevel === "warning") {
+				this.eventEmitter.emit(StorageEventType.SPACE_WARNING, {
+					usagePercent,
+					availableSpace: info.availableSpace,
+				});
+			} else if (this.lastWarningLevel !== "none") {
+				// Solo emitir SPACE_RECOVERED si antes estaba en warning o critical
 				this.eventEmitter.emit(StorageEventType.SPACE_RECOVERED, {
 					usagePercent,
 					availableSpace: info.availableSpace,
 				});
 			}
+
+			this.lastWarningLevel = currentLevel;
 		}
 	}
 

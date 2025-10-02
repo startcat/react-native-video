@@ -40,6 +40,7 @@ export class DownloadsManager {
 	private config: DownloadsManagerConfig;
 	private currentLogger: Logger;
 	private state: DownloadsManagerState;
+	private initPromise: Promise<void> | null = null;
 
 	// Event unsubscribers para cleanup
 	private eventUnsubscribers: (() => void)[] = [];
@@ -80,47 +81,60 @@ export class DownloadsManager {
 			return;
 		}
 
-		try {
-			// Actualizar configuración
-			this.config = { ...this.config, ...config };
-			this.currentLogger.updateConfig({
-				enabled: this.config.logEnabled,
-				level: this.config.logLevel,
-			});
-
-			// Inicializar servicios del sistema
-			await this.initializeSystemServices();
-
-			// Configurar coordinación entre servicios
-			this.setupServiceCoordination();
-
-			// Configurar políticas globales
-			this.setupGlobalPolicies();
-
-			// Recuperar estado previo si persistencia está habilitada
-			if (this.config.persistenceEnabled) {
-				await this.restorePreviousState();
-			}
-
-			this.state.isInitialized = true;
-			this.state.lastUpdated = Date.now();
-
-			// Auto-iniciar procesamiento si está configurado
-			if (this.config.autoStart) {
-				await this.start();
-			}
-
-			this.currentLogger.info(TAG, "DownloadsManager initialized successfully");
-		} catch (error) {
-			this.state.error =
-				error instanceof PlayerError
-					? error
-					: new PlayerError("DOWNLOAD_MANAGER_INITIALIZATION_FAILED", {
-							originalError: error,
-						});
-
-			throw this.state.error;
+		// Si hay una inicialización en progreso, esperar a que termine
+		if (this.initPromise) {
+			return this.initPromise;
 		}
+
+		// Crear promesa que otras llamadas concurrentes pueden esperar
+		this.initPromise = (async () => {
+			try {
+				// Actualizar configuración
+				this.config = { ...this.config, ...config };
+				this.currentLogger.updateConfig({
+					enabled: this.config.logEnabled,
+					level: this.config.logLevel,
+				});
+
+				// Inicializar servicios del sistema
+				await this.initializeSystemServices();
+
+				// Configurar coordinación entre servicios
+				this.setupServiceCoordination();
+
+				// Configurar políticas globales
+				this.setupGlobalPolicies();
+
+				// Recuperar estado previo si persistencia está habilitada
+				if (this.config.persistenceEnabled) {
+					await this.restorePreviousState();
+				}
+
+				this.state.isInitialized = true;
+				this.state.lastUpdated = Date.now();
+
+				// Auto-iniciar procesamiento si está configurado
+				if (this.config.autoStart) {
+					await this.start();
+				}
+
+				this.currentLogger.info(TAG, "DownloadsManager initialized successfully");
+			} catch (error) {
+				this.state.error =
+					error instanceof PlayerError
+						? error
+						: new PlayerError("DOWNLOAD_MANAGER_INITIALIZATION_FAILED", {
+								originalError: error,
+							});
+
+				throw this.state.error;
+			} finally {
+				// Limpiar promesa pendiente
+				this.initPromise = null;
+			}
+		})();
+
+		return this.initPromise;
 	}
 
 	/*
