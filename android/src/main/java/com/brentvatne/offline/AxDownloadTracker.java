@@ -35,7 +35,7 @@ public class AxDownloadTracker {
     public interface Listener {
 
         // Called when the tracked downloads changed
-        void onDownloadsChanged(int state, String id);
+        void onDownloadsChanged(int state, String id, Exception exception);
     }
 
     private static final String TAG = "Downloads";
@@ -44,6 +44,10 @@ public class AxDownloadTracker {
     // Cuando una descarga DASH/MPD falla pero ha alcanzado este porcentaje,
     // se considera que tiene suficiente contenido para reproducción offline
     private static final double HIGH_PROGRESS_THRESHOLD_PERCENT = 85.0;
+    
+    // Umbral de bytes descargados vs. estimado para considerar descarga completa
+    // Si hemos descargado >80% del tamaño estimado total, considerar la descarga válida
+    private static final double HIGH_BYTES_THRESHOLD_PERCENT = 0.80;
 
     private final Context mContext;
     private final DataSource.Factory mDataSourceFactory;
@@ -197,13 +201,24 @@ public class AxDownloadTracker {
         }
         
         // Permitir descargas con estado fallido si son MPD y tienen suficiente progreso
+        // Usar threshold dinámico: >85% de segmentos O >80% de bytes descargados
+        boolean hasEnoughSegments = download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT;
+        boolean hasEnoughBytes = false;
+        
+        if (download.getPercentDownloaded() >= 5 && download.getBytesDownloaded() > 0) {
+            long estimatedTotal = (long)(download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
+            double bytesRatio = download.getBytesDownloaded() / (double)estimatedTotal;
+            hasEnoughBytes = bytesRatio > HIGH_BYTES_THRESHOLD_PERCENT;
+        }
+        
         boolean isHighProgressMpdFailure = (download.state == Download.STATE_FAILED && 
-                                          download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT && 
+                                          (hasEnoughSegments || hasEnoughBytes) && 
                                           download.request.uri.toString().toLowerCase().endsWith(".mpd"));
         
         if (isHighProgressMpdFailure) {
             Log.i(TAG, "Allowing offline playback of high-progress MPD download: " + 
-                  download.request.id + " (" + download.getPercentDownloaded() + "%)");
+                  download.request.id + " (" + download.getPercentDownloaded() + "%, segments: " + 
+                  hasEnoughSegments + ", bytes: " + hasEnoughBytes + ")");
             return download.request;
         }
         
@@ -259,9 +274,20 @@ public class AxDownloadTracker {
             // Comprobar si es una descarga MPD fallida con suficiente progreso
             boolean isHighProgressMpdFailure = false;
             
+            // Calcular si tiene suficientes bytes descargados (threshold dinámico)
+            boolean hasEnoughBytes = false;
+            if (download.getPercentDownloaded() >= 5 && download.getBytesDownloaded() > 0) {
+                long estimatedTotal = (long)(download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
+                double bytesRatio = download.getBytesDownloaded() / (double)estimatedTotal;
+                hasEnoughBytes = bytesRatio > HIGH_BYTES_THRESHOLD_PERCENT;
+            }
+            
+            boolean hasEnoughSegments = download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT;
+            boolean isMpdUri = download.request.uri.toString().toLowerCase().endsWith(".mpd");
+            
             if (download.state == Download.STATE_FAILED && 
-                download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT && 
-                download.request.uri.toString().toLowerCase().endsWith(".mpd")) {
+                (hasEnoughSegments || hasEnoughBytes) && 
+                isMpdUri) {
                 
                 // Comprobar si es error 404
                 boolean is404Error = (exception != null && exception.getMessage() != null && 
@@ -269,12 +295,32 @@ public class AxDownloadTracker {
                 
                 if (is404Error || true) { // true para manejar cualquier error en MPD con suficiente progreso
                     isHighProgressMpdFailure = true;
+                    // Calcular tamaño estimado para logging
+                    long estimatedTotal = 0;
+                    double bytesRatio = 0;
+                    if (download.getPercentDownloaded() >= 5 && download.getBytesDownloaded() > 0) {
+                        estimatedTotal = (long)(download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
+                        bytesRatio = download.getBytesDownloaded() / (double)estimatedTotal;
+                    }
+                    
                     Log.w(TAG, "===== HANDLING HIGH PROGRESS MPD FAILURE AS SUCCESS =====");
                     Log.w(TAG, "Converting failed download to successful: " + download.request.id);
-                    Log.w(TAG, "Progress at conversion: " + download.getPercentDownloaded() + "% (threshold: >" + HIGH_PROGRESS_THRESHOLD_PERCENT + "%)");
+                    Log.w(TAG, "URI: " + download.request.uri);
+                    Log.w(TAG, "Progress at conversion: " + download.getPercentDownloaded() + "% (segment threshold: >" + HIGH_PROGRESS_THRESHOLD_PERCENT + "%)");
                     Log.w(TAG, "Bytes downloaded: " + download.getBytesDownloaded() + " / " + download.contentLength);
-                    if (exception != null && exception.getMessage() != null) {
-                        Log.w(TAG, "Original error: " + exception.getMessage());
+                    Log.w(TAG, String.format("Estimated total: %.2f MB, Bytes ratio: %.1f%% (threshold: >%.0f%%)",
+                        estimatedTotal / (1024.0 * 1024.0),
+                        bytesRatio * 100,
+                        HIGH_BYTES_THRESHOLD_PERCENT * 100));
+                    Log.w(TAG, "Meets segment threshold: " + hasEnoughSegments + ", Meets bytes threshold: " + hasEnoughBytes);
+                    Log.w(TAG, "Stop reason: " + download.stopReason);
+                    Log.w(TAG, "Failure reason: " + download.failureReason);
+                    if (exception != null) {
+                        Log.w(TAG, "Original error message: " + exception.getMessage());
+                        Log.w(TAG, "Original error class: " + exception.getClass().getName());
+                        if (exception.getCause() != null) {
+                            Log.w(TAG, "Error cause: " + exception.getCause().getMessage());
+                        }
                     }
                     
                     // Alternativa: en lugar de crear un nuevo objeto Download, simplemente
@@ -289,7 +335,7 @@ public class AxDownloadTracker {
                         
                         // Notificar a los oyentes sobre un estado COMPLETED, no FAILED
                         for (Listener listener : mListeners) {
-                            listener.onDownloadsChanged(Download.STATE_COMPLETED, download.request.id);
+                            listener.onDownloadsChanged(Download.STATE_COMPLETED, download.request.id, null);
                         }
                         
                         // Registrar el éxito de la conversión
@@ -311,15 +357,51 @@ public class AxDownloadTracker {
             
             // Registrar información de estado y posible excepción (solo para diagnóstico)
             if (download.state == Download.STATE_FAILED && !isHighProgressMpdFailure) {
-                Log.e(TAG, "Download failed for: " + download.request.id + " - URI: " + download.request.uri);
-                if (exception != null) {
-                    Log.e(TAG, "Download exception: " + exception.getMessage(), exception);
-                    Log.e(TAG, "Download percentage: " + download.getPercentDownloaded() + "%");
-                    Log.e(TAG, "Bytes downloaded: " + download.getBytesDownloaded() + " / " + download.contentLength);
-                    // Propiedades adicionales que pueden ser útiles
-                    Log.e(TAG, "Download stop reason: " + download.stopReason);
-                    Log.e(TAG, "Download failure reason: " + download.failureReason);
+                Log.e(TAG, "===== DOWNLOAD FAILED - DETAILED ERROR INFO =====");
+                Log.e(TAG, "Download ID: " + download.request.id);
+                Log.e(TAG, "URI: " + download.request.uri);
+                Log.e(TAG, "Progress: " + download.getPercentDownloaded() + "%");
+                Log.e(TAG, "Bytes downloaded: " + download.getBytesDownloaded() + " / " + download.contentLength);
+                Log.e(TAG, "Stop reason: " + download.stopReason);
+                Log.e(TAG, "Failure reason: " + download.failureReason);
+                
+                // Calcular thresholds para logging
+                long estimatedTotal = 0;
+                double bytesRatio = 0;
+                boolean meetsSegmentThreshold = download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT;
+                boolean meetsBytesThreshold = false;
+                
+                if (download.getPercentDownloaded() >= 5 && download.getBytesDownloaded() > 0) {
+                    estimatedTotal = (long)(download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
+                    bytesRatio = download.getBytesDownloaded() / (double)estimatedTotal;
+                    meetsBytesThreshold = bytesRatio > HIGH_BYTES_THRESHOLD_PERCENT;
                 }
+                
+                boolean isMpd = download.request.uri.toString().toLowerCase().endsWith(".mpd");
+                Log.e(TAG, "Segment threshold (>" + HIGH_PROGRESS_THRESHOLD_PERCENT + "%): " + meetsSegmentThreshold);
+                Log.e(TAG, String.format("Bytes threshold (>%.0f%%, actual: %.1f%%): " + meetsBytesThreshold,
+                    HIGH_BYTES_THRESHOLD_PERCENT * 100,
+                    bytesRatio * 100));
+                Log.e(TAG, String.format("Estimated total: %.2f MB (based on %.2f MB downloaded at %.1f%%)",
+                    estimatedTotal / (1024.0 * 1024.0),
+                    download.getBytesDownloaded() / (1024.0 * 1024.0),
+                    download.getPercentDownloaded()));
+                Log.e(TAG, "Is MPD: " + isMpd);
+                Log.e(TAG, "Would convert to success: " + ((meetsSegmentThreshold || meetsBytesThreshold) && isMpd));
+                
+                if (exception != null) {
+                    Log.e(TAG, "Exception class: " + exception.getClass().getName());
+                    Log.e(TAG, "Exception message: " + exception.getMessage());
+                    if (exception.getCause() != null) {
+                        Log.e(TAG, "Exception cause: " + exception.getCause().getClass().getName());
+                        Log.e(TAG, "Cause message: " + exception.getCause().getMessage());
+                    }
+                    // Print full stack trace
+                    Log.e(TAG, "Full stack trace:", exception);
+                } else {
+                    Log.e(TAG, "No exception provided - download failed without exception details");
+                }
+                Log.e(TAG, "=================================================");
             } else if (download.state == Download.STATE_DOWNLOADING) {
                 // Opcional: Registrar progreso para depuración
                 if (download.getPercentDownloaded() > HIGH_PROGRESS_THRESHOLD_PERCENT) {
@@ -330,7 +412,7 @@ public class AxDownloadTracker {
             
             // Notificar a los oyentes con el estado real
             for (Listener listener : mListeners) {
-                listener.onDownloadsChanged(download.state, download.request.id);
+                listener.onDownloadsChanged(download.state, download.request.id, exception);
             }
         }
 
@@ -338,7 +420,7 @@ public class AxDownloadTracker {
         public void onDownloadRemoved(DownloadManager downloadManager, Download download) {
             mDownloads.remove(download.request.uri);
             for (Listener listener : mListeners) {
-                listener.onDownloadsChanged(download.state, download.request.id);
+                listener.onDownloadsChanged(download.state, download.request.id, null);
             }
         }
     }

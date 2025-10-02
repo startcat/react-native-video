@@ -55,6 +55,7 @@ struct DownloadInfo {
     var error: Error?
     var startTime: Date?
     var completionTime: Date?
+    var assetPath: String? // Path where iOS stored the downloaded asset
 }
 
 // MARK: - Main Downloads Module Class
@@ -80,6 +81,11 @@ class DownloadsModule2: RCTEventEmitter {
     // State tracking
     private var isInitialized: Bool = false
     private let downloadQueue = DispatchQueue(label: "com.downloads.queue", qos: .background)
+    
+    // Cache para downloadSpace (evitar cálculos costosos)
+    private var cachedDownloadSpace: Int64 = 0
+    private var downloadSpaceCacheTime: Date?
+    private let DOWNLOAD_SPACE_CACHE_TTL: TimeInterval = 5.0 // 5 segundos
     private let progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in }
     
     // Speed tracking
@@ -181,8 +187,26 @@ class DownloadsModule2: RCTEventEmitter {
         downloadQueue.async { [weak self] in
             guard let self = self else { return }
             
+            let systemInfo = self.getSystemInfoDict()
+            
             DispatchQueue.main.async {
-                resolve(self.getSystemInfoDict())
+                resolve(systemInfo)
+            }
+        }
+    }
+    
+    @objc func getDownloadsFolderSize(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        downloadQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            let totalSize = self.calculateTotalDownloadsSize()
+            
+            DispatchQueue.main.async {
+                resolve([
+                    "totalBytes": totalSize,
+                    "totalMB": Double(totalSize) / 1024.0 / 1024.0,
+                    "downloadCount": self.activeDownloads.filter { $0.value.state == .completed }.count
+                ])
             }
         }
     }
@@ -240,7 +264,8 @@ class DownloadsModule2: RCTEventEmitter {
                     hasSubtitles: (config["subtitles"] as? NSArray)?.count ?? 0 > 0,
                     hasDRM: config["drm"] != nil,
                     error: nil,
-                    startTime: Date()
+                    startTime: Date(),
+                    assetPath: nil
                 )
                 
                 self.activeDownloads[id] = downloadInfo
@@ -328,6 +353,9 @@ class DownloadsModule2: RCTEventEmitter {
                 
                 // Remove downloaded files
                 try self.removeDownloadedFiles(for: downloadId)
+                
+                // Invalidar cache de downloadSpace
+                self.invalidateDownloadSpaceCache()
                 
                 // Release license if DRM
                 self.releaseLicenseForDownload(downloadId)
@@ -840,12 +868,29 @@ class DownloadsModule2: RCTEventEmitter {
             throw NSError(domain: "DownloadsModule2", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download session not initialized"])
         }
         
+        // Determine bitrate based on quality setting
+        let minBitrate: Int
+        switch downloadInfo.quality {
+        case "low":
+            minBitrate = 1_500_000 // 1.5 Mbps - SD quality
+            print("📥 [DownloadsModule2] Using LOW quality: \(minBitrate) bps")
+        case "medium":
+            minBitrate = 2_500_000 // 2.5 Mbps - HD ready
+            print("📥 [DownloadsModule2] Using MEDIUM quality: \(minBitrate) bps")
+        case "high":
+            minBitrate = 5_000_000 // 5 Mbps - Full HD
+            print("📥 [DownloadsModule2] Using HIGH quality: \(minBitrate) bps")
+        default:
+            minBitrate = 2_000_000 // 2 Mbps - Default to medium-low
+            print("📥 [DownloadsModule2] Using DEFAULT quality: \(minBitrate) bps")
+        }
+        
         print("📥 [DownloadsModule2] Creating download task for: \(downloadInfo.title)")
         let downloadTask = session.makeAssetDownloadTask(
             asset: asset,
             assetTitle: downloadInfo.title,
             assetArtworkData: nil,
-            options: [AVAssetDownloadTaskMinimumRequiredMediaBitrateKey: 265_000]
+            options: [AVAssetDownloadTaskMinimumRequiredMediaBitrateKey: minBitrate]
         )
         
         // Safe unwrap instead of force unwrap to prevent crashes
@@ -916,7 +961,50 @@ class DownloadsModule2: RCTEventEmitter {
     }
     
     private func removeDownloadedFiles(for downloadId: String) throws {
-        // Implementation for removing downloaded files
+        let fileManager = FileManager.default
+        
+        guard let downloadInfo = activeDownloads[downloadId] else {
+            print("⚠️ [DownloadsModule2] No download info found for: \(downloadId)")
+            return
+        }
+        
+        // If asset path exists, delete the downloaded asset
+        if let assetPath = downloadInfo.assetPath {
+            let assetURL = URL(fileURLWithPath: assetPath)
+            
+            if fileManager.fileExists(atPath: assetPath) {
+                do {
+                    try fileManager.removeItem(at: assetURL)
+                    print("✅ [DownloadsModule2] Deleted asset at: \(assetPath)")
+                } catch {
+                    print("❌ [DownloadsModule2] Error deleting asset: \(error.localizedDescription)")
+                    throw error
+                }
+            } else {
+                print("⚠️ [DownloadsModule2] Asset file not found at: \(assetPath)")
+            }
+        }
+        
+        // Also clean up any files in the download directory with this ID
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let downloadDir = documentsPath.appendingPathComponent(downloadDirectory)
+        
+        // Look for directories/files named with the downloadId
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: downloadDir, includingPropertiesForKeys: nil)
+            
+            for item in contents {
+                let itemName = item.lastPathComponent
+                // Check if the name contains the downloadId
+                if itemName.contains(downloadId) {
+                    try fileManager.removeItem(at: item)
+                    print("✅ [DownloadsModule2] Deleted download file/folder: \(itemName)")
+                }
+            }
+        } catch {
+            print("⚠️ [DownloadsModule2] Error cleaning download directory: \(error.localizedDescription)")
+            // Don't throw - partial cleanup is acceptable
+        }
     }
     
     private func releaseLicenseForDownload(_ downloadId: String) {
@@ -953,14 +1041,19 @@ class DownloadsModule2: RCTEventEmitter {
     private func getSystemInfoDict() -> [String: Any] {
         let fileManager = FileManager.default
         
+        // Get directory paths
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let cachesPath = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
+        
+        let downloadPath = documentsPath.appendingPathComponent(downloadDirectory).path
+        let tempPath = cachesPath.appendingPathComponent(tempDirectory).path
+        
         // Get storage information
         do {
-            let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-            
             // IMPORTANTE: Usar volumeAvailableCapacityForImportantUsageKey en lugar de volumeAvailableCapacityKey
             // volumeAvailableCapacityForImportantUsageKey incluye espacio que iOS puede liberar automáticamente
             // (caché, archivos temporales, etc.) y coincide con el valor mostrado en Configuración de iOS
-            let resourceValues = try documentsURL.resourceValues(forKeys: [
+            let resourceValues = try documentsPath.resourceValues(forKeys: [
                 .volumeAvailableCapacityForImportantUsageKey,
                 .volumeTotalCapacityKey
             ])
@@ -978,19 +1071,28 @@ class DownloadsModule2: RCTEventEmitter {
             
             let totalSpace = resourceValues.volumeTotalCapacity.map { Int64($0) } ?? 0
             
-            print("📥 [DownloadsModule2] Storage info - Total: \(totalSpace), Available: \(availableSpace)")
+            // Calculate actual downloads space
+            let downloadsSpace = calculateTotalDownloadsSize()
+            
+            // Solo log si es un cálculo nuevo (no cache)
+            // print("📥 [DownloadsModule2] Storage info - Total: \(totalSpace), Available: \(availableSpace), Downloads: \(downloadsSpace)")
             
             return [
                 "totalSpace": totalSpace,
                 "availableSpace": availableSpace,
-                "downloadSpace": 0, // Calculate actual download space
+                "downloadSpace": downloadsSpace,
+                "downloadDirectory": downloadPath,
+                "tempDirectory": tempPath,
                 "isConnected": true, // Get from network monitoring
                 "isWifiConnected": true, // Get from network monitoring
                 "isCellularConnected": false // Get from network monitoring
             ]
         } catch {
             print("❌ [DownloadsModule2] Error getting storage info: \(error.localizedDescription)")
-            return [:]
+            return [
+                "downloadDirectory": downloadPath,
+                "tempDirectory": tempPath
+            ]
         }
     }
     
@@ -1022,14 +1124,26 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             print("✅ [DownloadsModule2] Download completed: \(downloadId)")
             print("📥 [DownloadsModule2] Location: \(location.path)")
             
+            // Calculate actual file size of the downloaded asset
+            let actualSize = calculateAssetSize(at: location)
+            print("📥 [DownloadsModule2] Actual file size: \(actualSize) bytes (\(Double(actualSize) / 1024.0 / 1024.0) MB)")
+            
             var downloadInfo = activeDownloads[downloadId]!
             downloadInfo.state = .completed
             downloadInfo.completionTime = Date()
+            downloadInfo.totalBytes = actualSize
+            downloadInfo.downloadedBytes = actualSize
+            downloadInfo.progress = 1.0
+            downloadInfo.assetPath = location.path
             activeDownloads[downloadId] = downloadInfo
+            
+            // Invalidar cache de downloadSpace
+            invalidateDownloadSpaceCache()
             
             sendEvent(withName: "overonDownloadCompleted", body: [
                 "id": downloadId,
                 "path": location.path,
+                "totalBytes": actualSize,
                 "duration": Date().timeIntervalSince(downloadInfo.startTime!)
             ])
         } else {
@@ -1134,6 +1248,9 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 downloadInfo.error = error
                 activeDownloads[downloadId] = downloadInfo
                 
+                // Invalidar cache de downloadSpace
+                invalidateDownloadSpaceCache()
+                
                 sendEvent(withName: "overonDownloadError", body: [
                     "id": downloadId,
                     "error": [
@@ -1151,6 +1268,82 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     
     private func findDownloadId(for task: AVAssetDownloadTask) -> String? {
         return downloadTasks.first { $0.value == task }?.key
+    }
+    
+    private func calculateAssetSize(at url: URL) -> Int64 {
+        let fileManager = FileManager.default
+        var totalSize: Int64 = 0
+        
+        do {
+            // Check if path is a directory or file
+            var isDirectory: ObjCBool = false
+            if fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) {
+                if isDirectory.boolValue {
+                    // Calculate size of all files in directory recursively
+                    if let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles]) {
+                        for case let fileURL as URL in enumerator {
+                            do {
+                                let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey])
+                                if let fileSize = resourceValues.fileSize {
+                                    totalSize += Int64(fileSize)
+                                }
+                            } catch {
+                                print("⚠️ [DownloadsModule2] Error getting file size for: \(fileURL.path)")
+                            }
+                        }
+                    }
+                } else {
+                    // Single file
+                    let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey])
+                    if let fileSize = resourceValues.fileSize {
+                        totalSize = Int64(fileSize)
+                    }
+                }
+            }
+        } catch {
+            print("❌ [DownloadsModule2] Error calculating asset size: \(error.localizedDescription)")
+        }
+        
+        return totalSize
+    }
+    
+    private func calculateTotalDownloadsSize() -> Int64 {
+        // Verificar cache
+        if let cacheTime = downloadSpaceCacheTime {
+            let age = Date().timeIntervalSince(cacheTime)
+            if age < DOWNLOAD_SPACE_CACHE_TTL {
+                print("✅ [DownloadsModule2] Using cached download space (age: \(String(format: "%.1f", age))s)")
+                return cachedDownloadSpace
+            }
+        }
+        
+        print("🔄 [DownloadsModule2] Calculating download space (cache miss or expired)")
+        var totalSize: Int64 = 0
+        
+        // Calculate size of all completed downloads
+        for (_, downloadInfo) in activeDownloads {
+            if downloadInfo.state == .completed, let assetPath = downloadInfo.assetPath {
+                let assetURL = URL(fileURLWithPath: assetPath)
+                let size = calculateAssetSize(at: assetURL)
+                totalSize += size
+            } else if downloadInfo.state == .downloading || downloadInfo.state == .paused {
+                // For in-progress downloads, use the estimated downloaded bytes
+                totalSize += downloadInfo.downloadedBytes
+            }
+        }
+        
+        // Actualizar cache
+        cachedDownloadSpace = totalSize
+        downloadSpaceCacheTime = Date()
+        
+        print("📥 [DownloadsModule2] Total downloads size: \(totalSize) bytes (\(Double(totalSize) / 1024.0 / 1024.0) MB)")
+        return totalSize
+    }
+    
+    // Invalidar cache cuando cambia el estado de las descargas
+    private func invalidateDownloadSpaceCache() {
+        downloadSpaceCacheTime = nil
+        print("🗑️ [DownloadsModule2] Download space cache invalidated")
     }
 }
 

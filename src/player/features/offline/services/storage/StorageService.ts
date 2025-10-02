@@ -1036,7 +1036,7 @@ export class StorageService {
 					totalSize += item.size;
 
 					// Log cada archivo encontrado con su tamaño
-					if (item.size > 0) {
+					if (item.size > 0 && Platform.OS === "ios") {
 						this.currentLogger.debug(TAG, `📄 File: ${item.name}`, {
 							path: item.path,
 							size: item.size,
