@@ -36,6 +36,20 @@ const OverlayBase = (props: OverlayProps): React.ReactElement => {
 		}
 	}, [props.alwaysVisible]);
 
+	useEffect(() => {
+		// Detectar si el contenido ha terminado basándote en el estado
+		const hasEnded =
+			props.playerProgress?.currentTime === props.playerProgress?.duration &&
+			props.playerProgress?.duration &&
+			props.playerProgress?.duration > 0;
+
+		if (hasEnded) {
+			if (!avoidDissapear) {
+				setVisibleControls(true);
+			}
+		}
+	}, [props.playerProgress?.currentTime, props.playerProgress?.duration]);
+
 	const cancelControlsTimer = useCallback(() => {
 		if (controlsTimeout.current) {
 			clearTimeout(controlsTimeout.current);
@@ -230,7 +244,6 @@ const OverlayBase = (props: OverlayProps): React.ReactElement => {
 				<Controls
 					preloading={props.preloading}
 					thumbnailsMetadata={props.thumbnailsMetadata}
-					timeMarkers={props.timeMarkers}
 					avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 					isContentLoaded={props.isContentLoaded}
 					isChangingSource={props.isChangingSource}
@@ -288,7 +301,7 @@ const OverlayBase = (props: OverlayProps): React.ReactElement => {
 				<View style={temporalButtonsBarStyle}>
 					<TimeMarks
 						playerProgress={props.playerProgress}
-						playerTimeMarkers={{ timeMarkers: props.timeMarkers }}
+						playerTimeMarkers={props.playerTimeMarkers}
 						components={props.components}
 						onPress={onPress}
 					/>
