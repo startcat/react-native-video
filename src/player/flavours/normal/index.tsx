@@ -1264,7 +1264,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				<Overlay
 					preloading={isBuffering}
 					thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
-					timeMarkers={props.timeMarkers}
 					avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 					alwaysVisible={isAirplayConnected}
 					isChangingSource={isChangingSource.current}
