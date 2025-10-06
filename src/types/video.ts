@@ -160,6 +160,8 @@ export type SubtitleStyle = {
   paddingLeft?: number;
   paddingRight?: number;
   opacity?: number;
+  backgroundColor?: string; // Android only - hex color or named color
+  verticalAlignment?: 'top' | 'middle' | 'center' | 'bottom'; // Android only
 };
 
 export enum TextTrackType {
