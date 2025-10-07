@@ -155,6 +155,8 @@ type SubtitleStyle = Readonly<{
   paddingLeft?: WithDefault<Float, 0>;
   paddingRight?: WithDefault<Float, 0>;
   opacity?: WithDefault<Float, 1>;
+  backgroundColor?: string;
+  verticalAlignment?: string;
 }>;
 
 type OnLoadData = Readonly<{
