@@ -28,7 +28,23 @@ if (__DEV__) {
 	const { CastFlavour: CastDev } = require("./player/flavours/cast");
 	NormalFlavour = NormalDev;
 	CastFlavour = CastDev;
+	// En desarrollo: import estático para mejor debugging y hot reload
+	const { NormalFlavour: NormalDev } = require("./player/flavours/normal");
+	const { CastFlavour: CastDev } = require("./player/flavours/cast");
+	NormalFlavour = NormalDev;
+	CastFlavour = CastDev;
 } else {
+	// En producción: lazy loading para mejor performance
+	NormalFlavour = lazy(() =>
+		import("./player/flavours/normal").then(module => ({
+			default: module.NormalFlavour,
+		}))
+	);
+	CastFlavour = lazy(() =>
+		import("./player/flavours/cast").then(module => ({
+			default: module.CastFlavour,
+		}))
+	);
 	// En producción: lazy loading para mejor performance
 	NormalFlavour = lazy(() =>
 		import("./player/flavours/normal").then(module => ({
@@ -43,11 +59,13 @@ if (__DEV__) {
 }
 
 import { type ICommonData, type PlayerProps } from "./player/types";
+import { type ICommonData, type PlayerProps } from "./player/types";
 
 /*
  *  Esta primera capa del Player nos permite alternar entre los dos principales flavors:
  *  - Normal: Visionado en dispositivo o Airplay
  *  - Chromecast: Usando el móvil como mando
+ *
  *
  *  Mantendremos el punto de reproducción, pista de audio, pista de subs, etc...
  *
@@ -58,7 +76,16 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	const playerLogger = useRef<Logger | null>(null);
 	const currentLogger = useRef<ComponentLogger | null>(null);
 	const playerProgress = useRef<IPlayerProgress | null>(null);
+export function Player(props: PlayerProps): React.ReactElement | null {
+	const playerContext = useRef<PlayerContext | null>(null);
+	const playerLogger = useRef<Logger | null>(null);
+	const currentLogger = useRef<ComponentLogger | null>(null);
+	const playerProgress = useRef<IPlayerProgress | null>(null);
 
+	const isCasting = useRef<boolean>(false);
+	const watchingProgressIntervalObj = useRef<number>();
+	const hasBeenLoaded = useRef<boolean>(false);
+	const hasBeenLoadedAudio = useRef<boolean>(false);
 	const isCasting = useRef<boolean>(false);
 	const watchingProgressIntervalObj = useRef<number>();
 	const hasBeenLoaded = useRef<boolean>(false);
@@ -70,14 +97,33 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>(
 		typeof props.subtitleIndex === "number" ? props.subtitleIndex : -1
 	);
+	const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(
+		typeof props.audioIndex === "number" ? props.audioIndex : -1
+	);
+	const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<number>(
+		typeof props.subtitleIndex === "number" ? props.subtitleIndex : -1
+	);
 
+	const [hasRotated, setHasRotated] = useState<boolean>(
+		!!props.avoidRotation || DeviceInfo.isTablet()
+	);
+	const [hasCorrectCastState, setCorrectCastState] = useState<boolean>(false);
 	const [hasRotated, setHasRotated] = useState<boolean>(
 		!!props.avoidRotation || DeviceInfo.isTablet()
 	);
 	const [hasCorrectCastState, setCorrectCastState] = useState<boolean>(false);
 
 	const nativeCastState = useNativeCastState();
+	const nativeCastState = useNativeCastState();
 
+	if (!playerLogger.current) {
+		playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
+		currentLogger.current = playerLogger.current?.forComponent(
+			"Video Player Component",
+			props.logger?.core?.enabled,
+			props.logger?.core?.level
+		);
+	}
 	if (!playerLogger.current) {
 		playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
 		currentLogger.current = playerLogger.current?.forComponent(
@@ -90,7 +136,16 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	if (!playerContext.current) {
 		playerContext.current = new PlayerContext(playerLogger.current!);
 	}
+	if (!playerContext.current) {
+		playerContext.current = new PlayerContext(playerLogger.current!);
+	}
 
+	if (!playerProgress.current) {
+		playerProgress.current = {
+			...props.playerProgress,
+			currentTime: props.initialState?.startPosition || 0,
+		};
+	}
 	if (!playerProgress.current) {
 		playerProgress.current = {
 			...props.playerProgress,
@@ -106,7 +161,20 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			}, 500);
 		}
 	});
+	useOrientationChange((o: OrientationType) => {
+		// Pequeño apaño para el lock de rotación (fallback para dispositivos viejos)
+		if (!hasRotated) {
+			setTimeout(() => {
+				setHasRotated(true);
+			}, 500);
+		}
+	});
 
+	React.useEffect(() => {
+		// Al montar el Player, preparamos la sesión de Audio, el apagado de pantalla y la orientación
+		if (Platform.OS === "android") {
+			SystemNavigationBar.fullScreen(true);
+		}
 	React.useEffect(() => {
 		// Al montar el Player, preparamos la sesión de Audio, el apagado de pantalla y la orientación
 		if (Platform.OS === "android") {
@@ -117,7 +185,12 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			// Bloqueamos a Landscape los móviles
 			Orientation.lockToLandscape();
 		}
+		if (!props.avoidRotation && !DeviceInfo.isTablet()) {
+			// Bloqueamos a Landscape los móviles
+			Orientation.lockToLandscape();
+		}
 
+		activateKeepAwake();
 		activateKeepAwake();
 
 		// async function stopDownloads() {
@@ -158,7 +231,11 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			}
 
 			deactivateKeepAwake();
+			deactivateKeepAwake();
 
+			if (!props.avoidRotation && !DeviceInfo.isTablet()) {
+				Orientation.lockToPortrait();
+			}
 			if (!props.avoidRotation && !DeviceInfo.isTablet()) {
 				Orientation.lockToPortrait();
 			}
@@ -175,7 +252,13 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			if (Platform.OS === "android") {
 				SystemNavigationBar.fullScreen(false);
 			}
+			if (Platform.OS === "android") {
+				SystemNavigationBar.fullScreen(false);
+			}
 
+			clearTimeout(baseTimer);
+		};
+	}, []);
 			clearTimeout(baseTimer);
 		};
 	}, []);
@@ -184,10 +267,17 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	 *  Función para guardar los cambios en el estado entre flavours
 	 *
 	 */
+	/*
+	 *  Función para guardar los cambios en el estado entre flavours
+	 *
+	 */
 
 	const handleChangeCommonData = (data: ICommonData) => {
 		let preferencesData: IPreferencesCommonData = {};
+	const handleChangeCommonData = (data: ICommonData) => {
+		let preferencesData: IPreferencesCommonData = {};
 
+		currentLogger.current?.debug(`handleChangeCommonData ${JSON.stringify(data)}`);
 		currentLogger.current?.debug(`handleChangeCommonData ${JSON.stringify(data)}`);
 
 		if (data?.time !== undefined && playerProgress.current) {
@@ -197,6 +287,10 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		if (data?.duration !== undefined && playerProgress.current) {
 			playerProgress.current.duration = data.duration;
 
+			if (!hasBeenLoaded.current) {
+				hasBeenLoaded.current = true;
+			}
+		}
 			if (!hasBeenLoaded.current) {
 				hasBeenLoaded.current = true;
 			}
@@ -221,6 +315,12 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 				props.events.onPlay();
 			}
 		}
+			if (!!data.paused && props.events?.onPause) {
+				props.events.onPause();
+			} else if (props.events?.onPlay) {
+				props.events.onPlay();
+			}
+		}
 
 		if (data?.muted !== undefined && playerProgress.current) {
 			playerProgress.current.isMuted = !!data.muted;
@@ -232,6 +332,10 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			preferencesData.volume = data.volume;
 		}
 
+		if (typeof data?.audioIndex === "number") {
+			setCurrentAudioIndex(data.audioIndex);
+			preferencesData.audioIndex = data.audioIndex;
+			preferencesData.audioLabel = data.audioLabel;
 		if (typeof data?.audioIndex === "number") {
 			setCurrentAudioIndex(data.audioIndex);
 			preferencesData.audioIndex = data.audioIndex;
@@ -290,7 +394,6 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 					liveStartDate={props.liveStartDate}
 					audioIndex={currentAudioIndex}
 					subtitleIndex={currentSubtitleIndex}
-					timeMarkers={props.timeMarkers}
 					avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 					// Initial State
 					initialState={props.initialState}
@@ -337,7 +440,6 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 					audioIndex={currentAudioIndex}
 					subtitleIndex={currentSubtitleIndex}
 					subtitleStyle={props.subtitleStyle}
-					timeMarkers={props.timeMarkers}
 					avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 					// Initial State
 					initialState={props.initialState}
