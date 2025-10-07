@@ -1323,58 +1323,87 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             }
         }
         
-        print("🔄 [DownloadsModule2] Calculating download space (cache miss or expired)")
-        var totalSize: Int64 = 0
+		print("🔄 [DownloadsModule2] Calculating download space (cache miss or expired)")
+		print("📊 [DownloadsModule2] Total activeDownloads count: \(activeDownloads.count)")
+		var totalSize: Int64 = 0
         
         // OPCIÓN 1: Calcular tamaño de activeDownloads (descargas activas en memoria)
-        var activeDownloadsSize: Int64 = 0
-        for (_, downloadInfo) in activeDownloads {
-            if downloadInfo.state == .completed, let assetPath = downloadInfo.assetPath {
-                let assetURL = URL(fileURLWithPath: assetPath)
-                let size = calculateAssetSize(at: assetURL)
-                activeDownloadsSize += size
-            } else if downloadInfo.state == .downloading || downloadInfo.state == .paused {
-                activeDownloadsSize += downloadInfo.downloadedBytes
-            }
-        }
-        
+		var activeDownloadsSize: Int64 = 0
+		var completedCount = 0
+		var downloadingCount = 0
+		var pausedCount = 0
+
+		for (downloadId, downloadInfo) in activeDownloads {
+			print("   📦 Download '\(downloadId)': state=\(downloadInfo.state.stringValue), hasPath=\(downloadInfo.assetPath != nil), bytes=\(downloadInfo.downloadedBytes)")
+			
+			if downloadInfo.state == .completed, let assetPath = downloadInfo.assetPath {
+				completedCount += 1
+				let assetURL = URL(fileURLWithPath: assetPath)
+				let size = calculateAssetSize(at: assetURL)
+				activeDownloadsSize += size
+				print("   ✅ Completed download: \(Double(size) / 1024.0 / 1024.0) MB at \(assetPath)")
+			} else if downloadInfo.state == .downloading || downloadInfo.state == .paused {
+				if downloadInfo.state == .downloading { downloadingCount += 1 }
+				if downloadInfo.state == .paused { pausedCount += 1 }
+				activeDownloadsSize += downloadInfo.downloadedBytes
+				print("   ⏳ In-progress download: \(Double(downloadInfo.downloadedBytes) / 1024.0 / 1024.0) MB downloaded")
+			}
+		}
+		
+		print("📊 [DownloadsModule2] Active downloads summary: completed=\(completedCount), downloading=\(downloadingCount), paused=\(pausedCount)")
+		
         // OPCIÓN 2: Calcular tamaño REAL de los assets persistidos
         // iOS AVAssetDownloadTask guarda assets en ubicación del sistema, no en /Documents
         // Usamos los paths persistidos que guardamos al completar cada descarga
         var persistedAssetsSize: Int64 = 0
         let savedPaths = loadAssetPaths()
         
-        print("📂 [DownloadsModule2] Found \(savedPaths.count) persisted asset paths")
+        print("📂 [DownloadsModule2] Found \(savedPaths.count) persisted asset paths in UserDefaults")
+
+		if savedPaths.isEmpty {
+			print("⚠️ [DownloadsModule2] No persisted asset paths found - this is normal for fresh install or if downloads haven't completed yet")
+		}
         
-        for (downloadId, assetPath) in savedPaths {
-            let assetURL = URL(fileURLWithPath: assetPath)
-            let fileManager = FileManager.default
-            
-            if fileManager.fileExists(atPath: assetPath) {
-                let size = calculateAssetSize(at: assetURL)
-                persistedAssetsSize += size
-                print("📄 [DownloadsModule2] Asset \(downloadId): \(Double(size) / 1024.0 / 1024.0) MB at \(assetPath)")
-            } else {
-                print("⚠️ [DownloadsModule2] Asset path not found (may have been deleted): \(assetPath)")
-                // Limpiar path que ya no existe
-                removeAssetPath(forDownloadId: downloadId)
-            }
-        }
+		for (downloadId, assetPath) in savedPaths {
+			let assetURL = URL(fileURLWithPath: assetPath)
+			let fileManager = FileManager.default
+			
+			print("   🔍 Checking persisted asset '\(downloadId)' at: \(assetPath)")
+			
+			if fileManager.fileExists(atPath: assetPath) {
+				let size = calculateAssetSize(at: assetURL)
+				persistedAssetsSize += size
+				print("   ✅ Asset exists: \(Double(size) / 1024.0 / 1024.0) MB")
+			} else {
+				print("   ❌ Asset file not found (may have been deleted by iOS or user)")
+				// Limpiar path que ya no existe
+				removeAssetPath(forDownloadId: downloadId)
+			}
+		}
         
-        print("📁 [DownloadsModule2] Persisted assets total: \(persistedAssetsSize) bytes (\(Double(persistedAssetsSize) / 1024.0 / 1024.0) MB)")
-        
-        // Usar el MAYOR de los dos valores (más conservador y preciso)
-        totalSize = max(activeDownloadsSize, persistedAssetsSize)
-        
-        print("📥 [DownloadsModule2] Active downloads: \(activeDownloadsSize) bytes (\(Double(activeDownloadsSize) / 1024.0 / 1024.0) MB)")
-        print("📥 [DownloadsModule2] Persisted assets: \(persistedAssetsSize) bytes (\(Double(persistedAssetsSize) / 1024.0 / 1024.0) MB)")
-        print("📥 [DownloadsModule2] Total (max): \(totalSize) bytes (\(Double(totalSize) / 1024.0 / 1024.0) MB)")
-        
-        // Actualizar cache
-        cachedDownloadSpace = totalSize
-        downloadSpaceCacheTime = Date()
-        
-        return totalSize
+		print("📁 [DownloadsModule2] Persisted assets total: \(persistedAssetsSize) bytes (\(Double(persistedAssetsSize) / 1024.0 / 1024.0) MB)")
+		
+		// Usar el MAYOR de los dos valores (más conservador y preciso)
+		totalSize = max(activeDownloadsSize, persistedAssetsSize)
+		
+		print("📥 [DownloadsModule2] Active downloads: \(activeDownloadsSize) bytes (\(Double(activeDownloadsSize) / 1024.0 / 1024.0) MB)")
+		print("📥 [DownloadsModule2] Persisted assets: \(persistedAssetsSize) bytes (\(Double(persistedAssetsSize) / 1024.0 / 1024.0) MB)")
+		print("📥 [DownloadsModule2] Total (max): \(totalSize) bytes (\(Double(totalSize) / 1024.0 / 1024.0) MB)")
+		
+		if totalSize == 0 {
+			print("⚠️ [DownloadsModule2] WARNING: Total download size is 0!")
+			print("   Possible reasons:")
+			print("   1. No downloads have completed yet (activeDownloads.count: \(activeDownloads.count))")
+			print("   2. Completed downloads have no assetPath saved")
+			print("   3. UserDefaults has no persisted paths (savedPaths.count: \(savedPaths.count))")
+			print("   4. Asset files were deleted by iOS or user")
+		}
+		
+		// Actualizar cache
+		cachedDownloadSpace = totalSize
+		downloadSpaceCacheTime = Date()
+		
+		return totalSize
     }
     
     // Helper para calcular tamaño de directorio recursivamente
