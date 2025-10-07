@@ -522,12 +522,46 @@ export class StorageService {
 
 	/*
 	 * Verifica si el espacio está bajo
+	 * IMPORTANTE: Ahora verifica espacio absoluto disponible, no solo porcentaje
 	 *
 	 */
 
 	public async isLowSpace(): Promise<boolean> {
-		const warningLevel = await this.getSpaceWarningLevel();
-		return warningLevel !== "none";
+		const info = await this.getStorageInfo();
+		const minSpaceBytes = LIMITS.MIN_DISK_SPACE_MB * 1024 * 1024;
+
+		// OPCIÓN 1: Verificar espacio absoluto disponible
+		// Solo considerar "low space" si hay menos de MIN_DISK_SPACE_MB disponibles
+		if (info.availableSpace < minSpaceBytes) {
+			this.currentLogger.warn(TAG, "Low space: absolute available space below minimum", {
+				availableGB: (info.availableSpace / 1024 / 1024 / 1024).toFixed(2),
+				minRequiredMB: LIMITS.MIN_DISK_SPACE_MB,
+			});
+			return true;
+		}
+
+		// OPCIÓN 2: Verificar porcentaje solo si espacio disponible es suficiente
+		// Esto evita bloquear descargas cuando hay espacio pero alto porcentaje de uso
+		const usagePercent = Math.round((info.usedSpace / info.totalSpace) * 100);
+
+		// Solo aplicar threshold de porcentaje si el espacio disponible es menor a 2GB
+		const twoGB = 2 * 1024 * 1024 * 1024;
+		if (info.availableSpace < twoGB) {
+			if (usagePercent >= DEFAULT_CONFIG.STORAGE_WARNING_THRESHOLD * 100) {
+				this.currentLogger.warn(
+					TAG,
+					"Low space: high usage percentage with limited available space",
+					{
+						usagePercent,
+						availableGB: (info.availableSpace / 1024 / 1024 / 1024).toFixed(2),
+					}
+				);
+				return true;
+			}
+		}
+
+		// Si tenemos más de 2GB disponibles, permitir descargas incluso con alto porcentaje
+		return false;
 	}
 
 	/*
