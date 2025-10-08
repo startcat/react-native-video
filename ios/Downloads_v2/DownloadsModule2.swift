@@ -90,6 +90,7 @@ class DownloadsModule2: RCTEventEmitter {
     
     // Persistencia de asset paths para recuperar después de restart
     private let ASSET_PATHS_KEY = "com.downloads.assetPaths"
+    private let ACTIVE_DOWNLOADS_KEY = "com.downloads.activeStates" // NUEVO: Persistir descargas en progreso
     
     // Speed tracking
     private var lastProgressUpdate: [String: (bytes: Int64, time: Date)] = [:]
@@ -241,35 +242,93 @@ class DownloadsModule2: RCTEventEmitter {
                 let title = config["title"] as! String
                 print("📥 [DownloadsModule2] Step 2: Config validated - ID: \(id), URI: \(uri)")
                 
-                // Check if download already exists
-                if self.activeDownloads[id] != nil {
-                    print("❌ [DownloadsModule2] Download already exists: \(id)")
-                    DispatchQueue.main.async {
-                        reject("DOWNLOAD_EXISTS", "Download with this ID already exists", nil)
+                // Check if download already exists (puede haber sido restaurado)
+                if let existingDownload = self.activeDownloads[id] {
+                    print("ℹ️ [DownloadsModule2] Download already exists: \(id) - State: \(existingDownload.state.stringValue)")
+                    
+                    // Si la descarga está pausada, intentar reanudarla
+                    if existingDownload.state == .paused {
+                        print("▶️ [DownloadsModule2] Resuming paused download: \(id)")
+                        
+                        // Si hay una tarea asociada, reanudarla
+                        if let downloadTask = self.downloadTasks[id] {
+                            downloadTask.resume()
+                            var downloadInfo = existingDownload
+                            downloadInfo.state = .downloading
+                            self.activeDownloads[id] = downloadInfo
+                            self.persistDownloadState()
+                            
+                            self.sendEvent(withName: "overonDownloadStateChanged", body: [
+                                "id": id,
+                                "state": downloadInfo.state.stringValue
+                            ])
+                            
+                            print("✅ [DownloadsModule2] Resumed existing download: \(id)")
+                            DispatchQueue.main.async {
+                                resolve(nil)
+                            }
+                            return
+                        } else {
+                            print("⚠️ [DownloadsModule2] No task found for paused download, will recreate")
+                            print("⚠️ [DownloadsModule2] WARNING: HLS downloads cannot resume partial progress - will restart from 0%")
+                            
+                            // Emitir evento para informar a JavaScript
+                            self.sendEvent(withName: "overonDownloadResumeDeferred", body: [
+                                "id": id,
+                                "reason": "iOS task was lost - HLS downloads must restart",
+                                "previousProgress": Int(existingDownload.progress * 100)
+                            ])
+                            
+                            // Limpiar descarga existente para recrear desde 0%
+                            self.activeDownloads.removeValue(forKey: id)
+                            // Continuar para recrear la tarea (comenzará desde 0%)
+                        }
                     }
-                    return
+                    // Si ya está descargando o completada, simplemente devolver éxito
+                    else if existingDownload.state == .downloading || existingDownload.state == .completed {
+                        print("✅ [DownloadsModule2] Download already \(existingDownload.state.stringValue): \(id)")
+                        DispatchQueue.main.async {
+                            resolve(nil)
+                        }
+                        return
+                    }
+                    // Si está en otro estado (failed, etc), permitir recrear
+                    else {
+                        print("🔄 [DownloadsModule2] Download in state \(existingDownload.state.stringValue), will recreate")
+                        // Limpiar descarga existente
+                        self.activeDownloads.removeValue(forKey: id)
+                        self.downloadTasks.removeValue(forKey: id)
+                    }
                 }
-                print("📥 [DownloadsModule2] Step 3: Download does not exist, proceeding")
+                print("📥 [DownloadsModule2] Step 3: Creating new download")
                 
                 // Create download info
                 print("📥 [DownloadsModule2] Step 4: Creating download info")
+                
+                // Verificar si había una descarga previa restaurada (para preservar progreso)
+                let restoredDownload = self.activeDownloads[id]
+                
                 var downloadInfo = DownloadInfo(
                     id: id,
                     uri: uri,
                     title: title,
                     state: .preparing,
-                    progress: 0.0,
-                    totalBytes: 0,
-                    downloadedBytes: 0,
+                    progress: restoredDownload?.progress ?? 0.0,
+                    totalBytes: restoredDownload?.totalBytes ?? 0,
+                    downloadedBytes: restoredDownload?.downloadedBytes ?? 0,
                     speed: 0.0,
                     remainingTime: 0,
-                    quality: config["quality"] as? String,
+                    quality: config["quality"] as? String ?? restoredDownload?.quality,
                     hasSubtitles: (config["subtitles"] as? NSArray)?.count ?? 0 > 0,
                     hasDRM: config["drm"] != nil,
                     error: nil,
-                    startTime: Date(),
-                    assetPath: nil
+                    startTime: restoredDownload?.startTime ?? Date(),
+                    assetPath: restoredDownload?.assetPath
                 )
+                
+                if restoredDownload != nil {
+                    print("🔄 [DownloadsModule2] Preserving progress from restored download: \(Int(downloadInfo.progress * 100))% (\(downloadInfo.downloadedBytes) bytes)")
+                }
                 
                 self.activeDownloads[id] = downloadInfo
                 print("📥 [DownloadsModule2] Active downloads: \(self.activeDownloads.count)")
@@ -314,6 +373,9 @@ class DownloadsModule2: RCTEventEmitter {
                 // Update state and start download
                 downloadInfo.state = .queued
                 self.activeDownloads[id] = downloadInfo
+                
+                // Persistir estado
+                self.persistDownloadState()
                 
                 print("📥 [DownloadsModule2] Step 9: Starting download if possible")
                 self.startDownloadIfPossible(id)
@@ -393,6 +455,9 @@ class DownloadsModule2: RCTEventEmitter {
                 downloadInfo.state = .paused
                 self.activeDownloads[downloadId] = downloadInfo
                 
+                // Persistir estado
+                self.persistDownloadState()
+                
                 self.sendEvent(withName: "overonDownloadStateChanged", body: [
                     "id": downloadId,
                     "state": downloadInfo.state.stringValue
@@ -420,6 +485,9 @@ class DownloadsModule2: RCTEventEmitter {
                 downloadTask.resume()
                 downloadInfo.state = .downloading
                 self.activeDownloads[downloadId] = downloadInfo
+                
+                // Persistir estado
+                self.persistDownloadState()
                 
                 self.sendEvent(withName: "overonDownloadStateChanged", body: [
                     "id": downloadId,
@@ -451,6 +519,9 @@ class DownloadsModule2: RCTEventEmitter {
                 }
             }
             
+            // Persistir estado de todas las descargas pausadas
+            self.persistDownloadState()
+            
             self.sendEvent(withName: "overonDownloadsPaused", body: ["reason": "user"])
             
             DispatchQueue.main.async {
@@ -470,6 +541,9 @@ class DownloadsModule2: RCTEventEmitter {
                     self.activeDownloads[downloadId] = downloadInfo
                 }
             }
+            
+            // Persistir estado de todas las descargas reanudadas
+            self.persistDownloadState()
             
             self.sendEvent(withName: "overonDownloadsResumed", body: ["reason": "user"])
             
@@ -822,6 +896,30 @@ class DownloadsModule2: RCTEventEmitter {
             assetDownloadDelegate: self,
             delegateQueue: OperationQueue()
         )
+        
+        // SOLUCIÓN 2: Recuperar tareas pendientes del sistema
+        print("🔄 [DownloadsModule2] Checking for pending download tasks from iOS...")
+        downloadsSession?.getAllTasks { [weak self] tasks in
+            guard let self = self else { return }
+            
+            print("📥 [DownloadsModule2] Found \(tasks.count) pending tasks in URLSession")
+            
+            for task in tasks {
+                if let assetTask = task as? AVAssetDownloadTask {
+                    print("   📦 Pending task: \(assetTask.taskIdentifier), state: \(assetTask.state.rawValue)")
+                    
+                    // Intentar recuperar del estado persistido
+                    self.recoverPendingTask(assetTask)
+                }
+            }
+            
+            if tasks.isEmpty {
+                print("⚠️ [DownloadsModule2] No pending tasks found - downloads may have been cancelled by iOS")
+            }
+        }
+        
+        // SOLUCIÓN 3: Restaurar estado de descargas persistidas
+        restoreDownloadStates()
     }
     
     private func createDirectoriesIfNeeded() throws {
@@ -928,6 +1026,9 @@ class DownloadsModule2: RCTEventEmitter {
                 if var downloadInfo = activeDownloads[downloadId] {
                     downloadInfo.state = .downloading
                     activeDownloads[downloadId] = downloadInfo
+                    
+                    // Persistir estado al iniciar
+                    persistDownloadState()
                     
                     sendEvent(withName: "overonDownloadStateChanged", body: [
                         "id": downloadId,
@@ -1143,6 +1244,9 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             // Persistir asset path para recuperarlo después de restart
             saveAssetPath(location.path, forDownloadId: downloadId)
             
+            // Persistir estado completo
+            persistDownloadState()
+            
             // Invalidar cache de downloadSpace
             invalidateDownloadSpaceCache()
             
@@ -1222,6 +1326,13 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 downloadInfo.remainingTime = remainingTime
                 activeDownloads[downloadId] = downloadInfo
                 
+                // Persistir estado cada 10% de progreso
+                let currentProgressInt = Int(progress * 100)
+                let previousProgressInt = Int((downloadInfo.progress - 0.1) * 100)
+                if currentProgressInt % 10 == 0 && currentProgressInt != previousProgressInt {
+                    persistDownloadState()
+                }
+                
                 print("📥 [DownloadsModule2] Sending progress event: \(Int(progress * 100))%, \(downloadedBytes) / \(totalBytes) bytes, \(Int(speed)) bytes/s")
                 sendEvent(withName: "overonDownloadProgress", body: [
                     "id": downloadId,
@@ -1254,6 +1365,9 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 downloadInfo.error = error
                 activeDownloads[downloadId] = downloadInfo
                 
+                // Persistir estado de fallo
+                persistDownloadState()
+                
                 // Invalidar cache de downloadSpace
                 invalidateDownloadSpaceCache()
                 
@@ -1281,28 +1395,71 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         var totalSize: Int64 = 0
         
         do {
-            // Check if path is a directory or file
+            // Intentar con el path original primero
+            var pathToUse = url.path
             var isDirectory: ObjCBool = false
+            
+            // Verificar si el archivo existe con el path original
             if fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) {
+                print("✅ [DownloadsModule2] File exists at original path: \(url.path)")
+                pathToUse = url.path
+            } 
+            // Si no existe y tiene prefijo /.nofollow, intentar sin él
+            else if url.path.hasPrefix("/.nofollow") {
+                let cleanPath = String(url.path.dropFirst("/.nofollow".count))
+                if fileManager.fileExists(atPath: cleanPath, isDirectory: &isDirectory) {
+                    print("✅ [DownloadsModule2] File exists at cleaned path: \(cleanPath)")
+                    pathToUse = cleanPath
+                } else {
+                    print("❌ [DownloadsModule2] File not found at original path: \(url.path)")
+                    print("❌ [DownloadsModule2] File not found at cleaned path: \(cleanPath)")
+                    print("⚠️ [DownloadsModule2] Path does not exist in either location")
+                    return 0
+                }
+            } else {
+                print("⚠️ [DownloadsModule2] Path does not exist: \(url.path)")
+                return 0
+            }
+            
+            let workingURL = URL(fileURLWithPath: pathToUse)
+            
+            // Check if path is a directory or file
+            if fileManager.fileExists(atPath: pathToUse, isDirectory: &isDirectory) {
                 if isDirectory.boolValue {
                     // Calculate size of all files in directory recursively
-                    if let enumerator = fileManager.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey], options: [.skipsHiddenFiles]) {
+                    // NO usar .skipsHiddenFiles para paquetes .movpkg - pueden tener archivos ocultos importantes
+                    if let enumerator = fileManager.enumerator(at: workingURL, includingPropertiesForKeys: [.fileSizeKey, .isDirectoryKey]) {
+                        var fileCount = 0
                         for case let fileURL as URL in enumerator {
                             do {
-                                let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey])
-                                if let fileSize = resourceValues.fileSize {
-                                    totalSize += Int64(fileSize)
+                                let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
+                                
+                                // Solo sumar archivos, no directorios
+                                if let isDir = resourceValues.isDirectory, !isDir {
+                                    if let fileSize = resourceValues.fileSize {
+                                        totalSize += Int64(fileSize)
+                                        fileCount += 1
+                                    }
                                 }
                             } catch {
-                                print("⚠️ [DownloadsModule2] Error getting file size for: \(fileURL.path)")
+                                print("⚠️ [DownloadsModule2] Error getting file size for: \(fileURL.path) - \(error.localizedDescription)")
                             }
                         }
+                        
+                        if fileCount > 0 {
+                            print("📊 [DownloadsModule2] Calculated size for directory \(workingURL.lastPathComponent): \(totalSize) bytes from \(fileCount) files")
+                        } else {
+                            print("⚠️ [DownloadsModule2] No files found in directory: \(pathToUse)")
+                        }
+                    } else {
+                        print("⚠️ [DownloadsModule2] Could not create enumerator for: \(pathToUse)")
                     }
                 } else {
                     // Single file
-                    let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey])
+                    let resourceValues = try workingURL.resourceValues(forKeys: [.fileSizeKey])
                     if let fileSize = resourceValues.fileSize {
                         totalSize = Int64(fileSize)
+                        print("📊 [DownloadsModule2] Calculated size for file \(workingURL.lastPathComponent): \(totalSize) bytes")
                     }
                 }
             }
@@ -1325,6 +1482,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         
 		print("🔄 [DownloadsModule2] Calculating download space (cache miss or expired)")
 		print("📊 [DownloadsModule2] Total activeDownloads count: \(activeDownloads.count)")
+		print("🔍 [DownloadsModule2] DEBUG: activeDownloads keys: \(Array(activeDownloads.keys))")
 		var totalSize: Int64 = 0
         
         // OPCIÓN 1: Calcular tamaño de activeDownloads (descargas activas en memoria)
@@ -1342,6 +1500,13 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
 				let size = calculateAssetSize(at: assetURL)
 				activeDownloadsSize += size
 				print("   ✅ Completed download: \(Double(size) / 1024.0 / 1024.0) MB at \(assetPath)")
+				
+				// MIGRACIÓN: Si esta descarga completada no está en savedPaths, guardarla ahora
+				var currentSavedPaths = loadAssetPaths()
+				if currentSavedPaths[downloadId] == nil {
+					print("   🔄 Migrating asset path to UserDefaults for \(downloadId)")
+					saveAssetPath(assetPath, forDownloadId: downloadId)
+				}
 			} else if downloadInfo.state == .downloading || downloadInfo.state == .paused {
 				if downloadInfo.state == .downloading { downloadingCount += 1 }
 				if downloadInfo.state == .paused { pausedCount += 1 }
@@ -1435,6 +1600,116 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     private func invalidateDownloadSpaceCache() {
         downloadSpaceCacheTime = nil
         print("🗑️ [DownloadsModule2] Download space cache invalidated")
+    }
+    
+    // MARK: - Download State Persistence (SOLUCIÓN 3)
+    
+    /// Persistir estado de descargas activas para recuperarlas después de restart
+    private func persistDownloadState() {
+        var downloadStates: [[String: Any]] = []
+        
+        for (id, info) in activeDownloads {
+            let state: [String: Any] = [
+                "id": id,
+                "uri": info.uri,
+                "title": info.title,
+                "state": info.state.stringValue,
+                "progress": info.progress,
+                "downloadedBytes": info.downloadedBytes,
+                "totalBytes": info.totalBytes,
+                "quality": info.quality ?? "",
+                "assetPath": info.assetPath ?? "",
+                "hasSubtitles": info.hasSubtitles,
+                "hasDRM": info.hasDRM
+            ]
+            downloadStates.append(state)
+        }
+        
+        UserDefaults.standard.set(downloadStates, forKey: ACTIVE_DOWNLOADS_KEY)
+        UserDefaults.standard.synchronize()
+        print("💾 [DownloadsModule2] Persisted \(downloadStates.count) download states")
+    }
+    
+    /// Restaurar estado de descargas desde UserDefaults
+    private func restoreDownloadStates() {
+        guard let savedStates = UserDefaults.standard.array(forKey: ACTIVE_DOWNLOADS_KEY) as? [[String: Any]] else {
+            print("ℹ️ [DownloadsModule2] No saved download states found")
+            return
+        }
+        
+        print("🔄 [DownloadsModule2] Restoring \(savedStates.count) download states...")
+        
+        for state in savedStates {
+            guard let id = state["id"] as? String,
+                  let uri = state["uri"] as? String,
+                  let title = state["title"] as? String,
+                  let stateString = state["state"] as? String else {
+                print("⚠️ [DownloadsModule2] Invalid state data, skipping")
+                continue
+            }
+            
+            // Convertir string a DownloadState
+            let downloadState = DownloadState.allCases.first { $0.stringValue == stateString } ?? .paused
+            
+            let downloadInfo = DownloadInfo(
+                id: id,
+                uri: uri,
+                title: title,
+                state: downloadState,
+                progress: state["progress"] as? Float ?? 0.0,
+                totalBytes: state["totalBytes"] as? Int64 ?? 0,
+                downloadedBytes: state["downloadedBytes"] as? Int64 ?? 0,
+                speed: 0.0,
+                remainingTime: 0,
+                quality: state["quality"] as? String,
+                hasSubtitles: state["hasSubtitles"] as? Bool ?? false,
+                hasDRM: state["hasDRM"] as? Bool ?? false,
+                error: nil,
+                startTime: Date(),
+                assetPath: state["assetPath"] as? String
+            )
+            
+            activeDownloads[id] = downloadInfo
+            print("✅ [DownloadsModule2] Restored download: \(id) - \(title) (\(downloadState.stringValue))")
+        }
+        
+        print("✅ [DownloadsModule2] Restored \(activeDownloads.count) downloads")
+    }
+    
+    /// Recuperar una tarea pendiente de iOS y reconectarla con activeDownloads
+    private func recoverPendingTask(_ task: AVAssetDownloadTask) {
+        // Buscar en activeDownloads si tenemos información de esta descarga
+        // Como no tenemos un mapeo directo de taskIdentifier a downloadId,
+        // intentamos emparejar por URL del asset
+        
+        let urlAsset = task.urlAsset
+        let taskURL = urlAsset.url.absoluteString
+        
+        // Buscar download que coincida con esta URL
+        for (downloadId, downloadInfo) in activeDownloads {
+            if downloadInfo.uri == taskURL {
+                print("✅ [DownloadsModule2] Matched pending task to download: \(downloadId)")
+                
+                // Reconectar task con downloadId
+                downloadTasks[downloadId] = task
+                
+                // Si la tarea está en estado suspendido, mantener el estado pausado
+                if task.state == .suspended {
+                    var info = downloadInfo
+                    info.state = .paused
+                    activeDownloads[downloadId] = info
+                } else if task.state == .running {
+                    var info = downloadInfo
+                    info.state = .downloading
+                    activeDownloads[downloadId] = info
+                }
+                
+                print("🔗 [DownloadsModule2] Reconnected task \(task.taskIdentifier) to download \(downloadId)")
+                return
+            }
+        }
+        
+        print("⚠️ [DownloadsModule2] Could not match pending task to any saved download")
     }
     
     // MARK: - Asset Path Persistence Helpers
