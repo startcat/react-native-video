@@ -2,6 +2,8 @@ package com.brentvatne.common.react;
 
 import androidx.annotation.StringDef;
 
+import android.content.Intent;
+import android.util.Log;
 import android.view.View;
 
 import com.brentvatne.common.api.TimedMetadata;
@@ -24,9 +26,11 @@ import java.util.Map;
 
 public class VideoEventEmitter {
 
+    private static final String TAG = "VideoEventEmitter";
     private final ReactContext mReactContext;
 
     private int viewId = View.NO_ID;
+    private String playlistItemId = null;
 
     public VideoEventEmitter(ReactContext reactContext) {
         this.mReactContext = reactContext;
@@ -352,6 +356,26 @@ public class VideoEventEmitter {
 
     public void end() {
         receiveEvent(EVENT_END, null);
+        
+        // Send broadcast for playlist coordination if itemId is set
+        if (playlistItemId != null && !playlistItemId.isEmpty()) {
+            try {
+                Intent intent = new Intent("com.brentvatne.react.VIDEO_ITEM_FINISHED");
+                intent.putExtra("itemId", playlistItemId);
+                intent.setPackage(mReactContext.getPackageName()); // Explicit broadcast
+                mReactContext.sendBroadcast(intent);
+                Log.d(TAG, "📢 Sent VIDEO_ITEM_FINISHED broadcast for itemId: " + playlistItemId + " to package: " + mReactContext.getPackageName());
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Failed to send VIDEO_ITEM_FINISHED broadcast", e);
+            }
+        } else {
+            Log.d(TAG, "⚠️ No playlistItemId set, skipping VIDEO_ITEM_FINISHED broadcast");
+        }
+    }
+
+    public void setPlaylistItemId(String itemId) {
+        this.playlistItemId = itemId;
+        Log.d(TAG, "🎵 Playlist item ID set to: " + itemId);
     }
 
     public void fullscreenWillPresent() {
