@@ -269,6 +269,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private String[] drmLicenseHeader = null;
     private boolean controls;
     private Uri adTagUrl;
+    private String playlistItemId = null;
 
     private boolean showNotificationControls = false;
     // \ End props
@@ -2174,6 +2175,13 @@ public class ReactExoplayerView extends FrameLayout implements
 
     public void setAdTagUrl(final Uri uri) {
         adTagUrl = uri;
+    }
+
+    public void setPlaylistItemId(final String itemId) {
+        playlistItemId = itemId;
+        if (eventEmitter != null) {
+            eventEmitter.setPlaylistItemId(itemId);
+        }
     }
 
     public void setTextTracks(SideLoadedTextTrackList textTracks) {

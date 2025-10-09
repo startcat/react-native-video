@@ -70,6 +70,10 @@ RCT_EXPORT_VIEW_PROPERTY(onTextTracks, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onAudioTracks, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onTextTrackDataChanged, RCTDirectEventBlock);
 
+// Playlist integration properties
+RCT_EXPORT_VIEW_PROPERTY(enablePlaylistIntegration, BOOL);
+RCT_EXPORT_VIEW_PROPERTY(playlistItemId, NSString);
+
 RCT_EXTERN_METHOD(save
                   : (NSDictionary*)options reactTag
                   : (nonnull NSNumber*)reactTag resolver

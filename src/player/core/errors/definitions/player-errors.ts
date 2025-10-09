@@ -340,6 +340,56 @@ export const PLAYER_ERROR_DEFINITIONS = {
         message: "Adaptive streaming quality adjustment failed.",
     },
 
+    // === ERRORES DE PLAYLIST ===
+    PLAYLIST_INITIALIZATION_FAILED: {
+        message: "Failed to initialize playlist manager.",
+    },
+    PLAYLIST_NOT_INITIALIZED: {
+        message: "Playlist manager is not initialized.",
+    },
+    PLAYLIST_SET_FAILED: {
+        message: "Failed to set playlist.",
+    },
+    PLAYLIST_ADD_ITEM_FAILED: {
+        message: "Failed to add item to playlist.",
+    },
+    PLAYLIST_ADD_ITEMS_FAILED: {
+        message: "Failed to add items to playlist.",
+    },
+    PLAYLIST_ADD_ITEMS_PARTIAL_FAILURE: {
+        message: "Some items failed to be added to playlist.",
+    },
+    PLAYLIST_INSERT_ITEM_FAILED: {
+        message: "Failed to insert item into playlist.",
+    },
+    PLAYLIST_REMOVE_ITEM_FAILED: {
+        message: "Failed to remove item from playlist.",
+    },
+    PLAYLIST_CLEAR_FAILED: {
+        message: "Failed to clear playlist.",
+    },
+    PLAYLIST_NEXT_FAILED: {
+        message: "Failed to go to next item.",
+    },
+    PLAYLIST_PREVIOUS_FAILED: {
+        message: "Failed to go to previous item.",
+    },
+    PLAYLIST_GOTO_INDEX_FAILED: {
+        message: "Failed to go to playlist index.",
+    },
+    PLAYLIST_INVALID_INDEX: {
+        message: "Invalid playlist index.",
+    },
+    PLAYLIST_ITEM_NOT_FOUND: {
+        message: "Playlist item not found.",
+    },
+    PLAYLIST_INVALID_ITEM: {
+        message: "Invalid playlist item.",
+    },
+    PLAYLIST_EMPTY: {
+        message: "Playlist cannot be empty.",
+    },
+
     // === ERROR DESCONOCIDO ===
 	PLAYER_UNKNOWN_999: {
 		message: "Unknown player error occurred.",

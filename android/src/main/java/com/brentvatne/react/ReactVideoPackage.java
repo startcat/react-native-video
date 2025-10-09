@@ -3,6 +3,7 @@ package com.brentvatne.react;
 import com.brentvatne.exoplayer.DefaultReactExoplayerConfig;
 import com.brentvatne.exoplayer.ReactExoplayerConfig;
 import com.brentvatne.exoplayer.ReactExoplayerViewManager;
+import com.brentvatne.react.playlist.PlaylistControlModule;
 import com.facebook.react.ReactPackage;
 import com.facebook.react.bridge.JavaScriptModule;
 import com.facebook.react.bridge.NativeModule;
@@ -31,6 +32,7 @@ public class ReactVideoPackage implements ReactPackage {
         modules.add(new VideoDecoderPropertiesModule(reactContext));
         modules.add(new VideoManagerModule(reactContext));
         modules.add(new DownloadsModule(reactContext));
+        modules.add(new PlaylistControlModule(reactContext));
 
         return modules;
     }

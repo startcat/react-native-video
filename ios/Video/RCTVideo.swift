@@ -1,6 +1,7 @@
 import AVFoundation
 import AVKit
 import Foundation
+import MediaPlayer
 #if RNUSE_GOOGLE_IMA
     import GoogleInteractiveMediaAds
     //import NpawPluginIMAAdapter
@@ -58,10 +59,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _selectedTextTrackCriteria: SelectedTrackCriteria?
     private var _selectedAudioTrackCriteria: SelectedTrackCriteria?
     private var _playbackStalled = false
-    private var _playInBackground = false
+    private var _playInBackground = true
     private var _preventsDisplaySleepDuringVideoPlayback = true
     private var _preferredForwardBufferDuration: Float = 0.0
-    private var _playWhenInactive = false
+    private var _playWhenInactive = true
     private var _ignoreSilentSwitch: String! = "inherit" // inherit, ignore, obey
     private var _mixWithOthers: String! = "inherit" // inherit, mix, duck
     private var _resizeMode: String! = "cover"
@@ -148,6 +149,16 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc var onTextTracks: RCTDirectEventBlock?
     @objc var onAudioTracks: RCTDirectEventBlock?
     @objc var onTextTrackDataChanged: RCTDirectEventBlock?
+    
+    // Playlist integration properties
+    @objc var enablePlaylistIntegration: Bool = false {
+        didSet {
+            if enablePlaylistIntegration {
+                setupPlaylistIntegration()
+            }
+        }
+    }
+    @objc var playlistItemId: String?
 
     @objc
     func _onPictureInPictureEnter() {
@@ -248,6 +259,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         #if USE_VIDEO_CACHING
             _videoCache.playerItemPrepareText = playerItemPrepareText
         #endif
+        
+        // Setup playlist integration observers
+        setupPlaylistObservers()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -281,7 +295,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc
     func applicationWillResignActive(notification _: NSNotification!) {
         let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
-        if _playInBackground || _playWhenInactive || !_isPlaying || isExternalPlaybackActive { return }
+		
+		if _playInBackground || _playWhenInactive || !_isPlaying || isExternalPlaybackActive { 
+			return 
+		}
 
         _player?.pause()
         _player?.rate = 0.0
@@ -371,6 +388,11 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 "target": reactTag,
                 "seekableDuration": RCTVideoUtils.calculateSeekableDuration(_player),
             ])
+            
+            // ✅ Update Now Playing Info for playlist integration (keeps widget alive in background)
+            if enablePlaylistIntegration {
+                updateNowPlayingElapsedTime(currentTime: currentTimeSecs, duration: duration)
+            }
         }
     }
 
@@ -1734,6 +1756,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     func handlePlayerItemDidReachEnd(notification: NSNotification!) {
         sendProgressUpdate(didEnd: true)
         onVideoEnd?(["target": reactTag as Any])
+        
+        // Notify PlaylistControlModule for coordinated playlist management
+        notifyPlaylistItemFinished()
+        
         #if RNUSE_GOOGLE_IMA
             if notification.object as? AVPlayerItem == _player?.currentItem {
                 _imaAdsManager.getAdsLoader()?.contentComplete()
@@ -1754,6 +1780,99 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         } else {
             _playerObserver.removePlayerTimeObserver()
         }
+    }
+    
+    // MARK: - Playlist Integration
+    
+    func setupPlaylistIntegration() {        
+        // Setup notification observers
+        setupPlaylistObservers()
+    }
+    
+    func notifyPlaylistItemFinished() {
+        guard enablePlaylistIntegration else { return }
+        
+        #if DEBUG
+        print("[RCTVideo] 🎬 Notifying playlist item finished: \(playlistItemId ?? "unknown")")
+        #endif
+        
+        // Post notification to PlaylistControlModule
+        NotificationCenter.default.post(
+            name: NSNotification.Name("RCTVideoItemDidFinish"),
+            object: nil,
+            userInfo: [
+                "itemId": playlistItemId ?? "",
+                "timestamp": Date().timeIntervalSince1970 * 1000
+            ]
+        )
+    }
+    
+    func setupPlaylistObservers() {
+        guard enablePlaylistIntegration else { return }
+        
+        // Listen for PlaylistLoadNextSource notification
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handlePlaylistLoadNextSource(_:)),
+            name: NSNotification.Name("PlaylistLoadNextSource"),
+            object: nil
+        )
+    }
+    
+    @objc private func handlePlaylistLoadNextSource(_ notification: Notification) {
+        guard enablePlaylistIntegration else { return }
+        guard let userInfo = notification.userInfo else { return }
+        
+        // Extract source info
+        guard let sourceDict = userInfo["source"] as? [String: Any],
+              let uri = sourceDict["uri"] as? String else {
+            #if DEBUG
+            print("[RCTVideo] ⚠️ Invalid source in notification")
+            #endif
+            return
+        }
+        
+        let itemId = userInfo["itemId"] as? String
+        
+        #if DEBUG
+        print("[RCTVideo] 📥 Loading next source: \(uri)")
+        print("[RCTVideo] 📍 Item ID: \(itemId ?? "unknown")")
+        #endif
+        
+        // Update playlist item ID
+        self.playlistItemId = itemId
+        
+        // Create new source
+        var newSource: [String: Any] = ["uri": uri]
+        if let headers = sourceDict["headers"] as? [String: String] {
+            newSource["headers"] = headers
+        }
+        
+        // Set the new source (this will trigger RCTVideo to load and play)
+        DispatchQueue.main.async { [weak self] in
+            self?.setSrc(newSource as NSDictionary)
+        }
+    }
+    
+    func updateNowPlayingElapsedTime(currentTime: Double, duration: Double) {
+        // Update Now Playing Info Center with current playback time
+        // This keeps the widget alive in background and lock screen
+        guard enablePlaylistIntegration else { return }
+
+		#if DEBUG
+		let shouldLog = Int(currentTime) % 5 == 0
+		if shouldLog {
+			print("[RCTVideo] 📊 Updating Now Playing: \(Int(currentTime))s / \(Int(duration))s")
+		}
+		#endif
+        
+        var nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [String: Any]()
+        
+        nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
+        nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = _player?.rate ?? 0
+        
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
     }
 
     @objc

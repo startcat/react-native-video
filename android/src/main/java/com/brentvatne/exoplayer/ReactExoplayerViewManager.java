@@ -176,6 +176,11 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         videoView.setAdTagUrl(adTagUrl);
     }
 
+    @ReactProp(name = "playlistItemId")
+    public void setPlaylistItemId(final ReactExoplayerView videoView, final String itemId) {
+        videoView.setPlaylistItemId(itemId);
+    }
+
     @ReactProp(name = PROP_RESIZE_MODE)
     public void setResizeMode(final ReactExoplayerView videoView, final String resizeMode) {
         switch (resizeMode) {
