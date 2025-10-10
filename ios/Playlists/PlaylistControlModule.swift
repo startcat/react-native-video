@@ -44,8 +44,6 @@ class PlaylistControlModule: RCTEventEmitter {
     private var isPlaybackActive: Bool = false
     private var hasSetupRemoteCommands: Bool = false
     
-    /// Modo coordinado: solo gestiona la cola
-    private var isCoordinatedMode: Bool = false
     private var currentItemId: String?
     
     // MARK: - Initialization
@@ -74,8 +72,6 @@ class PlaylistControlModule: RCTEventEmitter {
     }
     
     @objc private func handleRCTVideoItemFinished(_ notification: Notification) {
-        guard isCoordinatedMode else { return }
-        
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
@@ -146,22 +142,6 @@ class PlaylistControlModule: RCTEventEmitter {
                 "item": nextItem.toDict()
             ]
         )
-        
-        // In coordinated mode, post notification for RCTVideo to load new source
-        if isCoordinatedMode {
-            // NotificationCenter.default.post(
-            //     name: .PlaylistLoadNextSource,
-            //     object: nil,
-            //     userInfo: [
-            //         "source": nextItem.source.toDict(),
-            //         "itemId": nextItem.id,
-            //         "index": currentIndex
-            //     ]
-            // )
-        } else {
-            // In standalone mode, load item ourselves
-            loadCurrentItem()
-        }
     }
     
     // MARK: - React Native Module Setup
@@ -201,35 +181,12 @@ class PlaylistControlModule: RCTEventEmitter {
                 self.config = PlaylistConfiguration(dict: configData)
             }
             
-            // Check if coordinated mode is requested
-            if let coordinatedMode = config["coordinatedMode"] as? Bool {
-                self.isCoordinatedMode = coordinatedMode
-                print("[PlaylistControlModule] 🔗 Coordinated mode: \(coordinatedMode ? "ENABLED" : "DISABLED")")
-            } else {
-                // Default to standalone if not specified
-                self.isCoordinatedMode = false
-                print("[PlaylistControlModule] ⚠️ coordinatedMode not found in config, defaulting to STANDALONE mode")
-                print("[PlaylistControlModule] 🔍 Config keys: \(config.keys)")
-            }
-            
             // Setup remote commands if not already done
             // if !self.hasSetupRemoteCommands {
             //     self.setupRemoteCommands()
             //     self.hasSetupRemoteCommands = true
             // }
             
-            // In coordinated mode, only setup metadata - don't load player
-            if self.isCoordinatedMode {
-
-            } else {
-				self.setupAudioSession()
-				if !self.hasSetupRemoteCommands {
-					self.setupRemoteCommands()
-					self.hasSetupRemoteCommands = true
-				}
-                // Standalone mode: load and play current item
-                self.loadCurrentItem()
-            }
         }
     }
     
@@ -261,22 +218,6 @@ class PlaylistControlModule: RCTEventEmitter {
                 ]
             )
             
-            // Load new item based on mode
-            if self.isCoordinatedMode {
-                // In coordinated mode, notify RCTVideo to load new source
-                // NotificationCenter.default.post(
-                //     name: .PlaylistLoadNextSource,
-                //     object: nil,
-                //     userInfo: [
-                //         "source": item.source.toDict(),
-                //         "itemId": item.id,
-                //         "index": index
-                //     ]
-                // )
-            } else {
-                // In standalone mode, load ourselves
-                self.loadCurrentItem()
-            }
         }
     }
     

@@ -41,7 +41,6 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     private val items = mutableListOf<PlaylistItem>()
     private var currentIndex: Int = 0
     private var config = PlaylistConfiguration()
-    private var isCoordinatedMode = false
     private var isPlaybackActive = false
     private var hasSetupMediaSession = false
 
@@ -154,23 +153,6 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     }
                 }
                 
-                // Check coordinated mode
-                isCoordinatedMode = if (configMap.hasKey("coordinatedMode")) {
-                    configMap.getBoolean("coordinatedMode")
-                } else {
-                    false
-                }
-                Log.d(TAG, "🔗 Coordinated mode: ${if (isCoordinatedMode) "ENABLED" else "DISABLED"}")
-                
-                if (isCoordinatedMode) {
-                    // Coordinated mode: ReactExoplayerView handles playback
-                    // Only setup MediaSession actions for next/previous
-                } else {
-                    // Standalone mode: Setup own player and MediaSession
-                    // TODO: Implement standalone mode with ExoPlayer instance
-                    setupStandaloneMode()
-                }
-                
                 promise.resolve(true)
             } catch (e: Exception) {
                 Log.e(TAG, "❌ Error setting playlist", e)
@@ -200,12 +182,8 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 // Emit event
                 emitItemChanged(item, index, previousIndex)
                 
-                // In coordinated mode, send broadcast to ReactExoplayerView
-                if (isCoordinatedMode) {
-                    sendLoadNextSourceBroadcast(item)
-                } else {
-                    loadCurrentItem()
-                }
+                // Send broadcast to ReactExoplayerView
+                sendLoadNextSourceBroadcast(item)
                 
                 promise.resolve(true)
             } catch (e: Exception) {
@@ -334,12 +312,8 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         // Emit event
         emitItemChanged(nextItem, currentIndex, previousIndex)
         
-        // In coordinated mode, send broadcast to ReactExoplayerView
-        if (isCoordinatedMode) {
-            sendLoadNextSourceBroadcast(nextItem)
-        } else {
-            loadCurrentItem()
-        }
+        // Send broadcast to ReactExoplayerView
+        sendLoadNextSourceBroadcast(nextItem)
     }
 
     private fun sendLoadNextSourceBroadcast(item: PlaylistItem) {
