@@ -7,7 +7,15 @@
  *
  */
 
-import type { IVideoSource, VideoMetadata } from "../../../types";
+import type {
+	IPlayerAds,
+	IPlayerAnalytics,
+	IPlayerMetadata,
+	IPlayerProgress,
+	IPlayerTimeMarkers,
+	IVideoSource,
+	VideoMetadata,
+} from "../../../types";
 import { LogLevel } from "../logger";
 
 /*
@@ -16,11 +24,9 @@ import { LogLevel } from "../logger";
  */
 
 export enum PlaylistItemType {
-	/** Contenido de video */
+	TUDUM = "TUDUM",
 	VIDEO = "VIDEO",
-	/** Contenido de audio */
 	AUDIO = "AUDIO",
-	/** Contenido en vivo (live streaming) */
 	LIVE = "LIVE",
 }
 
@@ -30,15 +36,10 @@ export enum PlaylistItemType {
  */
 
 export enum PlaylistItemStatus {
-	/** Pendiente de reproducción */
 	PENDING = "PENDING",
-	/** Actualmente reproduciéndose */
 	PLAYING = "PLAYING",
-	/** Completado */
 	COMPLETED = "COMPLETED",
-	/** Error durante reproducción */
 	ERROR = "ERROR",
-	/** Saltado por el usuario */
 	SKIPPED = "SKIPPED",
 }
 
@@ -99,8 +100,11 @@ export interface PlaylistItem {
 	/** Timestamp de cuando se agregó a la playlist */
 	addedAt?: number;
 
-	/** Datos adicionales personalizados */
-	customData?: Record<string, any>;
+	playerMetadata?: IPlayerMetadata;
+	playerProgress?: IPlayerProgress;
+	playerAnalytics?: IPlayerAnalytics;
+	playerTimeMarkers?: IPlayerTimeMarkers;
+	playerAds?: IPlayerAds;
 }
 
 /*
@@ -135,13 +139,6 @@ export interface PlaylistConfig {
 
 	/** Intervalo para guardar progreso en segundos (default: 10) */
 	saveProgressIntervalSeconds?: number;
-
-	/** 
-	 * Modo coordinado: PlaylistsManager solo gestiona la cola, 
-	 * RCTVideo maneja la reproducción (para auto-next nativo en background)
-	 * (default: false) 
-	 */
-	coordinatedMode?: boolean;
 }
 
 /*
@@ -150,31 +147,14 @@ export interface PlaylistConfig {
  */
 
 export interface PlaylistState {
-	/** Items en la playlist */
 	items: PlaylistItem[];
-
-	/** Índice del item actual */
 	currentIndex: number;
-
-	/** Item actualmente reproduciéndose */
 	currentItem: PlaylistItem | null;
-
-	/** Número total de items */
 	totalItems: number;
-
-	/** Modo de repetición actual */
 	repeatMode: PlaylistRepeatMode;
-
-	/** Modo de shuffle actual */
 	shuffleMode: PlaylistShuffleMode;
-
-	/** Auto-next habilitado */
 	autoNextEnabled: boolean;
-
-	/** Playlist está reproduciéndose */
 	isPlaying: boolean;
-
-	/** Playlist ha terminado */
 	hasEnded: boolean;
 }
 
