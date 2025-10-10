@@ -30,11 +30,6 @@
     "verbatimModuleSyntax": false,
     "allowSyntheticDefaultImports": true
   },
-  "include": [
-    "./src/**/*",
-    "./src/**/*.ts",
-    "./src/**/*.tsx",
-    "./src/**/*.json"
-  ],
+  "include": ["./src/**/*", "./src/**/*.ts", "./src/**/*.tsx", "./src/**/*.json"],
   "exclude": ["examples", "lib", "docs"]
 }
