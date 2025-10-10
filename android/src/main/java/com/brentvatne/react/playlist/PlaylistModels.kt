@@ -11,12 +11,14 @@ import com.facebook.react.bridge.Arguments
  */
 enum class PlaylistItemType(val value: String) {
     VIDEO("VIDEO"),
-    AUDIO("AUDIO");
+    AUDIO("AUDIO"),
+    TUDUM("TUDUM");
 
     companion object {
         fun fromString(value: String?): PlaylistItemType {
             return when (value?.uppercase()) {
                 "AUDIO" -> AUDIO
+                "TUDUM" -> TUDUM
                 else -> VIDEO
             }
         }

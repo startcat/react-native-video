@@ -8,6 +8,8 @@ import { type PlayerAnalyticsPlugin } from "../features/analytics/types";
 import { type LoggerConfigBasic } from "../features/logger/types";
 import * as Enums from "./enums";
 
+import { type PlaylistConfig, type PlaylistItem } from "../features/playlists/types";
+
 import {
 	type IBasicProgram,
 	type IInnerPlayerEvents,
@@ -16,6 +18,8 @@ import {
 	type IYoubora,
 	type SliderValues,
 } from "./index";
+
+import { type SubtitleStyle } from "../../types";
 
 export interface IPlayerLiveValues {
 	playbackType: Enums.DVR_PLAYBACK_TYPE;
@@ -39,11 +43,19 @@ export interface IPlayerMetadata {
 }
 
 export interface IPlayerInitialState {
+	// Posición y reproducción
 	startPosition: number;
 	duration?: number;
 	isPaused?: boolean;
+
+	// Audio y volumen
 	isMuted?: boolean;
 	volume?: number;
+
+	// Configuración inicial de pistas
+	audioIndex?: number;
+	subtitleIndex?: number;
+	subtitleStyle?: SubtitleStyle;
 }
 export interface IPlayerProgress {
 	currentTime?: number;
@@ -75,6 +87,11 @@ export interface IPlayerAds {
 
 export interface IPlayerTimeMarkers {
 	timeMarkers?: Array<ITimeMarkers>;
+}
+
+export interface IPlayerProps {
+	playlist: PlaylistItem[];
+	playlistConfig?: PlaylistConfig;
 }
 
 export interface ICommonPlayerProps {

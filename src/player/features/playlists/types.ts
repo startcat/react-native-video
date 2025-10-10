@@ -8,13 +8,13 @@
  */
 
 import type {
+	IBasicProgram,
+	IManifest,
 	IPlayerAds,
 	IPlayerAnalytics,
+	IPlayerInitialState,
 	IPlayerMetadata,
-	IPlayerProgress,
 	IPlayerTimeMarkers,
-	IVideoSource,
-	VideoMetadata,
 } from "../../../types";
 import { LogLevel } from "../logger";
 
@@ -70,41 +70,151 @@ export enum PlaylistShuffleMode {
 }
 
 /*
+ * Sources pre-resueltos para diferentes contextos de reproducción
+ *
+ * Permite tener diferentes URIs y manifests según dónde se reproduzca el contenido:
+ * - Local: Reproducción en el dispositivo (HLS en iOS, DASH en Android, etc.)
+ * - Cast: Reproducción en Chromecast (típicamente DASH)
+ * - Download: Contenido descargado para offline
+ *
+ */
+
+export interface ResolvedSources {
+	/*
+	 * Source para reproducción local en el dispositivo
+	 *
+	 * ✅ OBLIGATORIO: Este source siempre debe estar presente
+	 *
+	 */
+
+	local: {
+		uri: string;
+		manifest: IManifest;
+		headers?: Headers;
+	};
+
+	/*
+	 * Source para reproducción en Chromecast/Google Cast
+	 *
+	 * ⚠️ OPCIONAL: Si no se proporciona, se usará el source local
+	 *
+	 * Útil cuando Cast necesita un formato diferente:
+	 * - iOS local usa HLS → Cast usa DASH
+	 * - Diferentes CDNs para Cast
+	 * - DRM diferente para Cast
+	 *
+	 */
+
+	cast?: {
+		uri: string;
+		manifest: IManifest;
+		headers?: Headers;
+		contentType?: string;
+		streamType?: "BUFFERED" | "LIVE";
+	};
+
+	/*
+	 * Source para contenido descargado offline
+	 *
+	 * ⚠️ OPCIONAL: Solo si el contenido está descargado
+	 *
+	 */
+
+	download?: {
+		uri: string;
+		downloadId?: string;
+	};
+}
+
+/*
+ * Información EPG pre-resuelta para contenido live/DVR
+ *
+ * Contiene un rango de programas para permitir navegación en background
+ * sin necesidad de llamar hooks React Native
+ *
+ */
+
+export interface ResolvedEPG {
+	/*
+	 * Lista de programas en la ventana DVR
+	 *
+	 * Para reproducción en background, pre-resuelve al menos
+	 * los programas que cubren la ventana DVR completa.
+	 *
+	 * El sistema nativo puede buscar en este array basándose en timestamps
+	 * para actualizar los metadatos del widget multimedia sin llamar a React Native.
+	 *
+	 */
+
+	programs?: IBasicProgram[];
+
+	/*
+	 * Timestamp de cuando se resolvió esta EPG
+	 *
+	 * Útil para saber si la EPG está desactualizada
+	 *
+	 */
+
+	resolvedAt?: number;
+
+	/*
+	 * Ventana DVR en minutos
+	 *
+	 * Indica cuánto tiempo hacia atrás se puede navegar
+	 *
+	 */
+
+	dvrWindowMinutes?: number;
+}
+
+/*
  * Item individual de la playlist con toda la información necesaria
  * para reproducción en el módulo nativo
  *
  */
 
 export interface PlaylistItem {
-	/** Identificador único del item (generado automáticamente si no se proporciona) */
+	/* Identificador único del item (generado automáticamente si no se proporciona) */
 	id: string;
 
-	/** Source del contenido (URI, headers, DRM, etc.) */
-	source: IVideoSource;
-
-	/** Metadata del contenido (título, artista, imagen, etc.) */
-	metadata: VideoMetadata;
-
-	/** Tipo de contenido */
+	/* Tipo de contenido */
 	type: PlaylistItemType;
 
-	/** Posición inicial de reproducción en segundos (opcional, para reanudar) */
-	startPosition?: number;
-
-	/** Duración total del contenido en segundos (opcional, para optimización) */
-	duration?: number;
-
-	/** Estado del item */
+	/* Estado del item */
 	status?: PlaylistItemStatus;
 
-	/** Timestamp de cuando se agregó a la playlist */
+	/* Sources PRE-RESUELTOS (Multi-contexto) */
+	resolvedSources?: ResolvedSources;
+
+	/* EPG pre-resuelta para contenido live/DVR */
+	resolvedEPG?: ResolvedEPG;
+
+	/* Metadata del contenido (título, artista, imagen, etc.) */
+	metadata?: IPlayerMetadata;
+
+	/* Analytics del contenido */
+	analytics?: IPlayerAnalytics;
+
+	/* Time markers del contenido */
+	timeMarkers?: IPlayerTimeMarkers;
+
+	/* Anuncios del contenido */
+	ads?: IPlayerAds;
+
+	/** Estado inicial de reproducción para este item */
+	initialState?: IPlayerInitialState;
+
+	/** Fecha de inicio para contenido live DVR */
+	liveStartDate?: string;
+
+	/** Reproducir desde contenido descargado offline */
+	playOffline?: boolean;
+
+	/* Timestamp de cuando se agregó a la playlist */
 	addedAt?: number;
 
-	playerMetadata?: IPlayerMetadata;
-	playerProgress?: IPlayerProgress;
-	playerAnalytics?: IPlayerAnalytics;
-	playerTimeMarkers?: IPlayerTimeMarkers;
-	playerAds?: IPlayerAds;
+	/* Datos extra */
+	extraData?: any;
 }
 
 /*
@@ -122,9 +232,6 @@ export interface PlaylistConfig {
 	/** Modo de reproducción aleatoria (default: OFF) */
 	shuffleMode?: PlaylistShuffleMode;
 
-	/** Precarga del siguiente item en segundos antes de que termine el actual (default: 30) */
-	preloadNextItemSeconds?: number;
-
 	/** Índice del item inicial (default: 0) */
 	startIndex?: number;
 
@@ -133,12 +240,6 @@ export interface PlaylistConfig {
 
 	/** Tiempo de espera máximo para cargar un item en ms (default: 30000) */
 	loadTimeoutMs?: number;
-
-	/** Guardar progreso de reproducción automáticamente (default: true) */
-	saveProgress?: boolean;
-
-	/** Intervalo para guardar progreso en segundos (default: 10) */
-	saveProgressIntervalSeconds?: number;
 }
 
 /*

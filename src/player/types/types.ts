@@ -7,6 +7,7 @@ import {
 	type ICommonFlavourProps,
 	type ICommonPlayerProps,
 	type IPlayerProgress,
+	type IPlayerProps,
 	type IPlayerTimeMarkers,
 } from "./newTypes";
 
@@ -596,7 +597,7 @@ export interface CastFlavourProps extends ICommonPlayerProps, ICommonFlavourProp
 	components?: IPlayerCustomVideoComponents;
 }
 
-export interface PlayerProps extends ICommonPlayerProps, ICommonFlavourProps {
+export interface PlayerProps extends IPlayerProps, ICommonFlavourProps {
 	manifests?: Array<IManifest>;
 	showExternalTudum?: boolean;
 	headers?: Headers;
@@ -617,7 +618,7 @@ export interface PlayerProps extends ICommonPlayerProps, ICommonFlavourProps {
 	components?: IPlayerCustomVideoComponents;
 }
 
-export interface AudioPlayerContentsDpo extends ICommonPlayerProps, ICommonFlavourProps {
+export interface AudioPlayerContentsDpo extends IPlayerProps, ICommonFlavourProps {
 	collection: Enums.COLLECTION;
 	showExternalTudum?: boolean;
 	playOffline?: boolean;

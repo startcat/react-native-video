@@ -105,7 +105,7 @@ class PlaylistControlModule: RCTEventEmitter {
         print("[PlaylistControlModule] 📊 Item completed: \(currentItem.id)")
         
         // Auto-advance if enabled
-        if config.autoNext {
+        if config.autoNext || currentItem.type.uppercased() == "TUDUM" {
             advanceToNextItem()
         }
     }
