@@ -288,7 +288,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         Log.d(TAG, "📊 Item completed: ${currentItem.id}")
         
         // Auto-advance if enabled
-        if (config.autoNext) {
+        if (config.autoNext || currentItem.type == PlaylistItemType.TUDUM) {
             advanceToNextItem()
         }
     }
