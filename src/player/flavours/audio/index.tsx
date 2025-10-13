@@ -147,14 +147,25 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		vodProgressManagerRef.current?.reset();
 		dvrProgressManagerRef.current?.reset();
 
+		// Extraer configuración de live/DVR desde liveSettings
+		const isLive = props.playlistItem?.isLive;
+		const liveSettings = props.playlistItem?.liveSettings;
+
 		// Crear playerProgress desde el playlistItem
 		playerProgressRef.current = {
 			currentTime: props.playlistItem?.initialState?.startPosition || 0,
 			duration: props.playlistItem?.initialState?.duration || 0,
-			isLive: props.playlistItem?.isLive,
+			isLive: isLive,
 			isPaused: props.initialState?.isPaused,
 			isMuted: props.initialState?.isMuted,
 			volume: props.initialState?.volume,
+			liveValues: liveSettings
+				? {
+						playbackType: liveSettings.playbackType,
+						multiSession: liveSettings.multiSession,
+						currentProgram: liveSettings.currentProgram,
+					}
+				: undefined,
 		};
 
 		// Determinar el contexto del source (local para AudioFlavour)
@@ -187,12 +198,17 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			resolvedSources: props.playlistItem.resolvedSources,
 			sourceContext: sourceContext,
 			startPosition: props.playlistItem?.initialState?.startPosition || 0,
-			isLive: !!props.playlistItem?.isLive,
+			isLive: isLive,
 			isCast: false,
 			headers: props.playlistItem.resolvedSources.local?.headers as
 				| Record<string, string>
 				| undefined,
 			onSourceChanged: onSourceChanged,
+			// Parámetros DVR si es contenido live
+			...(liveSettings && {
+				liveStartDate: liveSettings.liveStartDate,
+				resolvedEPG: liveSettings.resolvedEPG,
+			}),
 		});
 
 		// El constructor ya llama a changeSource internamente
@@ -373,6 +389,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 				loggerEnabled: props.logger?.progressManager?.enabled,
 				loggerLevel: props.logger?.progressManager?.level,
 				playbackType: playerProgressRef.current?.liveValues?.playbackType,
+				currentProgram: playerProgressRef.current?.liveValues?.currentProgram,
 				getEPGProgramAt: props.hooks?.getEPGProgramAt,
 				onModeChange: handleOnDVRModeChange,
 				onProgramChange: handleOnDVRProgramChange,
@@ -742,8 +759,8 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	};
 
 	const handleOnProgress = (e: OnProgressData) => {
-		currentLogger.current?.debug(
-			`handleOnProgress - playlistItem type: ${props.playlistItem?.type}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
+		currentLogger.current?.temp(
+			`handleOnProgress - playlistItem type: ${props.playlistItem?.type}, isContentLoaded: ${isContentLoaded}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
 		);
 
 		if (typeof e.currentTime === "number" && currentTime !== e.currentTime) {
@@ -751,8 +768,9 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			setCurrentTime(e.currentTime);
 		}
 
-		// Solo procesar progreso si NO es TUDUM
-		if (props.playlistItem?.type !== "TUDUM") {
+		// Solo procesar progreso si NO es TUDUM Y el contenido está cargado
+		// Esto previene race conditions cuando se cambia de TUDUM a contenido normal
+		if (props.playlistItem?.type !== "TUDUM" && isContentLoaded) {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
 				// Para VOD: NO actualizar duration en onProgress, mantener la que se estableció en onLoad
 				const currentDuration = vodProgressManagerRef.current?.duration || 0;
@@ -790,8 +808,8 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 				});
 			}
 		} else {
-			currentLogger.current?.debug(
-				`handleOnProgress: Ignoring progress for TUDUM - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`
+			currentLogger.current?.temp(
+				`handleOnProgress: Ignoring progress (type: ${props.playlistItem?.type}, isContentLoaded: ${isContentLoaded}) - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`
 			);
 		}
 	};
@@ -800,7 +818,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		currentLogger.current?.info(
 			`handleOnEnd: playlistItem type ${props.playlistItem?.type}, id: ${props.playlistItem?.id}`
 		);
-		
+
 		// Always notify parent that item has ended
 		// Parent component (audioPlayerBar) will decide whether to auto-advance based on:
 		// - Item type (TUDUM always auto-advances)

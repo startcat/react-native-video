@@ -1,5 +1,5 @@
 import { Spinner } from "@ui-kitten/components";
-import React, { createElement, useEffect, useRef, useState } from "react";
+import React, { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { EventRegister } from "react-native-event-listeners";
 import {
@@ -54,6 +54,9 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 	const [contentId, setContentId] = useState<IAudioPlayerContent | null>();
 	const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo | null>(null);
 	const [currentPlaylistItem, setCurrentPlaylistItem] = useState<PlaylistItem | null>(null);
+
+	// Estado de sincronización entre flavours (móvil ↔ Chromecast)
+	const [syncState, setSyncState] = useState<ICommonData>({});
 
 	// const watchingProgressIntervalObj = useRef<ReturnType<typeof setTimeout>>();
 
@@ -120,8 +123,6 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 		);
 
 		return () => {
-			console.log(`[Audio Player Bar] Unmounted`);
-
 			if (typeof changesAudioPlayerListener === "string") {
 				EventRegister.removeEventListener(changesAudioPlayerListener);
 			}
@@ -129,12 +130,11 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			if (typeof actionsAudioPlayerListener === "string") {
 				EventRegister.removeEventListener(actionsAudioPlayerListener);
 			}
+			currentLogger.current?.debug(`Unmounted`);
 		};
 	}, []);
 
 	useEffect(() => {
-		console.log(`[Audio Player Bar] contendId ${JSON.stringify(contentId)}`);
-
 		async function fetchDpo() {
 			if (props.fetchContentData) {
 				try {
@@ -214,6 +214,8 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 		hasBeenLoaded.current = false;
 		setDpoData(null);
 		currentLogger.current = null;
+		// Limpiar estado de sincronización al cambiar de contenido
+		setSyncState({});
 	};
 
 	const showPlayer = () => {
@@ -308,62 +310,79 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 
 	/*
 	 *  Función para guardar los cambios en el estado entre flavours
+	 *  Gestiona la sincronización de estado cuando se cambia entre móvil ↔ Chromecast
 	 *
 	 */
 
-	const changeCommonData = (data: ICommonData) => {
-		let preferencesData: IPreferencesCommonData = {};
+	const changeCommonData = useCallback(
+		(data: ICommonData) => {
+			const preferencesData: IPreferencesCommonData = {};
 
-		if (data?.time && dpoData?.playerProgress) {
-			dpoData.playerProgress.currentTime = data.time;
-		}
+			// 1. Actualizar estado de sincronización (inmutable)
+			setSyncState(prev => ({ ...prev, ...data }));
 
-		if (data?.duration && dpoData?.playerProgress) {
-			dpoData.playerProgress.duration = data.duration;
-
-			if (!hasBeenLoaded.current) {
+			// 2. Marcar como cargado si recibimos duration
+			if (data?.duration && !hasBeenLoaded.current) {
 				hasBeenLoaded.current = true;
 			}
-		}
 
-		if (
-			(data?.time !== undefined || data?.duration !== undefined) &&
-			dpoData?.events?.onProgress
-		) {
-			dpoData?.events?.onProgress(
-				dpoData.playerProgress.currentTime,
-				dpoData.playerProgress.duration
-			);
-		}
-
-		if (data?.paused !== undefined) {
-			dpoData.playerProgress.isPaused = !!data.paused;
-
-			if (!!data.paused && dpoData?.events?.onPause) {
-				dpoData?.events?.onPause();
-			} else if (dpoData?.events?.onPlay) {
-				dpoData?.events?.onPlay();
+			// 3. Notificar cambios de progreso
+			if (
+				(data?.time !== undefined || data?.duration !== undefined) &&
+				dpoData?.events?.onProgress
+			) {
+				const currentTime = data.time ?? syncState.time ?? 0;
+				const duration = data.duration ?? syncState.duration ?? 0;
+				dpoData.events.onProgress(currentTime, duration);
 			}
-		}
 
-		if (data?.muted !== undefined) {
-			dpoData.playerProgress.isMuted = !!data.muted;
-			preferencesData.muted = !!data.muted;
-		}
+			// 4. Notificar cambios de estado de reproducción
+			if (data?.paused !== undefined) {
+				if (data.paused && dpoData?.events?.onPause) {
+					dpoData.events.onPause();
+				} else if (!data.paused && dpoData?.events?.onPlay) {
+					dpoData.events.onPlay();
+				}
+			}
 
-		if (typeof data?.volume === "number") {
-			dpoData.playerProgress.volume = data.volume;
-			preferencesData.volume = data.volume;
-		}
+			// 5. Recopilar cambios de preferencias
+			if (data?.muted !== undefined) {
+				preferencesData.muted = !!data.muted;
+			}
 
-		if (
-			dpoData?.events?.onChangePreferences &&
-			typeof dpoData.events?.onChangePreferences === "function" &&
-			Object.keys(preferencesData).length > 0
-		) {
-			dpoData.events?.onChangePreferences(preferencesData);
-		}
-	};
+			if (typeof data?.volume === "number") {
+				preferencesData.volume = data.volume;
+			}
+
+			if (data?.audioIndex !== undefined) {
+				preferencesData.audioIndex = data.audioIndex;
+				if (data?.audioLabel !== undefined) {
+					preferencesData.audioLabel = data.audioLabel;
+				}
+			}
+
+			if (data?.subtitleIndex !== undefined) {
+				preferencesData.subtitleIndex = data.subtitleIndex;
+				if (data?.subtitleLabel !== undefined) {
+					preferencesData.subtitleLabel = data.subtitleLabel;
+				}
+			}
+
+			if (data?.playbackRate !== undefined) {
+				preferencesData.playbackRate = data.playbackRate;
+			}
+
+			// 6. Notificar cambios de preferencias
+			if (
+				Object.keys(preferencesData).length > 0 &&
+				dpoData?.events?.onChangePreferences &&
+				typeof dpoData.events.onChangePreferences === "function"
+			) {
+				dpoData.events.onChangePreferences(preferencesData);
+			}
+		},
+		[syncState, dpoData]
+	);
 
 	const Loader = props.loader ? createElement(props.loader, {}) : null;
 
@@ -400,8 +419,17 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 					// Styles
 					backgroundColor={props.backgroundColor}
 					topDividerColor={props.topDividerColor}
-					// Initial State
-					initialState={dpoData.initialState}
+					// Initial State (con valores sincronizados)
+					initialState={{
+						...dpoData.initialState,
+						// Sobrescribir con valores sincronizados si existen
+						isPaused: syncState.paused ?? dpoData.initialState?.isPaused,
+						isMuted: syncState.muted ?? dpoData.initialState?.isMuted,
+						volume: syncState.volume ?? dpoData.initialState?.volume,
+						audioIndex: syncState.audioIndex ?? dpoData.initialState?.audioIndex,
+						subtitleIndex:
+							syncState.subtitleIndex ?? dpoData.initialState?.subtitleIndex,
+					}}
 					// Components
 					controls={props.controls}
 					components={dpoData.components}
@@ -432,8 +460,17 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 					// Styles
 					backgroundColor={props.backgroundColor}
 					topDividerColor={props.topDividerColor}
-					// Initial State
-					initialState={dpoData.initialState}
+					// Initial State (con valores sincronizados)
+					initialState={{
+						...dpoData.initialState,
+						// Sobrescribir con valores sincronizados si existen
+						isPaused: syncState.paused ?? dpoData.initialState?.isPaused,
+						isMuted: syncState.muted ?? dpoData.initialState?.isMuted,
+						volume: syncState.volume ?? dpoData.initialState?.volume,
+						audioIndex: syncState.audioIndex ?? dpoData.initialState?.audioIndex,
+						subtitleIndex:
+							syncState.subtitleIndex ?? dpoData.initialState?.subtitleIndex,
+					}}
 					// Components
 					controls={props.controls}
 					components={dpoData.components}

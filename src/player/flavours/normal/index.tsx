@@ -1017,7 +1017,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const handleOnProgress = (e: OnProgressData) => {
 		currentLogger.current?.debug(
-			`handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
+			`handleOnProgress - currentSourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
 		);
 
 		if (typeof e.currentTime === "number" && currentTime !== e.currentTime) {
@@ -1025,8 +1025,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			setCurrentTime(e.currentTime);
 		}
 
-		// Solo procesar progreso para contenido principal, no para tudum
-		if (currentSourceType.current === "content") {
+		// Solo procesar progreso para contenido principal, no para tudum, y cuando el contenido esté cargado
+		// Esto previene race conditions cuando se cambia de TUDUM a contenido normal
+		if (currentSourceType.current === "content" && isContentLoaded) {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
 				// Para VOD: NO actualizar duration en onProgress, mantener la que se estableció en onLoad
 				const currentDuration = vodProgressManagerRef.current?.duration || 0;
@@ -1061,7 +1062,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 		} else {
 			currentLogger.current?.debug(
-				`handleOnProgress: Ignoring progress for ${currentSourceType.current} - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`
+				`handleOnProgress: Ignoring progress (type: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded}) - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`
 			);
 		}
 	};

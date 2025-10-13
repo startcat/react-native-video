@@ -15,6 +15,7 @@ import type {
 	IPlayerMetadata,
 	IPlayerTimeMarkers,
 } from "../../../types";
+import { DVR_PLAYBACK_TYPE } from "../../types/enums";
 import { LogLevel } from "../logger";
 
 /*
@@ -165,6 +166,16 @@ export interface ResolvedEPG {
 	dvrWindowMinutes?: number;
 }
 
+export interface liveSettings {
+	playbackType: DVR_PLAYBACK_TYPE;
+	multiSession?: boolean;
+	currentProgram?: IBasicProgram | null;
+	liveStartDate?: string;
+
+	/* EPG pre-resuelta para contenido live/DVR */
+	resolvedEPG?: ResolvedEPG;
+}
+
 /*
  * Item individual de la playlist con toda la información necesaria
  * para reproducción en el módulo nativo
@@ -178,16 +189,11 @@ export interface PlaylistItem {
 	/* Tipo de contenido */
 	type: PlaylistItemType;
 
-	isLive?: boolean;
-
 	/* Estado del item */
 	status?: PlaylistItemStatus;
 
 	/* Sources PRE-RESUELTOS (Multi-contexto) */
 	resolvedSources?: ResolvedSources;
-
-	/* EPG pre-resuelta para contenido live/DVR */
-	resolvedEPG?: ResolvedEPG;
 
 	/* Metadata del contenido (título, artista, imagen, etc.) */
 	metadata?: IPlayerMetadata;
@@ -210,8 +216,9 @@ export interface PlaylistItem {
 	/** Duración del contenido en segundos (para estadísticas) */
 	duration?: number;
 
-	/** Fecha de inicio para contenido live DVR */
-	liveStartDate?: string;
+	/** Configuración de reproducción DVR */
+	isLive?: boolean;
+	liveSettings?: liveSettings;
 
 	/** Reproducir desde contenido descargado offline */
 	playOffline?: boolean;

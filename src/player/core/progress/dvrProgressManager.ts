@@ -46,6 +46,11 @@ export class DVRProgressManagerClass extends BaseProgressManager {
         this._initialTimeWindowSeconds = options.dvrWindowSeconds || null; // Solo referencia
         this._playbackType = options.playbackType || DVR_PLAYBACK_TYPE.WINDOW;
         
+        // Programa actual si se proporciona (para inicialización en modo PROGRAM/PLAYLIST)
+        if (options.currentProgram) {
+            this._currentProgram = options.currentProgram;
+        }
+        
         // Callbacks específicos del DVR
         this._dvrCallbacks = {
             getEPGProgramAt: options.getEPGProgramAt,
