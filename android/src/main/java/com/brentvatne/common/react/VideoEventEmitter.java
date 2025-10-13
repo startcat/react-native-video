@@ -31,6 +31,8 @@ public class VideoEventEmitter {
 
     private int viewId = View.NO_ID;
     private String playlistItemId = null;
+    private boolean hasNotifiedItemFinished = false;
+    private boolean isChangingSource = false;
 
     public VideoEventEmitter(ReactContext reactContext) {
         this.mReactContext = reactContext;
@@ -358,16 +360,23 @@ public class VideoEventEmitter {
         receiveEvent(EVENT_END, null);
         
         // Send broadcast for playlist coordination if itemId is set
-        if (playlistItemId != null && !playlistItemId.isEmpty()) {
+        // Only send once per item to avoid duplicate auto-next triggers
+        // Don't send if we're in the middle of changing source
+        if (playlistItemId != null && !playlistItemId.isEmpty() && !hasNotifiedItemFinished && !isChangingSource) {
             try {
                 Intent intent = new Intent("com.brentvatne.react.VIDEO_ITEM_FINISHED");
                 intent.putExtra("itemId", playlistItemId);
                 intent.setPackage(mReactContext.getPackageName()); // Explicit broadcast
                 mReactContext.sendBroadcast(intent);
+                hasNotifiedItemFinished = true; // Mark as notified to prevent duplicate broadcasts
                 Log.d(TAG, "📢 Sent VIDEO_ITEM_FINISHED broadcast for itemId: " + playlistItemId + " to package: " + mReactContext.getPackageName());
             } catch (Exception e) {
                 Log.e(TAG, "❌ Failed to send VIDEO_ITEM_FINISHED broadcast", e);
             }
+        } else if (isChangingSource) {
+            Log.d(TAG, "🔄 Skipping VIDEO_ITEM_FINISHED broadcast - source is changing");
+        } else if (hasNotifiedItemFinished) {
+            Log.d(TAG, "⏭️ Skipping duplicate VIDEO_ITEM_FINISHED broadcast for itemId: " + playlistItemId);
         } else {
             Log.d(TAG, "⚠️ No playlistItemId set, skipping VIDEO_ITEM_FINISHED broadcast");
         }
@@ -375,7 +384,18 @@ public class VideoEventEmitter {
 
     public void setPlaylistItemId(String itemId) {
         this.playlistItemId = itemId;
+        this.hasNotifiedItemFinished = false; // Reset flag for new item
+        this.isChangingSource = false; // Clear changing source flag
         Log.d(TAG, "🎵 Playlist item ID set to: " + itemId);
+    }
+
+    public void setChangingSource(boolean changing) {
+        this.isChangingSource = changing;
+        if (changing) {
+            Log.d(TAG, "🔄 Source change started - broadcasts will be blocked");
+        } else {
+            Log.d(TAG, "✅ Source change completed - broadcasts enabled");
+        }
     }
 
     public void fullscreenWillPresent() {

@@ -12,7 +12,6 @@ import type {
 	IManifest,
 	IPlayerAds,
 	IPlayerAnalytics,
-	IPlayerInitialState,
 	IPlayerMetadata,
 	IPlayerTimeMarkers,
 } from "../../../types";
@@ -27,7 +26,6 @@ export enum PlaylistItemType {
 	TUDUM = "TUDUM",
 	VIDEO = "VIDEO",
 	AUDIO = "AUDIO",
-	LIVE = "LIVE",
 }
 
 /*
@@ -91,7 +89,7 @@ export interface ResolvedSources {
 		uri: string;
 		manifest: IManifest;
 		headers?: Headers;
-	};
+	} | null;
 
 	/*
 	 * Source para reproducción en Chromecast/Google Cast
@@ -111,7 +109,7 @@ export interface ResolvedSources {
 		headers?: Headers;
 		contentType?: string;
 		streamType?: "BUFFERED" | "LIVE";
-	};
+	} | null;
 
 	/*
 	 * Source para contenido descargado offline
@@ -123,7 +121,7 @@ export interface ResolvedSources {
 	download?: {
 		uri: string;
 		downloadId?: string;
-	};
+	} | null;
 }
 
 /*
@@ -180,6 +178,8 @@ export interface PlaylistItem {
 	/* Tipo de contenido */
 	type: PlaylistItemType;
 
+	isLive?: boolean;
+
 	/* Estado del item */
 	status?: PlaylistItemStatus;
 
@@ -202,7 +202,13 @@ export interface PlaylistItem {
 	ads?: IPlayerAds;
 
 	/** Estado inicial de reproducción para este item */
-	initialState?: IPlayerInitialState;
+	initialState?: {
+		startPosition?: number;
+		duration?: number;
+	};
+
+	/** Duración del contenido en segundos (para estadísticas) */
+	duration?: number;
 
 	/** Fecha de inicio para contenido live DVR */
 	liveStartDate?: string;
@@ -362,14 +368,14 @@ export interface ItemChangedEventData {
  */
 
 export interface ItemStartedEventData {
-	/** Item que empezó */
-	item: PlaylistItem;
+	/** ID del item que empezó */
+	itemId?: string;
 
 	/** Índice del item */
-	index: number;
+	index?: number;
 
 	/** Posición inicial en segundos */
-	startPosition: number;
+	startPosition?: number;
 
 	/** Timestamp del inicio */
 	timestamp: number;
@@ -381,14 +387,11 @@ export interface ItemStartedEventData {
  */
 
 export interface ItemCompletedEventData {
-	/** Item completado */
-	item: PlaylistItem;
+	/** ID del item completado */
+	itemId: string;
 
 	/** Índice del item */
 	index: number;
-
-	/** Duración total reproducida en segundos */
-	duration: number;
 
 	/** Timestamp de finalización */
 	timestamp: number;
@@ -400,17 +403,17 @@ export interface ItemCompletedEventData {
  */
 
 export interface ItemErrorEventData {
-	/** Item que falló */
-	item: PlaylistItem;
+	/** ID del item que falló */
+	itemId: string;
 
 	/** Índice del item */
-	index: number;
+	index?: number;
 
 	/** Código de error */
-	errorCode: string;
+	errorCode?: string;
 
 	/** Mensaje de error */
-	errorMessage: string;
+	errorMessage?: string;
 
 	/** Contexto adicional del error */
 	errorContext?: Record<string, any>;
@@ -425,14 +428,8 @@ export interface ItemErrorEventData {
  */
 
 export interface ProgressUpdatedEventData {
-	/** Progreso del item actual */
-	progress: PlaylistItemProgress;
-
-	/** Item actual */
-	item: PlaylistItem;
-
-	/** Índice del item */
-	index: number;
+	/** Progreso del item actual (datos nativos) */
+	[key: string]: any;
 }
 
 /*

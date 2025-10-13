@@ -7,6 +7,7 @@
  */
 
 export { PlaylistsManager, playlistsManager } from "./PlaylistsManager";
+export { resolveSourcesFromManifests, createSimpleResolvedSources } from "./utils/sourceResolver";
 
 export type {
 	ConfigChangedEventData,
@@ -25,6 +26,8 @@ export type {
 	PlaylistStats,
 	PlaylistUpdatedEventData,
 	ProgressUpdatedEventData,
+	ResolvedEPG,
+	ResolvedSources,
 } from "./types";
 
 export {
