@@ -1,4 +1,5 @@
 import { type SliderValues } from '../../../types/types';
+import { type PlaylistItemSimplified } from '../../../features/playlists/types';
 import { DVR_PLAYBACK_TYPE } from './enums';
 
 import {
@@ -32,7 +33,8 @@ export interface DVRProgressManagerOptions extends BaseProgressManagerOptions {
     dvrWindowSeconds?: number;
     playbackType?: DVR_PLAYBACK_TYPE;
     currentProgram?: any | null; // IBasicProgram - programa actual para inicialización
-    getEPGProgramAt?: ((timestamp: number) => Promise<any>) | null;
+    playlistItem?: PlaylistItemSimplified | null; // Item de playlist actual (para hooks)
+    getEPGProgramAt?: ((item: PlaylistItemSimplified, timestamp: number) => Promise<any>) | null;
     onModeChange?: ((data: ModeChangeData) => void) | null;
     onProgramChange?: ((data: ProgramChangeData) => void) | null;
     onEPGRequest?: ((timestamp: number) => void) | null;

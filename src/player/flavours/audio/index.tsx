@@ -151,6 +151,31 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		const isLive = props.playlistItem?.isLive;
 		const liveSettings = props.playlistItem?.liveSettings;
 
+		currentLogger.current?.info(
+			`PlaylistItem live config - isLive: ${isLive}, playbackType: ${liveSettings?.playbackType}, currentProgram: ${liveSettings?.currentProgram ? JSON.stringify({ id: liveSettings.currentProgram.id, startDate: liveSettings.currentProgram.startDate, endDate: liveSettings.currentProgram.endDate }) : "null"}`
+		);
+
+		// Crear PlaylistItemSimplified para hooks
+		const playlistItemSimplified = props.playlistItem ? {
+			id: props.playlistItem.id,
+			type: props.playlistItem.type,
+			status: props.playlistItem.status,
+			resolvedSources: props.playlistItem.resolvedSources,
+			metadata: props.playlistItem.metadata,
+			timeMarkers: props.playlistItem.timeMarkers,
+			duration: props.playlistItem.duration,
+			isLive: props.playlistItem.isLive,
+			liveSettings: props.playlistItem.liveSettings,
+			playOffline: props.playlistItem.playOffline,
+			addedAt: props.playlistItem.addedAt,
+			extraData: props.playlistItem.extraData,
+		} : null;
+
+		// Actualizar playlist item en DVR Progress Manager si existe
+		if (dvrProgressManagerRef.current && playlistItemSimplified) {
+			dvrProgressManagerRef.current.setPlaylistItem(playlistItemSimplified);
+		}
+
 		// Crear playerProgress desde el playlistItem
 		playerProgressRef.current = {
 			currentTime: props.playlistItem?.initialState?.startPosition || 0,
@@ -384,12 +409,29 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 		// Initialize DVR Progress Manager
 		if (!dvrProgressManagerRef.current) {
+			// Crear PlaylistItemSimplified para inicialización
+			const playlistItemSimplified = props.playlistItem ? {
+				id: props.playlistItem.id,
+				type: props.playlistItem.type,
+				status: props.playlistItem.status,
+				resolvedSources: props.playlistItem.resolvedSources,
+				metadata: props.playlistItem.metadata,
+				timeMarkers: props.playlistItem.timeMarkers,
+				duration: props.playlistItem.duration,
+				isLive: props.playlistItem.isLive,
+				liveSettings: props.playlistItem.liveSettings,
+				playOffline: props.playlistItem.playOffline,
+				addedAt: props.playlistItem.addedAt,
+				extraData: props.playlistItem.extraData,
+			} : null;
+
 			dvrProgressManagerRef.current = new DVRProgressManagerClass({
 				logger: props.playerContext?.logger,
 				loggerEnabled: props.logger?.progressManager?.enabled,
 				loggerLevel: props.logger?.progressManager?.level,
 				playbackType: playerProgressRef.current?.liveValues?.playbackType,
 				currentProgram: playerProgressRef.current?.liveValues?.currentProgram,
+				playlistItem: playlistItemSimplified,
 				getEPGProgramAt: props.hooks?.getEPGProgramAt,
 				onModeChange: handleOnDVRModeChange,
 				onProgramChange: handleOnDVRProgramChange,
