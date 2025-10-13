@@ -22,6 +22,7 @@ export type {
 	PlaylistItem,
 	PlaylistItemFilter,
 	PlaylistItemProgress,
+	PlaylistItemSimplified,
 	PlaylistsManagerConfig,
 	PlaylistState,
 	PlaylistStats,

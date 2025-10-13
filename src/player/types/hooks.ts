@@ -16,6 +16,7 @@ import {
     type IYoubora,
     type IYouboraSettingsFormat,
 } from './types';
+import { type PlaylistItemSimplified } from '../features/playlists/types';
 
 export interface IPlayerHooks {
     watchingProgressInterval?: number;
@@ -25,7 +26,7 @@ export interface IPlayerHooks {
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;
     getTudumManifest?: () => IManifest | null | undefined;
     getTudumSource?: () => IVideoSource | null | undefined;
-    getEPGProgramAt?: (timestamp:number) => Promise<IBasicProgram | null>;
+    getEPGProgramAt?: (item: PlaylistItemSimplified, timestamp: number) => Promise<IBasicProgram | null>;
     mergeMenuData?: (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array<IPlayerMenuData>;
     mergeCastMenuData?: (loadedData: Array<MediaTrack> | undefined, languagesMapping?: ILanguagesMapping) => Array<IPlayerMenuData>;
 }

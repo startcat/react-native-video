@@ -231,6 +231,26 @@ export interface PlaylistItem {
 }
 
 /*
+ * Versión reducida de PlaylistItem para hooks y callbacks
+ *
+ */
+
+export interface PlaylistItemSimplified {
+	id: string;
+	type: PlaylistItemType;
+	status?: PlaylistItemStatus;
+	resolvedSources?: ResolvedSources;
+	metadata?: IPlayerMetadata;
+	timeMarkers?: IPlayerTimeMarkers;
+	duration?: number;
+	isLive?: boolean;
+	liveSettings?: liveSettings;
+	playOffline?: boolean;
+	addedAt?: number;
+	extraData?: any;
+}
+
+/*
  * Configuración de la playlist
  *
  */

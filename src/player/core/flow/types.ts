@@ -1,4 +1,5 @@
-import type { IBasicProgram, IDrm, IManifest, IVideoSource, SliderValues } from "../../types";
+import { type IBasicProgram, type IDrm, type IManifest, type IVideoSource, type SliderValues } from '../../types';
+import { type PlaylistItemSimplified } from '../../features/playlists/types';
 
 // Estados posibles del flujo de reproducción
 export enum MediaFlowStateType {
@@ -78,7 +79,7 @@ export interface MediaFlowConfig {
         getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number) => string;
         getTudumSource?: () => ExtendedVideoSource | null | undefined;
         getYouboraOptions?: (data: any, format: string) => any;
-        getEPGProgramAt?: (timestamp: number) => Promise<IBasicProgram | null>;
+        getEPGProgramAt?: (item: PlaylistItemSimplified, timestamp: number) => Promise<IBasicProgram | null>;
     };
 }
 
