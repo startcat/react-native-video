@@ -797,15 +797,17 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	};
 
 	const handleOnEnd = () => {
-		// currentLogger.current?.debug(
-		// 	`handleOnEnd: playlistItem type ${props.playlistItem?.type}, isAutoNext: ${props.isAutoNext}`
-		// );
-		// La playlist externa maneja el switching entre tudum y contenido
-		// Solo notificamos que el item actual terminó
-		// if (props.events?.onEnd) {
-		// 	currentLogger.current?.debug(`handleOnEnd: Item finished, notifying parent`);
-		// 	props.events.onEnd();
-		// }
+		currentLogger.current?.info(
+			`handleOnEnd: playlistItem type ${props.playlistItem?.type}, id: ${props.playlistItem?.id}`
+		);
+		
+		// Always notify parent that item has ended
+		// Parent component (audioPlayerBar) will decide whether to auto-advance based on:
+		// - Item type (TUDUM always auto-advances)
+		// - autoNext configuration (for regular content)
+		if (props.events?.onEnd) {
+			props.events.onEnd();
+		}
 	};
 
 	const handleOnVideoError = (e: OnVideoErrorData) => {

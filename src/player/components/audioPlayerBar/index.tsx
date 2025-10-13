@@ -141,10 +141,6 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 					const dpo = await props.fetchContentData(contentId?.current!);
 					setLoadingNewContent(false);
 
-					console.log(
-						`[Audio Player Bar] playlistConfig ${JSON.stringify(dpo?.playlistConfig)}`
-					);
-
 					await playlistsManager.setPlaylist(
 						dpo?.playlist || [],
 						dpo?.playlistConfig || {
@@ -286,6 +282,25 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 		// 	BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
 		// }
 
+		const currentItem = playlistsManager.getCurrentItem();
+		const isTudum = currentItem?.type === "TUDUM";
+		const config = playlistsManager.getConfig();
+		const shouldAutoNext = isTudum || config?.autoNext;
+
+		currentLogger.current?.info(
+			`onEnd: item ${currentItem?.id}, type: ${currentItem?.type}, autoNext: ${config?.autoNext}, shouldAutoNext: ${shouldAutoNext}`
+		);
+
+		// For TUDUM items, always auto-advance regardless of autoNext setting
+		// For regular content, respect autoNext configuration
+		if (shouldAutoNext) {
+			currentLogger.current?.info(`onEnd: Auto-advancing to next item (TUDUM: ${isTudum})`);
+			playlistsManager.goToNext();
+		} else {
+			currentLogger.current?.info(`onEnd: Not auto-advancing (autoNext disabled)`);
+		}
+
+		// Always notify parent that item ended
 		if (dpoData?.events?.onEnd) {
 			dpoData?.events?.onEnd();
 		}
