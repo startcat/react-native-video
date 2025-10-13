@@ -11,6 +11,8 @@ import {
 	type IPlayerTimeMarkers,
 } from "./newTypes";
 
+import { PlayerContext } from "../core/context";
+
 import { type IInnerPlayerEvents } from "./events";
 
 import { type IPlayerCustomAudioComponents, type IPlayerCustomVideoComponents } from "./components";
@@ -517,34 +519,8 @@ export interface OverlayProps extends ICommonPlayerProps {
 	events: IInnerPlayerEvents;
 }
 
-export interface AudioFlavourProps extends ICommonPlayerProps, ICommonFlavourProps {
-	isAutoNext?: boolean;
-	liveStartDate?: string;
-	manifests?: Array<IManifest>;
-	headers?: Headers;
-	showExternalTudum?: boolean;
-	playOffline?: boolean;
-	languagesMapping?: ILanguagesMapping;
-
-	// Extra data
-	extraData?: any;
-
-	// Style
-	backgroundColor?: string;
-	topDividerColor?: string;
-
-	// Components
-	controls?: FunctionComponent<AudioControlsProps>;
-	components?: IPlayerCustomAudioComponents;
-}
-
-export interface AudioCastFlavourProps extends ICommonPlayerProps, ICommonFlavourProps {
-	isAutoNext?: boolean;
-	liveStartDate?: string;
-	manifests?: Array<IManifest>;
-	headers?: Headers;
-	showExternalTudum?: boolean;
-	playOffline?: boolean;
+export interface AudioFlavourProps extends ICommonFlavourProps, ICommonPlayerProps {
+	playerContext?: PlayerContext;
 
 	languagesMapping?: ILanguagesMapping;
 
@@ -560,13 +536,25 @@ export interface AudioCastFlavourProps extends ICommonPlayerProps, ICommonFlavou
 	components?: IPlayerCustomAudioComponents;
 }
 
-export interface NormalFlavourProps extends ICommonPlayerProps, ICommonFlavourProps {
-	isAutoNext?: boolean;
-	liveStartDate?: string;
-	manifests?: Array<IManifest>;
-	headers?: Headers;
-	showExternalTudum?: boolean;
-	playOffline?: boolean;
+export interface AudioCastFlavourProps extends ICommonFlavourProps {
+	playerContext?: PlayerContext;
+
+	languagesMapping?: ILanguagesMapping;
+
+	// Extra data
+	extraData?: any;
+
+	// Style
+	backgroundColor?: string;
+	topDividerColor?: string;
+
+	// Components
+	controls?: FunctionComponent<AudioControlsProps>;
+	components?: IPlayerCustomAudioComponents;
+}
+
+export interface NormalFlavourProps extends ICommonFlavourProps {
+	playerContext?: PlayerContext;
 
 	audioIndex?: number;
 	subtitleIndex?: number;
@@ -579,13 +567,8 @@ export interface NormalFlavourProps extends ICommonPlayerProps, ICommonFlavourPr
 	components?: IPlayerCustomVideoComponents;
 }
 
-export interface CastFlavourProps extends ICommonPlayerProps, ICommonFlavourProps {
-	isAutoNext?: boolean;
-	liveStartDate?: string;
-	manifests?: Array<IManifest>;
-	headers?: Headers;
-	showExternalTudum?: boolean;
-	playOffline?: boolean;
+export interface CastFlavourProps extends ICommonFlavourProps {
+	playerContext?: PlayerContext;
 
 	audioIndex?: number;
 	subtitleIndex?: number;
@@ -597,14 +580,7 @@ export interface CastFlavourProps extends ICommonPlayerProps, ICommonFlavourProp
 	components?: IPlayerCustomVideoComponents;
 }
 
-export interface PlayerProps extends IPlayerProps, ICommonFlavourProps {
-	manifests?: Array<IManifest>;
-	showExternalTudum?: boolean;
-	headers?: Headers;
-	playOffline?: boolean;
-	liveStartDate?: string;
-	isAutoNext?: boolean;
-
+export interface PlayerProps extends IPlayerProps {
 	languagesMapping?: ILanguagesMapping;
 	audioIndex?: number;
 	subtitleIndex?: number;
@@ -618,15 +594,7 @@ export interface PlayerProps extends IPlayerProps, ICommonFlavourProps {
 	components?: IPlayerCustomVideoComponents;
 }
 
-export interface AudioPlayerContentsDpo extends IPlayerProps, ICommonFlavourProps {
-	collection: Enums.COLLECTION;
-	showExternalTudum?: boolean;
-	playOffline?: boolean;
-	manifests?: Array<IManifest>;
-	headers?: Headers;
-	extraData?: any;
-	isAutoNext?: boolean;
-
+export interface AudioPlayerContentsDpo extends IPlayerProps {
 	// Custom Components
 	components?: IPlayerCustomAudioComponents;
 }
@@ -644,3 +612,62 @@ export interface AudioPlayerProps {
 	// Utils
 	fetchContentData?: (data: AudioPlayerEventProps) => Promise<AudioPlayerContentsDpo | null>;
 }
+
+/*
+	interface AudioPlayerContentsDpo {
+		playlist: PlaylistItem[];
+		playlistConfig?: PlaylistConfig;
+
+		// Initial State
+		initialState?: IPlayerInitialState;
+
+		// Hooks
+		hooks?: IPlayerHooks;
+
+		// Events
+		events?: IInnerPlayerEvents;
+
+		// Player Features
+		features?: IPlayerFeatures;
+
+		// Player Logger
+		logger?: IPlayerLogger;
+
+		// Custom Components
+		components?: IPlayerCustomAudioComponents;
+	}
+*/
+
+/*
+	interface AudioFlavourProps {
+		playlistItem: PlaylistItem | null;
+
+		// Initial State
+		initialState?: IPlayerInitialState;
+
+		// Hooks
+		hooks?: IPlayerHooks;
+
+		// Events
+		events?: IInnerPlayerEvents;
+
+		// Player Features
+		features?: IPlayerFeatures;
+
+		// Player Logger
+		logger?: IPlayerLogger;
+
+		languagesMapping?: ILanguagesMapping;
+
+		// Extra data
+		extraData?: any;
+
+		// Style
+		backgroundColor?: string;
+		topDividerColor?: string;
+
+		// Components
+		controls?: FunctionComponent<AudioControlsProps>;
+		components?: IPlayerCustomAudioComponents;
+	}
+*/

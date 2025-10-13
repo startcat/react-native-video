@@ -132,15 +132,37 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             try {
                 // Parse items
                 items.clear()
+                var successCount = 0
+                var failCount = 0
+                
                 for (i in 0 until itemsArray.size()) {
-                    PlaylistItem.fromMap(itemsArray.getMap(i))?.let { items.add(it) }
+                    val item = PlaylistItem.fromMap(itemsArray.getMap(i))
+                    if (item != null) {
+                        items.add(item)
+                        successCount++
+                    } else {
+                        failCount++
+                        Log.w(TAG, "⚠️ Failed to parse item at index $i")
+                    }
                 }
                 
-                Log.d(TAG, "📋 Playlist loaded with ${items.size} items")
+                Log.d(TAG, "📋 Playlist loaded: $successCount items parsed successfully, $failCount failed")
+                
+                // Validate we have at least one item
+                if (items.isEmpty()) {
+                    promise.reject("PLAYLIST_ERROR", "No valid items in playlist. All ${itemsArray.size()} items failed to parse.")
+                    return@post
+                }
                 
                 // Parse config
                 if (configMap.hasKey("startAt")) {
-                    currentIndex = configMap.getInt("startAt").coerceIn(0, items.size - 1)
+                    val requestedIndex = configMap.getInt("startAt")
+                    currentIndex = requestedIndex.coerceIn(0, items.size - 1)
+                    if (requestedIndex != currentIndex) {
+                        Log.w(TAG, "⚠️ Requested startAt=$requestedIndex adjusted to $currentIndex (max=${items.size - 1})")
+                    }
+                } else {
+                    currentIndex = 0
                 }
                 
                 if (configMap.hasKey("config")) {

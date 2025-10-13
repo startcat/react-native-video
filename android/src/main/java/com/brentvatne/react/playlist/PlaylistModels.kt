@@ -64,14 +64,53 @@ data class PlaylistSource(
     val headers: Map<String, String>? = null
 ) {
     companion object {
+        /**
+         * Parse source from new resolvedSources structure or legacy source structure
+         */
         fun fromMap(map: ReadableMap?): PlaylistSource? {
-            if (map == null || !map.hasKey("uri")) return null
+            if (map == null) return null
             
+            // Try new structure: resolvedSources.local
+            if (map.hasKey("resolvedSources")) {
+                val resolvedSources = map.getMap("resolvedSources")
+                
+                // Priority: local > cast > download
+                val localSource = resolvedSources?.getMap("local")
+                if (localSource != null && localSource.hasKey("uri")) {
+                    return parseSourceObject(localSource)
+                }
+                
+                val castSource = resolvedSources?.getMap("cast")
+                if (castSource != null && castSource.hasKey("uri")) {
+                    return parseSourceObject(castSource)
+                }
+                
+                val downloadSource = resolvedSources?.getMap("download")
+                if (downloadSource != null && downloadSource.hasKey("uri")) {
+                    return parseSourceObject(downloadSource)
+                }
+                
+                Log.w("PlaylistSource", "resolvedSources present but no valid source found")
+                return null
+            }
+            
+            // Legacy structure: direct source object
+            if (map.hasKey("uri")) {
+                return parseSourceObject(map)
+            }
+            
+            Log.w("PlaylistSource", "No valid source structure found")
+            return null
+        }
+        
+        private fun parseSourceObject(map: ReadableMap): PlaylistSource? {
+            val uri = map.getString("uri") ?: return null
             val headers = map.getMap("headers")?.toHashMap()?.mapValues { it.value.toString() }
+            val type = map.getString("type")
             
             return PlaylistSource(
-                uri = map.getString("uri") ?: return null,
-                type = map.getString("type"),
+                uri = uri,
+                type = type,
                 headers = headers
             )
         }
@@ -103,13 +142,16 @@ data class PlaylistMetadata(
 ) {
     companion object {
         fun fromMap(map: ReadableMap?): PlaylistMetadata {
+            if (map == null) return PlaylistMetadata()
+            
             return PlaylistMetadata(
-                title = map?.getString("title"),
-                subtitle = map?.getString("subtitle"),
-                description = map?.getString("description"),
-                imageUri = map?.getString("imageUri"),
-                artist = map?.getString("artist"),
-                album = map?.getString("album")
+                title = map.getString("title"),
+                subtitle = map.getString("subtitle"),
+                description = map.getString("description"),
+                // Support both 'poster' (new) and 'imageUri' (legacy)
+                imageUri = map.getString("poster") ?: map.getString("imageUri"),
+                artist = map.getString("artist"),
+                album = map.getString("album")
             )
         }
     }
@@ -140,13 +182,29 @@ data class PlaylistItem(
 ) {
     companion object {
         fun fromMap(map: ReadableMap?): PlaylistItem? {
-            if (map == null) return null
+            if (map == null) {
+                Log.w("PlaylistItem", "Received null map")
+                return null
+            }
             
-            val id = map.getString("id") ?: return null
-            val source = PlaylistSource.fromMap(map.getMap("source")) ?: return null
+            val id = map.getString("id")
+            if (id == null) {
+                Log.w("PlaylistItem", "Missing required field: id")
+                return null
+            }
+            
+            // Parse source (supports both new resolvedSources and legacy source)
+            val source = PlaylistSource.fromMap(map)
+            if (source == null) {
+                Log.w("PlaylistItem", "Failed to parse source for item: $id")
+                return null
+            }
+            
             val type = PlaylistItemType.fromString(map.getString("type"))
             val metadata = PlaylistMetadata.fromMap(map.getMap("metadata"))
             val duration = if (map.hasKey("duration")) map.getDouble("duration") else null
+            
+            Log.d("PlaylistItem", "Successfully parsed item: $id (${source.uri})")
             
             return PlaylistItem(
                 id = id,

@@ -176,8 +176,11 @@ await playlistsManager.setPlaylist(episodes, {
 });
 
 // 2. Renderizar Video con integración de playlist
+const currentItem = playlistsManager.getCurrentItem();
+const sourceUri = currentItem?.resolvedSources?.local?.uri;
+
 <Video
-    source={currentItem.source}
+    source={{ uri: sourceUri }}
     enablePlaylistIntegration={true}  // ← Habilita comunicación nativa
     playlistItemId={currentItem.id}   // ← ID del item actual
     playInBackground={true}
@@ -220,31 +223,50 @@ const playlist = [
     {
         id: 'ep1',
         type: PlaylistItemType.AUDIO,
-        source: {
-            uri: 'https://cdn.example.com/episode1.m3u8',
-            headers: {
-                'Authorization': 'Bearer token123',
+        resolvedSources: {
+            local: {
+                uri: 'https://cdn.example.com/episode1.m3u8',
+                manifest: { type: 'HLS' },
+                headers: {
+                    'Authorization': 'Bearer token123',
+                },
+            },
+            cast: {
+                uri: 'https://cdn.example.com/episode1.mpd',
+                manifest: { type: 'DASH' },
+                contentType: 'application/dash+xml',
+                streamType: 'BUFFERED',
             },
         },
         metadata: {
+            id: 1,
+            slug: 'ep1',
             title: 'Episodio 1 - El Comienzo',
             artist: 'Mi Podcast',
-            imageUri: 'https://cdn.example.com/cover1.jpg',
+            poster: 'https://cdn.example.com/cover1.jpg',
             description: 'Primer episodio',
         },
         duration: 3600, // 1 hora en segundos
-        startPosition: 0,
+        initialState: {
+            startPosition: 0,
+            duration: 3600,
+        },
     },
     {
         id: 'ep2',
         type: PlaylistItemType.AUDIO,
-        source: {
-            uri: 'https://cdn.example.com/episode2.m3u8',
+        resolvedSources: {
+            local: {
+                uri: 'https://cdn.example.com/episode2.m3u8',
+                manifest: { type: 'HLS' },
+            },
         },
         metadata: {
+            id: 2,
+            slug: 'ep2',
             title: 'Episodio 2 - La Aventura',
             artist: 'Mi Podcast',
-            imageUri: 'https://cdn.example.com/cover2.jpg',
+            poster: 'https://cdn.example.com/cover2.jpg',
         },
         duration: 3800,
     },
@@ -296,8 +318,18 @@ await playlistsManager.setAutoNext(true);
 await playlistsManager.addItem({
     id: 'ep4',
     type: PlaylistItemType.AUDIO,
-    source: { uri: 'https://...' },
-    metadata: { title: 'Episodio 4' },
+    resolvedSources: {
+        local: {
+            uri: 'https://cdn.example.com/episode4.m3u8',
+            manifest: { type: 'HLS' },
+        },
+    },
+    metadata: {
+        id: 4,
+        slug: 'ep4',
+        title: 'Episodio 4',
+        artist: 'Mi Podcast',
+    },
 });
 
 // Insertar en posición específica
@@ -459,13 +491,18 @@ const episodes = [
     {
         id: 'ep1',
         type: PlaylistItemType.AUDIO,
-        source: {
-            uri: 'https://example.com/episode1.m3u8',
+        resolvedSources: {
+            local: {
+                uri: 'https://example.com/episode1.m3u8',
+                manifest: { type: 'HLS' },
+            },
         },
         metadata: {
+            id: 1,
+            slug: 'ep1',
             title: 'Episodio 1',
             artist: 'Mi Podcast',
-            imageUri: 'https://example.com/cover1.jpg',
+            poster: 'https://example.com/cover1.jpg',
         },
         duration: 3600,
     },
@@ -507,9 +544,11 @@ function PlaylistPlayer() {
     
     if (!currentItem) return null;
     
+    const sourceUri = currentItem.resolvedSources?.local?.uri;
+    
     return (
         <Video
-            source={currentItem.source}
+            source={{ uri: sourceUri }}
             
             // Props esenciales para playlist
             enablePlaylistIntegration={true}
@@ -699,10 +738,13 @@ async function loadPodcastSeries(seriesId: string) {
     const playlist = episodes.map(ep => ({
         id: ep.id,
         type: PlaylistItemType.AUDIO,
-        source: {
-            uri: ep.audioUrl,
-            headers: {
-                'Authorization': `Bearer ${userToken}`,
+        resolvedSources: {
+            local: {
+                uri: ep.audioUrl,
+                manifest: { type: 'HLS' },
+                headers: {
+                    'Authorization': `Bearer ${userToken}`,
+                },
             },
         },
         metadata: {
@@ -740,7 +782,12 @@ async function playAlbum(albumId: string, shuffled: boolean = false) {
     const playlist = album.tracks.map(track => ({
         id: track.id,
         type: PlaylistItemType.AUDIO,
-        source: { uri: track.audioUrl },
+        resolvedSources: {
+            local: {
+                uri: track.audioUrl,
+                manifest: { type: 'HLS' },
+            },
+        },
         metadata: {
             title: track.name,
             artist: album.artist,
@@ -773,7 +820,12 @@ async function playCourse(courseId: string) {
     const playlist = course.lessons.map(lesson => ({
         id: lesson.id,
         type: PlaylistItemType.AUDIO,
-        source: { uri: lesson.audioUrl },
+        resolvedSources: {
+            local: {
+                uri: lesson.audioUrl,
+                manifest: { type: 'HLS' },
+            },
+        },
         metadata: {
             title: `${lesson.order}. ${lesson.title}`,
             artist: course.instructor,

@@ -43,12 +43,7 @@ export interface IPlayerMetadata {
 }
 
 export interface IPlayerInitialState {
-	// Posición y reproducción
-	startPosition: number;
-	duration?: number;
 	isPaused?: boolean;
-
-	// Audio y volumen
 	isMuted?: boolean;
 	volume?: number;
 
@@ -89,11 +84,6 @@ export interface IPlayerTimeMarkers {
 	timeMarkers?: Array<ITimeMarkers>;
 }
 
-export interface IPlayerProps {
-	playlist: PlaylistItem[];
-	playlistConfig?: PlaylistConfig;
-}
-
 export interface ICommonPlayerProps {
 	playerContext?: PlayerContext;
 	playerMetadata?: IPlayerMetadata;
@@ -118,7 +108,7 @@ export interface IPlayerLogger {
 	tudum?: LoggerConfigBasic;
 }
 
-export interface ICommonFlavourProps {
+export interface IPlayerAndFlavourProps {
 	// Initial State
 	initialState?: IPlayerInitialState;
 
@@ -126,11 +116,20 @@ export interface ICommonFlavourProps {
 	hooks?: IPlayerHooks;
 
 	// Events
-	events: IInnerPlayerEvents;
+	events?: IInnerPlayerEvents;
 
 	// Player Features
 	features?: IPlayerFeatures;
 
 	// Player Logger
 	logger?: IPlayerLogger;
+}
+
+export interface IPlayerProps extends IPlayerAndFlavourProps {
+	playlist: PlaylistItem[];
+	playlistConfig?: PlaylistConfig;
+}
+
+export interface ICommonFlavourProps extends IPlayerAndFlavourProps {
+	playlistItem: PlaylistItem | null;
 }

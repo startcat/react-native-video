@@ -1086,10 +1086,10 @@ public class ReactExoplayerView extends FrameLayout implements
         if (haveResumePosition) {
             player.seekTo(resumeWindow, resumePosition);
             player.setMediaSource(mediaSource, false);
-        } else if (source.getStartPositionMs() > 0) {
-            player.setMediaSource(mediaSource, source.getStartPositionMs());
         } else {
-            player.setMediaSource(mediaSource, true);
+            // Always use startPosition (even if 0) to ensure player position is reset
+            // This prevents issues when previous video ended at a position greater than new video's duration
+            player.setMediaSource(mediaSource, source.getStartPositionMs());
         }
 
         /*
@@ -1120,6 +1120,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
         eventEmitter.loadStart();
         loadVideoStarted = true;
+        DebugLog.d(TAG, "initializePlayerSource - loadVideoStarted set to true");
 
         finishPlayerInitialization();
     }
@@ -1750,8 +1751,12 @@ public class ReactExoplayerView extends FrameLayout implements
     }
 
     private void videoLoaded() {
+        DebugLog.d(TAG, "videoLoaded called - isPlayingAd: " + player.isPlayingAd() + ", loadVideoStarted: " + loadVideoStarted);
         if (!player.isPlayingAd() && loadVideoStarted) {
             loadVideoStarted = false;
+            // Source change completed successfully, re-enable broadcasts
+            eventEmitter.setChangingSource(false);
+            DebugLog.d(TAG, "videoLoaded - emitting load event");
             if (audioTrackType != null) {
                 setSelectedAudioTrack(audioTrackType, audioTrackValue);
             }
@@ -2145,6 +2150,8 @@ public class ReactExoplayerView extends FrameLayout implements
             if (!isSourceEqual) {
                 //reloadSource();
                 playerNeedsSource = true;
+                // Mark that we're changing source to prevent broadcasts during transition
+                eventEmitter.setChangingSource(true);
                 initializePlayer();
             }
         } else {

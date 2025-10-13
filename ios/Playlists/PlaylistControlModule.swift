@@ -168,17 +168,33 @@ class PlaylistControlModule: RCTEventEmitter {
             guard let self = self else { return }
             
             // Parse items
+            let totalItems = items.count
             self.playlist = items.compactMap { PlaylistItem(dict: $0) }
+            let successCount = self.playlist.count
+            let failCount = totalItems - successCount
             
-            print("[PlaylistControlModule] 📋 Playlist loaded with \(self.playlist.count) items")
+            print("[PlaylistControlModule] 📋 Playlist loaded: \(successCount) items parsed successfully, \(failCount) failed")
+            
+            // Validate we have at least one item
+            guard !self.playlist.isEmpty else {
+                print("[PlaylistControlModule] ❌ No valid items in playlist. All \(totalItems) items failed to parse.")
+                return
+            }
             
             // Parse config
             if let startAt = config["startAt"] as? Int {
+                let requestedIndex = startAt
                 self.currentIndex = max(0, min(startAt, self.playlist.count - 1))
+                if requestedIndex != self.currentIndex {
+                    print("[PlaylistControlModule] ⚠️ Requested startAt=\(requestedIndex) adjusted to \(self.currentIndex) (max=\(self.playlist.count - 1))")
+                }
+            } else {
+                self.currentIndex = 0
             }
             
             if let configData = config["config"] as? [String: Any] {
                 self.config = PlaylistConfiguration(dict: configData)
+                print("[PlaylistControlModule] ⚙️ Config: autoNext=\(self.config.autoNext), repeatMode=\(self.config.repeatMode.rawValue)")
             }
             
             // Setup remote commands if not already done
@@ -719,23 +735,52 @@ private struct PlaylistItem {
     
     init?(dict: [String: Any]) {
         guard let id = dict["id"] as? String else {
+            print("[PlaylistItem] ❌ Missing required field: id")
             return nil
         }
         
-        guard let sourceDict = dict["source"] as? [String: Any] else {
+        // Parse source - support both new resolvedSources and legacy source
+        var sourceDict: [String: Any]?
+        
+        // Try new structure: resolvedSources
+        if let resolvedSources = dict["resolvedSources"] as? [String: Any] {
+            // Priority: local > cast > download
+            if let local = resolvedSources["local"] as? [String: Any], local["uri"] != nil {
+                sourceDict = local
+            } else if let cast = resolvedSources["cast"] as? [String: Any], cast["uri"] != nil {
+                sourceDict = cast
+            } else if let download = resolvedSources["download"] as? [String: Any], download["uri"] != nil {
+                sourceDict = download
+            }
+            
+            if sourceDict == nil {
+                print("[PlaylistItem] ❌ resolvedSources present but no valid source found for item: \(id)")
+                return nil
+            }
+        }
+        // Legacy structure: direct source object
+        else if let legacySource = dict["source"] as? [String: Any] {
+            sourceDict = legacySource
+        }
+        
+        guard let finalSourceDict = sourceDict else {
+            print("[PlaylistItem] ❌ No valid source structure found for item: \(id)")
             return nil
         }
         
         guard let metadataDict = dict["metadata"] as? [String: Any] else {
+            print("[PlaylistItem] ❌ Missing metadata for item: \(id)")
             return nil
         }
         
         self.id = id
-        self.source = PlaylistVideoSource(sourceDict)
+        self.source = PlaylistVideoSource(finalSourceDict)
         self.metadata = PlaylistVideoMetadata(metadataDict)
         self.type = dict["type"] as? String ?? "VIDEO"
-        self.startPosition = dict["startPosition"] as? Double
-        self.duration = dict["duration"] as? Double
+        self.startPosition = dict["startPosition"] as? Double ?? dict["initialState"]?["startPosition"] as? Double
+        self.duration = dict["duration"] as? Double ?? dict["initialState"]?["duration"] as? Double
+        
+        print("[PlaylistItem] ✅ Successfully parsed item: \(id) (\(self.source.uri))")
     }
     
     func toDict() -> [String: Any] {
@@ -787,7 +832,8 @@ private struct PlaylistVideoMetadata {
         self.title = dict["title"] as? String
         self.artist = dict["artist"] as? String
         self.album = dict["album"] as? String
-        self.imageUri = dict["imageUri"] as? String
+        // Support both 'poster' (new) and 'imageUri' (legacy)
+        self.imageUri = dict["poster"] as? String ?? dict["imageUri"] as? String
         self.description = dict["description"] as? String
     }
     

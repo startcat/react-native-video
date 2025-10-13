@@ -436,13 +436,17 @@ export class PlaylistsManager {
 	 *
 	 * @example
 	 * // In your Video component's onEnd handler:
+	 * const currentItem = playlistsManager.getCurrentItem();
+	 * const sourceUri = currentItem?.resolvedSources?.local?.uri;
+	 *
 	 * <Video
-	 *   source={{ uri: currentItem.source.uri }}
+	 *   source={{ uri: sourceUri }}
 	 *   onEnd={async () => {
 	 *     const hasNext = await playlistsManager.notifyItemCompleted(currentItem.id);
 	 *     if (hasNext) {
 	 *       const nextItem = playlistsManager.getCurrentItem();
-	 *       setCurrentSource(nextItem.source);
+	 *       const nextUri = nextItem?.resolvedSources?.local?.uri;
+	 *       setCurrentSource({ uri: nextUri });
 	 *     }
 	 *   }}
 	 * />
@@ -666,8 +670,8 @@ export class PlaylistsManager {
 		if (filter.searchText) {
 			const searchLower = filter.searchText.toLowerCase();
 			results = results.filter(item => {
-				const titleMatch = item.metadata.title?.toLowerCase().includes(searchLower);
-				const artistMatch = item.metadata.artist?.toLowerCase().includes(searchLower);
+				const titleMatch = item?.metadata?.title?.toLowerCase().includes(searchLower);
+				const artistMatch = item?.metadata?.artist?.toLowerCase().includes(searchLower);
 				return titleMatch || artistMatch;
 			});
 		}
@@ -760,13 +764,23 @@ export class PlaylistsManager {
 	}
 
 	private validateItem(item: PlaylistItem): PlaylistItem {
-		if (!item.source || !item.source.uri) {
-			throw new PlayerError("PLAYLIST_INVALID_ITEM", { reason: "Missing source.uri" });
+		// Validar que tenga al menos un source válido
+		const hasLocalSource = item.resolvedSources?.local?.uri;
+		const hasCastSource = item.resolvedSources?.cast?.uri;
+		const hasDownloadSource = item.resolvedSources?.download?.uri;
+
+		if (!hasLocalSource && !hasCastSource && !hasDownloadSource) {
+			throw new PlayerError("PLAYLIST_INVALID_ITEM", {
+				reason: "Missing resolvedSources - at least one source (local, cast, or download) is required",
+			});
 		}
+
+		// Generar ID basado en el primer source disponible
+		const uriForId = hasLocalSource || hasCastSource || hasDownloadSource || "unknown";
 
 		return {
 			...item,
-			id: item.id || this.generateItemId(item.source.uri),
+			id: item.id || this.generateItemId(uriForId),
 			status: item.status || PlaylistItemStatus.PENDING,
 			addedAt: item.addedAt || Date.now(),
 		};
