@@ -31,6 +31,7 @@ export interface DVRProgressManagerOptions extends BaseProgressManagerOptions {
     // Opciones específicas del DVR
     dvrWindowSeconds?: number;
     playbackType?: DVR_PLAYBACK_TYPE;
+    currentProgram?: any | null; // IBasicProgram - programa actual para inicialización
     getEPGProgramAt?: ((timestamp: number) => Promise<any>) | null;
     onModeChange?: ((data: ModeChangeData) => void) | null;
     onProgramChange?: ((data: ProgramChangeData) => void) | null;

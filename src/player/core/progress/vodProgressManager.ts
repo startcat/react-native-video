@@ -39,10 +39,17 @@ export class VODProgressManagerClass extends BaseProgressManager {
             seekableRange: data.seekableRange 
         })}`);
 
+        // Actualizar seekableRange ANTES de _updateBasicPlayerData para evitar race condition
+        // donde _duration ya está actualizada pero seekableRange.end todavía es 0
+        if (data.duration && data.duration > 0 && data.duration !== this._duration) {
+            this._seekableRange.end = data.duration;
+            this._currentLogger?.debug(`Pre-updated seekableRange end to: ${data.duration}`);
+        }
+
         // Usar la validación y actualización base
         this._updateBasicPlayerData(data);
         
-        // Lógica específica del VOD
+        // Lógica específica del VOD (ahora redundante pero mantenemos por compatibilidad)
         this._updateVODSpecificData(data);
         
         // Verificar si llegamos al final

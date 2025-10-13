@@ -160,6 +160,7 @@ export class PlaylistsManager {
 			const previousConfig = { ...this.playlistConfig };
 			this.playlistConfig = { ...this.playlistConfig, ...config };
 
+			// Limpiar playlist anterior completamente
 			this.originalOrder = validatedItems.map(item => item.id);
 			this.items =
 				this.playlistConfig.shuffleMode === PlaylistShuffleMode.ON
@@ -169,7 +170,14 @@ export class PlaylistsManager {
 			this.currentIndex = this.playlistConfig.startIndex || 0;
 			this.hasEnded = false;
 
+			// Limpiar módulo nativo antes de enviar nueva playlist
 			if (this.nativeModule) {
+				try {
+					await this.nativeModule.clearPlaylist();
+					this.logger.debug(LOG_TAGS.PLAYLISTS_MANAGER, "Native playlist cleared before setting new one");
+				} catch (error) {
+					this.logger.warn(LOG_TAGS.PLAYLISTS_MANAGER, "Failed to clear native playlist", error);
+				}
 				await this.sendPlaylistToNative();
 			}
 

@@ -7,7 +7,7 @@
  */
 
 export { PlaylistsManager, playlistsManager } from "./PlaylistsManager";
-export { resolveSourcesFromManifests, createSimpleResolvedSources } from "./utils/sourceResolver";
+export { createSimpleResolvedSources, resolveSourcesFromManifests } from "./utils/sourceResolver";
 
 export type {
 	ConfigChangedEventData,
@@ -15,6 +15,7 @@ export type {
 	ItemCompletedEventData,
 	ItemErrorEventData,
 	ItemStartedEventData,
+	liveSettings,
 	PlaylistBatchOptions,
 	PlaylistConfig,
 	PlaylistEventCallback,

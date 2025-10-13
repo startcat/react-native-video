@@ -1007,11 +1007,12 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
             seekableDuration: castProgress.duration || 0
         };
 
-        currentLogger.current?.debug(`Simulating onProgress - castProgress: ${JSON.stringify(castProgress)}`);
+        currentLogger.current?.debug(`Simulating onProgress - castProgress: ${JSON.stringify(castProgress)}, isContentLoaded: ${isContentLoaded}`);
         currentLogger.current?.debug(`Simulating onProgress: ${JSON.stringify(e)}`);
 
-        // Solo procesar progreso para contenido principal, no para tudum
-        if (currentSourceType.current === 'content') {
+        // Solo procesar progreso para contenido principal, no para tudum, y cuando el contenido esté cargado
+        // Esto previene race conditions cuando se cambia de TUDUM a contenido normal
+        if (currentSourceType.current === 'content' && isContentLoaded) {
             if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR){
                 vodProgressManagerRef.current?.updatePlayerData({
                     currentTime: e.currentTime,
