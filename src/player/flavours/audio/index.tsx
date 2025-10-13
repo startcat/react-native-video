@@ -647,7 +647,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			preloading: isBuffering,
 			isContentLoaded: isContentLoaded,
 			speedRate: speedRate,
-			extraData: props.extraData,
+			extraData: props.playlistItem?.extraData,
 			// Nuevas Props Agrupadas
 			playerMetadata: props.playlistItem?.metadata,
 			playerProgress: {
