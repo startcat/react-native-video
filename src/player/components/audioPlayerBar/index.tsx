@@ -244,7 +244,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			currentLogger.current?.info(
 				`🔔 Playlist ITEM_CHANGED received: ${data.currentItem?.id || data.item?.id}`
 			);
-			currentLogger.current?.debug(`Playlist ITEM_CHANGED: ${JSON.stringify(data)}`);
+			// currentLogger.current?.debug(`Playlist ITEM_CHANGED: ${JSON.stringify(data)}`);
 
 			// Usar currentItem si está disponible, sino usar item
 			const itemToUse = data.currentItem || data.item;

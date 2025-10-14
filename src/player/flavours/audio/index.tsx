@@ -858,8 +858,17 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	const handleOnEnd = () => {
 		currentLogger.current?.info(
-			`handleOnEnd: playlistItem type ${props.playlistItem?.type}, id: ${props.playlistItem?.id}`
+			`handleOnEnd: playlistItem type ${props.playlistItem?.type}, id: ${props.playlistItem?.id}, isContentLoaded: ${isContentLoaded}`
 		);
+
+		// Ignore onEnd if content hasn't been loaded yet
+		// This prevents spurious onEnd events when changing sources
+		if (!isContentLoaded && props.playlistItem?.type !== "TUDUM") {
+			currentLogger.current?.warn(
+				`handleOnEnd: Ignoring onEnd event - content not loaded yet (type: ${props.playlistItem?.type})`
+			);
+			return;
+		}
 
 		// Always notify parent that item has ended
 		// Parent component (audioPlayerBar) will decide whether to auto-advance based on:
