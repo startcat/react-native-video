@@ -174,9 +174,16 @@ export class PlaylistsManager {
 			if (this.nativeModule) {
 				try {
 					await this.nativeModule.clearPlaylist();
-					this.logger.debug(LOG_TAGS.PLAYLISTS_MANAGER, "Native playlist cleared before setting new one");
+					this.logger.debug(
+						LOG_TAGS.PLAYLISTS_MANAGER,
+						"Native playlist cleared before setting new one"
+					);
 				} catch (error) {
-					this.logger.warn(LOG_TAGS.PLAYLISTS_MANAGER, "Failed to clear native playlist", error);
+					this.logger.warn(
+						LOG_TAGS.PLAYLISTS_MANAGER,
+						"Failed to clear native playlist",
+						error
+					);
 				}
 				await this.sendPlaylistToNative();
 			}
@@ -206,6 +213,10 @@ export class PlaylistsManager {
 				LOG_TAGS.PLAYLISTS_MANAGER,
 				`Playlist set with ${this.items.length} items`
 			);
+
+			this.items.forEach((item, index) => {
+				this.logger.info(LOG_TAGS.PLAYLISTS_MANAGER, `Item ${index}: ${item.id}`);
+			});
 		} catch (error) {
 			this.logger.error(LOG_TAGS.PLAYLISTS_MANAGER, "Failed to set playlist", error);
 			throw new PlayerError("PLAYLIST_SET_FAILED", {
@@ -314,21 +325,23 @@ export class PlaylistsManager {
 		const currentItem = this.items[index];
 
 		if (this.nativeModule) {
+			// Native module will emit onNativeItemChanged, so we don't emit here
 			await this.nativeModule.goToIndex(index);
+		} else {
+			// No native module, emit the event from JS
+			this.emit(PlaylistEventType.ITEM_CHANGED, {
+				previousItem,
+				currentItem,
+				previousIndex,
+				currentIndex: index,
+				reason,
+				timestamp: Date.now(),
+			} as ItemChangedEventData);
 		}
 
 		if (this.config.enablePersistence) {
 			await this.saveState();
 		}
-
-		this.emit(PlaylistEventType.ITEM_CHANGED, {
-			previousItem,
-			currentItem,
-			previousIndex,
-			currentIndex: index,
-			reason,
-			timestamp: Date.now(),
-		} as ItemChangedEventData);
 
 		this.logger.debug(
 			LOG_TAGS.PLAYLISTS_MANAGER,

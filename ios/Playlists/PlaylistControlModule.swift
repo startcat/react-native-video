@@ -30,13 +30,27 @@ class PlaylistControlModule: RCTEventEmitter {
     
     @objc static let shared = PlaylistControlModule()
     
+    // Track if an instance has already been initialized to prevent multiple players
+    private static var hasInitializedInstance = false
+    private static let instanceLock = NSLock()
+    
+    // Track if this is the active instance
+    private var isActiveInstance: Bool = false
+    
     // MARK: - Properties
     
     private var playlist: [PlaylistItem] = []
     private var currentIndex: Int = 0
     private var config: PlaylistConfiguration = PlaylistConfiguration()
     
-    /// Modo standalone: usa su propio AVPlayer
+    // Operation mode
+    private enum OperationMode {
+        case coordinated  // RCTVideo handles playback (like Android)
+        case standalone   // Module has its own AVPlayer (legacy)
+    }
+    private var operationMode: OperationMode = .coordinated
+    
+    /// Modo standalone: usa su propio AVPlayer (DEPRECATED - use coordinated mode)
     private var player: AVPlayer?
     private var playerObserver: Any?
     private var timeObserver: Any?
@@ -50,8 +64,20 @@ class PlaylistControlModule: RCTEventEmitter {
     
     override init() {
         super.init()
-        // setupAudioSession()
-        setupNativeEventListeners()
+        
+        // Only allow one active instance to avoid multiple players
+        Self.instanceLock.lock()
+        defer { Self.instanceLock.unlock() }
+        
+        if !Self.hasInitializedInstance {
+            Self.hasInitializedInstance = true
+            isActiveInstance = true
+            setupNativeEventListeners()
+            print("[PlaylistControlModule] ✅ Active instance initialized")
+        } else {
+            isActiveInstance = false
+            print("[PlaylistControlModule] ⚠️ Additional instance created (will be ignored to prevent multiple players)")
+        }
     }
     
     deinit {
@@ -150,6 +176,11 @@ class PlaylistControlModule: RCTEventEmitter {
         return true
     }
     
+    // Force React Native to use the singleton instance
+    override class func moduleName() -> String! {
+        return "PlaylistControlModule"
+    }
+    
     override func supportedEvents() -> [String]! {
         return [
             "onNativeItemChanged",
@@ -166,6 +197,12 @@ class PlaylistControlModule: RCTEventEmitter {
     @objc func setPlaylist(_ items: [[String: Any]], config: [String: Any]) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            // Only allow active instance to prevent multiple players
+            guard self.isActiveInstance else {
+                print("[PlaylistControlModule] ⚠️ setPlaylist called on inactive instance (ignored)")
+                return
+            }
             
             // Parse items
             let totalItems = items.count
@@ -197,6 +234,10 @@ class PlaylistControlModule: RCTEventEmitter {
                 print("[PlaylistControlModule] ⚙️ Config: autoNext=\(self.config.autoNext), repeatMode=\(self.config.repeatMode.rawValue)")
             }
             
+            // Log operation mode
+            let modeStr = self.operationMode == .coordinated ? "COORDINATED" : "STANDALONE"
+            print("[PlaylistControlModule] 🎭 Operation mode: \(modeStr) (RCTVideo handles playback: \(self.operationMode == .coordinated))")
+            
             // Setup remote commands if not already done
             // if !self.hasSetupRemoteCommands {
             //     self.setupRemoteCommands()
@@ -209,6 +250,9 @@ class PlaylistControlModule: RCTEventEmitter {
     @objc func goToIndex(_ index: Int) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            // Only allow active instance
+            guard self.isActiveInstance else { return }
             
             guard index >= 0 && index < self.playlist.count else {
                 print("[PlaylistControlModule] ⚠️ Invalid index: \(index)")
@@ -234,6 +278,13 @@ class PlaylistControlModule: RCTEventEmitter {
                 ]
             )
             
+            // Load the new item only in standalone mode
+            if self.operationMode == .standalone {
+                print("[PlaylistControlModule] 🎬 Standalone mode: loading item in native player")
+                self.loadCurrentItem()
+            } else {
+                print("[PlaylistControlModule] 🎬 Coordinated mode: RCTVideo will handle playback")
+            }
         }
     }
     
@@ -376,6 +427,9 @@ class PlaylistControlModule: RCTEventEmitter {
         
         // Cleanup previous player
         removePlayerObservers()
+        
+        // Pause current player before replacing item to avoid double playback
+        player?.pause()
         
         // Create new player item
         guard let url = URL(string: item.source.uri) else {
@@ -553,18 +607,32 @@ class PlaylistControlModule: RCTEventEmitter {
     // MARK: - Remote Command Handlers
     
     private func handlePlayCommand() {
+        guard isActiveInstance else {
+            print("[PlaylistControlModule] ⚠️ handlePlayCommand called on inactive instance (ignored)")
+            return
+        }
+        print("[PlaylistControlModule] ▶️ Remote play command")
         player?.play()
     }
     
     private func handlePauseCommand() {
+        guard isActiveInstance else {
+            print("[PlaylistControlModule] ⚠️ handlePauseCommand called on inactive instance (ignored)")
+            return
+        }
+        print("[PlaylistControlModule] ⏸️ Remote pause command")
         player?.pause()
     }
     
     private func handleNextTrack() {
+        guard isActiveInstance else { return }
+        print("[PlaylistControlModule] ⏭️ Remote next command")
         goToNext()
     }
     
     private func handlePreviousTrack() {
+        guard isActiveInstance else { return }
+        print("[PlaylistControlModule] ⏮️ Remote previous command")
         goToPrevious()
     }
     
