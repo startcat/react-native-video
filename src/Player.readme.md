@@ -98,7 +98,7 @@ El Player acepta las siguientes funciones personalizadas como props:
 
 | Nombre | Firma | Descripción |
 |--------|-------|-------------|
-| addContentProgress | (currentTime: number, duration: number, id?: number) => void | Reporta el progreso de visualización |
+| addContentProgress | (item: PlaylistItemSimplified, currentTime: number, duration: number) => void | Reporta el progreso de visualización |
 | getSourceUri | (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string | Obtiene la URI de origen para un manifiesto |
 | getTudumManifest | () => IManifest \| null \| undefined | Obtiene el manifiesto para Tudum |
 | getYouboraOptions | (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora | Obtiene las opciones de configuración para Youbora |

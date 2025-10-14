@@ -20,7 +20,7 @@ import { type PlaylistItemSimplified } from '../features/playlists/types';
 
 export interface IPlayerHooks {
     watchingProgressInterval?: number;
-    addContentProgress?: (currentTime: number, duration: number, id?:number) => void;
+    addContentProgress?: (item: PlaylistItemSimplified, currentTime: number, duration: number) => void;
     getBestManifest?: (manifests: Array<IManifest>, isCasting?: boolean, isLive?: boolean) => IManifest | undefined;
     getSourceUri?: (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string;
     getYouboraOptions?: (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora;

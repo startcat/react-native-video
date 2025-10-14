@@ -194,11 +194,13 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 	// 		watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
 	// 			// Evitamos mandar el watching progress en directos y en Chromecast
 	// 			if (hasBeenLoaded.current && !dpoData?.isLive) {
-	// 				// @ts-ignore
-	// 				dpoData.hooks?.addContentProgress(
-	// 					dpoData.playerProgress?.currentTime,
-	// 					dpoData.playerProgress?.duration
-	// 				);
+	// 				// TODO: Actualizar para pasar PlaylistItemSimplified como primer parámetro
+	// 				// const playlistItemSimplified = { ... };
+	// 				// dpoData.hooks?.addContentProgress(
+	// 				// 	playlistItemSimplified,
+	// 				// 	dpoData.playerProgress?.currentTime,
+	// 				// 	dpoData.playerProgress?.duration
+	// 				// );
 	// 			}
 	// 		}, dpoData?.hooks?.watchingProgressInterval);
 	// 	}
