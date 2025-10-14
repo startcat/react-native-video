@@ -777,8 +777,11 @@ private struct PlaylistItem {
         self.source = PlaylistVideoSource(finalSourceDict)
         self.metadata = PlaylistVideoMetadata(metadataDict)
         self.type = dict["type"] as? String ?? "VIDEO"
-        self.startPosition = dict["startPosition"] as? Double ?? dict["initialState"]?["startPosition"] as? Double
-        self.duration = dict["duration"] as? Double ?? dict["initialState"]?["duration"] as? Double
+        
+        // Parse initialState if present
+        let initialState = dict["initialState"] as? [String: Any]
+        self.startPosition = dict["startPosition"] as? Double ?? initialState?["startPosition"] as? Double
+        self.duration = dict["duration"] as? Double ?? initialState?["duration"] as? Double
         
         print("[PlaylistItem] ✅ Successfully parsed item: \(id) (\(self.source.uri))")
     }
