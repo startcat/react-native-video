@@ -107,38 +107,57 @@ class NowPlayingInfoCenterManager {
         currentPlayer = player
         registerCommandTargets()
 
+        // NOTE: We don't set up periodic updates here because RCTVideo handles
+        // Now Playing Info updates via updateNowPlayingElapsedTime()
+        // Setting up periodic updates here can cause conflicts and pause the player
+        // when the rate is temporarily 0 during buffering
+        debugPrint("[NowPlayingInfoCenter] 🎯 Current player set - NOT setting up periodic observer (handled by RCTVideo)")
         updateNowPlayingInfo()
-        playbackObserver = player.addPeriodicTimeObserver(
-            forInterval: CMTime(value: 1, timescale: 4),
-            queue: .global(),
-            using: { [weak self] _ in
-                self?.updateNowPlayingInfo()
-            }
-        )
+        
+        // DISABLED: Periodic observer causes issues with background playback
+        // playbackObserver = player.addPeriodicTimeObserver(
+        //     forInterval: CMTime(value: 1, timescale: 4),
+        //     queue: .global(),
+        //     using: { [weak self] _ in
+        //         self?.updateNowPlayingInfo()
+        //     }
+        // )
     }
 
     private func registerCommandTargets() {
         invalidateCommandTargets()
 
         playTarget = remoteCommandCenter.playCommand.addTarget { [weak self] _ in
+            debugPrint("[NowPlayingInfoCenter] ▶️ PLAY command received")
             guard let self, let player = self.currentPlayer else {
+                debugPrint("[NowPlayingInfoCenter] ❌ PLAY command failed - no player")
                 return .commandFailed
             }
 
+            debugPrint("[NowPlayingInfoCenter] Player rate before PLAY: \(player.rate)")
             if player.rate == 0 {
                 player.play()
+                debugPrint("[NowPlayingInfoCenter] ✓ Player.play() called - new rate: \(player.rate)")
+            } else {
+                debugPrint("[NowPlayingInfoCenter] ℹ️ Player already playing")
             }
 
             return .success
         }
 
         pauseTarget = remoteCommandCenter.pauseCommand.addTarget { [weak self] _ in
+            debugPrint("[NowPlayingInfoCenter] ⏸️ PAUSE command received")
             guard let self, let player = self.currentPlayer else {
+                debugPrint("[NowPlayingInfoCenter] ❌ PAUSE command failed - no player")
                 return .commandFailed
             }
 
+            debugPrint("[NowPlayingInfoCenter] Player rate before PAUSE: \(player.rate)")
             if player.rate != 0 {
                 player.pause()
+                debugPrint("[NowPlayingInfoCenter] ✓ Player.pause() called - new rate: \(player.rate)")
+            } else {
+                debugPrint("[NowPlayingInfoCenter] ℹ️ Player already paused")
             }
 
             return .success
@@ -176,14 +195,19 @@ class NowPlayingInfoCenterManager {
 
         // Handler for togglePlayPauseCommand, sent by Apple's Earpods wired headphones
         togglePlayPauseTarget = remoteCommandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            debugPrint("[NowPlayingInfoCenter] 🔄 TOGGLE PLAY/PAUSE command received")
             guard let self, let player = self.currentPlayer else {
+                debugPrint("[NowPlayingInfoCenter] ❌ TOGGLE command failed - no player")
                 return .commandFailed
             }
 
+            debugPrint("[NowPlayingInfoCenter] Player rate before TOGGLE: \(player.rate)")
             if player.rate == 0 {
                 player.play()
+                debugPrint("[NowPlayingInfoCenter] ✓ Toggled to PLAY - new rate: \(player.rate)")
             } else {
                 player.pause()
+                debugPrint("[NowPlayingInfoCenter] ✓ Toggled to PAUSE - new rate: \(player.rate)")
             }
 
             return .success
@@ -200,19 +224,25 @@ class NowPlayingInfoCenterManager {
     }
 
     public func updateNowPlayingInfo() {
+        debugPrint("[NowPlayingInfoCenter] 🔄 updateNowPlayingInfo called")
         guard let player = currentPlayer, let currentItem = player.currentItem else {
+            debugPrint("[NowPlayingInfoCenter] ⚠️ No player or currentItem - clearing Now Playing Info")
             invalidateCommandTargets()
             MPNowPlayingInfoCenter.default().nowPlayingInfo = [:]
             return
         }
+        
+        // Don't update if player is not ready (duration is invalid)
+        if currentItem.duration.seconds.isNaN || currentItem.duration.seconds <= 0 {
+            debugPrint("[NowPlayingInfoCenter] ⚠️ Player not ready (duration: \(currentItem.duration.seconds)) - skipping update")
+            return
+        }
+        
+        debugPrint("[NowPlayingInfoCenter] Player rate: \(player.rate), duration: \(currentItem.duration.seconds)")
 
-        // commonMetadata is metadata from asset, externalMetadata is custom metadata set by user
-        // externalMetadata should override commonMetadata to allow override metadata from source
-        let metadata = {
-            let common = Dictionary(uniqueKeysWithValues: currentItem.asset.commonMetadata.map { ($0.identifier, $0) })
-            let external = Dictionary(uniqueKeysWithValues: currentItem.externalMetadata.map { ($0.identifier, $0) })
-            return Array((common.merging(external) { _, new in new }).values)
-        }()
+        // Use only externalMetadata to avoid blocking on commonMetadata load
+        // externalMetadata is set by RCTVideo and is immediately available
+        let metadata = currentItem.externalMetadata
 
         let titleItem = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierTitle).first?.stringValue ?? ""
 
@@ -224,18 +254,32 @@ class NowPlayingInfoCenterManager {
         let image = imgData.flatMap { UIImage(data: $0) } ?? UIImage()
         let artworkItem = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
 
+        // Determine playback rate - avoid setting to 0 during buffering as it can pause playback
+        let playbackRate: Double
+        if player.rate > 0 {
+            playbackRate = Double(player.rate)
+            debugPrint("[NowPlayingInfoCenter] ✅ Using actual player rate: \(player.rate)")
+        } else {
+            // Player rate is 0 - could be buffering or intentionally paused
+            // Default to 1.0 to prevent system from pausing during buffering
+            playbackRate = 1.0
+            debugPrint("[NowPlayingInfoCenter] ⚠️ Player rate is 0 - using 1.0 to prevent system pause")
+        }
+        
         let newNowPlayingInfo: [String: Any] = [
             MPMediaItemPropertyTitle: titleItem,
             MPMediaItemPropertyArtist: artistItem,
             MPMediaItemPropertyArtwork: artworkItem,
             MPMediaItemPropertyPlaybackDuration: currentItem.duration.seconds,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentItem.currentTime().seconds.rounded(),
-            MPNowPlayingInfoPropertyPlaybackRate: player.rate,
+            MPNowPlayingInfoPropertyPlaybackRate: playbackRate,
             MPNowPlayingInfoPropertyIsLiveStream: CMTIME_IS_INDEFINITE(currentItem.asset.duration),
         ]
         let currentNowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
 
+        debugPrint("[NowPlayingInfoCenter] 📤 Updating Now Playing - rate: \(player.rate), title: \(titleItem)")
         MPNowPlayingInfoCenter.default().nowPlayingInfo = currentNowPlayingInfo.merging(newNowPlayingInfo) { _, new in new }
+        debugPrint("[NowPlayingInfoCenter] ✓ Now Playing Info updated")
     }
 
     private func findNewCurrentPlayer() {
@@ -252,10 +296,12 @@ class NowPlayingInfoCenterManager {
             guard let self else { return }
 
             let rate = change.newValue
+            debugPrint("[NowPlayingInfoCenter] 👀 Player rate changed to: \(rate ?? -1)")
 
             // case where there is new player that is not paused
             // In this case event is triggered by non currentPlayer
             if rate != 0 && self.currentPlayer != player {
+                debugPrint("[NowPlayingInfoCenter] 🔄 New player started - switching current player")
                 self.setCurrentPlayer(player: player)
                 return
             }
@@ -263,6 +309,7 @@ class NowPlayingInfoCenterManager {
             // case where currentPlayer was paused
             // In this case event is triggeret by currentPlayer
             if rate == 0 && self.currentPlayer == player {
+                debugPrint("[NowPlayingInfoCenter] ⏸️ Current player paused - finding new current player")
                 self.findNewCurrentPlayer()
             }
         }

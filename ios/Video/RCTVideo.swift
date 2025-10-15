@@ -317,8 +317,18 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc
     func applicationDidEnterBackground(notification _: NSNotification!) {
         let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
-        if _playInBackground || isExternalPlaybackActive { return }
+        debugPrint("[RCTVideo] App entered background - playInBackground: \(_playInBackground), isExternalPlaybackActive: \(isExternalPlaybackActive)")
+        
+        if _playInBackground || isExternalPlaybackActive { 
+            debugPrint("[RCTVideo] Allowing background playback")
+            
+            debugPrint("[RCTVideo] ✓ Background playback allowed")
+            
+            return 
+        }
+        
         // Needed to play sound in background. See https://developer.apple.com/library/ios/qa/qa1668/_index.html
+        debugPrint("[RCTVideo] Pausing playback - removing player from layer")
         _playerLayer?.player = nil
         _playerViewController?.player = nil
     }
@@ -590,7 +600,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         if let maxBitRate = _maxBitRate {
             _playerItem?.preferredPeakBitRate = Double(maxBitRate)
         }
-
         if _player == nil {
             _player = AVPlayer()
             _player!.replaceCurrentItem(with: playerItem)
@@ -859,17 +868,28 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     @objc
     func setPaused(_ paused: Bool) {
+        debugPrint("[RCTVideo] 🎮 setPaused called - paused: \(paused), current _paused: \(_paused), playerRate: \(_player?.rate ?? -1)")
+        
         if paused {
             if _adPlaying {
                 #if RNUSE_GOOGLE_IMA
                     _imaAdsManager.getAdsManager()?.pause()
                 #endif
             } else {
+                debugPrint("[RCTVideo] ⏸️ Pausing player")
                 _player?.pause()
                 _player?.rate = 0.0
+                debugPrint("[RCTVideo] ✓ Player paused - rate: \(_player?.rate ?? -1)")
             }
         } else {
-            RCTPlayerOperations.configureAudio(ignoreSilentSwitch: _ignoreSilentSwitch, mixWithOthers: _mixWithOthers, audioOutput: _audioOutput)
+            // Only configure audio if we're transitioning from paused to playing
+            // Avoid reconfiguring on redundant calls
+            if _paused {
+                debugPrint("[RCTVideo] ▶️ Resuming player - configuring audio session")
+                RCTPlayerOperations.configureAudio(ignoreSilentSwitch: _ignoreSilentSwitch, mixWithOthers: _mixWithOthers, audioOutput: _audioOutput)
+            } else {
+                debugPrint("[RCTVideo] ⏭️ Already playing - skipping audio config")
+            }
 
             if _adPlaying {
                 #if RNUSE_GOOGLE_IMA
@@ -877,16 +897,20 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 #endif
             } else {
                 if #available(iOS 10.0, *), !_automaticallyWaitsToMinimizeStalling {
+                    debugPrint("[RCTVideo] 🚀 Playing immediately at rate: \(_rate)")
                     _player?.playImmediately(atRate: _rate)
                 } else {
+                    debugPrint("[RCTVideo] ▶️ Playing with rate: \(_rate)")
                     _player?.play()
                     _player?.rate = _rate
                 }
                 _player?.rate = _rate
+                debugPrint("[RCTVideo] ✓ Player resumed - rate: \(_player?.rate ?? -1)")
             }
         }
 
         _paused = paused
+        debugPrint("[RCTVideo] ✓ setPaused completed - _paused is now: \(_paused)")
     }
 
     @objc
@@ -1598,6 +1622,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                                    "audioTracks": audioTracks,
                                    "textTracks": self._textTracks?.compactMap { $0.json } ?? textTracks.map(\.json),
                                    "target": self.reactTag as Any])
+                
+                // Now that player is ready, update Now Playing Info with title and artwork
+                if self._showNotificationControls {
+                    debugPrint("[RCTVideo] Player loaded - updating Now Playing Info with metadata")
+                    NowPlayingInfoCenterManager.shared.updateNowPlayingInfo()
+                }
             }
 
             self._videoLoadStarted = false
@@ -1866,13 +1896,31 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 		}
 		#endif
         
+        debugPrint("[RCTVideo] 🔄 updateNowPlayingElapsedTime - currentTime: \(currentTime), duration: \(duration), playerRate: \(_player?.rate ?? -1), paused: \(_paused)")
+        
         var nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [String: Any]()
         
         nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
         nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration
-        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = _player?.rate ?? 0
         
+        // Only update playback rate if player is actually playing
+        // Setting rate to 0 can cause the system to pause playback in background
+        if let playerRate = _player?.rate, playerRate > 0 {
+            debugPrint("[RCTVideo] ✅ Setting Now Playing rate to \(playerRate) (player is playing)")
+            nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = playerRate
+        } else if !_paused {
+            // If player should be playing but rate is 0 (e.g., buffering), keep rate as 1.0
+            debugPrint("[RCTVideo] ⚠️ Player rate is 0 but should be playing - keeping Now Playing rate at 1.0")
+            nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = 1.0
+        } else {
+            // Player is intentionally paused
+            debugPrint("[RCTVideo] ⏸️ Setting Now Playing rate to 0 (player is paused)")
+            nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = 0
+        }
+        
+        debugPrint("[RCTVideo] 📤 About to update MPNowPlayingInfoCenter with rate: \(nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] ?? -1)")
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+        debugPrint("[RCTVideo] ✓ MPNowPlayingInfoCenter updated successfully")
     }
 
     @objc
