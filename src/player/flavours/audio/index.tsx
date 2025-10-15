@@ -123,21 +123,18 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	}, []);
 
 	useEffect(() => {
-		currentLogger.current?.temp(`useEffect isInBackground ${isInBackground}, paused ${paused}`);
+		// HACK para reanudar la reproducción si se pausa al pasar a background
 		if (isInBackground && !paused && refVideoPlayer.current && Platform.OS === "ios") {
 			refVideoPlayer.current?.resume();
 			setTimeout(() => {
-				currentLogger.current?.temp(`useEffect isInBackground -> resume`);
 				refVideoPlayer.current?.resume();
 			}, 100);
 
 			setTimeout(() => {
-				currentLogger.current?.temp(`useEffect isInBackground -> resume`);
 				refVideoPlayer.current?.resume();
 			}, 200);
 
 			setTimeout(() => {
-				currentLogger.current?.temp(`useEffect isInBackground -> resume`);
 				refVideoPlayer.current?.resume();
 			}, 300);
 		}
@@ -616,7 +613,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR) {
 				try {
 					// Hacer seek en DVR
-					dvrProgressManagerRef.current?.seekToTime(value);
+					dvrProgressManagerRef.current?.seekToTime(value as number);
 				} catch (error: any) {
 					currentLogger.current?.error(`DVR seekToTime failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -626,7 +623,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR) {
 				try {
 					// Hacer seek en DVR
-					dvrProgressManagerRef.current?.skipForward(value);
+					dvrProgressManagerRef.current?.skipForward(value as number);
 				} catch (error: any) {
 					currentLogger.current?.error(`DVR skipForward failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -636,7 +633,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR) {
 				try {
 					// Hacer seek en DVR
-					dvrProgressManagerRef.current?.skipBackward(value);
+					dvrProgressManagerRef.current?.skipBackward(value as number);
 				} catch (error: any) {
 					currentLogger.current?.error(`DVR skipBackward failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -646,7 +643,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			if (id === CONTROL_ACTION.SEEK && !sourceRef.current?.isLive) {
 				try {
 					// Hacer seek en VOD
-					vodProgressManagerRef.current?.seekToTime(value);
+					vodProgressManagerRef.current?.seekToTime(value as number);
 				} catch (error: any) {
 					currentLogger.current?.error(`VOD seekToTime failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -656,7 +653,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			if (id === CONTROL_ACTION.FORWARD && !sourceRef.current?.isLive) {
 				try {
 					// Hacer seek en VOD
-					vodProgressManagerRef.current?.skipForward(value);
+					vodProgressManagerRef.current?.skipForward(value as number);
 				} catch (error: any) {
 					currentLogger.current?.error(`VOD skipForward failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -666,7 +663,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			if (id === CONTROL_ACTION.BACKWARD && !sourceRef.current?.isLive) {
 				try {
 					// Hacer seek en VOD
-					vodProgressManagerRef.current?.skipBackward(value);
+					vodProgressManagerRef.current?.skipBackward(value as number);
 				} catch (error: any) {
 					currentLogger.current?.error(`VOD skipBackward failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -735,6 +732,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			speedRate: speedRate,
 			extraData: props.playlistItem?.extraData,
 			// Nuevas Props Agrupadas
+			playlistItemType: props.playlistItem?.type,
 			playerMetadata: props.playlistItem?.metadata,
 			playerProgress: {
 				...playerProgressRef.current,

@@ -8,7 +8,11 @@ import { type PlayerAnalyticsPlugin } from "../features/analytics/types";
 import { type LoggerConfigBasic } from "../features/logger/types";
 import * as Enums from "./enums";
 
-import { type PlaylistConfig, type PlaylistItem } from "../features/playlists/types";
+import {
+	type PlaylistConfig,
+	type PlaylistItem,
+	PlaylistItemType,
+} from "../features/playlists/types";
 
 import {
 	type IBasicProgram,
@@ -85,6 +89,7 @@ export interface IPlayerTimeMarkers {
 }
 
 export interface ICommonPlayerProps {
+	playlistItemType?: PlaylistItemType;
 	playerContext?: PlayerContext;
 	playerMetadata?: IPlayerMetadata;
 	playerProgress?: IPlayerProgress;
