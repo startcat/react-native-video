@@ -1890,9 +1890,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         guard enablePlaylistIntegration else { return }
 
 		#if DEBUG
-		let shouldLog = Int(currentTime) % 5 == 0
-		if shouldLog {
-			print("[RCTVideo] 📊 Updating Now Playing: \(Int(currentTime))s / \(Int(duration))s")
+		// Only log if currentTime is valid and divisible by 5
+		if !currentTime.isNaN && !currentTime.isInfinite && Int(currentTime) % 5 == 0 {
+			let durationStr = duration.isNaN || duration.isInfinite ? "unknown" : "\(Int(duration))s"
+			print("[RCTVideo] 📊 Updating Now Playing: \(Int(currentTime))s / \(durationStr)")
 		}
 		#endif
         
