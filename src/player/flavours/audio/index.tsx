@@ -17,6 +17,8 @@ import Video, { type VideoRef } from "../../../Video";
 import { handleErrorException, mapVideoErrorToPlayerError, PlayerError } from "../../core/errors";
 
 import { useIsBuffering } from "../../core/buffering";
+import { useVideoAnalytics } from "../../core/events/hooks/useVideoAnalytics";
+import { useAppIsInBackground } from "../../hooks/isInBackground";
 
 import { type onSourceChangedProps, type SourceContext, SourceClass } from "../../modules/source";
 
@@ -29,10 +31,9 @@ import {
 
 import { ComponentLogger } from "../../features/logger";
 
-import { useVideoAnalytics } from "../../core/events/hooks/useVideoAnalytics";
-
 import { styles } from "../styles";
 
+import { Platform } from "react-native";
 import {
 	type AudioFlavourProps,
 	type AudioPlayerActionEventProps,
@@ -99,6 +100,9 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		onBufferingChange: props.events?.onBuffering,
 	});
 
+	// Hook para el estado de background
+	const isInBackground = useAppIsInBackground();
+
 	useEffect(() => {
 		currentLogger.current?.info(`useEffect videoSource ${JSON.stringify(videoSource)}`);
 	}, [videoSource?.uri]);
@@ -117,6 +121,27 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			}
 		};
 	}, []);
+
+	useEffect(() => {
+		currentLogger.current?.temp(`useEffect isInBackground ${isInBackground}, paused ${paused}`);
+		if (isInBackground && !paused && refVideoPlayer.current && Platform.OS === "ios") {
+			refVideoPlayer.current?.resume();
+			setTimeout(() => {
+				currentLogger.current?.temp(`useEffect isInBackground -> resume`);
+				refVideoPlayer.current?.resume();
+			}, 100);
+
+			setTimeout(() => {
+				currentLogger.current?.temp(`useEffect isInBackground -> resume`);
+				refVideoPlayer.current?.resume();
+			}, 200);
+
+			setTimeout(() => {
+				currentLogger.current?.temp(`useEffect isInBackground -> resume`);
+				refVideoPlayer.current?.resume();
+			}, 300);
+		}
+	}, [isInBackground, paused, refVideoPlayer.current]);
 
 	useEffect(() => {
 		currentLogger.current?.info(`useEffect playlistItem - type: ${props.playlistItem?.type}`);
@@ -156,20 +181,22 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		);
 
 		// Crear PlaylistItemSimplified para hooks
-		const playlistItemSimplified = props.playlistItem ? {
-			id: props.playlistItem.id,
-			type: props.playlistItem.type,
-			status: props.playlistItem.status,
-			resolvedSources: props.playlistItem.resolvedSources,
-			metadata: props.playlistItem.metadata,
-			timeMarkers: props.playlistItem.timeMarkers,
-			duration: props.playlistItem.duration,
-			isLive: props.playlistItem.isLive,
-			liveSettings: props.playlistItem.liveSettings,
-			playOffline: props.playlistItem.playOffline,
-			addedAt: props.playlistItem.addedAt,
-			extraData: props.playlistItem.extraData,
-		} : null;
+		const playlistItemSimplified = props.playlistItem
+			? {
+					id: props.playlistItem.id,
+					type: props.playlistItem.type,
+					status: props.playlistItem.status,
+					resolvedSources: props.playlistItem.resolvedSources,
+					metadata: props.playlistItem.metadata,
+					timeMarkers: props.playlistItem.timeMarkers,
+					duration: props.playlistItem.duration,
+					isLive: props.playlistItem.isLive,
+					liveSettings: props.playlistItem.liveSettings,
+					playOffline: props.playlistItem.playOffline,
+					addedAt: props.playlistItem.addedAt,
+					extraData: props.playlistItem.extraData,
+				}
+			: null;
 
 		// Actualizar playlist item en DVR Progress Manager si existe
 		if (dvrProgressManagerRef.current && playlistItemSimplified) {
@@ -338,35 +365,33 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		(data: ProgressUpdateData) => {
 			currentLogger.current?.debug(`handleOnProgressUpdate ${JSON.stringify(data)}`);
 
-			// Solo actualizar sliderValues si NO es TUDUM
-			if (props.playlistItem?.type !== "TUDUM") {
-				setSliderValues({
-					minimumValue: data.minimumValue,
-					maximumValue: data.maximumValue,
-					progress: data.progress,
-					percentProgress: data.percentProgress,
-					duration: data.duration || 0,
-					canSeekToEnd: data.canSeekToEnd,
-					liveEdge: data.liveEdge,
-					percentLiveEdge: data.percentLiveEdge,
-					isProgramLive: data.isProgramLive,
-					progressDatum: data.progressDatum,
-					liveEdgeOffset: data.liveEdgeOffset,
-					isLiveEdgePosition: data.isLiveEdgePosition,
-				});
+			// Actualizar sliderValues para todos los tipos de items (incluido TUDUM)
+			setSliderValues({
+				minimumValue: data.minimumValue,
+				maximumValue: data.maximumValue,
+				progress: data.progress,
+				percentProgress: data.percentProgress,
+				duration: data.duration || 0,
+				canSeekToEnd: data.canSeekToEnd,
+				liveEdge: data.liveEdge,
+				percentLiveEdge: data.percentLiveEdge,
+				isProgramLive: data.isProgramLive,
+				progressDatum: data.progressDatum,
+				liveEdgeOffset: data.liveEdgeOffset,
+				isLiveEdgePosition: data.isLiveEdgePosition,
+			});
 
-				playerProgressRef.current = {
-					...playerProgressRef.current,
-					currentTime: currentTime,
-					duration: sliderValues?.duration || 0,
-					isPaused: paused,
-					isMuted: muted,
-					isContentLoaded: isContentLoaded,
-					isChangingSource: isChangingSource.current,
-					sliderValues: sliderValues,
-					currentProgram: data.currentProgram,
-				};
-			}
+			playerProgressRef.current = {
+				...playerProgressRef.current,
+				currentTime: currentTime,
+				duration: sliderValues?.duration || 0,
+				isPaused: paused,
+				isMuted: muted,
+				isContentLoaded: isContentLoaded,
+				isChangingSource: isChangingSource.current,
+				sliderValues: sliderValues,
+				currentProgram: data.currentProgram,
+			};
 		},
 		[currentTime, paused, muted, isContentLoaded, props.playlistItem?.type]
 	);
@@ -410,20 +435,22 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		// Initialize DVR Progress Manager
 		if (!dvrProgressManagerRef.current) {
 			// Crear PlaylistItemSimplified para inicialización
-			const playlistItemSimplified = props.playlistItem ? {
-				id: props.playlistItem.id,
-				type: props.playlistItem.type,
-				status: props.playlistItem.status,
-				resolvedSources: props.playlistItem.resolvedSources,
-				metadata: props.playlistItem.metadata,
-				timeMarkers: props.playlistItem.timeMarkers,
-				duration: props.playlistItem.duration,
-				isLive: props.playlistItem.isLive,
-				liveSettings: props.playlistItem.liveSettings,
-				playOffline: props.playlistItem.playOffline,
-				addedAt: props.playlistItem.addedAt,
-				extraData: props.playlistItem.extraData,
-			} : null;
+			const playlistItemSimplified = props.playlistItem
+				? {
+						id: props.playlistItem.id,
+						type: props.playlistItem.type,
+						status: props.playlistItem.status,
+						resolvedSources: props.playlistItem.resolvedSources,
+						metadata: props.playlistItem.metadata,
+						timeMarkers: props.playlistItem.timeMarkers,
+						duration: props.playlistItem.duration,
+						isLive: props.playlistItem.isLive,
+						liveSettings: props.playlistItem.liveSettings,
+						playOffline: props.playlistItem.playOffline,
+						addedAt: props.playlistItem.addedAt,
+						extraData: props.playlistItem.extraData,
+					}
+				: null;
 
 			dvrProgressManagerRef.current = new DVRProgressManagerClass({
 				logger: props.playerContext?.logger,
@@ -749,9 +776,11 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	const handleOnLoad = async (e: OnLoadData) => {
 		currentLogger.current?.info(`handleOnLoad (${sourceRef.current?.playerSource?.uri})`);
 
-		// Solo procesar onLoad si NO es TUDUM
-		if (props.playlistItem?.type !== "TUDUM" && !isContentLoaded) {
-			currentLogger.current?.debug(`handleOnLoad - Processing content load`);
+		// Procesar onLoad para todos los tipos de items (incluido TUDUM)
+		if (!isContentLoaded) {
+			currentLogger.current?.debug(
+				`handleOnLoad - Processing content load (type: ${props.playlistItem?.type})`
+			);
 
 			// Para VOD, establecer la duración desde el evento onLoad
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
@@ -783,8 +812,6 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
 				}
 			}
-		} else if (props.playlistItem?.type === "TUDUM") {
-			currentLogger.current?.info(`handleOnLoad - Tudum loaded, duration: ${e.duration}`);
 		} else {
 			currentLogger.current?.debug(
 				`handleOnLoad - Ignoring load event (playlistItem type: ${props.playlistItem?.type}, isContentLoaded: ${isContentLoaded})`
@@ -810,9 +837,8 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			setCurrentTime(e.currentTime);
 		}
 
-		// Solo procesar progreso si NO es TUDUM Y el contenido está cargado
-		// Esto previene race conditions cuando se cambia de TUDUM a contenido normal
-		if (props.playlistItem?.type !== "TUDUM" && isContentLoaded) {
+		// Procesar progreso para todos los tipos de items (incluido TUDUM) si el contenido está cargado
+		if (isContentLoaded) {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
 				// Para VOD: NO actualizar duration en onProgress, mantener la que se estableció en onLoad
 				const currentDuration = vodProgressManagerRef.current?.duration || 0;
@@ -863,7 +889,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 		// Ignore onEnd if content hasn't been loaded yet
 		// This prevents spurious onEnd events when changing sources
-		if (!isContentLoaded && props.playlistItem?.type !== "TUDUM") {
+		if (!isContentLoaded) {
 			currentLogger.current?.warn(
 				`handleOnEnd: Ignoring onEnd event - content not loaded yet (type: ${props.playlistItem?.type})`
 			);

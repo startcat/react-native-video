@@ -101,6 +101,12 @@ class PlaylistControlModule: RCTEventEmitter {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
+            // Only allow active instance to handle item completion
+            guard self.isActiveInstance else {
+                print("[PlaylistControlModule] ⚠️ handleRCTVideoItemFinished called on inactive instance (ignored)")
+                return
+            }
+            
             let itemId = notification.userInfo?["itemId"] as? String
             
             print("[PlaylistControlModule] 🎬 RCTVideo item finished: \(itemId ?? "unknown")")
@@ -363,16 +369,6 @@ class PlaylistControlModule: RCTEventEmitter {
     }
     
     // MARK: - Private Methods
-    
-    private func setupAudioSession() {
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playback, mode: .default)
-            try audioSession.setActive(true)
-        } catch {
-            print("[PlaylistControlModule] Failed to setup audio session: \(error)")
-        }
-    }
     
     private func setupRemoteCommands() {
         let commandCenter = MPRemoteCommandCenter.shared()
