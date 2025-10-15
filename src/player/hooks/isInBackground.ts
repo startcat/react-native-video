@@ -6,8 +6,6 @@ export const useAppIsInBackground = () => {
 	const lastStateRef = useRef<AppStateStatus>("unknown");
 
 	const handleAppStateChange = (nextAppState: AppStateStatus) => {
-		console.log("[useAppIsInBackground] AppState change: ", nextAppState, lastStateRef.current);
-
 		if (lastStateRef.current !== nextAppState && nextAppState === "background") {
 			setIsInBackground(true);
 		} else if (lastStateRef.current !== nextAppState) {
