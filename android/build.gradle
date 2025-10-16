@@ -190,6 +190,9 @@ dependencies {
 
     implementation "androidx.core:core:$androidxCore_version"
     implementation "androidx.activity:activity-ktx:$androidxActivity_version"
+    
+    // For audio focus management (needed for standalone playlist mode)
+    implementation "androidx.media:media:1.7.0"
 
     // For media playback using ExoPlayer
     implementation "androidx.media3:media3-exoplayer:$media3_version"
