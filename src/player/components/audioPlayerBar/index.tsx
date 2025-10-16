@@ -244,13 +244,23 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			currentLogger.current?.info(
 				`🔔 Playlist ITEM_CHANGED received: ${data.currentItem?.id || data.item?.id}`
 			);
-			// currentLogger.current?.debug(`Playlist ITEM_CHANGED: ${JSON.stringify(data)}`);
 
 			// Usar currentItem si está disponible, sino usar item
 			const itemToUse = data.currentItem || data.item;
 
 			if (itemToUse) {
-				currentLogger.current?.info(`📝 Setting currentPlaylistItem to: ${itemToUse.id}`);
+				// Asegurar que initialState.startPosition esté correctamente inicializado
+				// Si no existe, usar 0 como valor por defecto
+				if (!itemToUse.initialState) {
+					itemToUse.initialState = {};
+				}
+				if (itemToUse.initialState.startPosition === undefined) {
+					itemToUse.initialState.startPosition = 0;
+				}
+
+				currentLogger.current?.info(
+					`📝 Setting currentPlaylistItem: ${itemToUse.id}, startPosition: ${itemToUse.initialState.startPosition}`
+				);
 				setCurrentPlaylistItem(itemToUse);
 			}
 		});

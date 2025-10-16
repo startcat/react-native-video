@@ -92,6 +92,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
+	const hasCalledInitialSeekRef = useRef<boolean>(false);
 
 	// Hook para el estado de buffering
 	const isBuffering = useIsBuffering({
@@ -164,6 +165,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		// Reset state
 		setSliderValues(undefined);
 		setIsContentLoaded(false);
+		hasCalledInitialSeekRef.current = false;
 
 		// Reset progress managers
 		vodProgressManagerRef.current?.reset();
@@ -200,9 +202,22 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			dvrProgressManagerRef.current.setPlaylistItem(playlistItemSimplified);
 		}
 
+		// Calcular startPosition
+		// Para live DVR, checkInitialSeek se encargará del seek inicial al live edge
+		// Solo usamos startPosition si viene explícitamente del backend
+		const rawStartPosition = props.playlistItem?.initialState?.startPosition;
+		const calculatedStartPosition =
+			rawStartPosition !== undefined && rawStartPosition !== null && rawStartPosition >= 0
+				? rawStartPosition
+				: 0;
+
+		currentLogger.current?.info(
+			`PlaylistItem startPosition - original: ${rawStartPosition}, calculated: ${calculatedStartPosition.toFixed(1)}s`
+		);
+
 		// Crear playerProgress desde el playlistItem
 		playerProgressRef.current = {
-			currentTime: props.playlistItem?.initialState?.startPosition || 0,
+			currentTime: calculatedStartPosition,
 			duration: props.playlistItem?.initialState?.duration || 0,
 			isLive: isLive,
 			isPaused: props.initialState?.isPaused,
@@ -246,7 +261,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			squaredPoster: props.playlistItem?.metadata?.squaredPoster,
 			resolvedSources: props.playlistItem.resolvedSources,
 			sourceContext: sourceContext,
-			startPosition: props.playlistItem?.initialState?.startPosition || 0,
+			startPosition: calculatedStartPosition,
 			isLive: isLive,
 			isCast: false,
 			headers: props.playlistItem.resolvedSources.local?.headers as
@@ -449,12 +464,24 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					}
 				: null;
 
+			currentLogger.current?.temp(
+				`Creating DVR Progress Manager with playbackType: ${JSON.stringify(
+					playerProgressRef.current?.liveValues
+				)}`
+			);
+
+			currentLogger.current?.temp(
+				`Creating DVR Progress Manager with playlistItem: ${JSON.stringify(
+					playlistItemSimplified
+				)}`
+			);
+
 			dvrProgressManagerRef.current = new DVRProgressManagerClass({
 				logger: props.playerContext?.logger,
 				loggerEnabled: props.logger?.progressManager?.enabled,
 				loggerLevel: props.logger?.progressManager?.level,
-				playbackType: playerProgressRef.current?.liveValues?.playbackType,
-				currentProgram: playerProgressRef.current?.liveValues?.currentProgram,
+				playbackType: props.playlistItem?.liveSettings?.playbackType,
+				currentProgram: props.playlistItem?.liveSettings?.currentProgram,
 				playlistItem: playlistItemSimplified,
 				getEPGProgramAt: props.hooks?.getEPGProgramAt,
 				onModeChange: handleOnDVRModeChange,
@@ -801,15 +828,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 				props.events.onStart();
 			}
 
-			// Seek inicial al cargar un live con DVR
-			if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-				try {
-					dvrProgressManagerRef.current.checkInitialSeek("player", false);
-				} catch (error: any) {
-					currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
-					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
-				}
-			}
+			// NOTA: checkInitialSeek se llama en handleOnProgress después de recibir datos válidos
 		} else {
 			currentLogger.current?.debug(
 				`handleOnLoad - Ignoring load event (playlistItem type: ${props.playlistItem?.type}, isContentLoaded: ${isContentLoaded})`
@@ -864,6 +883,36 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					isBuffering: isBuffering,
 					isPaused: paused,
 				});
+
+				// Ejecutar checkInitialSeek DESPUÉS de que el DVR Manager tenga datos válidos
+				if (!hasCalledInitialSeekRef.current && dvrProgressManagerRef.current) {
+					// Verificar que el DVR Manager esté listo para operaciones de seek
+					if (dvrProgressManagerRef.current.isReadyForSeek) {
+						try {
+							// Determinar si estamos restringidos al programa actual
+							const isLiveProgramRestricted =
+								props.playlistItem?.liveSettings?.playbackType === "playlist" &&
+								!!props.playlistItem?.liveSettings?.currentProgram;
+
+							currentLogger.current?.info(
+								`✅ DVR Manager ready - Calling checkInitialSeek with isLiveProgramRestricted: ${isLiveProgramRestricted}, playbackType: ${props.playlistItem?.liveSettings?.playbackType}`
+							);
+
+							dvrProgressManagerRef.current.checkInitialSeek(
+								"player",
+								isLiveProgramRestricted
+							);
+							hasCalledInitialSeekRef.current = true;
+						} catch (error: any) {
+							currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
+							handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
+						}
+					} else {
+						currentLogger.current?.debug(
+							`⏳ DVR Manager not ready yet for checkInitialSeek - will retry on next progress update`
+						);
+					}
+				}
 			}
 
 			if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData) {
