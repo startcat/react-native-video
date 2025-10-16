@@ -1,6 +1,5 @@
-import { Platform } from "react-native";
-import { type SliderValues } from "../../types/types";
 import { type PlaylistItemSimplified } from "../../features/playlists/types";
+import { type SliderValues } from "../../types/types";
 import { BaseProgressManager } from "./BaseProgressManager";
 import {
 	EPG_RETRY_DELAYS,
@@ -48,7 +47,9 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
 	// Callbacks específicos del DVR
 	private _dvrCallbacks: {
-		getEPGProgramAt?: ((item: PlaylistItemSimplified, timestamp: number) => Promise<any>) | null;
+		getEPGProgramAt?:
+			| ((item: PlaylistItemSimplified, timestamp: number) => Promise<any>)
+			| null;
 		onModeChange?: ((data: ModeChangeData) => void) | null;
 		onProgramChange?: ((data: ProgramChangeData) => void) | null;
 		onEPGRequest?: ((timestamp: number) => void) | null;
@@ -290,7 +291,9 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	 */
 
 	updateDVRCallbacks(callbacks: {
-		getEPGProgramAt?: ((item: PlaylistItemSimplified, timestamp: number) => Promise<any>) | null;
+		getEPGProgramAt?:
+			| ((item: PlaylistItemSimplified, timestamp: number) => Promise<any>)
+			| null;
 		onModeChange?: ((data: ModeChangeData) => void) | null;
 		onProgramChange?: ((data: ProgramChangeData) => void) | null;
 		onEPGRequest?: ((timestamp: number) => void) | null;
@@ -307,7 +310,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	setPlaylistItem(item: PlaylistItemSimplified | null): void {
 		this._currentPlaylistItem = item;
 		this._currentLogger?.debug(
-			`setPlaylistItem - Updated playlist item: ${item ? item.id : 'null'}`
+			`setPlaylistItem - Updated playlist item: ${item ? item.id : "null"}`
 		);
 	}
 
@@ -330,24 +333,72 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	}
 
 	checkInitialSeek(mode: "player" | "cast", isLiveProgramRestricted: boolean): void {
-		this._currentLogger?.debug(
-			`checkInitialSeek for ${mode} - isLiveProgramRestricted: ${isLiveProgramRestricted} - _isLiveEdgePosition: ${this._isLiveEdgePosition}`
+		// CRITICAL: No ejecutar si no tenemos datos válidos del player
+		if (!this._hasReceivedPlayerData || !this._isValidState()) {
+			this._currentLogger?.warn(
+				`checkInitialSeek called but no valid player data yet - deferring initial seek logic`
+			);
+			this._currentLogger?.debug(
+				`checkInitialSeek state: ${JSON.stringify({
+					hasReceivedPlayerData: this._hasReceivedPlayerData,
+					isValidState: this._isValidState(),
+					seekableRange: this._seekableRange,
+					currentTime: this._currentTime,
+				})}`
+			);
+			return;
+		}
+
+		// Calcular la posición real actual basada en datos del player
+		const actualOffset = this._seekableRange.end - this._currentTime;
+		const isActuallyAtLiveEdge = actualOffset <= LIVE_EDGE_TOLERANCE;
+
+		this._currentLogger?.info(
+			`checkInitialSeek for ${mode} - isLiveProgramRestricted: ${isLiveProgramRestricted}, actualOffset: ${actualOffset.toFixed(1)}s, isActuallyAtLiveEdge: ${isActuallyAtLiveEdge}, playbackType: ${this._playbackType}`
 		);
 
-		if (isLiveProgramRestricted === false && !this._isLiveEdgePosition) {
-			setTimeout(() => {
-				this.goToLive();
-			}, 300);
-		} else if (isLiveProgramRestricted) {
+		// PLAYLIST mode: SIEMPRE inicia en live edge (como WINDOW)
+		// isLiveProgramRestricted solo afecta a la navegación (límites del slider), NO a la posición inicial
+		if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
+			if (!isActuallyAtLiveEdge) {
+				this._currentLogger?.info(
+					`PLAYLIST mode - going to live edge (actualOffset: ${actualOffset.toFixed(1)}s)`
+				);
+				setTimeout(() => {
+					this.goToLive();
+				}, 300);
+			} else {
+				this._currentLogger?.info(
+					`PLAYLIST mode - already at live edge, no seek needed`
+				);
+			}
+			return;
+		}
+
+		// PROGRAM mode: inicia en el inicio del programa
+		if (this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM && this._currentProgram) {
+			this._currentLogger?.info(`PROGRAM mode - seeking to program start`);
 			setTimeout(() => {
 				this._isLiveEdgePosition = false;
-				this._handleSeekTo(0);
+				this.goToProgramStart();
 			}, 300);
-		} else if (mode === "player" && Platform.OS === "ios") {
+			return;
+		}
+
+		// WINDOW mode: si no estamos en live edge, ir al live edge
+		if (!isActuallyAtLiveEdge) {
+			this._currentLogger?.info(
+				`WINDOW mode - going to live edge (offset: ${actualOffset.toFixed(1)}s)`
+			);
 			setTimeout(() => {
 				this.goToLive();
 			}, 300);
+			return;
 		}
+
+		this._currentLogger?.debug(
+			`checkInitialSeek - No action needed (already at correct position)`
+		);
 	}
 
 	async setPlaybackType(playbackType: DVR_PLAYBACK_TYPE, program: any = null): Promise<void> {
@@ -371,7 +422,10 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		) {
 			try {
 				const timestamp = this._getProgressDatum();
-				program = await this._dvrCallbacks.getEPGProgramAt(this._currentPlaylistItem, timestamp);
+				program = await this._dvrCallbacks.getEPGProgramAt(
+					this._currentPlaylistItem,
+					timestamp
+				);
 			} catch (error) {
 				this._currentLogger?.error(
 					`Error getting program for mode change: ${JSON.stringify(error)}`
@@ -503,7 +557,9 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			!this._isValidState() ||
 			!this._epgRetryTimeouts
 		) {
-			this._currentLogger?.warn("getCurrentProgramInfo: Manager destroyed, no playlist item, or invalid state");
+			this._currentLogger?.warn(
+				"getCurrentProgramInfo: Manager destroyed, no playlist item, or invalid state"
+			);
 			return null;
 		}
 
@@ -515,7 +571,10 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		}
 
 		try {
-			this._currentProgram = await this._dvrCallbacks.getEPGProgramAt(this._currentPlaylistItem, timestamp);
+			this._currentProgram = await this._dvrCallbacks.getEPGProgramAt(
+				this._currentPlaylistItem,
+				timestamp
+			);
 			this._epgRetryCount.delete(timestamp);
 			this._epgRetryTimeouts.delete(timestamp);
 			return this._currentProgram;
@@ -587,6 +646,10 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		return this._isValidState() ? this._isProgramCurrentlyLive() : false;
 	}
 
+	get isReadyForSeek(): boolean {
+		return this._hasReceivedPlayerData && this._isValidState();
+	}
+
 	/*
 	 *  Métodos protegidos sobrescritos
 	 *
@@ -598,9 +661,21 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		const dvrValid = this._seekableRange.end > this._seekableRange.start;
 
 		if (!baseValid) {
-			this._currentLogger?.debug("DVR validation failed: base state invalid");
+			this._currentLogger?.debug(
+				`DVR validation failed: base state invalid - ${JSON.stringify({
+					hasReceivedPlayerData: this._hasReceivedPlayerData,
+					seekableRange: this._seekableRange,
+					currentTime: this._currentTime,
+				})}`
+			);
 		} else if (!dvrValid) {
-			this._currentLogger?.warn("DVR validation failed: invalid seekableRange");
+			this._currentLogger?.warn(
+				`DVR validation failed: invalid seekableRange - ${JSON.stringify({
+					seekableRange: this._seekableRange,
+					start: this._seekableRange.start,
+					end: this._seekableRange.end,
+				})}`
+			);
 		}
 
 		return baseValid && dvrValid;
@@ -1051,20 +1126,15 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	}
 
 	// Conversión simple y unificada para todos los modos
+	// playerTime del reproductor SIEMPRE es relativo al inicio de la ventana DVR (windowStart)
 	private _playerTimeToTimestamp(playerTime: number): number {
 		const windowStart = this._getWindowStart();
 		return windowStart + playerTime * 1000;
 	}
 
-	// Conversión simple basada en el modo
+	// Conversión simple y unificada para todos los modos
+	// El reproductor SIEMPRE espera playerTime relativo al inicio de la ventana DVR (windowStart)
 	private _timestampToPlayerTime(timestamp: number): number {
-		if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST && this._currentProgram) {
-			// En PLAYLIST: timestamp relativo al programa
-			const programStart = this._currentProgram.startDate;
-			return Math.max(0, (timestamp - programStart) / 1000);
-		}
-
-		// Para WINDOW y PROGRAM: timestamp relativo a ventana
 		const windowStart = this._getWindowStart();
 		return Math.max(0, (timestamp - windowStart) / 1000);
 	}
@@ -1091,7 +1161,12 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	}
 
 	private async _checkProgramChange(): Promise<void> {
-		if (!this._currentProgram || !this._dvrCallbacks.getEPGProgramAt || !this._currentPlaylistItem) return;
+		if (
+			!this._currentProgram ||
+			!this._dvrCallbacks.getEPGProgramAt ||
+			!this._currentPlaylistItem
+		)
+			return;
 
 		const currentProgress = this._getProgressDatum();
 
@@ -1099,7 +1174,10 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			this._currentLogger?.info("Program ended, checking for next program");
 
 			try {
-				const nextProgram = await this._dvrCallbacks.getEPGProgramAt(this._currentPlaylistItem, currentProgress);
+				const nextProgram = await this._dvrCallbacks.getEPGProgramAt(
+					this._currentPlaylistItem,
+					currentProgress
+				);
 				if (nextProgram && nextProgram.id !== this._currentProgram.id) {
 					const previousProgram = this._currentProgram;
 					this._currentProgram = nextProgram;
