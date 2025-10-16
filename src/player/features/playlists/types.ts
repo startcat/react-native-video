@@ -273,6 +273,17 @@ export interface PlaylistConfig {
 
 	/** Tiempo de espera máximo para cargar un item en ms (default: 30000) */
 	loadTimeoutMs?: number;
+
+	/**
+	 * Modo coordinado con componente Video (default: true)
+	 *
+	 * - true: El módulo nativo escucha eventos del componente Video y gestiona solo la cola.
+	 *   Ideal para reproducción con UI visual (Video component).
+	 *
+	 * - false: Modo standalone - el módulo gestiona su propio reproductor.
+	 *   Útil para reproducción desde servicios JavaScript sin componentes visuales.
+	 */
+	coordinatedMode?: boolean;
 }
 
 /*

@@ -236,7 +236,8 @@ data class PlaylistConfiguration(
     val autoNext: Boolean = true,
     val repeatMode: PlaylistRepeatMode = PlaylistRepeatMode.OFF,
     val skipOnError: Boolean = true,
-    val shuffleEnabled: Boolean = false
+    val shuffleEnabled: Boolean = false,
+    val coordinatedMode: Boolean = true
 ) {
     companion object {
         fun fromMap(map: ReadableMap?): PlaylistConfiguration {
@@ -273,6 +274,12 @@ data class PlaylistConfiguration(
                     } catch (e: Exception) {
                         Log.w("PlaylistConfig", "Invalid shuffleEnabled value, using default: false", e)
                         false
+                    },
+                    coordinatedMode = try {
+                        if (map.hasKey("coordinatedMode")) map.getBoolean("coordinatedMode") else true
+                    } catch (e: Exception) {
+                        Log.w("PlaylistConfig", "Invalid coordinatedMode value, using default: true", e)
+                        true
                     }
                 )
             } catch (e: Exception) {
