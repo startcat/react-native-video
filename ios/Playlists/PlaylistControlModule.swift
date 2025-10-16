@@ -237,7 +237,10 @@ class PlaylistControlModule: RCTEventEmitter {
             
             if let configData = config["config"] as? [String: Any] {
                 self.config = PlaylistConfiguration(dict: configData)
-                print("[PlaylistControlModule] ⚙️ Config: autoNext=\(self.config.autoNext), repeatMode=\(self.config.repeatMode.rawValue)")
+                print("[PlaylistControlModule] ⚙️ Config: autoNext=\(self.config.autoNext), repeatMode=\(self.config.repeatMode.rawValue), coordinatedMode=\(self.config.coordinatedMode)")
+                
+                // Actualizar operation mode basado en coordinatedMode
+                self.operationMode = self.config.coordinatedMode ? .coordinated : .standalone
             }
             
             // Log operation mode
@@ -920,12 +923,14 @@ private struct PlaylistConfiguration {
     var repeatMode: PlaylistRepeatMode = .off
     var shuffleMode: PlaylistShuffleMode = .off
     var skipOnError: Bool = true
+    var coordinatedMode: Bool = true
     
     init() {}
     
     init(dict: [String: Any]) {
         self.autoNext = dict["autoNext"] as? Bool ?? true
         self.skipOnError = dict["skipOnError"] as? Bool ?? true
+        self.coordinatedMode = dict["coordinatedMode"] as? Bool ?? true
         
         if let repeatModeStr = dict["repeatMode"] as? String {
             self.repeatMode = PlaylistRepeatMode(rawValue: repeatModeStr) ?? .off

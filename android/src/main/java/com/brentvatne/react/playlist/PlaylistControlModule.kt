@@ -168,7 +168,11 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 if (configMap.hasKey("config")) {
                     try {
                         config = PlaylistConfiguration.fromMap(configMap.getMap("config"))
-                        Log.d(TAG, "⚙️ Config: autoNext=${config.autoNext}, repeatMode=${config.repeatMode}, shuffle=${config.shuffleEnabled}")
+                        Log.d(TAG, "⚙️ Config: autoNext=${config.autoNext}, repeatMode=${config.repeatMode}, shuffle=${config.shuffleEnabled}, coordinatedMode=${config.coordinatedMode}")
+                        
+                        // Log operation mode
+                        val modeStr = if (config.coordinatedMode) "COORDINATED" else "STANDALONE"
+                        Log.d(TAG, "🎭 Operation mode: $modeStr (ReactExoplayerView handles playback: ${config.coordinatedMode})")
                     } catch (e: Exception) {
                         Log.e(TAG, "⚠️ Failed to parse config, using defaults", e)
                         config = PlaylistConfiguration()
