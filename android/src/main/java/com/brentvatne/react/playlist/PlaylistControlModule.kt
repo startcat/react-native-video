@@ -40,12 +40,14 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         const val ACTION_LOAD_NEXT_SOURCE = "com.brentvatne.react.LOAD_NEXT_SOURCE"
         
         // Event names (match iOS)
-        private const val EVENT_ITEM_CHANGED = "onNativeItemChanged"
-        private const val EVENT_ITEM_STARTED = "onNativeItemStarted"
-        private const val EVENT_ITEM_COMPLETED = "onNativeItemCompleted"
-        private const val EVENT_ITEM_ERROR = "onNativeItemError"
-        private const val EVENT_PLAYLIST_ENDED = "onNativePlaylistEnded"
-        private const val EVENT_PROGRESS_UPDATED = "onNativeProgressUpdate"
+        private const val EVENT_ITEM_CHANGED = "onPlaylistItemChanged"
+        private const val EVENT_ITEM_STARTED = "onPlaylistItemStarted"
+        private const val EVENT_ITEM_COMPLETED = "onPlaylistItemCompleted"
+        private const val EVENT_ITEM_ERROR = "onPlaylistItemError"
+        private const val EVENT_PLAYLIST_ENDED = "onPlaylistEnded"
+        private const val EVENT_PROGRESS_UPDATED = "onPlaylistProgressUpdated"
+        private const val EVENT_CONTROL_ACTION = "onPlaylistControlAction"
+        private const val EVENT_PLAYBACK_STATE_CHANGED = "onPlaylistPlaybackStateChanged"
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -123,7 +125,9 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             "EVENT_ITEM_COMPLETED" to EVENT_ITEM_COMPLETED,
             "EVENT_ITEM_ERROR" to EVENT_ITEM_ERROR,
             "EVENT_PLAYLIST_ENDED" to EVENT_PLAYLIST_ENDED,
-            "EVENT_PROGRESS_UPDATED" to EVENT_PROGRESS_UPDATED
+            "EVENT_PROGRESS_UPDATED" to EVENT_PROGRESS_UPDATED,
+            "EVENT_CONTROL_ACTION" to EVENT_CONTROL_ACTION,
+            "EVENT_PLAYBACK_STATE_CHANGED" to EVENT_PLAYBACK_STATE_CHANGED
         )
     }
 
@@ -228,6 +232,184 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             } catch (e: Exception) {
                 Log.e(TAG, "Error setting playlist", e)
                 promise.reject("PLAYLIST_ERROR", e.message, e)
+            }
+        }
+    }
+
+    /**
+     * Control actions - work in both standalone and coordinated modes
+     */
+    
+    @ReactMethod
+    fun play(promise: Promise) {
+        handler.post {
+            try {
+                if (config.coordinatedMode) {
+                    // En modo coordinated, emitir evento para que ReactExoplayerView maneje
+                    emitControlAction("play")
+                    Log.d(TAG, "[Coordinated] Play action emitted")
+                } else {
+                    // En modo standalone, controlar directamente el player
+                    standalonePlayer?.play()
+                    Log.d(TAG, "[Standalone] Play action executed")
+                }
+                // Emitir evento de cambio de estado
+                emitPlaybackStateChanged("playing")
+                promise.resolve(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing play", e)
+                promise.reject("PLAY_ERROR", e.message, e)
+            }
+        }
+    }
+    
+    @ReactMethod
+    fun pause(promise: Promise) {
+        handler.post {
+            try {
+                if (config.coordinatedMode) {
+                    emitControlAction("pause")
+                    Log.d(TAG, "[Coordinated] Pause action emitted")
+                } else {
+                    standalonePlayer?.pause()
+                    Log.d(TAG, "[Standalone] Pause action executed")
+                }
+                // Emitir evento de cambio de estado
+                emitPlaybackStateChanged("paused")
+                promise.resolve(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing pause", e)
+                promise.reject("PAUSE_ERROR", e.message, e)
+            }
+        }
+    }
+    
+    @ReactMethod
+    fun seekTo(positionMs: Double, promise: Promise) {
+        handler.post {
+            try {
+                val position = positionMs.toLong()
+                if (config.coordinatedMode) {
+                    val params = Arguments.createMap().apply {
+                        putDouble("position", positionMs)
+                    }
+                    emitControlAction("seek", params)
+                    Log.d(TAG, "[Coordinated] Seek action emitted: ${position}ms")
+                } else {
+                    standalonePlayer?.seekTo(position)
+                    Log.d(TAG, "[Standalone] Seek action executed: ${position}ms")
+                }
+                promise.resolve(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing seek", e)
+                promise.reject("SEEK_ERROR", e.message, e)
+            }
+        }
+    }
+    
+    @ReactMethod
+    fun next(promise: Promise) {
+        handler.post {
+            try {
+                if (canGoNext()) {
+                    if (config.coordinatedMode) {
+                        emitControlAction("next")
+                        Log.d(TAG, "[Coordinated] Next action emitted")
+                        // También avanzar el índice localmente
+                        val previousIndex = currentIndex
+                        currentIndex = getNextIndex()
+                        val nextItem = items[currentIndex]
+                        emitItemChanged(nextItem, currentIndex, previousIndex)
+                    } else {
+                        advanceToNextItemStandalone()
+                    }
+                    promise.resolve(true)
+                } else {
+                    Log.w(TAG, "Cannot go to next: already at end")
+                    promise.resolve(false)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing next", e)
+                promise.reject("NEXT_ERROR", e.message, e)
+            }
+        }
+    }
+    
+    @ReactMethod
+    fun previous(promise: Promise) {
+        handler.post {
+            try {
+                if (canGoPrevious()) {
+                    val previousIndex = currentIndex
+                    currentIndex = getPreviousIndex()
+                    val prevItem = items[currentIndex]
+                    
+                    if (config.coordinatedMode) {
+                        emitControlAction("previous")
+                        Log.d(TAG, "[Coordinated] Previous action emitted")
+                        emitItemChanged(prevItem, currentIndex, previousIndex)
+                    } else {
+                        Log.d(TAG, "[Standalone] Going to previous item: ${prevItem.metadata.title}")
+                        emitItemChanged(prevItem, currentIndex, previousIndex)
+                        loadCurrentItem()
+                    }
+                    promise.resolve(true)
+                } else {
+                    Log.w(TAG, "Cannot go to previous: already at start")
+                    promise.resolve(false)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing previous", e)
+                promise.reject("PREVIOUS_ERROR", e.message, e)
+            }
+        }
+    }
+    
+    @ReactMethod
+    fun stop(promise: Promise) {
+        handler.post {
+            try {
+                if (config.coordinatedMode) {
+                    emitControlAction("stop")
+                    Log.d(TAG, "[Coordinated] Stop action emitted")
+                } else {
+                    standalonePlayer?.stop()
+                    isPlaybackActive = false
+                    Log.d(TAG, "[Standalone] Stop action executed")
+                }
+                // Emitir evento de cambio de estado
+                emitPlaybackStateChanged("stopped")
+                promise.resolve(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error executing stop", e)
+                promise.reject("STOP_ERROR", e.message, e)
+            }
+        }
+    }
+    
+    @ReactMethod
+    fun getPlaybackState(promise: Promise) {
+        handler.post {
+            try {
+                val state = Arguments.createMap()
+                
+                if (config.coordinatedMode) {
+                    state.putString("mode", "coordinated")
+                    state.putInt("currentIndex", currentIndex)
+                    state.putInt("totalItems", items.size)
+                } else {
+                    state.putString("mode", "standalone")
+                    state.putInt("currentIndex", currentIndex)
+                    state.putInt("totalItems", items.size)
+                    state.putBoolean("isPlaying", standalonePlayer?.isPlaying ?: false)
+                    state.putDouble("position", standalonePlayer?.currentPosition?.toDouble() ?: 0.0)
+                    state.putDouble("duration", standalonePlayer?.duration?.toDouble() ?: 0.0)
+                }
+                
+                promise.resolve(state)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting playback state", e)
+                promise.reject("STATE_ERROR", e.message, e)
             }
         }
     }
@@ -424,8 +606,13 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         }
                         Log.d(TAG, "[Standalone] Playback state: $stateStr")
                         
-                        if (playbackState == Player.STATE_ENDED) {
-                            handleStandaloneItemCompleted()
+                        // Emitir eventos de estado
+                        when (playbackState) {
+                            Player.STATE_BUFFERING -> emitPlaybackStateChanged("buffering")
+                            Player.STATE_ENDED -> {
+                                emitPlaybackStateChanged("ended")
+                                handleStandaloneItemCompleted()
+                            }
                         }
                     }
                     
@@ -434,6 +621,9 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         if (isPlaying) {
                             val currentItem = items.getOrNull(currentIndex)
                             Log.d(TAG, "[Standalone] Now playing: ${currentItem?.metadata?.title}")
+                            emitPlaybackStateChanged("playing")
+                        } else {
+                            emitPlaybackStateChanged("paused")
                         }
                     }
                     
@@ -703,6 +893,32 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     private fun emitPlaylistEnded() {
         sendEvent(EVENT_PLAYLIST_ENDED, Arguments.createMap().apply {
             putDouble("timestamp", System.currentTimeMillis().toDouble())
+        })
+    }
+    
+    private fun emitControlAction(action: String, params: WritableMap? = null) {
+        val eventData = params ?: Arguments.createMap()
+        eventData.putString("action", action)
+        eventData.putInt("currentIndex", currentIndex)
+        eventData.putDouble("timestamp", System.currentTimeMillis().toDouble())
+        sendEvent(EVENT_CONTROL_ACTION, eventData)
+    }
+    
+    private fun emitPlaybackStateChanged(state: String) {
+        val currentItem = items.getOrNull(currentIndex)
+        sendEvent(EVENT_PLAYBACK_STATE_CHANGED, Arguments.createMap().apply {
+            putString("state", state) // "playing", "paused", "stopped", "buffering", "ended"
+            putString("itemId", currentItem?.id ?: "")
+            putInt("index", currentIndex)
+            putString("mode", if (config.coordinatedMode) "coordinated" else "standalone")
+            putDouble("timestamp", System.currentTimeMillis().toDouble())
+            
+            // Información adicional en modo standalone
+            if (!config.coordinatedMode && standalonePlayer != null) {
+                putBoolean("isPlaying", standalonePlayer?.isPlaying ?: false)
+                putDouble("position", standalonePlayer?.currentPosition?.toDouble() ?: 0.0)
+                putDouble("duration", standalonePlayer?.duration?.toDouble() ?: 0.0)
+            }
         })
     }
 
