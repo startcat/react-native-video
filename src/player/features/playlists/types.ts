@@ -14,7 +14,7 @@ import type {
 	IPlayerAnalytics,
 	IPlayerMetadata,
 	IPlayerTimeMarkers,
-} from "../../../types";
+} from "../../types";
 import { DVR_PLAYBACK_TYPE } from "../../types/enums";
 import { LogLevel } from "../logger";
 

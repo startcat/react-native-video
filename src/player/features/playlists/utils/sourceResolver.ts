@@ -39,7 +39,7 @@ export function resolveSourcesFromManifests(
 		resolvedSources.local = {
 			uri: localUri,
 			manifest: localManifest,
-			headers: headers as Record<string, string> | undefined,
+			headers,
 		};
 	}
 
@@ -57,7 +57,7 @@ export function resolveSourcesFromManifests(
 			resolvedSources.cast = {
 				uri: castUri,
 				manifest: castManifest,
-				headers: headers as Record<string, string> | undefined,
+				headers,
 			};
 		}
 	}
@@ -65,7 +65,7 @@ export function resolveSourcesFromManifests(
 	// TODO: Resolver source DOWNLOAD cuando esté disponible
 	// resolvedSources.download = { ... };
 
-	return resolvedSources;
+	return resolvedSources as ResolvedSources;
 }
 
 /**
@@ -80,11 +80,12 @@ export function createSimpleResolvedSources(
 	const source = {
 		uri,
 		manifest,
-		headers: headers as Record<string, string> | undefined,
+		headers,
 	};
 
 	return {
 		local: source,
 		cast: source, // Usar el mismo para cast por defecto
+		download: null,
 	};
 }
