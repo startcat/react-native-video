@@ -126,7 +126,7 @@ class PlaylistControlModule: RCTEventEmitter {
         
         // Emit completion event to JavaScript
         sendEvent(
-            withName: "onNativeItemCompleted",
+            withName: "onPlaylistItemCompleted",
             body: [
                 "itemId": currentItem.id,
                 "index": currentIndex,
@@ -166,7 +166,7 @@ class PlaylistControlModule: RCTEventEmitter {
         
         // Emit item changed event
         sendEvent(
-            withName: "onNativeItemChanged",
+            withName: "onPlaylistItemChanged",
             body: [
                 "itemId": nextItem.id,
                 "index": currentIndex,
@@ -189,12 +189,27 @@ class PlaylistControlModule: RCTEventEmitter {
     
     override func supportedEvents() -> [String]! {
         return [
-            "onNativeItemChanged",
-            "onNativeItemStarted",
-            "onNativeItemCompleted",
-            "onNativeItemError",
-            "onNativeProgressUpdate",
-            "onNativePlaylistEnded"
+            "onPlaylistItemChanged",
+            "onPlaylistItemStarted",
+            "onPlaylistItemCompleted",
+            "onPlaylistItemError",
+            "onPlaylistProgressUpdated",
+            "onPlaylistEnded",
+            "onPlaylistControlAction",
+            "onPlaylistPlaybackStateChanged"
+        ]
+    }
+    
+    override func constantsToExport() -> [AnyHashable : Any]! {
+        return [
+            "EVENT_ITEM_CHANGED": "onPlaylistItemChanged",
+            "EVENT_ITEM_STARTED": "onPlaylistItemStarted",
+            "EVENT_ITEM_COMPLETED": "onPlaylistItemCompleted",
+            "EVENT_ITEM_ERROR": "onPlaylistItemError",
+            "EVENT_PLAYLIST_ENDED": "onPlaylistEnded",
+            "EVENT_PROGRESS_UPDATED": "onPlaylistProgressUpdated",
+            "EVENT_CONTROL_ACTION": "onPlaylistControlAction",
+            "EVENT_PLAYBACK_STATE_CHANGED": "onPlaylistPlaybackStateChanged"
         ]
     }
     
@@ -277,7 +292,7 @@ class PlaylistControlModule: RCTEventEmitter {
             
             // Emit event
             self.sendEvent(
-                withName: "onNativeItemChanged",
+                withName: "onPlaylistItemChanged",
                 body: [
                     "itemId": item.id,
                     "index": index,
@@ -371,6 +386,184 @@ class PlaylistControlModule: RCTEventEmitter {
         }
     }
     
+    // MARK: - Playback Control Methods
+    
+    @objc func play(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            if self.config.coordinatedMode {
+                // Emit control action for coordinated mode
+                self.emitControlAction(action: "play")
+                print("[PlaylistControlModule] [Coordinated] Play action emitted")
+            } else {
+                // Direct player control in standalone mode
+                self.player?.play()
+                print("[PlaylistControlModule] [Standalone] Play action executed")
+            }
+            
+            // Emit playback state changed
+            self.emitPlaybackStateChanged(state: "playing")
+            resolve(true)
+        }
+    }
+    
+    @objc func pause(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            if self.config.coordinatedMode {
+                self.emitControlAction(action: "pause")
+                print("[PlaylistControlModule] [Coordinated] Pause action emitted")
+            } else {
+                self.player?.pause()
+                print("[PlaylistControlModule] [Standalone] Pause action executed")
+            }
+            
+            self.emitPlaybackStateChanged(state: "paused")
+            resolve(true)
+        }
+    }
+    
+    @objc func seekTo(_ positionMs: Double, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            let positionSeconds = positionMs / 1000.0
+            
+            if self.config.coordinatedMode {
+                self.emitControlAction(action: "seek", params: ["position": positionMs])
+                print("[PlaylistControlModule] [Coordinated] Seek action emitted: \(positionMs)ms")
+            } else {
+                let time = CMTime(seconds: positionSeconds, preferredTimescale: 1)
+                self.player?.seek(to: time)
+                print("[PlaylistControlModule] [Standalone] Seek action executed: \(positionMs)ms")
+            }
+            
+            resolve(true)
+        }
+    }
+    
+    @objc func next(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            let nextIndex = self.getNextIndex()
+            
+            if nextIndex == -1 {
+                print("[PlaylistControlModule] Cannot go to next: already at end")
+                resolve(false)
+                return
+            }
+            
+            if self.config.coordinatedMode {
+                self.emitControlAction(action: "next")
+                print("[PlaylistControlModule] [Coordinated] Next action emitted")
+                // Also advance index locally
+                let previousIndex = self.currentIndex
+                self.currentIndex = nextIndex
+                if let nextItem = self.getCurrentItem() {
+                    self.emitItemChanged(item: nextItem, index: self.currentIndex, previousIndex: previousIndex)
+                }
+            } else {
+                self.goToNext()
+            }
+            
+            resolve(true)
+        }
+    }
+    
+    @objc func previous(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            let previousIndex = self.getPreviousIndex()
+            
+            if previousIndex == -1 {
+                print("[PlaylistControlModule] Cannot go to previous: already at start")
+                resolve(false)
+                return
+            }
+            
+            if self.config.coordinatedMode {
+                self.emitControlAction(action: "previous")
+                print("[PlaylistControlModule] [Coordinated] Previous action emitted")
+                let prevIndex = self.currentIndex
+                self.currentIndex = previousIndex
+                if let prevItem = self.getCurrentItem() {
+                    self.emitItemChanged(item: prevItem, index: self.currentIndex, previousIndex: prevIndex)
+                }
+            } else {
+                self.goToPrevious()
+            }
+            
+            resolve(true)
+        }
+    }
+    
+    @objc func stop(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            if self.config.coordinatedMode {
+                self.emitControlAction(action: "stop")
+                print("[PlaylistControlModule] [Coordinated] Stop action emitted")
+            } else {
+                self.player?.pause()
+                self.player?.seek(to: .zero)
+                self.isPlaybackActive = false
+                print("[PlaylistControlModule] [Standalone] Stop action executed")
+            }
+            
+            self.emitPlaybackStateChanged(state: "stopped")
+            resolve(true)
+        }
+    }
+    
+    @objc func getPlaybackState(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            var state: [String: Any] = [
+                "mode": self.config.coordinatedMode ? "coordinated" : "standalone",
+                "currentIndex": self.currentIndex,
+                "totalItems": self.playlist.count
+            ]
+            
+            // Additional info in standalone mode
+            if !self.config.coordinatedMode, let player = self.player {
+                state["isPlaying"] = player.rate > 0
+                state["position"] = player.currentTime().seconds * 1000.0
+                if let duration = player.currentItem?.duration.seconds, !duration.isNaN {
+                    state["duration"] = duration * 1000.0
+                }
+            }
+            
+            resolve(state)
+        }
+    }
+    
     // MARK: - Private Methods
     
     private func setupRemoteCommands() {
@@ -455,7 +648,7 @@ class PlaylistControlModule: RCTEventEmitter {
         
         // Emit started event
         sendEvent(
-            withName: "onNativeItemStarted",
+            withName: "onPlaylistItemStarted",
             body: [
                 "itemId": item.id,
                 "index": currentIndex,
@@ -586,7 +779,7 @@ class PlaylistControlModule: RCTEventEmitter {
         guard let item = getCurrentItem() else { return }
         
         sendEvent(
-            withName: "onNativeItemCompleted",
+            withName: "onPlaylistItemCompleted",
             body: [
                 "itemId": item.id,
                 "index": currentIndex,
@@ -594,6 +787,9 @@ class PlaylistControlModule: RCTEventEmitter {
                 "timestamp": Date().timeIntervalSince1970 * 1000
             ]
         )
+        
+        // Emit playback state changed
+        emitPlaybackStateChanged(state: "ended")
         
         handleAutoNext()
     }
@@ -644,7 +840,7 @@ class PlaylistControlModule: RCTEventEmitter {
             // Playlist ended
             isPlaybackActive = false
             sendEvent(
-                withName: "onNativePlaylistEnded",
+                withName: "onPlaylistEnded",
                 body: ["timestamp": Date().timeIntervalSince1970 * 1000]
             )
             return
@@ -719,7 +915,7 @@ class PlaylistControlModule: RCTEventEmitter {
         let percentage = (currentTime / duration) * 100.0
         
         sendEvent(
-            withName: "onNativeProgressUpdate",
+            withName: "onPlaylistProgressUpdated",
             body: [
                 "progress": [
                     "itemId": getCurrentItem()?.id ?? "",
@@ -751,9 +947,58 @@ class PlaylistControlModule: RCTEventEmitter {
         }
     }
     
+    private func emitItemChanged(item: PlaylistItem, index: Int, previousIndex: Int) {
+        sendEvent(
+            withName: "onPlaylistItemChanged",
+            body: [
+                "itemId": item.id,
+                "index": index,
+                "previousIndex": previousIndex,
+                "timestamp": Date().timeIntervalSince1970 * 1000
+            ]
+        )
+    }
+    
+    private func emitControlAction(action: String, params: [String: Any]? = nil) {
+        var eventData = params ?? [:]
+        eventData["action"] = action
+        eventData["currentIndex"] = currentIndex
+        eventData["timestamp"] = Date().timeIntervalSince1970 * 1000
+        
+        sendEvent(
+            withName: "onPlaylistControlAction",
+            body: eventData
+        )
+    }
+    
+    private func emitPlaybackStateChanged(state: String) {
+        let currentItem = getCurrentItem()
+        var eventData: [String: Any] = [
+            "state": state, // "playing", "paused", "stopped", "buffering", "ended"
+            "itemId": currentItem?.id ?? "",
+            "index": currentIndex,
+            "mode": config.coordinatedMode ? "coordinated" : "standalone",
+            "timestamp": Date().timeIntervalSince1970 * 1000
+        ]
+        
+        // Additional info in standalone mode
+        if !config.coordinatedMode, let player = player {
+            eventData["isPlaying"] = player.rate > 0
+            eventData["position"] = player.currentTime().seconds * 1000.0
+            if let duration = player.currentItem?.duration.seconds, !duration.isNaN {
+                eventData["duration"] = duration * 1000.0
+            }
+        }
+        
+        sendEvent(
+            withName: "onPlaylistPlaybackStateChanged",
+            body: eventData
+        )
+    }
+    
     private func emitItemError(item: PlaylistItem, error: String) {
         sendEvent(
-            withName: "onNativeItemError",
+            withName: "onPlaylistItemError",
             body: [
                 "itemId": item.id,
                 "index": currentIndex,
