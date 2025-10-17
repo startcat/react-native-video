@@ -157,7 +157,8 @@ data class PlaylistSource(
             Log.w("PlaylistSource", "No valid source structure found")
             return null
         }
-        
+
+		/*
         private fun parseSourceObject(map: ReadableMap): PlaylistSource? {
             val uri = map.getString("uri") ?: return null
             val headers = map.getMap("headers")?.toHashMap()?.mapValues { it.value.toString() }
@@ -171,6 +172,94 @@ data class PlaylistSource(
                 drm = drm
             )
         }
+		*/
+
+private fun parseSourceObject(map: ReadableMap): PlaylistSource? {
+    Log.d("PlaylistSource", "=== parseSourceObject START ===")
+    Log.d("PlaylistSource", "Map keys: ${map.toHashMap().keys}")
+    
+    val uri = map.getString("uri") ?: return null
+    Log.d("PlaylistSource", "URI: $uri")
+    
+    val headers = map.getMap("headers")?.toHashMap()?.mapValues { it.value.toString() }
+    
+    // Get type from source, or from manifest if not present
+    var type = map.getString("type")
+    Log.d("PlaylistSource", "Type from source: $type")
+    
+    // Try to get DRM directly from source first
+    var drm = PlaylistDrm.fromMap(map.getMap("drm"))
+    Log.d("PlaylistSource", "DRM from source.drm: ${if (drm != null) "FOUND" else "NULL"}")
+    
+    // If not present, try to extract from manifest
+    if (drm == null || type == null) {
+        Log.d("PlaylistSource", "Checking for manifest...")
+        if (map.hasKey("manifest")) {
+            Log.d("PlaylistSource", "✅ manifest key exists")
+            val manifest = map.getMap("manifest")
+            if (manifest != null) {
+                Log.d("PlaylistSource", "✅ manifest is not null")
+                Log.d("PlaylistSource", "Manifest keys: ${manifest.toHashMap().keys}")
+                
+                // Extract type from manifest if not in source
+                if (type == null) {
+                    type = manifest.getString("type")
+                    Log.d("PlaylistSource", "Type from manifest: $type")
+                }
+                
+                // Extract DRM from manifest.drmConfig
+                if (drm == null && manifest.hasKey("drmConfig")) {
+                    Log.d("PlaylistSource", "✅ drmConfig key exists")
+                    val drmConfig = manifest.getMap("drmConfig")
+                    if (drmConfig != null) {
+                        Log.d("PlaylistSource", "✅ drmConfig is not null")
+                        Log.d("PlaylistSource", "drmConfig keys: ${drmConfig.toHashMap().keys}")
+                        
+                        val drmType = drmConfig.getString("type")
+                        val licenseUrl = drmConfig.getString("licenseAcquisitionURL")
+                        
+                        Log.d("PlaylistSource", "DRM type: $drmType")
+                        Log.d("PlaylistSource", "License URL: $licenseUrl")
+                        
+                        if (drmType != null && licenseUrl != null) {
+                            drm = PlaylistDrm(
+                                type = drmType,
+                                licenseServer = licenseUrl,
+                                headers = null,
+                                contentId = null,
+                                certificateUrl = null,
+                                base64Certificate = false,
+                                multiSession = false
+                            )
+                            Log.d("PlaylistSource", "✅✅✅ Extracted DRM from manifest.drmConfig: type=$drmType, licenseUrl=$licenseUrl")
+                        } else {
+                            Log.w("PlaylistSource", "❌ DRM type or licenseUrl is null")
+                        }
+                    } else {
+                        Log.w("PlaylistSource", "❌ drmConfig is null")
+                    }
+                } else if (drm == null) {
+                    Log.w("PlaylistSource", "❌ drmConfig key does not exist")
+                }
+            } else {
+                Log.w("PlaylistSource", "❌ manifest is null")
+            }
+        } else {
+            Log.w("PlaylistSource", "❌ manifest key does not exist")
+        }
+    }
+    
+    Log.d("PlaylistSource", "Final type: $type")
+    Log.d("PlaylistSource", "Final DRM: ${if (drm != null) "type=${drm.type}, server=${drm.licenseServer}" else "NULL"}")
+    Log.d("PlaylistSource", "=== parseSourceObject END ===")
+    
+    return PlaylistSource(
+        uri = uri,
+        type = type,
+        headers = headers,
+        drm = drm
+    )
+}
     }
 
     fun toMap(): WritableMap {
