@@ -421,11 +421,13 @@ export class PlaylistsManager {
 		return item ? { ...item } : null;
 	}
 
-	/**
+	/*
 	 * Get the next item without navigating to it
 	 * Useful for coordinated playback with external players (e.g., Video component)
 	 * @returns The next PlaylistItem or null if there's no next item
+	 *
 	 */
+
 	public getNextItem(): PlaylistItem | null {
 		const nextIndex = this.getNextIndex();
 		if (nextIndex === -1 || nextIndex >= this.items.length) {
@@ -434,10 +436,12 @@ export class PlaylistsManager {
 		return { ...this.items[nextIndex]! };
 	}
 
-	/**
+	/*
 	 * Get the previous item without navigating to it
 	 * @returns The previous PlaylistItem or null if there's no previous item
+	 *
 	 */
+
 	public getPreviousItem(): PlaylistItem | null {
 		const previousIndex = this.getPreviousIndex();
 		if (previousIndex === -1 || previousIndex >= this.items.length) {
@@ -446,7 +450,7 @@ export class PlaylistsManager {
 		return { ...this.items[previousIndex]! };
 	}
 
-	/**
+	/*
 	 * Notify that the current item has completed externally
 	 * This method is designed for coordinated playback where an external player
 	 * (e.g., Video component) is handling the actual playback, but PlaylistsManager
@@ -471,7 +475,9 @@ export class PlaylistsManager {
 	 *     }
 	 *   }}
 	 * />
+	 *
 	 */
+
 	public async notifyItemCompleted(itemId?: string): Promise<boolean> {
 		this.ensureInitialized();
 
@@ -523,11 +529,13 @@ export class PlaylistsManager {
 		return false;
 	}
 
-	/**
+	/*
 	 * Update the current index without loading the item
 	 * Useful for syncing PlaylistsManager state with external player position
 	 * @param index - The new current index
+	 *
 	 */
+
 	public setCurrentIndex(index: number): void {
 		this.ensureInitialized();
 
