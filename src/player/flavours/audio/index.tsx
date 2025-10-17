@@ -929,7 +929,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		}
 	};
 
-	const handleOnEnd = () => {
+	const handleOnEnd = async () => {
 		currentLogger.current?.info(
 			`handleOnEnd: playlistItem type ${props.playlistItem?.type}, id: ${props.playlistItem?.id}, isContentLoaded: ${isContentLoaded}`
 		);
@@ -943,6 +943,11 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			return;
 		}
 
+		// NOTE: We don't notify the native PlaylistControlModule here because:
+		// 1. In coordinated mode, the PlaylistsManager (TypeScript) controls which item plays
+		// 2. The native module is only used for standalone mode (audio-only apps)
+		// 3. Auto-advance is handled by the parent component (AudioPlayerBar) which uses PlaylistsManager
+		
 		// Always notify parent that item has ended
 		// Parent component (audioPlayerBar) will decide whether to auto-advance based on:
 		// - Item type (TUDUM always auto-advances)

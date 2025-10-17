@@ -271,6 +271,37 @@ class PlaylistControlModule: RCTEventEmitter {
         }
     }
     
+    @objc func clearPlaylist(_ resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            // Only allow active instance
+            guard self.isActiveInstance else {
+                print("[PlaylistControlModule] ⚠️ clearPlaylist called on inactive instance (ignored)")
+                resolve(false)
+                return
+            }
+            
+            print("[PlaylistControlModule] 🗑️ Clearing playlist...")
+            
+            // Stop playback if active
+            if self.operationMode == .standalone {
+                self.releaseStandalonePlayer()
+            }
+            
+            // Clear playlist and reset state
+            self.playlist.removeAll()
+            self.currentIndex = 0
+            self.isPlaybackActive = false
+            
+            print("[PlaylistControlModule] ✅ Playlist cleared successfully")
+            resolve(true)
+        }
+    }
+    
     @objc func goToIndex(_ index: Int) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
@@ -561,6 +592,34 @@ class PlaylistControlModule: RCTEventEmitter {
             }
             
             resolve(state)
+        }
+    }
+    
+    @objc func notifyItemFinished(_ itemId: String?, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            // Only allow active instance
+            guard self.isActiveInstance else {
+                print("[PlaylistControlModule] ⚠️ notifyItemFinished called on inactive instance (ignored)")
+                resolve(false)
+                return
+            }
+            
+            print("[PlaylistControlModule] 📢 notifyItemFinished called from JavaScript: \(itemId ?? "nil")")
+            
+            // Only process in coordinated mode
+            guard self.config.coordinatedMode else {
+                print("[PlaylistControlModule] ⚠️ notifyItemFinished ignored - not in coordinated mode")
+                resolve(false)
+                return
+            }
+            
+            self.handleItemCompletionInCoordinatedMode(itemId: itemId)
+            resolve(true)
         }
     }
     
