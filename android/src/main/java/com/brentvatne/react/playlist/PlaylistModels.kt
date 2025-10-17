@@ -56,12 +56,67 @@ enum class PlaylistRepeatMode(val value: String) {
 }
 
 /**
+ * DRM configuration for a playlist item
+ */
+data class PlaylistDrm(
+    val type: String,
+    val licenseServer: String? = null,
+    val headers: Map<String, String>? = null,
+    val contentId: String? = null,
+    val certificateUrl: String? = null,
+    val base64Certificate: Boolean = false,
+    val multiSession: Boolean = false
+) {
+    companion object {
+        fun fromMap(map: ReadableMap?): PlaylistDrm? {
+            if (map == null) return null
+            
+            val type = map.getString("type") ?: return null
+            val licenseServer = map.getString("licenseServer")
+            val contentId = map.getString("contentId")
+            val certificateUrl = map.getString("certificateUrl")
+            val base64Certificate = if (map.hasKey("base64Certificate")) map.getBoolean("base64Certificate") else false
+            val multiSession = if (map.hasKey("multiSession")) map.getBoolean("multiSession") else false
+            
+            val headers = map.getMap("headers")?.toHashMap()?.mapValues { it.value.toString() }
+            
+            return PlaylistDrm(
+                type = type,
+                licenseServer = licenseServer,
+                headers = headers,
+                contentId = contentId,
+                certificateUrl = certificateUrl,
+                base64Certificate = base64Certificate,
+                multiSession = multiSession
+            )
+        }
+    }
+    
+    fun toMap(): WritableMap {
+        return Arguments.createMap().apply {
+            putString("type", type)
+            licenseServer?.let { putString("licenseServer", it) }
+            contentId?.let { putString("contentId", it) }
+            certificateUrl?.let { putString("certificateUrl", it) }
+            putBoolean("base64Certificate", base64Certificate)
+            putBoolean("multiSession", multiSession)
+            headers?.let { h ->
+                putMap("headers", Arguments.createMap().apply {
+                    h.forEach { (key, value) -> putString(key, value) }
+                })
+            }
+        }
+    }
+}
+
+/**
  * Source data for a playlist item
  */
 data class PlaylistSource(
     val uri: String,
     val type: String? = null,
-    val headers: Map<String, String>? = null
+    val headers: Map<String, String>? = null,
+    val drm: PlaylistDrm? = null
 ) {
     companion object {
         /**
@@ -107,11 +162,13 @@ data class PlaylistSource(
             val uri = map.getString("uri") ?: return null
             val headers = map.getMap("headers")?.toHashMap()?.mapValues { it.value.toString() }
             val type = map.getString("type")
+            val drm = PlaylistDrm.fromMap(map.getMap("drm"))
             
             return PlaylistSource(
                 uri = uri,
                 type = type,
-                headers = headers
+                headers = headers,
+                drm = drm
             )
         }
     }
@@ -125,6 +182,7 @@ data class PlaylistSource(
                     h.forEach { (key, value) -> putString(key, value) }
                 })
             }
+            drm?.let { putMap("drm", it.toMap()) }
         }
     }
 }
