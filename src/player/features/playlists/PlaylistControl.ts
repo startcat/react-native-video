@@ -182,6 +182,17 @@ export class PlaylistControl {
 		return PlaylistControlModule.isModuleReady();
 	}
 
+	/*
+	 * Notificar al módulo nativo que un item ha terminado (modo coordinated)
+	 * Esto permite que el módulo nativo maneje el auto-advance para TUDUMs
+	 * @param itemId - ID del item que terminó
+	 *
+	 */
+
+	static async notifyItemFinished(itemId?: string): Promise<boolean> {
+		return PlaylistControlModule.notifyItemFinished(itemId || null);
+	}
+
 	// ========== Event Listeners ==========
 
 	/*

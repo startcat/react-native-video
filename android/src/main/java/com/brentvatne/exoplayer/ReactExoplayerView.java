@@ -1726,6 +1726,15 @@ public class ReactExoplayerView extends FrameLayout implements
                     text += "ended";
                     updateProgress();
                     eventEmitter.end();
+                    
+                    // Notify PlaylistControlModule that item has finished (for coordinated mode)
+                    if (playlistItemId != null) {
+                        Intent intent = new Intent("com.brentvatne.react.VIDEO_ITEM_FINISHED");
+                        intent.putExtra("itemId", playlistItemId);
+                        themedReactContext.sendBroadcast(intent);
+                        DebugLog.d(TAG, "📻 Broadcast sent - Video item finished: " + playlistItemId);
+                    }
+                    
                     onStopPlayback();
                     setKeepScreenOn(false);
                     break;

@@ -35,9 +35,8 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         private const val TAG = "PlaylistControlModule"
         const val MODULE_NAME = "PlaylistControlModule"
         
-        // Broadcast actions
+        // Broadcast actions (for coordinated mode)
         const val ACTION_VIDEO_ITEM_FINISHED = "com.brentvatne.react.VIDEO_ITEM_FINISHED"
-        const val ACTION_LOAD_NEXT_SOURCE = "com.brentvatne.react.LOAD_NEXT_SOURCE"
         
         // Event names (match iOS)
         private const val EVENT_ITEM_CHANGED = "onPlaylistItemChanged"
@@ -67,7 +66,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             when (intent?.action) {
                 ACTION_VIDEO_ITEM_FINISHED -> {
                     val itemId = intent.getStringExtra("itemId")
-                    Log.d(TAG, "Video item finished: $itemId")
+                    Log.d(TAG, "📻 Broadcast received - Video item finished: $itemId")
                     handleItemCompletionInCoordinatedMode(itemId)
                 }
             }
@@ -95,10 +94,10 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 )
             }
             
-            Log.d(TAG, "Broadcast receiver registered successfully for playlist coordination")
-            Log.d(TAG, "Listening for action: $ACTION_VIDEO_ITEM_FINISHED")
+            Log.d(TAG, "✅ Broadcast receiver registered successfully for playlist coordination")
+            Log.d(TAG, "📻 Listening for action: $ACTION_VIDEO_ITEM_FINISHED")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to register broadcast receiver", e)
+            Log.e(TAG, "❌ Failed to register broadcast receiver", e)
         }
     }
 
@@ -112,9 +111,10 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         
         try {
             reactApplicationContext.unregisterReceiver(broadcastReceiver)
+            Log.d(TAG, "📻 Broadcast receiver unregistered")
         } catch (e: IllegalArgumentException) {
             // Receiver was already unregistered
-            Log.d(TAG, "Broadcast receiver already unregistered")
+            Log.d(TAG, "⚠️ Broadcast receiver already unregistered")
         }
     }
 
@@ -232,6 +232,34 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             } catch (e: Exception) {
                 Log.e(TAG, "Error setting playlist", e)
                 promise.reject("PLAYLIST_ERROR", e.message, e)
+            }
+        }
+    }
+
+    /**
+     * Clear the current playlist and reset state
+     */
+    @ReactMethod
+    fun clearPlaylist(promise: Promise) {
+        handler.post {
+            try {
+                Log.d(TAG, "Clearing playlist...")
+                
+                // Stop playback if active
+                if (!config.coordinatedMode) {
+                    releaseStandalonePlayer()
+                }
+                
+                // Clear items and reset state
+                items.clear()
+                currentIndex = 0
+                isPlaybackActive = false
+                
+                Log.d(TAG, "Playlist cleared successfully")
+                promise.resolve(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error clearing playlist", e)
+                promise.reject("CLEAR_PLAYLIST_ERROR", e.message, e)
             }
         }
     }
@@ -431,19 +459,24 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 val item = items[currentIndex]
                 
                 Log.d(TAG, "Going to index $index: ${item.metadata.title}")
+                Log.d(TAG, "  Mode: ${if (config.coordinatedMode) "COORDINATED" else "STANDALONE"}")
+                Log.d(TAG, "  Item type: ${item.type}")
                 
-                // Emit event
+                // Emit event to JavaScript
                 emitItemChanged(item, index, previousIndex)
                 
                 // Handle based on mode
                 if (config.coordinatedMode) {
-                    // Send broadcast to ReactExoplayerView
-                    sendLoadNextSourceBroadcast(item)
+                    Log.d(TAG, "🎯 COORDINATED mode: Event emitted, JavaScript will update <Video> source")
+                    // In coordinated mode, JavaScript is responsible for updating the Video component source
+                    // The emitted event (onPlaylistItemChanged) will trigger the update in the flavour
                 } else {
-                    // Load in standalone player
+                    Log.d(TAG, "🎯 STANDALONE mode: Loading in standalone player")
+                    // In standalone mode, we manage our own ExoPlayer
                     loadCurrentItem()
                 }
                 
+                Log.d(TAG, "✅ goToIndex completed successfully")
                 promise.resolve(true)
             } catch (e: Exception) {
                 promise.reject("NAVIGATION_ERROR", e.message, e)
@@ -516,6 +549,32 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         promise.resolve(getPreviousIndex() != -1)
     }
 
+    /**
+     * Notify that current item has finished (for coordinated mode)
+     * This allows JavaScript to notify the native module when playback ends
+     */
+    @ReactMethod
+    fun notifyItemFinished(itemId: String?, promise: Promise) {
+        handler.post {
+            try {
+                Log.d(TAG, "📢 notifyItemFinished called from JavaScript: $itemId")
+                
+                // Only process in coordinated mode
+                if (!config.coordinatedMode) {
+                    Log.d(TAG, "⚠️ notifyItemFinished ignored - not in coordinated mode")
+                    promise.resolve(false)
+                    return@post
+                }
+                
+                handleItemCompletionInCoordinatedMode(itemId)
+                promise.resolve(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in notifyItemFinished", e)
+                promise.reject("NOTIFY_ERROR", e.message, e)
+            }
+        }
+    }
+
     // ========== Private Methods ==========
 
     private fun getNextIndex(): Int {
@@ -560,6 +619,11 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         }
     }
 
+    /**
+     * Advance to next item (used in coordinated mode when item finishes)
+     * In coordinated mode, this only updates the index and emits event
+     * JavaScript will handle updating the Video component source
+     */
     private fun advanceToNextItem() {
         val nextIndex = getNextIndex()
         
@@ -575,22 +639,14 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         val nextItem = items[currentIndex]
         
         Log.d(TAG, "Advancing to next item: ${nextItem.metadata.title}")
+        Log.d(TAG, "  Mode: ${if (config.coordinatedMode) "COORDINATED" else "STANDALONE"}")
         
-        // Emit event
+        // Emit event to JavaScript
         emitItemChanged(nextItem, currentIndex, previousIndex)
         
-        // Send broadcast to ReactExoplayerView
-        sendLoadNextSourceBroadcast(nextItem)
-    }
-
-    private fun sendLoadNextSourceBroadcast(item: PlaylistItem) {
-        val intent = Intent(ACTION_LOAD_NEXT_SOURCE).apply {
-            putExtra("itemId", item.id)
-            putExtra("uri", item.source.uri)
-            putExtra("type", item.source.type)
-            // TODO: Add headers support
-        }
-        reactApplicationContext.sendBroadcast(intent)
+        // In coordinated mode, JavaScript handles the source update via the event
+        // In standalone mode, this is called from player listener which then loads the item
+        Log.d(TAG, "✅ advanceToNextItem completed - event emitted")
     }
 
     private fun setupStandaloneMode() {
@@ -863,6 +919,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     // ========== Event Emitters ==========
 
     private fun emitItemChanged(item: PlaylistItem, index: Int, previousIndex: Int) {
+        Log.d(TAG, "📤 Emitting EVENT_ITEM_CHANGED: itemId=${item.id}, index=$index, previousIndex=$previousIndex, title=${item.metadata.title}")
         sendEvent(EVENT_ITEM_CHANGED, Arguments.createMap().apply {
             putString("itemId", item.id)
             putInt("index", index)
@@ -871,6 +928,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             putInt("totalItems", items.size)
             putDouble("timestamp", System.currentTimeMillis().toDouble())
         })
+        Log.d(TAG, "✅ EVENT_ITEM_CHANGED emitted successfully")
     }
 
     private fun emitItemStarted(item: PlaylistItem) {
