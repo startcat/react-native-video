@@ -6,6 +6,17 @@
  *
  */
 
+export { PlaylistControl, PlaylistEvents } from "./PlaylistControl";
+export type {
+	PlaybackState,
+	PlaylistControlActionEvent,
+	PlaylistEndedEvent,
+	PlaylistItemChangedEvent,
+	PlaylistItemCompletedEvent,
+	PlaylistItemErrorEvent,
+	PlaylistItemStartedEvent,
+	PlaylistPlaybackStateChangedEvent,
+} from "./PlaylistControl";
 export { PlaylistsManager, playlistsManager } from "./PlaylistsManager";
 export { createSimpleResolvedSources, resolveSourcesFromManifests } from "./utils/sourceResolver";
 
