@@ -534,6 +534,14 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         }
     }
 
+    private fun canGoNext(): Boolean {
+        return getNextIndex() != -1
+    }
+
+    private fun canGoPrevious(): Boolean {
+        return getPreviousIndex() != -1
+    }
+
     private fun handleItemCompletionInCoordinatedMode(itemId: String?) {
         val currentItem = items.getOrNull(currentIndex) ?: return
         
