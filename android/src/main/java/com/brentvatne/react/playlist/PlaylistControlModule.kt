@@ -830,9 +830,19 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             Log.d(TAG, "[Standalone] URI: ${currentItem.source.uri}")
             Log.d(TAG, "[Standalone] Type: ${currentItem.source.type}")
             
-            val mediaItem = MediaItem.Builder()
-                .setUri(Uri.parse(currentItem.source.uri))
-                .build()
+            // Check if item has DRM
+            val drm = currentItem.source.drm
+            if (drm != null) {
+                Log.d(TAG, "[Standalone] Item has DRM configuration: ${drm.type}")
+                Log.d(TAG, "[Standalone] License server: ${drm.licenseServer}")
+                Log.d(TAG, "[Standalone] Multi-session: ${drm.multiSession}")
+            }
+            
+            // Build MediaItem with DRM support
+            val mediaItem = DrmHelper.buildMediaItemWithDrm(
+                uri = currentItem.source.uri,
+                drm = drm
+            )
             
             player.setMediaItem(mediaItem)
             player.prepare()
@@ -847,6 +857,12 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             
         } catch (e: Exception) {
             Log.e(TAG, "[Standalone] Failed to load item: ${e.message}", e)
+            
+            // Emit error event
+            val currentItem = items.getOrNull(currentIndex)
+            if (currentItem != null) {
+                emitItemError(currentItem, e.message ?: "Unknown error loading item")
+            }
         }
     }
     
