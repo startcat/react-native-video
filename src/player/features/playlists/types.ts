@@ -9,6 +9,7 @@
 
 import type {
 	IBasicProgram,
+	ILanguagesMapping,
 	IManifest,
 	IPlayerAds,
 	IPlayerAnalytics,
@@ -212,6 +213,9 @@ export interface PlaylistItem {
 		startPosition?: number;
 		duration?: number;
 	};
+
+	/** Idiomas disponibles para el contenido */
+	languages?: ILanguagesMapping;
 
 	/** Duración del contenido en segundos (para estadísticas) */
 	duration?: number;
