@@ -14,14 +14,13 @@ import {
 	type SelectedVideoTrack,
 	type SliderValues,
 	DVR_PLAYBACK_TYPE,
-	SelectedTrackType,
 	SelectedVideoTrackType,
 } from "../../../types";
 import Video, { type VideoRef } from "../../../Video";
 import { Overlay } from "../../components/overlay";
 const BackgroundPoster = React.lazy(() => import("../../components/poster"));
 
-import { PlayerError, handleErrorException, mapVideoErrorToPlayerError } from "../../core/errors";
+import { handleErrorException, mapVideoErrorToPlayerError, PlayerError } from "../../core/errors";
 
 import { useIsLandscape } from "../common/hooks";
 
@@ -29,9 +28,7 @@ import { useIsBuffering } from "../../core/buffering";
 
 import { mergeMenuData, onAdStarted } from "../../utils";
 
-import { type onSourceChangedProps, SourceClass } from "../../modules/source";
-
-import { TudumClass } from "../../modules/tudum";
+import { type onSourceChangedProps, type SourceContext, SourceClass } from "../../modules/source";
 
 import {
 	type ModeChangeData,
@@ -72,9 +69,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const isChangingSource = useRef<boolean>(true);
 
-	const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
-	const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
-	const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
+	const [currentTime, setCurrentTime] = useState<number>(
+		props.playlistItem?.initialState?.startPosition || 0
+	);
+	const [paused, setPaused] = useState<boolean>(!!props.initialState?.isPaused);
+	const [muted, setMuted] = useState<boolean>(!!props.initialState?.isMuted);
 	const [buffering, setBuffering] = useState<boolean>(false);
 	const [menuData, setMenuData] = useState<Array<IPlayerMenuData>>();
 	const [speedRate, setSpeedRate] = useState<number>(1);
@@ -105,18 +104,15 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	// Source
 	const sourceRef = useRef<SourceClass | null>(null);
 
-	// Tudum
-	const tudumRef = useRef<TudumClass | null>(null);
+	// Track last processed playlist item to avoid duplicate processing
+	const lastProcessedItemIdRef = useRef<string | number | undefined>(undefined);
 
 	// VOD Progress Manager
 	const vodProgressManagerRef = useRef<VODProgressManagerClass | null>(null);
 
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
-
-	// Control para evitar mezcla de sources
-	const currentSourceType = useRef<"tudum" | "content" | null>(null);
-	const pendingContentSource = useRef<onSourceChangedProps | null>(null);
+	const hasCalledInitialSeekRef = useRef<boolean>(false);
 
 	// Hook para la orientación de la pantalla
 	const isLandscapePlayer = useIsLandscape();
@@ -136,243 +132,167 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	}, [videoSource?.uri]);
 
 	useEffect(() => {
-		// currentLogger.current?.temp(`useEffect manifests - isAutoNext: ${props.isAutoNext}`);
-		// currentLogger.current?.temp(`useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
-		// currentLogger.current?.temp(`useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
+		currentLogger.current?.info(`useEffect playlistItem - type: ${props.playlistItem?.type}`);
 
-		// Verificar si es contenido live/DVR vs VOD
-		const isLiveContent = !!props.playerProgress?.isLive;
+		currentLogger.current?.info(`useEffect playlistItem ${props.playlistItem}`);
 
-		if (isLiveContent) {
-			// COMPORTAMIENTO ORIGINAL PARA LIVE/DVR - Sin tudum, sin resets complicados
-			if (!tudumRef.current) {
-				tudumRef.current = new TudumClass({
-					enabled: false, // Nunca tudum para live
-					getTudumSource: props.hooks?.getTudumSource,
-					getTudumManifest: props.hooks?.getTudumManifest,
-				});
-			}
+		// Evitar procesar el mismo item dos veces (nativo + JavaScript)
+		const currentItemId = props.playlistItem?.id;
+		currentLogger.current?.info(
+			`🔍 Playlist item changed: ${lastProcessedItemIdRef.current} → ${currentItemId}`
+		);
 
-			if (!sourceRef.current) {
-				sourceRef.current = new SourceClass({
-					id: props.playerMetadata?.id,
-					title: props.playerMetadata?.title,
-					subtitle: props.playerMetadata?.subtitle,
-					description: props.playerMetadata?.description,
-					poster: props.playerMetadata?.poster,
-					squaredPoster: props.playerMetadata?.squaredPoster,
-					manifests: props.manifests,
-					startPosition: props.playerProgress?.currentTime || 0,
-					isLive: true,
-					isCast: false,
-					headers: props.headers,
-					getBestManifest: props.hooks?.getBestManifest,
-					getSourceUri: props.hooks?.getSourceUri,
-					onSourceChanged: onSourceChanged,
-				});
-			}
-
-			// Para live, cargar contenido directamente
-			currentSourceType.current = "content";
-			isChangingSource.current = true;
-
-			try {
-				sourceRef.current.changeSource({
-					id: props.playerMetadata?.id,
-					title: props.playerMetadata?.title,
-					subtitle: props.playerMetadata?.subtitle,
-					description: props.playerMetadata?.description,
-					poster: props.playerMetadata?.poster,
-					squaredPoster: props.playerMetadata?.squaredPoster,
-					manifests: props.manifests,
-					startPosition: props.playerProgress?.currentTime || 0,
-					isLive: true,
-					isCast: false,
-					headers: props.headers,
-				});
-			} catch (error: any) {
-				handleOnInternalError(handleErrorException(error, "PLAYER_MEDIA_LOAD_FAILED"));
-				return;
-			}
-		} else {
-			// LÓGICA DEL TUDUM SOLO PARA VOD
-
-			// Reset completo solo para VOD
-			currentSourceType.current = null;
-			pendingContentSource.current = null;
-			setSliderValues(undefined);
-			setIsContentLoaded(false);
-
-			// Reset progress managers solo para VOD
-			vodProgressManagerRef.current?.reset();
-			dvrProgressManagerRef.current?.reset();
-
-			// Determinar si debe reproducir tudum (solo para VOD)
-			const shouldPlayTudum =
-				!!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
-			currentLogger.current?.info(`shouldPlayTudum: ${shouldPlayTudum}`);
-
-			if (!tudumRef.current) {
-				tudumRef.current = new TudumClass({
-					enabled: !!props.showExternalTudum,
-					getTudumSource: props.hooks?.getTudumSource,
-					getTudumManifest: props.hooks?.getTudumManifest,
-					isAutoNext: props.isAutoNext,
-				});
-			} else {
-				// Actualizar contexto si el tudum ya existe
-				tudumRef.current.updateAutoNextContext(!!props.isAutoNext);
-			}
-
-			if (!sourceRef.current) {
-				sourceRef.current = new SourceClass({
-					id: props.playerMetadata?.id,
-					title: props.playerMetadata?.title,
-					subtitle: props.playerMetadata?.subtitle,
-					description: props.playerMetadata?.description,
-					poster: props.playerMetadata?.poster,
-					squaredPoster: props.playerMetadata?.squaredPoster,
-					manifests: props.manifests,
-					startPosition: props.playerProgress?.currentTime || 0,
-					isLive: false,
-					isCast: false,
-					headers: props.headers,
-					getBestManifest: props.hooks?.getBestManifest,
-					getSourceUri: props.hooks?.getSourceUri,
-					onSourceChanged: onSourceChanged,
-				});
-			}
-
-			// Establecer currentSourceType basado en si vamos a reproducir tudum
-			if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
-				currentLogger.current?.debug(`Will play tudum first, then content`);
-				currentSourceType.current = "tudum";
-				loadTudumSource();
-			} else {
-				currentLogger.current?.debug(`Skipping tudum - loading content directly`);
-				currentSourceType.current = "content";
-				loadContentSource();
-			}
-		}
-	}, [props.manifests, props.isAutoNext]);
-
-	// Función para cargar source del tudum
-	const loadTudumSource = () => {
-		currentLogger.current?.debug(`loadTudumSource`);
-
-		if (tudumRef.current?.source) {
-			currentSourceType.current = "tudum";
-			tudumRef.current.isPlaying = true;
-			drm.current = tudumRef.current?.drm;
-
-			currentLogger.current?.debug(
-				`Setting tudum source: ${JSON.stringify(tudumRef.current.source)}`
+		if (currentItemId && lastProcessedItemIdRef.current === currentItemId) {
+			currentLogger.current?.info(
+				`⏭️ Skipping duplicate processing of item ${currentItemId}`
 			);
-			setVideoSource(tudumRef.current.source);
+			return;
 		}
-	};
 
-	// Función para cargar source del contenido
-	const loadContentSource = () => {
-		currentLogger.current?.debug(`loadContentSource`);
+		currentLogger.current?.info(`✅ Processing new item ${currentItemId}`);
+		lastProcessedItemIdRef.current = currentItemId;
 
-		isChangingSource.current = true;
-		currentSourceType.current = "content";
-
-		if (sourceRef.current) {
-			try {
-				sourceRef.current?.changeSource({
-					id: props.playerMetadata?.id,
-					title: props.playerMetadata?.title,
-					subtitle: props.playerMetadata?.subtitle,
-					description: props.playerMetadata?.description,
-					poster: props.playerMetadata?.poster,
-					squaredPoster: props.playerMetadata?.squaredPoster,
-					manifests: props.manifests,
-					startPosition: props.playerProgress?.currentTime || 0,
-					isLive: !!props.playerProgress?.isLive,
-					isCast: false,
-					headers: props.headers,
-				});
-			} catch (error: any) {
-				handleOnInternalError(handleErrorException(error, "PLAYER_MEDIA_LOAD_FAILED"));
-				return;
-			}
-
-			// Si el source ya está listo inmediatamente, forzar la carga
-			setTimeout(() => {
-				if (sourceRef.current?.isReady && currentSourceType.current === "content") {
-					currentLogger.current?.debug(`Forcing content load - sourceRef is ready`);
-					setPlayerSource();
-				}
-			}, 100);
-		}
-	};
-
-	// Función para cambiar de tudum a contenido
-	const switchFromTudumToContent = () => {
-		currentLogger.current?.debug(`switchFromTudumToContent`);
-
-		// Limpiar completamente el source del tudum
-		currentSourceType.current = null;
-		tudumRef.current!.isPlaying = false;
-
-		// Reset completo de progress managers y sliderValues
+		// Reset state
 		setSliderValues(undefined);
+		setIsContentLoaded(false);
+		hasCalledInitialSeekRef.current = false;
+
+		// Reset progress managers
 		vodProgressManagerRef.current?.reset();
 		dvrProgressManagerRef.current?.reset();
 
-		// Limpiar el video source actual
-		setVideoSource(undefined);
+		// Extraer configuración de live/DVR desde liveSettings
+		const isLive = props.playlistItem?.isLive;
+		const liveSettings = props.playlistItem?.liveSettings;
 
-		// Pequeño delay para asegurar que se limpia el source
-		setTimeout(() => {
-			currentLogger.current?.debug(
-				`switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`
+		currentLogger.current?.info(
+			`PlaylistItem live config - isLive: ${isLive}, playbackType: ${liveSettings?.playbackType}, currentProgram: ${liveSettings?.currentProgram ? JSON.stringify({ id: liveSettings.currentProgram.id, startDate: liveSettings.currentProgram.startDate, endDate: liveSettings.currentProgram.endDate }) : "null"}`
+		);
+
+		// Crear PlaylistItemSimplified para hooks
+		const playlistItemSimplified = props.playlistItem
+			? {
+					id: props.playlistItem.id,
+					type: props.playlistItem.type,
+					status: props.playlistItem.status,
+					resolvedSources: props.playlistItem.resolvedSources,
+					metadata: props.playlistItem.metadata,
+					timeMarkers: props.playlistItem.timeMarkers,
+					duration: props.playlistItem.duration,
+					isLive: props.playlistItem.isLive,
+					liveSettings: props.playlistItem.liveSettings,
+					playOffline: props.playlistItem.playOffline,
+					addedAt: props.playlistItem.addedAt,
+					extraData: props.playlistItem.extraData,
+				}
+			: null;
+
+		// Actualizar playlist item en DVR Progress Manager si existe
+		if (dvrProgressManagerRef.current && playlistItemSimplified) {
+			dvrProgressManagerRef.current.setPlaylistItem(playlistItemSimplified);
+		}
+
+		// Calcular startPosition
+		// Para live DVR, checkInitialSeek se encargará del seek inicial al live edge
+		// Solo usamos startPosition si viene explícitamente del backend
+		const rawStartPosition = props.playlistItem?.initialState?.startPosition;
+		const calculatedStartPosition =
+			rawStartPosition !== undefined && rawStartPosition !== null && rawStartPosition >= 0
+				? rawStartPosition
+				: 0;
+
+		currentLogger.current?.info(
+			`PlaylistItem startPosition - original: ${rawStartPosition}, calculated: ${calculatedStartPosition.toFixed(1)}s`
+		);
+
+		// Crear playerProgress desde el playlistItem
+		playerProgressRef.current = {
+			currentTime: calculatedStartPosition,
+			duration: props.playlistItem?.initialState?.duration || 0,
+			isLive: isLive,
+			isPaused: props.initialState?.isPaused,
+			isMuted: props.initialState?.isMuted,
+			volume: props.initialState?.volume,
+			liveValues: liveSettings
+				? {
+						playbackType: liveSettings.playbackType,
+						multiSession: liveSettings.multiSession,
+						currentProgram: liveSettings.currentProgram,
+					}
+				: undefined,
+		};
+
+		// Determinar el contexto del source (local para NormalFlavour)
+		const sourceContext: SourceContext = "local";
+
+		// Si no hay resolvedSources, lanzar error claro
+		if (!props.playlistItem?.resolvedSources) {
+			const errorMsg =
+				"PlaylistItem must have resolvedSources. Please use resolveSourcesFromManifests() to convert manifests to resolvedSources before creating playlist items.";
+			currentLogger.current?.error(errorMsg);
+			return handleOnInternalError(
+				new PlayerError("PLAYER_SOURCE_NO_MANIFESTS_PROVIDED", {
+					message: errorMsg,
+					playlistItem: props.playlistItem,
+				})
 			);
-
-			// Si hay un source de contenido pendiente, usarlo directamente
-			if (pendingContentSource.current && pendingContentSource.current.isReady) {
-				currentLogger.current?.debug(
-					`switchFromTudumToContent - Loading pending content source directly`
-				);
-				currentSourceType.current = "content";
-				setPlayerSource(pendingContentSource.current);
-				pendingContentSource.current = null;
-			} else {
-				// Cargar el contenido principal
-				currentLogger.current?.debug(
-					`switchFromTudumToContent - Loading main content source`
-				);
-				currentSourceType.current = "content";
-				loadContentSource();
-			}
-		}, 100);
-	};
-
-	useEffect(() => {
-		// Montamos el selector de pista de Audio
-		if (typeof props.audioIndex === "number" && props.audioIndex > -1) {
-			setSelectedAudioTrack({
-				value: props.audioIndex,
-				type: SelectedTrackType.INDEX,
-			});
 		}
-	}, [props.audioIndex]);
 
-	useEffect(() => {
-		// Montamos el selector de pista de Subtítulo
-		if (typeof props.subtitleIndex === "number" && props.subtitleIndex > -1) {
-			setSelectedTextTrack({
-				value: props.subtitleIndex,
-				type: SelectedTrackType.INDEX,
-			});
-		} else if (typeof props.subtitleIndex === "number" && props.subtitleIndex === -1) {
-			setSelectedTextTrack({
-				type: SelectedTrackType.DISABLED,
-			});
-		}
-	}, [props.subtitleIndex]);
+		// Recrear sourceRef con el callback actualizado
+		sourceRef.current = new SourceClass({
+			logger: props.playerContext?.logger,
+			playerLogger: props.logger,
+			id: props.playlistItem?.metadata?.id,
+			title: props.playlistItem?.metadata?.title,
+			artist: props.playlistItem?.metadata?.artist,
+			subtitle: props.playlistItem?.metadata?.subtitle,
+			description: props.playlistItem?.metadata?.description,
+			poster: props.playlistItem?.metadata?.poster,
+			squaredPoster: props.playlistItem?.metadata?.squaredPoster,
+			resolvedSources: props.playlistItem.resolvedSources,
+			sourceContext: sourceContext,
+			startPosition: calculatedStartPosition,
+			isLive: isLive,
+			isCast: false,
+			headers: props.playlistItem.resolvedSources.local?.headers as
+				| Record<string, string>
+				| undefined,
+			onSourceChanged: onSourceChanged,
+			// Parámetros DVR si es contenido live
+			...(liveSettings && {
+				liveStartDate: liveSettings.liveStartDate,
+				resolvedEPG: liveSettings.resolvedEPG,
+			}),
+		});
+
+		// El constructor ya llama a changeSource internamente
+		// que a su vez llama a onSourceChanged con el callback actualizado
+		isChangingSource.current = false;
+	}, [props.playlistItem]);
+
+	// useEffect(() => {
+	// 	// Montamos el selector de pista de Audio
+	// 	if (typeof props.audioIndex === "number" && props.audioIndex > -1) {
+	// 		setSelectedAudioTrack({
+	// 			value: props.audioIndex,
+	// 			type: SelectedTrackType.INDEX,
+	// 		});
+	// 	}
+	// }, [props.audioIndex]);
+
+	// useEffect(() => {
+	// 	// Montamos el selector de pista de Subtítulo
+	// 	if (typeof props.subtitleIndex === "number" && props.subtitleIndex > -1) {
+	// 		setSelectedTextTrack({
+	// 			value: props.subtitleIndex,
+	// 			type: SelectedTrackType.INDEX,
+	// 		});
+	// 	} else if (typeof props.subtitleIndex === "number" && props.subtitleIndex === -1) {
+	// 		setSelectedTextTrack({
+	// 			type: SelectedTrackType.DISABLED,
+	// 		});
+	// 	}
+	// }, [props.subtitleIndex]);
 
 	useEffect(() => {
 		if (menuData && props.events?.onChangeCommonData) {
@@ -429,135 +349,76 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	// Source Cooking
 	const onSourceChanged = (data: onSourceChangedProps) => {
-		// currentLogger.current?.temp(`onSourceChanged - currentSourceType: ${currentSourceType.current}`);
-		// currentLogger.current?.temp(`onSourceChanged - tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-		// currentLogger.current?.temp(`onSourceChanged - data isReady: ${data.isReady}`);
-		// currentLogger.current?.temp(`onSourceChanged - data ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(
+			`onSourceChanged - Processing source (isReady: ${data.isReady})`
+		);
 
-		if (
-			!sourceRef.current?.isLive &&
-			!sourceRef.current?.isDownloaded &&
-			currentSourceType.current === "tudum"
-		) {
-			// Si estamos reproduciendo tudum, guardar el source del contenido para después
-			currentLogger.current?.debug(
-				`onSourceChanged - Saving content source for later (tudum is playing)`
-			);
-			pendingContentSource.current = data;
+		// Actualizar playerProgressRef con estado actual
+		playerProgressRef.current = {
+			currentTime: currentTime,
+			duration: sliderValues?.duration || 0,
+			isLive: sourceRef.current?.isLive,
+			isPaused: paused,
+			isMuted: muted,
+			isContentLoaded: isContentLoaded,
+			isChangingSource: isChangingSource.current,
+			sliderValues: sliderValues,
+		};
 
-			currentLogger.current?.debug(
-				`onSourceChanged - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`
-			);
-
-			// También preparar el progress
-			if (data.isReady) {
-				playerProgressRef.current = {
-					...props.playerProgress,
-					currentTime: currentTime,
-					duration: sliderValues?.duration || 0,
-					isPaused: paused,
-					isMuted: muted,
-					isContentLoaded: isContentLoaded,
-					isChangingSource: isChangingSource.current,
-					sliderValues: sliderValues,
-				};
-			}
-		} else if (currentSourceType.current === "content") {
-			// Si ya estamos en modo contenido, procesar normalmente
-			currentLogger.current?.debug(`onSourceChanged - Processing content source normally`);
-
-			playerProgressRef.current = {
-				...props.playerProgress,
-				currentTime: currentTime,
-				duration: sliderValues?.duration || 0,
-				isPaused: paused,
-				isMuted: muted,
-				isContentLoaded: isContentLoaded,
-				isChangingSource: isChangingSource.current,
-				sliderValues: sliderValues,
-			};
-
+		// Cargar el source si está listo
+		if (data.isReady) {
 			setPlayerSource(data);
-		} else {
-			// Estado inicial o indefinido
-			currentLogger.current?.debug(`onSourceChanged - Initial state, processing source`);
+		}
+	};
 
-			// Si no tenemos tipo definido, debe ser contenido
-			if (!currentSourceType.current) {
-				currentSourceType.current = "content";
+	const setPlayerSource = useCallback(
+		(data?: onSourceChangedProps) => {
+			currentLogger.current?.temp(`setPlayerSource (data isReady ${!!data?.isReady})`);
+			currentLogger.current?.temp(
+				`setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`
+			);
+			currentLogger.current?.temp(`setPlayerSource (data ${JSON.stringify(data)})`);
+
+			if (data && data?.isReady) {
+				currentLogger.current?.debug(`setPlayerSource - Using provided data`);
+				setBuffering(true);
+				drm.current = data.drm;
+
+				// Preparamos los datos de Youbora
+				if (props.hooks?.getYouboraOptions) {
+					youboraForVideo.current = props.hooks.getYouboraOptions(
+						props.playlistItem?.analytics?.youbora!,
+						YOUBORA_FORMAT.MOBILE
+					);
+				}
+
 				currentLogger.current?.info(
-					`onSourceChanged - Setting currentSourceType to content`
+					`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`
 				);
-			}
+				setVideoSource(data.source!);
+			} else if (sourceRef.current?.isReady) {
+				currentLogger.current?.debug(`setPlayerSource - Using sourceRef`);
+				setBuffering(true);
+				drm.current = sourceRef.current.playerSourceDrm;
 
-			playerProgressRef.current = {
-				...props.playerProgress,
-				currentTime: currentTime,
-				duration: sliderValues?.duration || 0,
-				isPaused: paused,
-				isMuted: muted,
-				isContentLoaded: isContentLoaded,
-				isChangingSource: isChangingSource.current,
-				sliderValues: sliderValues,
-			};
+				// Preparamos los datos de Youbora
+				if (props.hooks?.getYouboraOptions) {
+					youboraForVideo.current = props.hooks.getYouboraOptions(
+						props.playlistItem?.analytics?.youbora!,
+						YOUBORA_FORMAT.MOBILE
+					);
+				}
 
-			setPlayerSource(data);
-		}
-
-		// Reset DVR si es necesario
-		if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
-			dvrProgressManagerRef.current?.reset();
-		}
-	};
-
-	const setPlayerSource = (data?: onSourceChangedProps) => {
-		currentLogger.current?.temp(`setPlayerSource (data isReady ${!!data?.isReady})`);
-		currentLogger.current?.temp(
-			`setPlayerSource (sourceRef isReady ${!!sourceRef.current?.isReady})`
-		);
-		currentLogger.current?.temp(
-			`setPlayerSource (currentSourceType ${currentSourceType.current})`
-		);
-		currentLogger.current?.temp(`setPlayerSource (data ${JSON.stringify(data)})`);
-
-		if (data && data?.isReady) {
-			currentLogger.current?.debug(`setPlayerSource - Using provided data`);
-			setBuffering(true);
-			drm.current = data.drm;
-
-			// Preparamos los datos de Youbora
-			if (props.hooks?.getYouboraOptions) {
-				youboraForVideo.current = props.hooks.getYouboraOptions(
-					props.playerAnalytics?.youbora!,
-					YOUBORA_FORMAT.MOBILE
+				currentLogger.current?.info(
+					`setPlayerSource - Setting sourceRef content: ${JSON.stringify(sourceRef.current.playerSource)}`
 				);
+				setVideoSource(sourceRef.current.playerSource!);
+			} else {
+				currentLogger.current?.error(`setPlayerSource - No valid source available`);
 			}
-
-			currentLogger.current?.info(
-				`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`
-			);
-			setVideoSource(data.source!);
-		} else if (sourceRef.current?.isReady) {
-			currentLogger.current?.debug(`setPlayerSource - Using sourceRef`);
-			setBuffering(true);
-			drm.current = sourceRef.current.playerSourceDrm;
-
-			// Preparamos los datos de Youbora
-			if (props.hooks?.getYouboraOptions) {
-				youboraForVideo.current = props.hooks.getYouboraOptions(
-					props.playerAnalytics?.youbora!,
-					YOUBORA_FORMAT.MOBILE
-				);
-			}
-
-			currentLogger.current?.info(
-				`setPlayerSource - Setting sourceRef content: ${JSON.stringify(sourceRef.current.playerSource)}`
-			);
-			setVideoSource(sourceRef.current.playerSource!);
-		} else {
-			currentLogger.current?.error(`setPlayerSource - No valid source available`);
-		}
-	};
+		},
+		[props.hooks, props.playlistItem]
+	);
 
 	/*
 	 *  Gestores de Progreso
@@ -568,35 +429,36 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		(data: ProgressUpdateData) => {
 			currentLogger.current?.debug(`handleOnProgressUpdate ${JSON.stringify(data)}`);
 
-			// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
-			if (currentSourceType.current === "content") {
-				setSliderValues({
-					minimumValue: data.minimumValue,
-					maximumValue: data.maximumValue,
-					progress: data.progress,
-					percentProgress: data.percentProgress,
-					duration: data.duration || 0,
-					canSeekToEnd: data.canSeekToEnd,
-					liveEdge: data.liveEdge,
-					percentLiveEdge: data.percentLiveEdge,
-					isProgramLive: data.isProgramLive,
-					progressDatum: data.progressDatum,
-					liveEdgeOffset: data.liveEdgeOffset,
-					isLiveEdgePosition: data.isLiveEdgePosition,
-				});
+			// Actualizar sliderValues siempre (no solo cuando isContentLoaded)
+			const newSliderValues = {
+				minimumValue: data.minimumValue,
+				maximumValue: data.maximumValue,
+				progress: data.progress,
+				percentProgress: data.percentProgress,
+				duration: data.duration || 0,
+				canSeekToEnd: data.canSeekToEnd,
+				liveEdge: data.liveEdge,
+				percentLiveEdge: data.percentLiveEdge,
+				isProgramLive: data.isProgramLive,
+				progressDatum: data.progressDatum,
+				liveEdgeOffset: data.liveEdgeOffset,
+				isLiveEdgePosition: data.isLiveEdgePosition,
+			};
 
-				playerProgressRef.current = {
-					...props.playerProgress,
-					currentTime: currentTime,
-					duration: sliderValues?.duration || 0,
-					isPaused: paused,
-					isMuted: muted,
-					isContentLoaded: isContentLoaded,
-					isChangingSource: isChangingSource.current,
-					sliderValues: sliderValues,
-					currentProgram: data.currentProgram,
-				};
-			}
+			setSliderValues(newSliderValues);
+
+			// Actualizar playerProgressRef con los nuevos valores
+			playerProgressRef.current = {
+				...props.playerProgress,
+				currentTime: currentTime,
+				duration: data.duration || 0,
+				isPaused: paused,
+				isMuted: muted,
+				isContentLoaded: isContentLoaded,
+				isChangingSource: isChangingSource.current,
+				sliderValues: newSliderValues,
+				currentProgram: data.currentProgram,
+			};
 		},
 		[currentTime, paused, muted, isContentLoaded, props.playerProgress]
 	);
@@ -778,9 +640,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				setBuffering(true);
 				setIsLiveProgramRestricted(true);
 
-				if (sourceRef.current) {
-					sourceRef.current.changeDvrUriParameters(timestamp);
-				}
+				// if (sourceRef.current) {
+				// 	sourceRef.current.changeDvrUriParameters(timestamp);
+				// }
 
 				if (dvrProgressManagerRef.current) {
 					dvrProgressManagerRef.current?.reset();
@@ -802,9 +664,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					setBuffering(true);
 					setIsLiveProgramRestricted(false);
 
-					if (sourceRef.current) {
-						sourceRef.current.reloadDvrStream();
-					}
+					// if (sourceRef.current) {
+					// 	sourceRef.current.reloadDvrStream();
+					// }
 
 					setTimeout(() => {
 						setVideoSource(sourceRef.current?.playerSource!);
@@ -948,13 +810,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const handleOnLoad = (e: OnLoadData) => {
 		currentLogger.current?.info(`handleOnLoad (${sourceRef.current?.playerSource?.uri})`);
-		// currentLogger.current?.temp(`handleOnLoad currentSourceType: ${currentSourceType.current}`);
-		// currentLogger.current?.temp(`handleOnLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
-		// currentLogger.current?.temp(`handleOnLoad isContentLoaded ${isContentLoaded}`);
-		// currentLogger.current?.temp(`handleOnLoad duration: ${e.duration}, currentTime: ${e.currentTime}`);
 
-		// Solo procesar onLoad para contenido principal, no para tudum
-		if (currentSourceType.current === "content" && !isContentLoaded) {
+		// Procesar onLoad para contenido
+		if (!isContentLoaded) {
 			currentLogger.current?.debug(`handleOnLoad - Processing content load`);
 
 			// Para VOD, establecer la duración desde el evento onLoad
@@ -998,12 +856,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
 				}
 			}
-		} else if (currentSourceType.current === "tudum") {
-			currentLogger.current?.info(`handleOnLoad - Tudum loaded, duration: ${e.duration}`);
-		} else {
-			currentLogger.current?.debug(
-				`handleOnLoad - Ignoring load event (sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded})`
-			);
 		}
 	};
 
@@ -1017,7 +869,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const handleOnProgress = (e: OnProgressData) => {
 		currentLogger.current?.debug(
-			`handleOnProgress - currentSourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
+			`handleOnProgress - isContentLoaded: ${isContentLoaded}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
 		);
 
 		if (typeof e.currentTime === "number" && currentTime !== e.currentTime) {
@@ -1025,9 +877,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			setCurrentTime(e.currentTime);
 		}
 
-		// Solo procesar progreso para contenido principal, no para tudum, y cuando el contenido esté cargado
-		// Esto previene race conditions cuando se cambia de TUDUM a contenido normal
-		if (currentSourceType.current === "content" && isContentLoaded) {
+		// Solo procesar progreso cuando el contenido esté cargado
+		if (isContentLoaded) {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
 				// Para VOD: NO actualizar duration en onProgress, mantener la que se estableció en onLoad
 				const currentDuration = vodProgressManagerRef.current?.duration || 0;
@@ -1060,10 +911,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					duration: vodDuration, // Usar la duración guardada para VOD
 				});
 			}
-		} else {
-			currentLogger.current?.debug(
-				`handleOnProgress: Ignoring progress (type: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded}) - currentTime: ${e.currentTime}, duration: ${e.seekableDuration}`
-			);
 		}
 	};
 
@@ -1083,38 +930,36 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	};
 
 	const handleOnEnd = () => {
-		currentLogger.current?.debug(
-			`handleOnEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`
+		currentLogger.current?.info(
+			`handleOnEnd: playlistItem type ${props.playlistItem?.type}, id: ${props.playlistItem?.id}, isContentLoaded: ${isContentLoaded}`
 		);
 
-		if (currentSourceType.current === "tudum") {
-			// Acaba la reproducción del Tudum externo
-			currentLogger.current?.debug(`handleOnEnd: Tudum finished, switching to main content`);
-			isChangingSource.current = true;
-			switchFromTudumToContent();
-		} else if (currentSourceType.current === "content" && props.events?.onEnd) {
-			// Termina el contenido principal
-			currentLogger.current?.debug(
-				`handleOnEnd: Content finished, preparing for possible auto next`
-			);
-
-			// Preparar tudum para salto automático antes de notificar
-			if (tudumRef.current) {
-				tudumRef.current.prepareForAutoNext();
-			}
-
-			props.events.onEnd();
-		} else {
+		// Ignore onEnd if content hasn't been loaded yet
+		// This prevents spurious onEnd events when changing sources
+		if (!isContentLoaded) {
 			currentLogger.current?.warn(
-				`handleOnEnd: Unknown state - currentSourceType: ${currentSourceType.current}, hasOnEnd: ${!!props.events?.onEnd}`
+				`handleOnEnd: Ignoring onEnd event - content not loaded yet (type: ${props.playlistItem?.type})`
 			);
+			return;
+		}
+
+		// NOTE: We don't notify the native PlaylistControlModule here because:
+		// 1. In coordinated mode, the PlaylistsManager (TypeScript) controls which item plays
+		// 2. The native module is only used for standalone mode (audio-only apps)
+		// 3. Auto-advance is handled by the parent component (AudioPlayerBar) which uses PlaylistsManager
+
+		// Always notify parent that item has ended
+		// Parent component (audioPlayerBar) will decide whether to auto-advance based on:
+		// - Item type (TUDUM always auto-advances)
+		// - autoNext configuration (for regular content)
+		if (props.events?.onEnd) {
+			props.events.onEnd();
 		}
 	};
 
 	const handleOnVideoError = (e: OnVideoErrorData) => {
-		currentLogger.current?.error(
-			`handleOnVideoError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`
-		);
+		currentLogger.current?.error(`handleOnVideoError: ${JSON.stringify(e)}`);
+
 		const playerError = mapVideoErrorToPlayerError(e);
 
 		if (props.events?.onError && typeof props.events.onError === "function") {
@@ -1167,7 +1012,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						drm={drm.current}
 						// @ts-ignore
 						youbora={youboraForVideo.current}
-						playOffline={props.playOffline}
+						playOffline={props.playlistItem?.playOffline}
 						multiSession={props.playerProgress?.liveValues?.multiSession}
 						disableDisconnectError={true}
 						debug={{
@@ -1185,7 +1030,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 								targetOffsetMs: 25000,
 							},
 						}}
-						adTagUrl={props?.playerAds?.adTagUrl}
+						adTagUrl={props.playlistItem?.ads?.adTagUrl}
 						allowsExternalPlayback={true}
 						//volume={10}
 						controls={false}
@@ -1205,20 +1050,15 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						poster={props?.playerMetadata?.poster}
 						preventsDisplaySleepDuringVideoPlayback={!isAirplayConnected}
 						progressUpdateInterval={1000}
-						selectedVideoTrack={
-							tudumRef.current?.isPlaying ? undefined : selectedVideoTrack
-						}
-						selectedAudioTrack={
-							tudumRef.current?.isPlaying ? undefined : selectedAudioTrack
-						}
+						selectedVideoTrack={selectedVideoTrack}
+						selectedAudioTrack={selectedAudioTrack}
 						selectedTextTrack={
-							tudumRef.current?.isPlaying ||
-							(typeof selectedTextTrack?.value === "number" &&
-								selectedTextTrack?.value < 0)
+							typeof selectedTextTrack?.value === "number" &&
+							selectedTextTrack?.value < 0
 								? undefined
 								: selectedTextTrack
 						}
-						subtitleStyle={props.subtitleStyle}
+						subtitleStyle={props.initialState?.subtitleStyle}
 						// Eventos combinados: originales + analytics
 						onLoadStart={videoEvents.onLoadStart}
 						onLoad={combineEventHandlers(handleOnLoad, videoEvents.onLoad)}
@@ -1261,7 +1101,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				</Suspense>
 			) : null}
 
-			{!isPlayingAd && !tudumRef.current?.isPlaying ? (
+			{!isPlayingAd ? (
 				<Overlay
 					preloading={isBuffering}
 					thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
@@ -1271,15 +1111,15 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					isContentLoaded={isContentLoaded}
 					menuData={menuData}
 					videoIndex={videoQualityIndex.current}
-					audioIndex={props.audioIndex}
-					subtitleIndex={props.subtitleIndex}
+					audioIndex={props.initialState?.audioIndex}
+					subtitleIndex={props.initialState?.subtitleIndex}
 					speedRate={speedRate}
 					// Nuevas Props Agrupadas
 					playerMetadata={props.playerMetadata}
 					playerProgress={{
 						...props.playerProgress,
 						currentTime: currentTime,
-						duration: sliderValues?.duration || 0,
+						duration: sliderValues?.duration ?? sliderValues?.maximumValue ?? 0,
 						isBuffering: isBuffering,
 						isContentLoaded: isContentLoaded,
 						isChangingSource: isChangingSource.current,

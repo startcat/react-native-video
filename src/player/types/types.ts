@@ -521,7 +521,6 @@ export interface OverlayProps extends ICommonPlayerProps {
 
 export interface AudioFlavourProps extends ICommonFlavourProps, ICommonPlayerProps {
 	playerContext?: PlayerContext;
-
 	languagesMapping?: ILanguagesMapping;
 
 	// Extra data
@@ -536,9 +535,8 @@ export interface AudioFlavourProps extends ICommonFlavourProps, ICommonPlayerPro
 	components?: IPlayerCustomAudioComponents;
 }
 
-export interface AudioCastFlavourProps extends ICommonFlavourProps {
+export interface AudioCastFlavourProps extends ICommonFlavourProps, ICommonPlayerProps {
 	playerContext?: PlayerContext;
-
 	languagesMapping?: ILanguagesMapping;
 
 	// Extra data
@@ -553,27 +551,18 @@ export interface AudioCastFlavourProps extends ICommonFlavourProps {
 	components?: IPlayerCustomAudioComponents;
 }
 
-export interface NormalFlavourProps extends ICommonFlavourProps {
+export interface NormalFlavourProps extends ICommonFlavourProps, ICommonPlayerProps {
 	playerContext?: PlayerContext;
-
-	audioIndex?: number;
-	subtitleIndex?: number;
 	languagesMapping?: ILanguagesMapping;
-	subtitleStyle?: SubtitleStyle;
-
 	avoidTimelineThumbnails?: boolean;
 
 	// Custom Components
 	components?: IPlayerCustomVideoComponents;
 }
 
-export interface CastFlavourProps extends ICommonFlavourProps {
+export interface CastFlavourProps extends ICommonFlavourProps, ICommonPlayerProps {
 	playerContext?: PlayerContext;
-
-	audioIndex?: number;
-	subtitleIndex?: number;
 	languagesMapping?: ILanguagesMapping;
-
 	avoidTimelineThumbnails?: boolean;
 
 	// Custom Components

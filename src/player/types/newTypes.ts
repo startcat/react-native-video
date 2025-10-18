@@ -52,6 +52,8 @@ export interface IPlayerInitialState {
 	volume?: number;
 
 	// Configuración inicial de pistas
+	audioCode?: string;
+	subtitleCode?: string;
 	audioIndex?: number;
 	subtitleIndex?: number;
 	subtitleStyle?: SubtitleStyle;
