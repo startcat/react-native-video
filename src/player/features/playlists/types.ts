@@ -7,14 +7,15 @@
  *
  */
 
+import { type PlayerAnalyticsPlugin } from "../../features/analytics/types";
 import type {
 	IBasicProgram,
 	ILanguagesMapping,
 	IManifest,
 	IPlayerAds,
-	IPlayerAnalytics,
 	IPlayerMetadata,
 	IPlayerTimeMarkers,
+	IYoubora,
 } from "../../types";
 import { DVR_PLAYBACK_TYPE } from "../../types/enums";
 import { LogLevel } from "../logger";
@@ -200,7 +201,10 @@ export interface PlaylistItem {
 	metadata?: IPlayerMetadata;
 
 	/* Analytics del contenido */
-	analytics?: IPlayerAnalytics;
+	analytics?: {
+		youbora?: IYoubora;
+		analyticsConfig?: PlayerAnalyticsPlugin[];
+	};
 
 	/* Time markers del contenido */
 	timeMarkers?: IPlayerTimeMarkers;
