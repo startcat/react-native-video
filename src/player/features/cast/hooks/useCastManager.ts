@@ -63,6 +63,7 @@ export function useCastManager(
     const lastLoadedContentRef = useRef<string | null>(null);
     const messageBuilderRef = useRef<CastMessageBuilder>();
     const playbackStartedForUrlRef = useRef<string | null>(null);
+    const isLoadingContentRef = useRef<boolean>(false); // Prevenir llamadas concurrentes
 
     if (!messageBuilderRef.current) {
         messageBuilderRef.current = new CastMessageBuilder(config);
@@ -101,11 +102,10 @@ export function useCastManager(
             lastAction: action
         }));
 
-        // Invocar callback genérico con contexto
-        callbacksRef.current.onError?.(playerError, {
-            action,
-            ...context
-        });
+        // Invocar callback de error con el content si está disponible
+        if (context?.content) {
+            callbacksRef.current.onError?.(playerError, context.content);
+        }
         
         return false;
     }, []);
@@ -131,27 +131,35 @@ export function useCastManager(
     
     // Método para actualizar configuración del MessageBuilder
     const updateMessageBuilderConfig = useCallback((newConfig: any) => {
-        messageBuilderRef.current.updateConfig(newConfig);
+        messageBuilderRef.current?.updateConfig(newConfig);
     }, []);
     
     // Acción: Cargar contenido (usando CastMessageBuilder)
     const loadContent = useCallback(async (content: CastContentInfo): Promise<boolean> => {
+        // Prevenir llamadas concurrentes
+        if (isLoadingContentRef.current) {
+            currentLogger.current?.warn(`loadContent - Already loading content, skipping concurrent call for: ${content.source.uri}`);
+            return false;
+        }
+        
+        isLoadingContentRef.current = true;
+        
         if (!canPerformAction()) {
+            isLoadingContentRef.current = false;
             return handleActionError('action', new PlayerError("PLAYER_CAST_NOT_READY"), { action: 'loadContent' });
         }
 
         const currentMedia = await nativeClient.getMediaStatus();
 
-        if (currentMedia && currentMedia.mediaInfo && currentMedia.mediaInfo.contentId !== lastLoadedContentRef.current) {
-            currentLogger.current?.debug(`loadContent - Guardamos el contentId del media que esta reproduciendose en cast: ${JSON.stringify(currentMedia.mediaInfo.contentId)}`);
-            lastLoadedContentRef.current = currentMedia.mediaInfo.contentId;
-        }
-
-        // currentLogger.current?.temp(`loadContent - lastLoadedContentRef: ${JSON.stringify(lastLoadedContentRef.current)}`);
-        // currentLogger.current?.temp(`loadContent - content.source.uri: ${JSON.stringify(content.source.uri)}`);
-        // currentLogger.current?.temp(`loadContent - isIdle: ${JSON.stringify(currentMedia?.playerState)}`);
+        // Log para debugging
+        currentLogger.current?.debug(`loadContent - Checking content:
+            - New content URI: ${content.source.uri}
+            - lastLoadedContentRef: ${lastLoadedContentRef.current}
+            - currentMedia.contentId: ${currentMedia?.mediaInfo?.contentId}
+            - currentMedia.playerState: ${currentMedia?.playerState}`);
         
         // Evitar recargar el mismo contenido
+        // IMPORTANTE: Verificar ANTES de actualizar lastLoadedContentRef con currentMedia
         if (lastLoadedContentRef.current === content.source.uri && 
             currentMedia?.playerState !== "idle") {
             currentLogger.current?.debug(`Content already loaded, skipping: ${content.source.uri}`);
@@ -159,16 +167,32 @@ export function useCastManager(
             return true;
         }
         
+        // Solo actualizar lastLoadedContentRef si el contenido es diferente
+        // Esto evita que se actualice prematuramente antes de la verificación
+        if (currentMedia && currentMedia.mediaInfo && 
+            currentMedia.mediaInfo.contentId !== lastLoadedContentRef.current &&
+            currentMedia.mediaInfo.contentId !== content.source.uri) {
+            currentLogger.current?.debug(`loadContent - Guardamos el contentId del media que esta reproduciendose en cast: ${JSON.stringify(currentMedia.mediaInfo.contentId)}`);
+            lastLoadedContentRef.current = currentMedia.mediaInfo.contentId;
+        }
+        
         startAction('loadContent');
         
         try {
             // Usar CastMessageBuilder para construir el mensaje
+            // Convertir campos string a number según lo requiere CastContentMetadata
+            const metadata = {
+                ...content.metadata,
+                id: content.metadata.id ? Number(content.metadata.id) : undefined,
+                liveStartDate: content.metadata.liveStartDate ? Number(content.metadata.liveStartDate) : undefined
+            };
+            
             const castMessage = messageBuilderRef.current?.buildCastMessage({
                 source: content.source,
                 manifest: content.manifest,
                 drm: content.drm,
                 youbora: content.youbora,
-                metadata: content.metadata
+                metadata: metadata
             });
             
             if (!castMessage || !castMessage.mediaInfo) {
@@ -177,21 +201,42 @@ export function useCastManager(
             
             currentLogger.current?.debug(`loadContent - castMessage: ${JSON.stringify(castMessage)}`);
             
+            // Si hay contenido cargado (aunque esté en null o idle), detenerlo primero
+            // Esto asegura que Cast acepte el nuevo contenido
+            if (currentMedia && currentMedia.mediaInfo && currentMedia.mediaInfo.contentId) {
+                currentLogger.current?.debug(`loadContent - Stopping current media before loading new content (current: ${currentMedia.mediaInfo.contentId})`);
+                try {
+                    await nativeClient.stop();
+                    currentLogger.current?.debug(`loadContent - Current media stopped successfully`);
+                    // Esperar un poco para que Cast procese el stop
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (stopError) {
+                    currentLogger.current?.warn(`loadContent - Failed to stop current media, continuing anyway:`, stopError);
+                }
+            }
+            
+            currentLogger.current?.debug(`loadContent - Calling nativeClient.loadMedia...`);
             await nativeClient.loadMedia(castMessage);
+            currentLogger.current?.debug(`loadContent - nativeClient.loadMedia completed successfully`);
             
             lastLoadedContentRef.current = content.source.uri;
+            currentLogger.current?.debug(`loadContent - Updated lastLoadedContentRef to: ${content.source.uri}`);
+            
             completeAction('loadContent');
             
             // Callback de éxito (se ejecutará cuando cambie el estado)
             setTimeout(() => {
+                currentLogger.current?.debug(`loadContent - Calling onContentLoaded callback`);
                 callbacksRef.current.onContentLoaded?.(content);
             }, 100);
             
+            isLoadingContentRef.current = false;
             return true;
             
         } catch (error: any) {
             lastLoadedContentRef.current = null;
             playbackStartedForUrlRef.current = null;
+            isLoadingContentRef.current = false;
             return handleActionError('loadContent', error instanceof PlayerError ? error : new PlayerError("PLAYER_CAST_OPERATION_FAILED"), { action: 'loadContent', content });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
@@ -356,7 +401,7 @@ export function useCastManager(
     // Acción: Set Volume
     const setVolume = useCallback(async (level: number): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('action', new PlayerError("PLAYER_CAST_NOT_READY"), { action: 'setVolume', level });
+            return handleActionError('action', new PlayerError("PLAYER_CAST_NOT_READY"), { action: 'setVolume', volume: level });
         }
         
         const clampedLevel = Math.max(0, Math.min(1, level));
@@ -373,7 +418,7 @@ export function useCastManager(
             
             return true;
         } catch (error) {
-            return handleActionError('setVolume', error instanceof PlayerError ? error : new PlayerError("PLAYER_CAST_OPERATION_FAILED"), { action: 'setVolume', level });
+            return handleActionError('setVolume', error instanceof PlayerError ? error : new PlayerError("PLAYER_CAST_OPERATION_FAILED"), { action: 'setVolume', volume: level });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeSession, castState.volume.isMuted]);
     
@@ -417,7 +462,7 @@ export function useCastManager(
 
     const setActiveTrackIds = useCallback(async (trackIds: number[]): Promise<boolean> => {
         if (!canPerformAction()) {
-            return handleActionError('action', new PlayerError("PLAYER_CAST_NOT_READY"), { action: 'setActiveTrackIds', trackIds });
+            return handleActionError('action', new PlayerError("PLAYER_CAST_NOT_READY"), { action: 'setActiveTrackIds' });
         }
         
         startAction('setActiveTrackIds');
@@ -427,7 +472,7 @@ export function useCastManager(
             completeAction('setActiveTrackIds');
             return true;
         } catch (error) {
-            return handleActionError('setActiveTrackIds', error instanceof PlayerError ? error : new PlayerError("PLAYER_CAST_OPERATION_FAILED"), { action: 'setActiveTrackIds', trackIds });
+            return handleActionError('setActiveTrackIds', error instanceof PlayerError ? error : new PlayerError("PLAYER_CAST_OPERATION_FAILED"), { action: 'setActiveTrackIds' });
         }
     }, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
     

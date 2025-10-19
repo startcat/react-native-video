@@ -35,7 +35,6 @@ import { getTrackId, mergeCastMenuData } from "../../utils";
 
 import { useIsBuffering } from "../../core/buffering";
 import { SourceClass, type onSourceChangedProps } from "../../modules/source";
-import { TudumClass } from "../../modules/tudum";
 
 // Importar hooks individuales de Cast como en AudioCastFlavour
 import {
@@ -91,9 +90,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// Source
 	const sourceRef = useRef<SourceClass | null>(null);
 
-	// Tudum
-	const tudumRef = useRef<TudumClass | null>(null);
-
 	// VOD Progress Manager
 	const vodProgressManagerRef = useRef<VODProgressManagerClass | null>(null);
 
@@ -101,7 +97,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
 
 	// Control para evitar mezcla de sources
-	const currentSourceType = useRef<"tudum" | "content" | null>(null);
+	const currentSourceType = useRef<"content" | null>(null);
 	const pendingContentSource = useRef<onSourceChangedProps | null>(null);
 
 	// USAR HOOKS INDIVIDUALES DE CAST como en AudioCastFlavour
@@ -115,6 +111,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
 	const onEndRef = useRef<() => void>();
 	const onErrorRef = useRef<(error: PlayerError) => void>();
+	
+	// Ref para evitar llamadas duplicadas a onChangeCommonData
+	const lastCommonDataRef = useRef<{ time?: number; duration?: number }>({});
 
 	// CALLBACKS DEL CAST MANAGER
 	const onContentLoadedCallback = useCallback(
@@ -303,13 +302,13 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, []);
 
 	// Effect para manejar cambios en índices de audio/subtítulos
-	useEffect(() => {
-		setAudioIndex(props.audioIndex!);
-	}, [props.audioIndex]);
+	// useEffect(() => {
+	// 	setAudioIndex(props.audioIndex!);
+	// }, [props.audioIndex]);
 
-	useEffect(() => {
-		setSubtitleIndex(props.subtitleIndex!);
-	}, [props.subtitleIndex]);
+	// useEffect(() => {
+	// 	setSubtitleIndex(props.subtitleIndex!);
+	// }, [props.subtitleIndex]);
 
 	// Effect para manejar cambios en tracks
 	useEffect(() => {
@@ -401,7 +400,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			setHasTriedLoading(true);
 
 			const sourceData: onSourceChangedProps = {
-				id: props.playerMetadata?.id,
+				id: props.playlistItem?.metadata?.id,
 				source: sourceRef.current.playerSource,
 				drm: sourceRef.current.playerSourceDrm,
 				dvrWindowSeconds: sourceRef.current.dvrWindowSeconds,
@@ -442,66 +441,54 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	useEffect(() => {
 		// Verificar si es contenido live/DVR vs VOD
-		const isLiveContent = !!props.playerProgress?.isLive;
+		const isLiveContent = !!props.playlistItem?.isLive;
 
 		if (isLiveContent) {
 			handleLiveContent();
 		} else {
 			handleVODContent();
 		}
-	}, [props.manifests, props.isAutoNext, props.playerMetadata?.id]);
+	}, [props.playlistItem]);
 
 	const handleLiveContent = () => {
 		currentLogger.current?.debug(`handleLiveContent`);
 
-		if (!tudumRef.current) {
-			tudumRef.current = new TudumClass({
-				enabled: false,
-				getTudumSource: props.hooks?.getTudumSource,
-				getTudumManifest: props.hooks?.getTudumManifest,
-			});
-		}
+		const liveSettings = props.playlistItem?.liveSettings;
+		const calculatedStartPosition = props.playlistItem?.initialState?.startPosition || 0;
 
-		if (!sourceRef.current) {
-			sourceRef.current = new SourceClass({
-				id: props.playerMetadata?.id,
-				title: props.playerMetadata?.title,
-				subtitle: props.playerMetadata?.subtitle,
-				description: props.playerMetadata?.description,
-				poster: props.playerMetadata?.poster,
-				squaredPoster: props.playerMetadata?.squaredPoster,
-				manifests: props.manifests,
-				startPosition: props.playerProgress?.currentTime || 0,
-				isLive: true,
-				isCast: true,
-				headers: props.headers,
-				getBestManifest: props.hooks?.getBestManifest,
-				getSourceUri: props.hooks?.getSourceUri,
-				onSourceChanged: onSourceChanged,
-			});
-		}
-
-		currentSourceType.current = "content";
-		isChangingSource.current = true;
-
-		try {
-			sourceRef.current.changeSource({
-				id: props.playerMetadata?.id,
-				title: props.playerMetadata?.title,
-				subtitle: props.playerMetadata?.subtitle,
-				description: props.playerMetadata?.description,
-				poster: props.playerMetadata?.poster,
-				squaredPoster: props.playerMetadata?.squaredPoster,
-				manifests: props.manifests,
-				startPosition: props.playerProgress?.currentTime || 0,
-				isLive: true,
-				isCast: true,
-				headers: props.headers,
-			});
-		} catch (error: any) {
-			handleOnError(handleErrorException(error, "PLAYER_MEDIA_LOAD_FAILED"));
+		if (!props.playlistItem?.resolvedSources) {
+			currentLogger.current?.error("Cannot create SourceClass: resolvedSources is undefined");
 			return;
 		}
+
+		// Siempre recrear el source cuando cambia el playlistItem (como en normal/index.tsx)
+		sourceRef.current = new SourceClass({
+			logger: props.playerContext?.logger,
+			playerLogger: props.logger,
+			id: props.playlistItem?.metadata?.id,
+			title: props.playlistItem?.metadata?.title,
+			artist: props.playlistItem?.metadata?.artist,
+			subtitle: props.playlistItem?.metadata?.subtitle,
+			description: props.playlistItem?.metadata?.description,
+			poster: props.playlistItem?.metadata?.poster,
+			squaredPoster: props.playlistItem?.metadata?.squaredPoster,
+			resolvedSources: props.playlistItem.resolvedSources,
+			sourceContext: "cast",
+			startPosition: calculatedStartPosition,
+			isLive: true,
+			isCast: true,
+			headers: props.playlistItem.resolvedSources.cast?.headers as
+				| Record<string, string>
+				| undefined,
+			onSourceChanged: onSourceChanged,
+			...(liveSettings && {
+				liveStartDate: liveSettings.liveStartDate,
+				resolvedEPG: liveSettings.resolvedEPG,
+			}),
+		});
+
+		currentSourceType.current = "content";
+		isChangingSource.current = false;
 	};
 
 	const handleVODContent = () => {
@@ -518,166 +505,53 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		vodProgressManagerRef.current?.reset();
 		dvrProgressManagerRef.current?.reset();
 
-		const shouldPlayTudum =
-			!!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
-		currentLogger.current?.debug(`shouldPlayTudum: ${shouldPlayTudum}`);
+		const liveSettings = props.playlistItem?.liveSettings;
+		const calculatedStartPosition = props.playlistItem?.initialState?.startPosition || 0;
 
-		if (!tudumRef.current) {
-			tudumRef.current = new TudumClass({
-				enabled: !!props.showExternalTudum,
-				getTudumSource: props.hooks?.getTudumSource,
-				getTudumManifest: props.hooks?.getTudumManifest,
-				isAutoNext: props.isAutoNext,
-			});
-		} else {
-			tudumRef.current.updateAutoNextContext(!!props.isAutoNext);
-		}
-
-		if (!sourceRef.current) {
-			sourceRef.current = new SourceClass({
-				id: props.playerMetadata?.id,
-				title: props.playerMetadata?.title,
-				subtitle: props.playerMetadata?.subtitle,
-				description: props.playerMetadata?.description,
-				poster: props.playerMetadata?.poster,
-				squaredPoster: props.playerMetadata?.squaredPoster,
-				manifests: props.manifests,
-				startPosition: props.playerProgress?.currentTime || 0,
-				isLive: false,
-				isCast: true,
-				headers: props.headers,
-				getBestManifest: props.hooks?.getBestManifest,
-				getSourceUri: props.hooks?.getSourceUri,
-				onSourceChanged: onSourceChanged,
-			});
-		}
-
-		if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
-			currentLogger.current?.debug(`Will play tudum first, then content`);
-			currentSourceType.current = "tudum";
-			loadTudumSource();
-		} else {
-			currentLogger.current?.debug(`Skipping tudum - loading content directly`);
-			currentSourceType.current = "content";
-			loadContentSource();
-		}
-	};
-
-	// LOAD TUDUM SOURCE
-	const loadTudumSource = useCallback(async () => {
-		currentLogger.current?.debug(`loadTudumSource`);
-
-		if (!tudumRef.current?.source || !castConnected) {
-			currentLogger.current?.debug(`loadTudumSource - Not ready:`, {
-				hasSource: !!tudumRef.current?.source,
-				castConnected,
-			});
+		if (!props.playlistItem?.resolvedSources) {
+			currentLogger.current?.error("Cannot create SourceClass: resolvedSources is undefined");
 			return;
 		}
 
-		try {
-			currentSourceType.current = "tudum";
-			tudumRef.current.isPlaying = true;
-			drm.current = tudumRef.current?.drm;
-			setIsLoadingContent(true);
+		// Siempre recrear el source cuando cambia el playlistItem (como en normal/index.tsx)
+		sourceRef.current = new SourceClass({
+			logger: props.playerContext?.logger,
+			playerLogger: props.logger,
+			id: props.playlistItem?.metadata?.id,
+			title: props.playlistItem?.metadata?.title,
+			artist: props.playlistItem?.metadata?.artist,
+			subtitle: props.playlistItem?.metadata?.subtitle,
+			description: props.playlistItem?.metadata?.description,
+			poster: props.playlistItem?.metadata?.poster,
+			squaredPoster: props.playlistItem?.metadata?.squaredPoster,
+			resolvedSources: props.playlistItem.resolvedSources,
+			sourceContext: "cast",
+			startPosition: calculatedStartPosition,
+			isLive: false,
+			isCast: true,
+			headers: props.playlistItem.resolvedSources.cast?.headers as
+				| Record<string, string>
+				| undefined,
+			onSourceChanged: onSourceChanged,
+			...(liveSettings && {
+				liveStartDate: liveSettings.liveStartDate,
+				resolvedEPG: liveSettings.resolvedEPG,
+			}),
+		});
 
-			currentLogger.current?.info(`Loading tudum to Cast:`, tudumRef.current.source);
-
-			const success = await castManagerRef.current?.loadContent({
-				source: tudumRef.current.source,
-				manifest: {},
-				drm: tudumRef.current.drm,
-				youbora: undefined,
-				metadata: {
-					id: "tudum",
-					title: tudumRef.current.source.title || "Tudum",
-					subtitle: tudumRef.current.source.subtitle || "",
-					description: tudumRef.current.source.description || "",
-					poster: tudumRef.current.source.metadata?.imageUri,
-					isLive: false,
-					isDVR: false,
-					startPosition: 0,
-				},
-			});
-
-			if (!success) {
-				throw new PlayerError("PLAYER_CAST_CONNECTION_FAILED");
-			}
-		} catch (error: any) {
-			setIsLoadingContent(false);
-			currentSourceType.current = null;
-			if (tudumRef.current) {
-				tudumRef.current.isPlaying = false;
-			}
-
-			currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
-			handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
-
-			currentLogger.current?.debug(`Tudum failed, loading content directly`);
-			currentSourceType.current = "content";
-			loadContentSource();
-		}
-	}, [castConnected]);
+		currentLogger.current?.debug(`Loading content directly`);
+		currentSourceType.current = "content";
+		loadContentSource();
+	};
 
 	// LOAD CONTENT SOURCE
 	const loadContentSource = useCallback(() => {
 		currentLogger.current?.debug(`loadContentSource`);
 
-		isChangingSource.current = true;
-		currentSourceType.current = "content";
-
-		if (sourceRef.current) {
-			try {
-				sourceRef.current?.changeSource({
-					id: props.playerMetadata?.id,
-					title: props.playerMetadata?.title,
-					subtitle: props.playerMetadata?.subtitle,
-					description: props.playerMetadata?.description,
-					poster: props.playerMetadata?.poster,
-					squaredPoster: props.playerMetadata?.squaredPoster,
-					manifests: props.manifests,
-					startPosition: props.playerProgress?.currentTime || 0,
-					isLive: !!props.playerProgress?.isLive,
-					isCast: true,
-					headers: props.headers,
-				});
-			} catch (error: any) {
-				handleOnError(handleErrorException(error, "PLAYER_MEDIA_LOAD_FAILED"));
-				return;
-			}
-		}
-	}, [props.playerMetadata, props.manifests, props.playerProgress, props.headers]);
-
-	// SWITCH FROM TUDUM TO CONTENT
-	const switchFromTudumToContent = useCallback(async () => {
-		currentLogger.current?.debug(`switchFromTudumToContent`);
-
-		currentSourceType.current = null;
-		if (tudumRef.current) {
-			tudumRef.current.isPlaying = false;
-		}
-
-		// Reset completo de progress managers y sliderValues
-		sliderValues.current = undefined;
-		vodProgressManagerRef.current?.reset();
-		dvrProgressManagerRef.current?.reset();
-
-		// Pequeño delay para asegurar que se limpia el source
-		setTimeout(async () => {
-			// Si hay un source de contenido pendiente, usarlo directamente
-			if (pendingContentSource.current && pendingContentSource.current.isReady) {
-				currentLogger.current?.debug(`Loading pending content source directly`);
-				currentSourceType.current = "content";
-				await loadContentWithCastManager(pendingContentSource.current);
-				pendingContentSource.current = null;
-			} else {
-				// Cargar el contenido principal
-				currentLogger.current?.debug(`Loading main content source`);
-				currentSourceType.current = "content";
-				loadContentSource();
-			}
-		}, 100);
-	}, [loadContentSource]);
+		// Ya no es necesario porque el constructor de SourceClass llama a changeSource
+		// El sourceRef ya está creado en handleVODContent o handleLiveContent
+		currentLogger.current?.debug(`Content source already loaded via SourceClass constructor`);
+	}, []);
 
 	// LOAD CONTENT WITH CAST MANAGER
 	const loadContentWithCastManager = useCallback(
@@ -722,14 +596,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 						drm: data.drm,
 						youbora: youboraForVideo.current,
 						metadata: {
-							id: props.playerMetadata?.id?.toString() || "",
-							title: props.playerMetadata?.title,
-							subtitle: props.playerMetadata?.subtitle,
-							description: props.playerMetadata?.description,
+							id: props.playlistItem?.metadata?.id?.toString() || "",
+							title: props.playlistItem?.metadata?.title,
+							subtitle: props.playlistItem?.metadata?.subtitle,
+							description: props.playlistItem?.metadata?.description,
 							poster:
-								props.playerMetadata?.squaredPoster || props.playerMetadata?.poster,
-							liveStartDate: props.liveStartDate,
-							adTagUrl: props.playerAds?.adTagUrl,
+								props.playlistItem?.metadata?.squaredPoster || props.playlistItem?.metadata?.poster,
+							liveStartDate: props.playlistItem?.liveSettings?.liveStartDate,
+							adTagUrl: props.playlistItem?.ads?.adTagUrl,
 							hasNext: !!props.events?.onNext,
 							isLive: !!props.playerProgress?.isLive,
 							isDVR: sourceRef.current?.isDVR,
@@ -755,9 +629,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			props.hooks,
 			props.playerAnalytics,
 			props.playerProgress,
-			props.playerMetadata,
-			props.liveStartDate,
-			props.playerAds,
+			props.playlistItem?.metadata,
+			props.playlistItem?.liveSettings?.liveStartDate,
+			props.playlistItem?.ads,
 			props.events,
 		]
 	);
@@ -770,15 +644,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			);
 			currentLogger.current?.debug(`onSourceChanged - data: ${JSON.stringify(data)}`);
 
-			if (
-				!sourceRef.current?.isLive &&
-				!sourceRef.current?.isDownloaded &&
-				currentSourceType.current === "tudum"
-			) {
-				// Si estamos reproduciendo tudum, guardar el source del contenido para después
-				currentLogger.current?.debug(`Saving content source for later (tudum is playing)`);
-				pendingContentSource.current = data;
-			} else if (currentSourceType.current === "content") {
+			if (currentSourceType.current === "content") {
 				currentLogger.current?.debug(`Processing content source normally`);
 
 				if (data.isDVR && dvrProgressManagerRef.current) {
@@ -958,7 +824,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 		if (dvrProgressManagerRef.current && sourceRef.current?.isDVR) {
 			dvrProgressManagerRef.current?.updateCallbacks({
-				getEPGProgramAt: props.hooks?.getEPGProgramAt,
+				// getEPGProgramAt: props.hooks?.getEPGProgramAt,
 				onModeChange: onDVRModeChange,
 				onProgramChange: onDVRProgramChange,
 				onProgressUpdate: onProgressUpdate,
@@ -1041,35 +907,22 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 						isLiveProgramRestricted
 					);
 				}
-			} else if (currentSourceType.current === "tudum") {
-				currentLogger.current?.debug(`onLoad - Tudum loaded, duration: ${e.duration}`);
-				setIsLoadingContent(false);
 			}
 		},
 		[paused, props.events, castMedia.mediaTracks]
 	);
 
 	const handleOnEnd = useCallback(() => {
-		currentLogger.current?.info(
-			`handleOnEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`
-		);
+		currentLogger.current?.info(`handleOnEnd: currentSourceType ${currentSourceType.current}`);
 
-		if (currentSourceType.current === "tudum") {
-			currentLogger.current?.debug(`handleOnEnd: Tudum finished, switching to main content`);
-			isChangingSource.current = true;
-			switchFromTudumToContent();
-		} else if (currentSourceType.current === "content" && props.events?.onEnd) {
+		if (currentSourceType.current === "content" && props.events?.onEnd) {
 			currentLogger.current?.debug(
 				`handleOnEnd: Content finished, preparing for possible auto next`
 			);
 
-			if (tudumRef.current) {
-				tudumRef.current.prepareForAutoNext();
-			}
-
 			props.events.onEnd();
 		}
-	}, [props.isAutoNext, props.events, switchFromTudumToContent]);
+	}, [props.events]);
 
 	const handleOnError = useCallback(
 		(error: PlayerError) => {
@@ -1123,10 +976,20 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			}
 
 			if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData) {
-				props.events.onChangeCommonData({
-					time: e.currentTime,
-					duration: e.seekableDuration,
-				});
+				// Evitar llamadas duplicadas con los mismos valores
+				const newTime = e.currentTime;
+				const newDuration = e.seekableDuration;
+				
+				if (
+					lastCommonDataRef.current.time !== newTime ||
+					lastCommonDataRef.current.duration !== newDuration
+				) {
+					lastCommonDataRef.current = { time: newTime, duration: newDuration };
+					props.events.onChangeCommonData({
+						time: newTime,
+						duration: newDuration,
+					});
+				}
 			}
 		}
 	}, [
@@ -1136,7 +999,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		paused,
 		isBuffering,
 		isLoadingContent,
-		props?.events?.onChangeCommonData,
+		// NO incluir props?.events?.onChangeCommonData para evitar recreaciones constantes
 	]);
 
 	// ASSIGN CALLBACKS TO REFS
@@ -1219,9 +1082,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					setBuffering(true);
 					setIsLiveProgramRestricted(true);
 
-					if (sourceRef.current) {
-						sourceRef.current.changeDvrUriParameters(timestamp);
-					}
+					// if (sourceRef.current) {
+					// 	sourceRef.current.changeDvrUriParameters(timestamp);
+					// }
 
 					if (dvrProgressManagerRef.current) {
 						dvrProgressManagerRef.current?.reset();
@@ -1252,9 +1115,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					setBuffering(true);
 					setIsLiveProgramRestricted(false);
 
-					if (sourceRef.current) {
-						sourceRef.current.reloadDvrStream();
-					}
+					// if (sourceRef.current) {
+					// 	sourceRef.current.reloadDvrStream();
+					// }
 
 					const sourceData: onSourceChangedProps = {
 						id: sourceRef.current?.id,
@@ -1338,47 +1201,45 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	return (
 		<View style={styles.container}>
-			<BackgroundPoster poster={props.playerMetadata?.poster} />
+			<BackgroundPoster poster={props.playlistItem?.metadata?.poster} />
 
-			{!tudumRef.current?.isPlaying ? (
-				<Overlay
-					preloading={isBuffering}
-					thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
-					avoidTimelineThumbnails={props.avoidTimelineThumbnails}
-					alwaysVisible={true}
-					isChangingSource={isChangingSource.current}
-					isContentLoaded={isContentLoaded}
-					menuData={menuData}
-					audioIndex={audioIndex}
-					subtitleIndex={subtitleIndex}
-					// Nuevas Props Agrupadas
-					playerMetadata={props.playerMetadata}
-					playerProgress={{
-						...props.playerProgress,
-						currentTime: currentTime,
-						duration: sliderValues.current?.duration || 0,
-						isBuffering: isBuffering,
-						isContentLoaded: isContentLoaded,
-						isChangingSource: isChangingSource.current,
-						isDVR: sourceRef.current?.isDVR,
-						isLive: sourceRef.current?.isLive,
-						isPaused: paused,
-						isMuted: muted,
-						sliderValues: sliderValues.current,
-					}}
-					playerAnalytics={props.playerAnalytics}
-					playerTimeMarkers={props.playerTimeMarkers}
-					playerAds={props.playerAds}
-					// Custom Components
-					components={props.components}
-					// Events
-					events={{
-						...props.events,
-						onPress: onControlsPress,
-						onSlidingComplete: onSlidingComplete,
-					}}
-				/>
-			) : null}
+			<Overlay
+				preloading={isBuffering}
+				thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
+				avoidTimelineThumbnails={props.avoidTimelineThumbnails}
+				alwaysVisible={true}
+				isChangingSource={isChangingSource.current}
+				isContentLoaded={isContentLoaded}
+				menuData={menuData}
+				audioIndex={audioIndex}
+				subtitleIndex={subtitleIndex}
+				// Nuevas Props Agrupadas
+				playerMetadata={props.playlistItem?.metadata}
+				playerProgress={{
+					...props.playerProgress,
+					currentTime: currentTime,
+					duration: sliderValues.current?.duration || 0,
+					isBuffering: isBuffering,
+					isContentLoaded: isContentLoaded,
+					isChangingSource: isChangingSource.current,
+					isDVR: sourceRef.current?.isDVR,
+					isLive: sourceRef.current?.isLive,
+					isPaused: paused,
+					isMuted: muted,
+					sliderValues: sliderValues.current,
+				}}
+				playerAnalytics={props.playerAnalytics}
+				playerTimeMarkers={props.playerTimeMarkers}
+				playerAds={props.playerAds}
+				// Custom Components
+				components={props.components}
+				// Events
+				events={{
+					...props.events,
+					onPress: onControlsPress,
+					onSlidingComplete: onSlidingComplete,
+				}}
+			/>
 		</View>
 	);
 }
