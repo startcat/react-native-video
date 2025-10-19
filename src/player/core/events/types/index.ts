@@ -21,12 +21,9 @@ export interface UseVideoAnalyticsReturn {
     analyticsEvents: PlayerAnalyticsEvents;
     adapter: VideoEventsAdapter;
     
-    // Utilidades
+    // Utilidades (basadas en métodos disponibles en VideoEventsAdapter)
     getCurrentPosition: () => number;
     getDuration: () => number;
     isPlaying: () => boolean;
     isBuffering: () => boolean;
-    isSeekInProgress: () => boolean;
-    getSeekFromPosition: () => number | undefined;
-    getSeekToPosition: () => number | undefined;
 }
