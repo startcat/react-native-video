@@ -75,9 +75,8 @@ class VideoSleepTimerModule: RCTEventEmitter {
             RCTLogInfo("🔔 [SLEEP TIMER iOS] ========================================")
             RCTLogInfo("🔔 [SLEEP TIMER iOS] activateSleepTimer called with \(seconds) seconds")
             
-            // Cancelar timer existente si lo hay (directamente, sin dispatch anidado)
-            VideoSleepTimerModule.sleepTimer?.invalidate()
-            VideoSleepTimerModule.sleepTimer = nil
+            // Cancelar timer existente si lo hay
+            self.cancelSleepTimer()
             
             // Configurar nuevo timer en modo tiempo
             VideoSleepTimerModule.sleepTimerRemainingSeconds = seconds.intValue
@@ -108,9 +107,8 @@ class VideoSleepTimerModule: RCTEventEmitter {
             RCTLogInfo("🔔 [SLEEP TIMER iOS] ========================================")
             RCTLogInfo("🔔 [SLEEP TIMER iOS] activateFinishCurrentTimer called")
             
-            // Cancelar timer existente si lo hay (directamente, sin dispatch anidado)
-            VideoSleepTimerModule.sleepTimer?.invalidate()
-            VideoSleepTimerModule.sleepTimer = nil
+            // Cancelar timer existente si lo hay
+            self.cancelSleepTimer()
             
             // Configurar timer en modo finish-current
             VideoSleepTimerModule.sleepTimerRemainingSeconds = -1 // -1 indica modo finish-current
@@ -187,7 +185,7 @@ class VideoSleepTimerModule: RCTEventEmitter {
         if VideoSleepTimerModule.sleepTimerRemainingSeconds <= 0 {
             RCTLogInfo("🔔 [SLEEP TIMER iOS] ⏸️ Timer reached 0 - PAUSING playback")
             cancelSleepTimer()
-            pauseDirectly()
+            pauseViaEvent()
         }
     }
     
@@ -201,25 +199,21 @@ class VideoSleepTimerModule: RCTEventEmitter {
         if VideoSleepTimerModule.sleepTimerActive && VideoSleepTimerModule.sleepTimerFinishCurrentMode {
             RCTLogInfo("🔔 [SLEEP TIMER iOS] ⏸️ Media ended in finish-current mode - PAUSING")
             cancelSleepTimer()
-            pauseDirectly()
+            pauseViaEvent()
         } else {
             RCTLogInfo("🔔 [SLEEP TIMER iOS] Media ended but timer not in finish-current mode (active=\(VideoSleepTimerModule.sleepTimerActive), finishCurrentMode=\(VideoSleepTimerModule.sleepTimerFinishCurrentMode))")
         }
     }
     
     /**
-     * Pausa la reproducción directamente desde nativo
-     * Funciona en background sin necesidad de JavaScript
+     * Pausa la reproducción emitiendo un evento a JavaScript
+     * El AudioFlavour escuchará este evento y pausará el player
      */
-    private func pauseDirectly() {
-        RCTLogInfo("🔔 [SLEEP TIMER iOS] Pausing playback directly via NowPlayingInfoCenterManager")
+    private func pauseViaEvent() {
+        RCTLogInfo("🔔 [SLEEP TIMER iOS] Emitting sleepTimerFinished event to JavaScript")
         
-        // Pausar directamente usando el manager nativo
-        NowPlayingInfoCenterManager.shared.pauseCurrentPlayer()
-        
-        // También emitir evento para que la UI se actualice si está en foreground
         sendEvent(withName: "sleepTimerFinished", body: nil)
         
-        RCTLogInfo("🔔 [SLEEP TIMER iOS] ✅ Playback paused and event emitted")
+        RCTLogInfo("🔔 [SLEEP TIMER iOS] ✅ Event emitted successfully")
     }
 }

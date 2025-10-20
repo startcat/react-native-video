@@ -12,9 +12,11 @@ import static com.brentvatne.exoplayer.DataSourceUtil.buildAssetDataSourceFactor
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.media.AudioManager;
@@ -281,6 +283,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private final AudioManager audioManager;
     private final AudioBecomingNoisyReceiver audioBecomingNoisyReceiver;
     private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener;
+    private BroadcastReceiver sleepTimerPauseReceiver;
 
     // store last progress event values to avoid sending unnecessary messages
     private long lastPos = -1;
@@ -368,6 +371,9 @@ public class ReactExoplayerView extends FrameLayout implements
         themedReactContext.addLifecycleEventListener(this);
         audioBecomingNoisyReceiver = new AudioBecomingNoisyReceiver(themedReactContext);
         audioFocusChangeListener = new OnAudioFocusChangedListener(this, themedReactContext);
+        
+        // Setup Sleep Timer pause receiver
+        setupSleepTimerPauseReceiver();
     }
 
     private boolean isPlayingAd() {
@@ -435,6 +441,7 @@ public class ReactExoplayerView extends FrameLayout implements
         DebugLog.d(TAG, "ReactExoplayerView cleanUpResources");
         cancelSleepTimer();
         stopPlayback();
+        unregisterSleepTimerPauseReceiver();
         themedReactContext.removeLifecycleEventListener(this);
         releasePlayer();
         viewHasDropped = true;
@@ -1736,6 +1743,9 @@ public class ReactExoplayerView extends FrameLayout implements
                     updateProgress();
                     eventEmitter.end();
                     
+                    // Notify Sleep Timer that media has ended (for finish-current mode)
+                    notifySleepTimerMediaEnded();
+                    
                     // Notify PlaylistControlModule that item has finished (for coordinated mode)
                     if (playlistItemId != null) {
                         Intent intent = new Intent("com.brentvatne.react.VIDEO_ITEM_FINISHED");
@@ -2836,6 +2846,8 @@ public class ReactExoplayerView extends FrameLayout implements
      * Si ya existe un timer activo, lo reinicia con el nuevo valor
      */
     public void activateSleepTimer(int seconds) {
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] ========================================");
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] activateSleepTimer called with " + seconds + " seconds");
         DebugLog.d(TAG, "Activating sleep timer for " + seconds + " seconds");
         
         // Cancelar timer existente si lo hay
@@ -2845,9 +2857,12 @@ public class ReactExoplayerView extends FrameLayout implements
         sleepTimerRemainingSeconds = seconds;
         sleepTimerActive = true;
         
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] Timer configured: active=" + sleepTimerActive + ", remaining=" + sleepTimerRemainingSeconds);
+        
         // Crear handler si no existe
         if (sleepTimerHandler == null) {
             sleepTimerHandler = new Handler(Looper.getMainLooper());
+            Log.d(TAG, "🔔 [SLEEP TIMER Android] Handler created");
         }
         
         // Crear runnable para el tick del timer
@@ -2860,12 +2875,16 @@ public class ReactExoplayerView extends FrameLayout implements
         
         // Iniciar timer (se ejecuta cada segundo)
         sleepTimerHandler.postDelayed(sleepTimerRunnable, 1000);
+        
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] Timer scheduled successfully");
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] ========================================");
     }
     
     /**
      * Cancela el sleep timer activo
      */
     public void cancelSleepTimer() {
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] cancelSleepTimer called");
         DebugLog.d(TAG, "Canceling sleep timer");
         
         if (sleepTimerHandler != null && sleepTimerRunnable != null) {
@@ -2875,12 +2894,15 @@ public class ReactExoplayerView extends FrameLayout implements
         sleepTimerRemainingSeconds = 0;
         sleepTimerActive = false;
         sleepTimerRunnable = null;
+        
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] Timer canceled: active=" + sleepTimerActive);
     }
     
     /**
      * Obtiene el estado actual del sleep timer
      */
     public WritableMap getSleepTimerStatus() {
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] getSleepTimerStatus called: active=" + sleepTimerActive + ", remaining=" + sleepTimerRemainingSeconds);
         WritableMap status = Arguments.createMap();
         status.putBoolean("isActive", sleepTimerActive);
         status.putInt("remainingSeconds", sleepTimerRemainingSeconds);
@@ -2892,15 +2914,18 @@ public class ReactExoplayerView extends FrameLayout implements
      */
     private void sleepTimerTick() {
         if (!sleepTimerActive) {
+            Log.d(TAG, "🔔 [SLEEP TIMER Android] sleepTimerTick called but timer is NOT active");
             return;
         }
         
         sleepTimerRemainingSeconds--;
         
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] ⏱️ TICK - remaining: " + sleepTimerRemainingSeconds + " seconds");
         DebugLog.d(TAG, "Sleep timer tick - remaining: " + sleepTimerRemainingSeconds + " seconds");
         
         // Si llegamos a 0, pausar el player
         if (sleepTimerRemainingSeconds <= 0) {
+            Log.d(TAG, "🔔 [SLEEP TIMER Android] ⏸️ Timer reached 0 - PAUSING playback");
             DebugLog.d(TAG, "Sleep timer reached 0 - pausing playback");
             cancelSleepTimer();
             setPausedModifier(true);
@@ -2908,6 +2933,64 @@ public class ReactExoplayerView extends FrameLayout implements
             // Continuar el timer
             if (sleepTimerHandler != null && sleepTimerRunnable != null) {
                 sleepTimerHandler.postDelayed(sleepTimerRunnable, 1000);
+            }
+        }
+    }
+    
+    /**
+     * Notifica al módulo Sleep Timer que el media ha terminado
+     * Esto permite que el modo "finish-current" funcione en background
+     */
+    private void notifySleepTimerMediaEnded() {
+        try {
+            Log.d(TAG, "🔔 [SLEEP TIMER Android] Notifying VideoSleepTimerModule that media ended");
+            
+            // Enviar broadcast para que el módulo lo capture
+            Intent intent = new Intent("com.brentvatne.react.SLEEP_TIMER_MEDIA_ENDED");
+            themedReactContext.sendBroadcast(intent);
+            
+            Log.d(TAG, "🔔 [SLEEP TIMER Android] Broadcast sent successfully");
+        } catch (Exception e) {
+            Log.e(TAG, "🔔 [SLEEP TIMER Android] Error notifying media ended: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Configura el BroadcastReceiver para escuchar eventos de pausa del Sleep Timer
+     * Permite pausar el player desde background
+     */
+    private void setupSleepTimerPauseReceiver() {
+        sleepTimerPauseReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                Log.d(TAG, "🔔 [SLEEP TIMER Android] Received pause broadcast from Sleep Timer");
+                pausePlayback();
+                Log.d(TAG, "🔔 [SLEEP TIMER Android] ✓ Playback paused successfully");
+            }
+        };
+        
+        IntentFilter filter = new IntentFilter("com.brentvatne.react.SLEEP_TIMER_PAUSE_PLAYBACK");
+        
+        // Android 13+ (API 33+) requiere especificar RECEIVER_NOT_EXPORTED
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            themedReactContext.registerReceiver(sleepTimerPauseReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            themedReactContext.registerReceiver(sleepTimerPauseReceiver, filter);
+        }
+        
+        Log.d(TAG, "🔔 [SLEEP TIMER Android] Pause receiver registered");
+    }
+    
+    /**
+     * Desregistra el BroadcastReceiver del Sleep Timer
+     */
+    private void unregisterSleepTimerPauseReceiver() {
+        if (sleepTimerPauseReceiver != null) {
+            try {
+                themedReactContext.unregisterReceiver(sleepTimerPauseReceiver);
+                Log.d(TAG, "🔔 [SLEEP TIMER Android] Pause receiver unregistered");
+            } catch (Exception e) {
+                Log.e(TAG, "🔔 [SLEEP TIMER Android] Error unregistering pause receiver: " + e.getMessage());
             }
         }
     }

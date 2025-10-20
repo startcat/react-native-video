@@ -123,6 +123,25 @@ class NowPlayingInfoCenterManager {
         //     }
         // )
     }
+    
+    /**
+     * Pausa el player actual desde código nativo
+     * Útil para pausar desde background (ej: Sleep Timer)
+     */
+    func pauseCurrentPlayer() {
+        guard let player = currentPlayer else {
+            debugPrint("[NowPlayingInfoCenter] ⚠️ pauseCurrentPlayer called but no current player")
+            return
+        }
+        
+        debugPrint("[NowPlayingInfoCenter] ⏸️ Pausing current player (rate: \(player.rate))")
+        if player.rate != 0 {
+            player.pause()
+            debugPrint("[NowPlayingInfoCenter] ✓ Player paused successfully")
+        } else {
+            debugPrint("[NowPlayingInfoCenter] ℹ️ Player already paused")
+        }
+    }
 
     private func registerCommandTargets() {
         invalidateCommandTargets()

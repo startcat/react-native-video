@@ -289,7 +289,7 @@ class PlaylistControlModule: RCTEventEmitter {
             
             // Stop playback if active
             if self.operationMode == .standalone {
-                self.releaseStandalonePlayer()
+                self.cleanup()
             }
             
             // Clear playlist and reset state
