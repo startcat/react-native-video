@@ -125,9 +125,11 @@ import com.brentvatne.react.BuildConfig;
 import com.brentvatne.react.R;
 import com.brentvatne.receiver.AudioBecomingNoisyReceiver;
 import com.brentvatne.receiver.BecomingNoisyListener;
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.UiThreadUtil;
+import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.google.ads.interactivemedia.v3.api.AdError;
 import com.google.ads.interactivemedia.v3.api.AdEvent;
@@ -304,6 +306,12 @@ public class ReactExoplayerView extends FrameLayout implements
     private DataSource.Factory mMediaDataSourceFactory;
     private DefaultDrmSessionManager mDrmSessionManager;
     private MediaItem mMediaItem;
+    
+    // Sleep Timer
+    private Handler sleepTimerHandler;
+    private Runnable sleepTimerRunnable;
+    private int sleepTimerRemainingSeconds = 0;
+    private boolean sleepTimerActive = false;
 
     private void updateProgress() {
         if (player != null) {
@@ -425,6 +433,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
     public void cleanUpResources() {
         DebugLog.d(TAG, "ReactExoplayerView cleanUpResources");
+        cancelSleepTimer();
         stopPlayback();
         themedReactContext.removeLifecycleEventListener(this);
         releasePlayer();
@@ -2819,5 +2828,88 @@ public class ReactExoplayerView extends FrameLayout implements
      * End
      *
      */
+    
+    // MARK: - Sleep Timer Methods
+    
+    /**
+     * Activa el sleep timer con los segundos especificados
+     * Si ya existe un timer activo, lo reinicia con el nuevo valor
+     */
+    public void activateSleepTimer(int seconds) {
+        DebugLog.d(TAG, "Activating sleep timer for " + seconds + " seconds");
+        
+        // Cancelar timer existente si lo hay
+        cancelSleepTimer();
+        
+        // Configurar nuevo timer
+        sleepTimerRemainingSeconds = seconds;
+        sleepTimerActive = true;
+        
+        // Crear handler si no existe
+        if (sleepTimerHandler == null) {
+            sleepTimerHandler = new Handler(Looper.getMainLooper());
+        }
+        
+        // Crear runnable para el tick del timer
+        sleepTimerRunnable = new Runnable() {
+            @Override
+            public void run() {
+                sleepTimerTick();
+            }
+        };
+        
+        // Iniciar timer (se ejecuta cada segundo)
+        sleepTimerHandler.postDelayed(sleepTimerRunnable, 1000);
+    }
+    
+    /**
+     * Cancela el sleep timer activo
+     */
+    public void cancelSleepTimer() {
+        DebugLog.d(TAG, "Canceling sleep timer");
+        
+        if (sleepTimerHandler != null && sleepTimerRunnable != null) {
+            sleepTimerHandler.removeCallbacks(sleepTimerRunnable);
+        }
+        
+        sleepTimerRemainingSeconds = 0;
+        sleepTimerActive = false;
+        sleepTimerRunnable = null;
+    }
+    
+    /**
+     * Obtiene el estado actual del sleep timer
+     */
+    public WritableMap getSleepTimerStatus() {
+        WritableMap status = Arguments.createMap();
+        status.putBoolean("isActive", sleepTimerActive);
+        status.putInt("remainingSeconds", sleepTimerRemainingSeconds);
+        return status;
+    }
+    
+    /**
+     * Tick del timer que se ejecuta cada segundo
+     */
+    private void sleepTimerTick() {
+        if (!sleepTimerActive) {
+            return;
+        }
+        
+        sleepTimerRemainingSeconds--;
+        
+        DebugLog.d(TAG, "Sleep timer tick - remaining: " + sleepTimerRemainingSeconds + " seconds");
+        
+        // Si llegamos a 0, pausar el player
+        if (sleepTimerRemainingSeconds <= 0) {
+            DebugLog.d(TAG, "Sleep timer reached 0 - pausing playback");
+            cancelSleepTimer();
+            setPausedModifier(true);
+        } else {
+            // Continuar el timer
+            if (sleepTimerHandler != null && sleepTimerRunnable != null) {
+                sleepTimerHandler.postDelayed(sleepTimerRunnable, 1000);
+            }
+        }
+    }
 
 }

@@ -119,6 +119,11 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     // Asset downloader
     fileprivate var downloader: AssetDownloader = AssetDownloader.sharedDownloader
+    
+    // Sleep Timer
+    private var _sleepTimer: Timer?
+    private var _sleepTimerRemainingSeconds: Int = 0
+    private var _sleepTimerActive: Bool = false
 
     // Events
     @objc var onVideoLoadStart: RCTDirectEventBlock?
@@ -274,6 +279,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     deinit {
         // Dani Youbora
         _videoAdapter?.playerAdapter.fireStop()
+        
+        // Cancel sleep timer
+        cancelSleepTimer()
         
         NotificationCenter.default.removeObserver(self)
         self.removePlayerLayer()
@@ -1970,6 +1978,61 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         }
     }
 
+    // MARK: - Sleep Timer
+    
+    /// Activa el sleep timer con los segundos especificados
+    /// Si ya existe un timer activo, lo reinicia con el nuevo valor
+    func activateSleepTimer(seconds: Int) {
+        DebugLog("[RCTVideo] Activating sleep timer for \(seconds) seconds")
+        
+        // Cancelar timer existente si lo hay
+        cancelSleepTimer()
+        
+        // Configurar nuevo timer
+        _sleepTimerRemainingSeconds = seconds
+        _sleepTimerActive = true
+        
+        // Crear timer que se ejecuta cada segundo
+        _sleepTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.sleepTimerTick()
+        }
+    }
+    
+    /// Cancela el sleep timer activo
+    func cancelSleepTimer() {
+        DebugLog("[RCTVideo] Canceling sleep timer")
+        
+        _sleepTimer?.invalidate()
+        _sleepTimer = nil
+        _sleepTimerRemainingSeconds = 0
+        _sleepTimerActive = false
+    }
+    
+    /// Obtiene el estado actual del sleep timer
+    /// - Returns: Dictionary con isActive y remainingSeconds
+    func getSleepTimerStatus() -> [String: Any] {
+        return [
+            "isActive": _sleepTimerActive,
+            "remainingSeconds": _sleepTimerRemainingSeconds
+        ]
+    }
+    
+    /// Tick del timer que se ejecuta cada segundo
+    private func sleepTimerTick() {
+        guard _sleepTimerActive else { return }
+        
+        _sleepTimerRemainingSeconds -= 1
+        
+        DebugLog("[RCTVideo] Sleep timer tick - remaining: \(_sleepTimerRemainingSeconds) seconds")
+        
+        // Si llegamos a 0, pausar el player
+        if _sleepTimerRemainingSeconds <= 0 {
+            DebugLog("[RCTVideo] Sleep timer reached 0 - pausing playback")
+            cancelSleepTimer()
+            setPaused(true)
+        }
+    }
+    
     // Workaround for #3418 - https://github.com/TheWidlarzGroup/react-native-video/issues/3418#issuecomment-2043508862
     @objc
     func setOnClick(_: Any) {}
