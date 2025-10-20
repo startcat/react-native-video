@@ -1,5 +1,4 @@
 import React, { createElement, useCallback, useEffect, useRef, useState } from "react";
-import BackgroundTimer from "react-native-background-timer";
 import { EventRegister } from "react-native-event-listeners";
 import Animated, { useSharedValue } from "react-native-reanimated";
 import {
@@ -30,10 +29,11 @@ import {
 } from "../../core/progress";
 
 import { ComponentLogger } from "../../features/logger";
+import { SleepTimerControl } from "../../features/sleepTimer";
 
 import { styles } from "../styles";
 
-import { Platform } from "react-native";
+import { Platform, DeviceEventEmitter, NativeModules } from "react-native";
 import {
 	type AudioFlavourProps,
 	type AudioPlayerActionEventProps,
@@ -66,7 +66,6 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	const [speedRate, setSpeedRate] = useState<number>(1);
 
 	const refVideoPlayer = useRef<VideoRef>(null);
-	const sleepTimerObj = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
 
 	// Logger
@@ -520,43 +519,18 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	}, [props.playlistItem?.isLive, sourceRef.current?.isDVR, sourceRef.current?.dvrWindowSeconds]);
 
 	/*
-	 *  Sleep Timer
+	 *  Sleep Timer - Usa el timer nativo del player
 	 *
 	 */
 
 	const cancelSleepTimer = () => {
 		currentLogger.current?.info(`Cancel sleep timer`);
-
-		if (sleepTimerObj.current) {
-			BackgroundTimer.clearTimeout(sleepTimerObj.current);
-		}
+		SleepTimerControl.cancelSleepTimer();
 	};
 
 	const refreshSleepTimer = (value: number) => {
 		currentLogger.current?.info(`Creating sleep timer for ${value} seconds`);
-
-		if (sleepTimerObj.current) {
-			BackgroundTimer.clearTimeout(sleepTimerObj.current);
-		}
-
-		sleepTimerObj.current = BackgroundTimer.setTimeout(() => {
-			try {
-				currentLogger.current?.debug(`onSleepTimer Done...`);
-
-				if (refVideoPlayer.current) {
-					currentLogger.current?.debug(`onSleepTimer Done... calling pause`);
-					refVideoPlayer.current?.pause();
-					cancelSleepTimer();
-					setPaused(true);
-				} else {
-					currentLogger.current?.debug(`onSleepTimer Done... cant acces refVideoPlayer`);
-					refreshSleepTimer(2000);
-				}
-			} catch (error: any) {
-				currentLogger.current?.error(`Sleep timer execution failed: ${error?.message}`);
-				cancelSleepTimer();
-			}
-		}, value * 1000);
+		SleepTimerControl.activateSleepTimer(value);
 	};
 
 	/*
@@ -753,31 +727,44 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	 */
 
 	useEffect(() => {
-		EventRegister.emit("audioPlayerProgress", {
-			preloading: isBuffering,
-			isContentLoaded: isContentLoaded,
-			speedRate: speedRate,
-			extraData: props.playlistItem?.extraData,
-			// Nuevas Props Agrupadas
-			playlistItemType: props.playlistItem?.type,
-			playerMetadata: props.playlistItem?.metadata,
-			playerProgress: {
-				...playerProgressRef.current,
-				currentTime: currentTime,
-				isPaused: paused,
-				isMuted: muted,
-				isLive: sourceRef.current?.isLive,
-				isDVR: sourceRef.current?.isDVR,
-				isBinary: sourceRef.current?.isBinary,
-				isChangingSource: isChangingSource.current,
-				sliderValues: sliderValues,
-				currentProgram: playerProgressRef.current?.currentProgram,
-			},
-			playerAnalytics: props.playlistItem?.analytics,
-			playerTimeMarkers: props.playlistItem?.timeMarkers,
-			//Events
-			events: props.events,
-		} as AudioControlsProps);
+		const updateProgress = async () => {
+			// Obtener estado del sleep timer
+			let sleepTimerStatus = { isActive: false, remainingSeconds: 0 };
+			try {
+				sleepTimerStatus = await SleepTimerControl.getSleepTimerStatus();
+			} catch (error) {
+				// Ignorar errores silenciosamente
+			}
+
+			EventRegister.emit("audioPlayerProgress", {
+				preloading: isBuffering,
+				isContentLoaded: isContentLoaded,
+				speedRate: speedRate,
+				extraData: props.playlistItem?.extraData,
+				sleepTimer: sleepTimerStatus,
+				// Nuevas Props Agrupadas
+				playlistItemType: props.playlistItem?.type,
+				playerMetadata: props.playlistItem?.metadata,
+				playerProgress: {
+					...playerProgressRef.current,
+					currentTime: currentTime,
+					isPaused: paused,
+					isMuted: muted,
+					isLive: sourceRef.current?.isLive,
+					isDVR: sourceRef.current?.isDVR,
+					isBinary: sourceRef.current?.isBinary,
+					isChangingSource: isChangingSource.current,
+					sliderValues: sliderValues,
+					currentProgram: playerProgressRef.current?.currentProgram,
+				},
+				playerAnalytics: props.playlistItem?.analytics,
+				playerTimeMarkers: props.playlistItem?.timeMarkers,
+				//Events
+				events: props.events,
+			} as AudioControlsProps);
+		};
+
+		updateProgress();
 	}, [
 		currentTime,
 		sliderValues,
@@ -904,8 +891,12 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 							);
 							hasCalledInitialSeekRef.current = true;
 						} catch (error: any) {
-							currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
-							handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
+							currentLogger.current?.error(
+								`DVR checkInitialSeek failed: ${error?.message}`
+							);
+							handleOnInternalError(
+								handleErrorException(error, "PLAYER_SEEK_FAILED")
+							);
 						}
 					} else {
 						currentLogger.current?.debug(
@@ -943,11 +934,23 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			return;
 		}
 
+		// Notificar al Sleep Timer que el media ha terminado
+		// Si está en modo "finish-current", pausará aquí
+		const { VideoSleepTimerModule } = NativeModules;
+		if (VideoSleepTimerModule) {
+			try {
+				VideoSleepTimerModule.notifyMediaEnded();
+				currentLogger.current?.info('[Sleep Timer] Notified media ended to sleep timer module');
+			} catch (error) {
+				currentLogger.current?.warn('[Sleep Timer] Failed to notify media ended:', error);
+			}
+		}
+
 		// NOTE: We don't notify the native PlaylistControlModule here because:
 		// 1. In coordinated mode, the PlaylistsManager (TypeScript) controls which item plays
 		// 2. The native module is only used for standalone mode (audio-only apps)
 		// 3. Auto-advance is handled by the parent component (AudioPlayerBar) which uses PlaylistsManager
-		
+
 		// Always notify parent that item has ended
 		// Parent component (audioPlayerBar) will decide whether to auto-advance based on:
 		// - Item type (TUDUM always auto-advances)
@@ -991,12 +994,48 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	 *
 	 */
 
+	// Estado del sleep timer para los controles
+	const [sleepTimerForControls, setSleepTimerForControls] = useState({
+		isActive: false,
+		remainingSeconds: 0,
+	});
+
+	// Actualizar el estado del sleep timer para los controles cada segundo
+	useEffect(() => {
+		const updateSleepTimerForControls = async () => {
+			try {
+				const status = await SleepTimerControl.getSleepTimerStatus();
+				setSleepTimerForControls(status);
+			} catch (error) {
+				// Ignorar errores silenciosamente
+			}
+		};
+
+		updateSleepTimerForControls();
+		const interval = setInterval(updateSleepTimerForControls, 1000);
+
+		return () => clearInterval(interval);
+	}, []);
+
+	// Escuchar el evento de sleep timer finalizado
+	useEffect(() => {
+		const subscription = DeviceEventEmitter.addListener('sleepTimerFinished', () => {
+			currentLogger.current?.info('[Sleep Timer] Timer finished - pausing playback');
+			setPaused(true);
+		});
+
+		return () => {
+			subscription.remove();
+		};
+	}, []);
+
 	const Controls = props.controls
 		? createElement(props.controls, {
 				preloading: isBuffering,
 				isContentLoaded: isContentLoaded,
 				speedRate: speedRate,
 				extraData: props.extraData,
+				sleepTimer: sleepTimerForControls,
 
 				// Nuevas Props Agrupadas
 				playerMetadata: props.playlistItem?.metadata,

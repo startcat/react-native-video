@@ -1795,6 +1795,13 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         sendProgressUpdate(didEnd: true)
         onVideoEnd?(["target": reactTag as Any])
         
+        // Notify Sleep Timer that media has ended (for finish-current mode)
+        // Usamos NotificationCenter para evitar dependencias entre archivos
+        NotificationCenter.default.post(
+            name: NSNotification.Name("RCTVideoPlayerDidEnd"),
+            object: nil
+        )
+        
         // Notify PlaylistControlModule for coordinated playlist management
         notifyPlaylistItemFinished()
         
@@ -1983,6 +1990,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     /// Activa el sleep timer con los segundos especificados
     /// Si ya existe un timer activo, lo reinicia con el nuevo valor
     func activateSleepTimer(seconds: Int) {
+        print("🔔 [SLEEP TIMER iOS] ========================================")
+        print("🔔 [SLEEP TIMER iOS] activateSleepTimer called with \(seconds) seconds")
         DebugLog("[RCTVideo] Activating sleep timer for \(seconds) seconds")
         
         // Cancelar timer existente si lo hay
@@ -1992,25 +2001,34 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         _sleepTimerRemainingSeconds = seconds
         _sleepTimerActive = true
         
+        print("🔔 [SLEEP TIMER iOS] Timer configured: active=\(_sleepTimerActive), remaining=\(_sleepTimerRemainingSeconds)")
+        
         // Crear timer que se ejecuta cada segundo
         _sleepTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.sleepTimerTick()
         }
+        
+        print("🔔 [SLEEP TIMER iOS] Timer scheduled successfully")
+        print("🔔 [SLEEP TIMER iOS] ========================================")
     }
     
     /// Cancela el sleep timer activo
     func cancelSleepTimer() {
+        print("🔔 [SLEEP TIMER iOS] cancelSleepTimer called")
         DebugLog("[RCTVideo] Canceling sleep timer")
         
         _sleepTimer?.invalidate()
         _sleepTimer = nil
         _sleepTimerRemainingSeconds = 0
         _sleepTimerActive = false
+        
+        print("🔔 [SLEEP TIMER iOS] Timer canceled: active=\(_sleepTimerActive)")
     }
     
     /// Obtiene el estado actual del sleep timer
     /// - Returns: Dictionary con isActive y remainingSeconds
     func getSleepTimerStatus() -> [String: Any] {
+        print("🔔 [SLEEP TIMER iOS] getSleepTimerStatus called: active=\(_sleepTimerActive), remaining=\(_sleepTimerRemainingSeconds)")
         return [
             "isActive": _sleepTimerActive,
             "remainingSeconds": _sleepTimerRemainingSeconds
@@ -2019,14 +2037,19 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     /// Tick del timer que se ejecuta cada segundo
     private func sleepTimerTick() {
-        guard _sleepTimerActive else { return }
+        guard _sleepTimerActive else {
+            print("🔔 [SLEEP TIMER iOS] sleepTimerTick called but timer is NOT active")
+            return
+        }
         
         _sleepTimerRemainingSeconds -= 1
         
+        print("🔔 [SLEEP TIMER iOS] ⏱️ TICK - remaining: \(_sleepTimerRemainingSeconds) seconds")
         DebugLog("[RCTVideo] Sleep timer tick - remaining: \(_sleepTimerRemainingSeconds) seconds")
         
         // Si llegamos a 0, pausar el player
         if _sleepTimerRemainingSeconds <= 0 {
+            print("🔔 [SLEEP TIMER iOS] ⏸️ Timer reached 0 - PAUSING playback")
             DebugLog("[RCTVideo] Sleep timer reached 0 - pausing playback")
             cancelSleepTimer()
             setPaused(true)

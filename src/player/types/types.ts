@@ -488,6 +488,10 @@ export interface AudioControlsProps extends ICommonPlayerProps {
 	isContentLoaded?: boolean;
 	speedRate?: number;
 	extraData?: any;
+	sleepTimer?: {
+		isActive: boolean;
+		remainingSeconds: number;
+	};
 
 	// Custom Components
 	components?: IPlayerCustomAudioComponents;
