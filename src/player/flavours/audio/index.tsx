@@ -33,7 +33,7 @@ import { SleepTimerControl } from "../../features/sleepTimer";
 
 import { styles } from "../styles";
 
-import { Platform, DeviceEventEmitter, NativeModules } from "react-native";
+import { DeviceEventEmitter, NativeModules, Platform } from "react-native";
 import {
 	type AudioFlavourProps,
 	type AudioPlayerActionEventProps,
@@ -528,6 +528,11 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		SleepTimerControl.cancelSleepTimer();
 	};
 
+	const refreshSleepTimerFinishCurrent = () => {
+		currentLogger.current?.info(`Cancel sleep timer`);
+		SleepTimerControl.activateFinishCurrentTimer();
+	};
+
 	const refreshSleepTimer = (value: number) => {
 		currentLogger.current?.info(`Creating sleep timer for ${value} seconds`);
 		SleepTimerControl.activateSleepTimer(value);
@@ -671,9 +676,14 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 				}
 			}
 
-			if (id === CONTROL_ACTION.SLEEP && (value === 0 || !value)) {
+			if (id === CONTROL_ACTION.SLEEP && !value) {
 				// Desactivamos el sleeper
 				cancelSleepTimer();
+			}
+
+			if (id === CONTROL_ACTION.SLEEP && value === -1) {
+				// Activamos el sleeper hasta terminar el contenido actual
+				refreshSleepTimerFinishCurrent();
 			}
 
 			if (id === CONTROL_ACTION.SLEEP && typeof value === "number" && value > 0) {
@@ -940,9 +950,11 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		if (VideoSleepTimerModule) {
 			try {
 				VideoSleepTimerModule.notifyMediaEnded();
-				currentLogger.current?.info('[Sleep Timer] Notified media ended to sleep timer module');
+				currentLogger.current?.info(
+					"[Sleep Timer] Notified media ended to sleep timer module"
+				);
 			} catch (error) {
-				currentLogger.current?.warn('[Sleep Timer] Failed to notify media ended:', error);
+				currentLogger.current?.warn("[Sleep Timer] Failed to notify media ended:", error);
 			}
 		}
 
@@ -1019,8 +1031,8 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	// Escuchar el evento de sleep timer finalizado
 	useEffect(() => {
-		const subscription = DeviceEventEmitter.addListener('sleepTimerFinished', () => {
-			currentLogger.current?.info('[Sleep Timer] Timer finished - pausing playback');
+		const subscription = DeviceEventEmitter.addListener("sleepTimerFinished", () => {
+			currentLogger.current?.info("[Sleep Timer] Timer finished - pausing playback");
 			setPaused(true);
 		});
 
