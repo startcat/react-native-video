@@ -92,6 +92,33 @@ class RCTVideoManager: RCTViewManager {
             videoView?.getCurrentPlaybackTime(resolve, reject)
         })
     }
+    
+    // MARK: - Sleep Timer Methods
+    
+    @objc(activateSleepTimer:seconds:)
+    func activateSleepTimer(reactTag: NSNumber, seconds: NSNumber) {
+        performOnVideoView(withReactTag: reactTag, callback: { videoView in
+            videoView?.activateSleepTimer(seconds: seconds.intValue)
+        })
+    }
+    
+    @objc(cancelSleepTimer:)
+    func cancelSleepTimer(reactTag: NSNumber) {
+        performOnVideoView(withReactTag: reactTag, callback: { videoView in
+            videoView?.cancelSleepTimer()
+        })
+    }
+    
+    @objc(getSleepTimerStatus:resolver:rejecter:)
+    func getSleepTimerStatus(reactTag: NSNumber, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        performOnVideoView(withReactTag: reactTag, callback: { videoView in
+            if let status = videoView?.getSleepTimerStatus() {
+                resolve(status)
+            } else {
+                reject("PLAYER_NOT_AVAILABLE", "Player is not initialized.", nil)
+            }
+        })
+    }
 
     override class func requiresMainQueueSetup() -> Bool {
         return true

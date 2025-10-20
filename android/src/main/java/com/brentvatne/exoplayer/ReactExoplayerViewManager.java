@@ -19,12 +19,18 @@ import com.brentvatne.common.api.SubtitleStyle;
 import com.brentvatne.common.react.VideoEventEmitter;
 import com.brentvatne.common.toolbox.DebugLog;
 import com.brentvatne.common.toolbox.ReactBridgeUtils;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.common.MapBuilder;
+import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.uimanager.ThemedReactContext;
+import com.facebook.react.uimanager.UIManagerHelper;
 import com.facebook.react.uimanager.ViewGroupManager;
 import com.facebook.react.uimanager.annotations.ReactProp;
+import com.facebook.react.uimanager.annotations.ReactPropGroup;
+import com.facebook.react.bridge.ReactMethod;
 
 import java.util.HashMap; // Dani
 import java.util.ArrayList;
@@ -535,5 +541,34 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 	 * End
 	 *
 	 */
+	
+	// MARK: - Sleep Timer Methods
+	
+	@ReactMethod
+	public void activateSleepTimer(int reactTag, int seconds) {
+		ReactExoplayerView videoView = (ReactExoplayerView) UIManagerHelper.findNodeHandle(reactTag);
+		if (videoView != null) {
+			videoView.activateSleepTimer(seconds);
+		}
+	}
+	
+	@ReactMethod
+	public void cancelSleepTimer(int reactTag) {
+		ReactExoplayerView videoView = (ReactExoplayerView) UIManagerHelper.findNodeHandle(reactTag);
+		if (videoView != null) {
+			videoView.cancelSleepTimer();
+		}
+	}
+	
+	@ReactMethod
+	public void getSleepTimerStatus(int reactTag, Promise promise) {
+		ReactExoplayerView videoView = (ReactExoplayerView) UIManagerHelper.findNodeHandle(reactTag);
+		if (videoView != null) {
+			WritableMap status = videoView.getSleepTimerStatus();
+			promise.resolve(status);
+		} else {
+			promise.reject("PLAYER_NOT_AVAILABLE", "Player is not initialized.");
+		}
+	}
 
 }

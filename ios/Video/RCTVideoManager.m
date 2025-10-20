@@ -98,4 +98,14 @@ RCT_EXTERN_METHOD(getCurrentPosition
                   : (nonnull NSNumber*)reactTag resolver
                   : (RCTPromiseResolveBlock)resolve rejecter
                   : (RCTPromiseRejectBlock)reject)
+
+// Sleep Timer Methods
+RCT_EXTERN_METHOD(activateSleepTimer : (nonnull NSNumber*)reactTag seconds : (nonnull NSNumber*)seconds)
+
+RCT_EXTERN_METHOD(cancelSleepTimer : (nonnull NSNumber*)reactTag)
+
+RCT_EXTERN_METHOD(getSleepTimerStatus
+                  : (nonnull NSNumber*)reactTag resolver
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject)
 @end
