@@ -574,6 +574,8 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
         restoreUserInterfaceForPictureInPictureStopCompleted,
         setVolume,
         getCurrentPosition,
+        // Expose native ref for imperative commands that need direct native access
+        _nativeRef: nativeRef,
       }),
       [
         seek,
@@ -585,6 +587,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
         restoreUserInterfaceForPictureInPictureStopCompleted,
         setVolume,
         getCurrentPosition,
+        nativeRef,
       ],
     );
 

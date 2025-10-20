@@ -13,6 +13,10 @@
 		0177D39D27170A7A00F5BE18 /* RCTVideoPlayerViewControllerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0177D39627170A7A00F5BE18 /* RCTVideoPlayerViewControllerDelegate.swift */; };
 		0177D39E27170A7A00F5BE18 /* RCTVideoManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 0177D39727170A7A00F5BE18 /* RCTVideoManager.m */; };
 		0177D39F27170A7A00F5BE18 /* RCTVideo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0177D39927170A7A00F5BE18 /* RCTVideo.swift */; };
+		FA0B7FD02EA6DD59007AA480 /* NowPlayingInfoCenterManager 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0B7FCC2EA6DD59007AA480 /* NowPlayingInfoCenterManager 2.swift */; };
+		FA0B7FD12EA6DD59007AA480 /* VideoSleepTimerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0B7FCF2EA6DD59007AA480 /* VideoSleepTimerModule.swift */; };
+		FA0B7FD22EA6DD59007AA480 /* VideoSleepTimerModule.m in Sources */ = {isa = PBXBuildFile; fileRef = FA0B7FCE2EA6DD59007AA480 /* VideoSleepTimerModule.m */; };
+		FA0B7FD32EA6DD59007AA480 /* RCTVideo+PlaylistIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA0B7FCD2EA6DD59007AA480 /* RCTVideo+PlaylistIntegration.swift */; };
 		FA8112082D24529900901E43 /* NowPlayingInfoCenterManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8112072D24529900901E43 /* NowPlayingInfoCenterManager.swift */; };
 /* End PBXBuildFile section */
 
@@ -50,6 +54,10 @@
 		0177D39827170A7A00F5BE18 /* RCTVideo-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "RCTVideo-Bridging-Header.h"; path = "Video/RCTVideo-Bridging-Header.h"; sourceTree = "<group>"; };
 		0177D39927170A7A00F5BE18 /* RCTVideo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RCTVideo.swift; path = Video/RCTVideo.swift; sourceTree = "<group>"; };
 		134814201AA4EA6300B7C361 /* libRCTVideo.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libRCTVideo.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA0B7FCC2EA6DD59007AA480 /* NowPlayingInfoCenterManager 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NowPlayingInfoCenterManager 2.swift"; sourceTree = "<group>"; };
+		FA0B7FCD2EA6DD59007AA480 /* RCTVideo+PlaylistIntegration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RCTVideo+PlaylistIntegration.swift"; sourceTree = "<group>"; };
+		FA0B7FCE2EA6DD59007AA480 /* VideoSleepTimerModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = VideoSleepTimerModule.m; sourceTree = "<group>"; };
+		FA0B7FCF2EA6DD59007AA480 /* VideoSleepTimerModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSleepTimerModule.swift; sourceTree = "<group>"; };
 		FA1F857B2C22C2B200DEC2B8 /* Downloads */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Downloads; sourceTree = "<group>"; };
 		FA1F857C2C22C2BF00DEC2B8 /* Managers */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Managers; sourceTree = "<group>"; };
 		FA1F857D2C22C2C000DEC2B8 /* Extensions + Utils */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "Extensions + Utils"; sourceTree = "<group>"; };
@@ -102,6 +110,10 @@
 				01489051272001A100E69940 /* Features */,
 				0177D39527170A7A00F5BE18 /* RCTSwiftLog */,
 				0177D39927170A7A00F5BE18 /* RCTVideo.swift */,
+				FA0B7FCC2EA6DD59007AA480 /* NowPlayingInfoCenterManager 2.swift */,
+				FA0B7FCD2EA6DD59007AA480 /* RCTVideo+PlaylistIntegration.swift */,
+				FA0B7FCE2EA6DD59007AA480 /* VideoSleepTimerModule.m */,
+				FA0B7FCF2EA6DD59007AA480 /* VideoSleepTimerModule.swift */,
 				0177D39727170A7A00F5BE18 /* RCTVideoManager.m */,
 				0177D39227170A7A00F5BE18 /* RCTVideoManager.swift */,
 				0177D39427170A7A00F5BE18 /* RCTVideoPlayerViewController.swift */,
@@ -199,6 +211,10 @@
 				0177D39C27170A7A00F5BE18 /* RCTVideoPlayerViewController.swift in Sources */,
 				FA8112082D24529900901E43 /* NowPlayingInfoCenterManager.swift in Sources */,
 				0177D39B27170A7A00F5BE18 /* UIView+FindUIViewController.swift in Sources */,
+				FA0B7FD02EA6DD59007AA480 /* NowPlayingInfoCenterManager 2.swift in Sources */,
+				FA0B7FD12EA6DD59007AA480 /* VideoSleepTimerModule.swift in Sources */,
+				FA0B7FD22EA6DD59007AA480 /* VideoSleepTimerModule.m in Sources */,
+				FA0B7FD32EA6DD59007AA480 /* RCTVideo+PlaylistIntegration.swift in Sources */,
 				0177D39F27170A7A00F5BE18 /* RCTVideo.swift in Sources */,
 				0177D39E27170A7A00F5BE18 /* RCTVideoManager.m in Sources */,
 				0177D39A27170A7A00F5BE18 /* RCTVideoManager.swift in Sources */,
