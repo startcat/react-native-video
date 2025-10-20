@@ -491,6 +491,7 @@ export interface AudioControlsProps extends ICommonPlayerProps {
 	sleepTimer?: {
 		isActive: boolean;
 		remainingSeconds: number;
+		isFinishCurrentMode: boolean;
 	};
 
 	// Custom Components
