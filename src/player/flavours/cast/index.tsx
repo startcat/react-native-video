@@ -96,10 +96,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
 
-	// Control para evitar mezcla de sources
-	const currentSourceType = useRef<"content" | null>(null);
-	const pendingContentSource = useRef<onSourceChangedProps | null>(null);
-
 	// USAR HOOKS INDIVIDUALES DE CAST como en AudioCastFlavour
 	const castConnected = useCastConnected(castLoggerConfig);
 	const castMedia = useCastMedia(castLoggerConfig);
@@ -327,7 +323,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			castConnected &&
 			castProgress?.duration &&
 			castProgress?.duration > 0 &&
-			currentSourceType.current === "content" &&
 			!sourceRef.current?.isLive &&
 			!sourceRef.current?.isDVR
 		) {
@@ -348,7 +343,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// Detectar cuando el contenido termina
 	useEffect(() => {
-		if (castMedia.isIdle && isContentLoaded && currentSourceType.current) {
+		if (castMedia.isIdle && isContentLoaded) {
 			currentLogger.current?.debug(`Cast content ended from idle state`);
 			handleOnEnd();
 		}
@@ -390,7 +385,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		if (
 			castConnected &&
 			sourceRef.current?.isReady &&
-			currentSourceType.current === "content" &&
 			!isContentLoaded &&
 			!isLoadingContent &&
 			!hasTriedLoading &&
@@ -487,7 +481,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			}),
 		});
 
-		currentSourceType.current = "content";
 		isChangingSource.current = false;
 	};
 
@@ -495,8 +488,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		currentLogger.current?.debug(`handleVODContent`);
 
 		// Reset completo solo para VOD
-		currentSourceType.current = null;
-		pendingContentSource.current = null;
 		sliderValues.current = undefined;
 		setIsContentLoaded(false);
 		setHasTriedLoading(false);
@@ -540,7 +531,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		});
 
 		currentLogger.current?.debug(`Loading content directly`);
-		currentSourceType.current = "content";
 		loadContentSource();
 	};
 
@@ -639,38 +629,33 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// SOURCE CHANGED HANDLER
 	const onSourceChanged = useCallback(
 		(data: onSourceChangedProps) => {
-			currentLogger.current?.debug(
-				`onSourceChanged - currentSourceType: ${currentSourceType.current}`
-			);
 			currentLogger.current?.debug(`onSourceChanged - data: ${JSON.stringify(data)}`);
 
-			if (currentSourceType.current === "content") {
-				currentLogger.current?.debug(`Processing content source normally`);
-
-				if (data.isDVR && dvrProgressManagerRef.current) {
-					dvrProgressManagerRef.current.setDVRWindowSeconds(
-						data.dvrWindowSeconds || 3600
-					);
-				}
-
-				updatePlayerProgressRef();
-				loadContentWithCastManager(data);
-			} else {
-				currentLogger.current?.debug(`Initial state, processing source`);
-
-				if (!currentSourceType.current) {
-					currentSourceType.current = "content";
-				}
-
-				updatePlayerProgressRef();
-				loadContentWithCastManager(data);
+			if (data.isDVR && dvrProgressManagerRef.current) {
+				dvrProgressManagerRef.current.setDVRWindowSeconds(
+					data.dvrWindowSeconds || 3600
+				);
 			}
+
+			// Actualizar playerProgressRef inline
+			playerProgressRef.current = {
+				...playerProgressRef.current,
+				currentTime: currentTime,
+				duration: sliderValues.current?.duration || 0,
+				isPaused: paused,
+				isMuted: muted,
+				isContentLoaded: isContentLoaded,
+				isChangingSource: isChangingSource.current,
+				sliderValues: sliderValues.current,
+			};
+
+			loadContentWithCastManager(data);
 
 			if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
 				dvrProgressManagerRef.current?.reset();
 			}
 		},
-		[loadContentWithCastManager]
+		[loadContentWithCastManager, currentTime, paused, muted, isContentLoaded]
 	);
 
 	// HANDLE TRACK CHANGES
@@ -773,29 +758,27 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, []);
 
 	const onProgressUpdate = useCallback((data: ProgressUpdateData) => {
-		// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
-		if (currentSourceType.current === "content") {
-			currentLogger.current?.debug(`onProgressUpdate: ${JSON.stringify(data)}`);
-			sliderValues.current = {
-				minimumValue: data.minimumValue,
-				maximumValue: data.maximumValue,
-				progress: data.progress,
-				percentProgress: data.percentProgress,
-				duration: data.duration || 0,
-				canSeekToEnd: data.canSeekToEnd,
-				liveEdge: data.liveEdge,
-				percentLiveEdge: data.percentLiveEdge,
-				isProgramLive: data.isProgramLive,
-				progressDatum: data.progressDatum,
-				liveEdgeOffset: data.liveEdgeOffset,
-				isLiveEdgePosition: data.isLiveEdgePosition,
-			};
+		// Actualizar sliderValues
+		currentLogger.current?.debug(`onProgressUpdate: ${JSON.stringify(data)}`);
+		sliderValues.current = {
+			minimumValue: data.minimumValue,
+			maximumValue: data.maximumValue,
+			progress: data.progress,
+			percentProgress: data.percentProgress,
+			duration: data.duration || 0,
+			canSeekToEnd: data.canSeekToEnd,
+			liveEdge: data.liveEdge,
+			percentLiveEdge: data.percentLiveEdge,
+			isProgramLive: data.isProgramLive,
+			progressDatum: data.progressDatum,
+			liveEdgeOffset: data.liveEdgeOffset,
+			isLiveEdgePosition: data.isLiveEdgePosition,
+		};
 
-			updatePlayerProgressRef();
+		updatePlayerProgressRef();
 
-			// Trigger re-render del useEffect para emitir eventos con nuevos sliderValues
-			setSliderValuesUpdate((prev: number) => prev + 1);
-		}
+		// Trigger re-render del useEffect para emitir eventos con nuevos sliderValues
+		setSliderValuesUpdate((prev: number) => prev + 1);
 	}, []);
 
 	const onSeekRequest = useCallback((playerTime: number) => {
@@ -846,7 +829,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				`onLoad - duration: ${e.duration}, currentTime: ${e.currentTime}`
 			);
 
-			if (currentSourceType.current === "content" && e.duration > 0) {
+			if (e.duration > 0) {
 				currentLogger.current?.debug(`onLoad - Processing content load`);
 
 				if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
@@ -913,9 +896,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	);
 
 	const handleOnEnd = useCallback(() => {
-		currentLogger.current?.info(`handleOnEnd: currentSourceType ${currentSourceType.current}`);
+		currentLogger.current?.info(`handleOnEnd`);
 
-		if (currentSourceType.current === "content" && props.events?.onEnd) {
+		if (props.events?.onEnd) {
 			currentLogger.current?.debug(
 				`handleOnEnd: Content finished, preparing for possible auto next`
 			);
@@ -927,7 +910,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const handleOnError = useCallback(
 		(error: PlayerError) => {
 			currentLogger.current?.error(
-				`handleOnError: ${JSON.stringify(error?.message)} (${error?.code}) - currentSourceType: ${currentSourceType.current}`
+				`handleOnError: ${JSON.stringify(error?.message)}`
 			);
 			setIsLoadingContent(false);
 
@@ -952,9 +935,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		);
 		currentLogger.current?.debug(`Simulating onProgress: ${JSON.stringify(e)}`);
 
-		// Solo procesar progreso para contenido principal, no para tudum, y cuando el contenido esté cargado
-		// Esto previene race conditions cuando se cambia de TUDUM a contenido normal
-		if (currentSourceType.current === "content" && isContentLoaded) {
+		// Solo procesar progreso cuando el contenido esté cargado
+		if (isContentLoaded) {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
 				vodProgressManagerRef.current?.updatePlayerData({
 					currentTime: e.currentTime,
