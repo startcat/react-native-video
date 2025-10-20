@@ -137,15 +137,22 @@ export class PlaylistsManager {
 			{ name: "onPlaylistItemStarted", handler: this.handleNativeItemStarted.bind(this) },
 			{ name: "onPlaylistItemCompleted", handler: this.handleNativeItemCompleted.bind(this) },
 			{ name: "onPlaylistItemError", handler: this.handleNativeItemError.bind(this) },
-			{ name: "onPlaylistProgressUpdated", handler: this.handleNativeProgressUpdate.bind(this) },
+			{
+				name: "onPlaylistProgressUpdated",
+				handler: this.handleNativeProgressUpdate.bind(this),
+			},
 			{ name: "onPlaylistEnded", handler: this.handleNativePlaylistEnded.bind(this) },
 		];
 
 		this.nativeListeners = events.map(({ name, handler }) =>
 			this.nativeEventEmitter!.addListener(name, handler)
 		);
-		
-		this.logger.debug(LOG_TAGS.PLAYLISTS_MANAGER, "Native event listeners registered:", events.map(e => e.name));
+
+		this.logger.debug(
+			LOG_TAGS.PLAYLISTS_MANAGER,
+			"Native event listeners registered:",
+			events.map(e => e.name)
+		);
 	}
 
 	public async setPlaylist(
@@ -646,7 +653,18 @@ export class PlaylistsManager {
 			}
 
 			if (this.nativeModule && validatedItems.length > 0) {
-				await this.nativeModule.addItems(validatedItems);
+				// Native module doesn't have addItems() - use addItem() in loop
+				for (const item of validatedItems) {
+					try {
+						await this.nativeModule.addItem(item);
+					} catch (error) {
+						this.logger.warn(
+							LOG_TAGS.PLAYLISTS_MANAGER,
+							`Failed to add item to native module: ${item.id}`,
+							error
+						);
+					}
+				}
 			}
 
 			if (validatedItems.length > 0) {
@@ -981,17 +999,16 @@ export class PlaylistsManager {
 			"📥 Received native event: onPlaylistItemChanged",
 			{ itemId: data.itemId, index: data.index, previousIndex: data.previousIndex }
 		);
-		
+
 		this.currentIndex = data.index;
 
 		// Enriquecer evento con item actual del array JS
 		const currentItem = this.items[data.index];
-		
-		this.logger.debug(
-			LOG_TAGS.PLAYLISTS_MANAGER,
-			"Current item from JS array:",
-			{ id: currentItem?.id, title: currentItem?.metadata?.title }
-		);
+
+		this.logger.debug(LOG_TAGS.PLAYLISTS_MANAGER, "Current item from JS array:", {
+			id: currentItem?.id,
+			title: currentItem?.metadata?.title,
+		});
 
 		this.emit(PlaylistEventType.ITEM_CHANGED, {
 			...data,
@@ -999,11 +1016,8 @@ export class PlaylistsManager {
 			totalItems: this.items.length,
 			timestamp: data.timestamp || Date.now(),
 		} as ItemChangedEventData);
-		
-		this.logger.info(
-			LOG_TAGS.PLAYLISTS_MANAGER,
-			"✅ ITEM_CHANGED event emitted to listeners"
-		);
+
+		this.logger.info(LOG_TAGS.PLAYLISTS_MANAGER, "✅ ITEM_CHANGED event emitted to listeners");
 	}
 
 	private handleNativeItemStarted(data: any): void {
