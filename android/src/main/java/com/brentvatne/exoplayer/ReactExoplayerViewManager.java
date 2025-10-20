@@ -19,18 +19,12 @@ import com.brentvatne.common.api.SubtitleStyle;
 import com.brentvatne.common.react.VideoEventEmitter;
 import com.brentvatne.common.toolbox.DebugLog;
 import com.brentvatne.common.toolbox.ReactBridgeUtils;
-import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
-import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.common.MapBuilder;
-import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.uimanager.ThemedReactContext;
-import com.facebook.react.uimanager.UIManagerHelper;
 import com.facebook.react.uimanager.ViewGroupManager;
 import com.facebook.react.uimanager.annotations.ReactProp;
-import com.facebook.react.uimanager.annotations.ReactPropGroup;
-import com.facebook.react.bridge.ReactMethod;
 
 import java.util.HashMap; // Dani
 import java.util.ArrayList;
@@ -541,33 +535,43 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 	 * End
 	 *
 	 */
-	
-	// MARK: - Sleep Timer Methods
-	
-	@ReactMethod
-	public void activateSleepTimer(int reactTag, int seconds) {
-		ReactExoplayerView videoView = (ReactExoplayerView) UIManagerHelper.findNodeHandle(reactTag);
-		if (videoView != null) {
-			videoView.activateSleepTimer(seconds);
-		}
+
+	@Override
+	public Map<String, Integer> getCommandsMap() {
+		Map<String, Integer> commands = new HashMap<>();
+		commands.put("activateSleepTimer", 1);
+		commands.put("cancelSleepTimer", 2);
+		commands.put("getSleepTimerStatus", 3);
+		return commands;
 	}
-	
-	@ReactMethod
-	public void cancelSleepTimer(int reactTag) {
-		ReactExoplayerView videoView = (ReactExoplayerView) UIManagerHelper.findNodeHandle(reactTag);
-		if (videoView != null) {
-			videoView.cancelSleepTimer();
-		}
-	}
-	
-	@ReactMethod
-	public void getSleepTimerStatus(int reactTag, Promise promise) {
-		ReactExoplayerView videoView = (ReactExoplayerView) UIManagerHelper.findNodeHandle(reactTag);
-		if (videoView != null) {
-			WritableMap status = videoView.getSleepTimerStatus();
-			promise.resolve(status);
-		} else {
-			promise.reject("PLAYER_NOT_AVAILABLE", "Player is not initialized.");
+
+	@Override
+	public void receiveCommand(@NonNull ReactExoplayerView view, String commandId, @Nullable ReadableArray args) {
+		Log.d(TAG, "🔔 [ViewManager] receiveCommand called: commandId=" + commandId);
+		
+		switch (commandId) {
+			case "activateSleepTimer":
+				Log.d(TAG, "🔔 [ViewManager] activateSleepTimer case matched");
+				if (args != null && args.size() > 0) {
+					int seconds = args.getInt(0);
+					Log.d(TAG, "🔔 [ViewManager] Calling view.activateSleepTimer(" + seconds + ")");
+					view.activateSleepTimer(seconds);
+				} else {
+					Log.e(TAG, "🔔 [ViewManager] activateSleepTimer: args is null or empty");
+				}
+				break;
+			case "cancelSleepTimer":
+				Log.d(TAG, "🔔 [ViewManager] cancelSleepTimer case matched");
+				view.cancelSleepTimer();
+				break;
+			case "getSleepTimerStatus":
+				Log.d(TAG, "🔔 [ViewManager] getSleepTimerStatus case matched (handled by module)");
+				// getSleepTimerStatus se maneja a través de VideoSleepTimerModule
+				// ya que receiveCommand no puede retornar Promises
+				break;
+			default:
+				Log.w(TAG, "🔔 [ViewManager] Unknown command: " + commandId);
+				break;
 		}
 	}
 

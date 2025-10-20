@@ -1,7 +1,7 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTEventEmitter.h>
 
-@interface RCT_EXTERN_MODULE(VideoSleepTimerModule, RCTEventEmitter)
+@interface RCT_EXTERN_MODULE(VideoSleepTimerModule, NSObject)
 
 RCT_EXTERN_METHOD(activateSleepTimer:(nonnull NSNumber *)seconds)
 
