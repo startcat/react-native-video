@@ -1795,15 +1795,31 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         sendProgressUpdate(didEnd: true)
         onVideoEnd?(["target": reactTag as Any])
         
+        // Capturar el itemId del item que terminó
+        let finishedItemId = playlistItemId
+        
         // Notify Sleep Timer that media has ended (for finish-current mode)
-        // Usamos NotificationCenter para evitar dependencias entre archivos
-        NotificationCenter.default.post(
+        // Verificación SÍNCRONA para evitar race conditions
+        var shouldPreventAutoAdvance = false
+        
+        // Crear notificación con userInfo que incluye un callback
+        let sleepTimerNotification = Notification(
             name: NSNotification.Name("RCTVideoPlayerDidEnd"),
-            object: nil
+            object: nil,
+            userInfo: ["preventAutoAdvance": { shouldPreventAutoAdvance = true }]
         )
         
-        // Notify PlaylistControlModule for coordinated playlist management
-        notifyPlaylistItemFinished()
+        NotificationCenter.default.post(sleepTimerNotification)
+        
+        // Verificar INMEDIATAMENTE si el Sleep Timer previno el auto-advance
+        // No usar delay para evitar race conditions con el cambio de source
+        if !shouldPreventAutoAdvance {
+            notifyPlaylistItemFinished(itemId: finishedItemId)
+        } else {
+            #if DEBUG
+            print("[RCTVideo] 🔔 Auto-advance prevented by Sleep Timer")
+            #endif
+        }
         
         #if RNUSE_GOOGLE_IMA
             if notification.object as? AVPlayerItem == _player?.currentItem {
@@ -1834,11 +1850,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         setupPlaylistObservers()
     }
     
-    func notifyPlaylistItemFinished() {
+    func notifyPlaylistItemFinished(itemId: String? = nil) {
         guard enablePlaylistIntegration else { return }
         
+        // Usar el itemId proporcionado o el actual
+        let finishedItemId = itemId ?? playlistItemId
+        
         #if DEBUG
-        print("[RCTVideo] 🎬 Notifying playlist item finished: \(playlistItemId ?? "unknown")")
+        print("[RCTVideo] 🎬 Notifying playlist item finished: \(finishedItemId ?? "unknown")")
         #endif
         
         // Post notification to PlaylistControlModule
@@ -1846,7 +1865,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             name: NSNotification.Name("RCTVideoItemDidFinish"),
             object: nil,
             userInfo: [
-                "itemId": playlistItemId ?? "",
+                "itemId": finishedItemId ?? "",
                 "timestamp": Date().timeIntervalSince1970 * 1000
             ]
         )
