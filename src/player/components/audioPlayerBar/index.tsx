@@ -62,6 +62,8 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 	const [syncState, setSyncState] = useState<ICommonData>({});
 
 	const watchingProgressIntervalObj = useRef<number>();
+	const syncStateRef = useRef<ICommonData>(syncState);
+	const currentPlaylistItemRef = useRef<PlaylistItem | null>(currentPlaylistItem);
 
 	if (!playerLogger.current) {
 		playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
@@ -181,6 +183,15 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 		}
 	}, [contentId]);
 
+	// Mantener refs actualizadas sin causar re-renders
+	React.useEffect(() => {
+		syncStateRef.current = syncState;
+	}, [syncState]);
+
+	React.useEffect(() => {
+		currentPlaylistItemRef.current = currentPlaylistItem;
+	}, [currentPlaylistItem]);
+
 	React.useEffect(() => {
 		// Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
 		if (
@@ -189,31 +200,35 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			dpoData?.hooks?.addContentProgress
 		) {
 			watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
-				// Evitamos mandar el watching progress en directos y en Chromecast
+				// Usar refs para obtener valores actuales sin recrear el intervalo
+				const currentItem = currentPlaylistItemRef.current;
+				const currentSyncState = syncStateRef.current;
+
+				// Evitamos mandar el watching progress en directos, TUDUM y en Chromecast
 				if (
 					hasBeenLoaded.current &&
-					currentPlaylistItem &&
-					!currentPlaylistItem.isLive &&
-					currentPlaylistItem.type !== PlaylistItemType.TUDUM &&
+					currentItem &&
+					!currentItem.isLive &&
+					currentItem.type !== PlaylistItemType.TUDUM &&
 					dpoData.hooks?.addContentProgress
 				) {
-					const currentTime = syncState.time ?? 0;
-					const duration = syncState.duration ?? 0;
+					const currentTime = currentSyncState.time ?? 0;
+					const duration = currentSyncState.duration ?? 0;
 
 					// Crear objeto simplificado del playlist item
 					const itemSimplified: PlaylistItemSimplified = {
-						id: currentPlaylistItem.id,
-						type: currentPlaylistItem.type,
-						status: currentPlaylistItem.status,
-						resolvedSources: currentPlaylistItem.resolvedSources,
-						metadata: currentPlaylistItem.metadata,
-						timeMarkers: currentPlaylistItem.timeMarkers,
-						duration: currentPlaylistItem.duration,
-						isLive: currentPlaylistItem.isLive,
-						liveSettings: currentPlaylistItem.liveSettings,
-						playOffline: currentPlaylistItem.playOffline,
-						addedAt: currentPlaylistItem.addedAt,
-						extraData: currentPlaylistItem.extraData,
+						id: currentItem.id,
+						type: currentItem.type,
+						status: currentItem.status,
+						resolvedSources: currentItem.resolvedSources,
+						metadata: currentItem.metadata,
+						timeMarkers: currentItem.timeMarkers,
+						duration: currentItem.duration,
+						isLive: currentItem.isLive,
+						liveSettings: currentItem.liveSettings,
+						playOffline: currentItem.playOffline,
+						addedAt: currentItem.addedAt,
+						extraData: currentItem.extraData,
 					};
 
 					dpoData.hooks.addContentProgress(itemSimplified, currentTime, duration);
@@ -226,7 +241,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 				BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
 			}
 		};
-	}, [dpoData?.hooks, currentPlaylistItem, syncState]);
+	}, [dpoData?.hooks]);
 
 	const clearDataToChangeContents = () => {
 		hasBeenLoaded.current = false;

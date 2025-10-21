@@ -82,6 +82,10 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	const hasBeenLoaded = useRef<boolean>(false);
 	const hasBeenLoadedAudio = useRef<boolean>(false);
 
+	// Refs para acceder a valores actuales en el intervalo sin recrearlo
+	const currentPlaylistItemRef = useRef<PlaylistItem | null>(currentPlaylistItem);
+	const syncStateRef = useRef<ICommonData>(syncState);
+
 	const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(
 		typeof props.audioIndex === "number" ? props.audioIndex : -1
 	);
@@ -119,6 +123,14 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			}, 500);
 		}
 	});
+
+	React.useEffect(() => {
+		currentPlaylistItemRef.current = currentPlaylistItem;
+	}, [currentPlaylistItem]);
+
+	React.useEffect(() => {
+		syncStateRef.current = syncState;
+	}, [syncState]);
 
 	React.useEffect(() => {
 		// Al montar el Player, preparamos la sesión de Audio, el apagado de pantalla y la orientación
@@ -168,37 +180,41 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 
 		// Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
 		if (
-			typeof props.hooks?.watchingProgressInterval === "number" &&
+			typeof props?.hooks?.watchingProgressInterval === "number" &&
 			props.hooks?.watchingProgressInterval > 0 &&
 			props.hooks?.addContentProgress
 		) {
 			watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
-				// Evitamos mandar el watching progress en directos y en Chromecast
+				// Usar refs para obtener valores actuales sin recrear el intervalo
+				const currentItem = currentPlaylistItemRef.current;
+				const currentSyncState = syncStateRef.current;
+
+				// Evitamos mandar el watching progress en directos, TUDUM y en Chromecast
 				if (
 					hasBeenLoaded.current &&
-					!currentPlaylistItem?.isLive &&
+					currentItem &&
+					!currentItem.isLive &&
+					currentItem.type !== PlaylistItemType.TUDUM &&
 					!isCasting.current &&
-					currentPlaylistItem &&
-					currentPlaylistItem.type !== PlaylistItemType.TUDUM &&
 					props.hooks?.addContentProgress
 				) {
-					const currentTime = playerProgress.current?.currentTime ?? 0;
-					const duration = playerProgress.current?.duration ?? 0;
+					const currentTime = currentSyncState.time ?? 0;
+					const duration = currentSyncState.duration ?? 0;
 
 					// Crear objeto simplificado del playlist item
 					const itemSimplified: PlaylistItemSimplified = {
-						id: currentPlaylistItem.id,
-						type: currentPlaylistItem.type,
-						status: currentPlaylistItem.status,
-						resolvedSources: currentPlaylistItem.resolvedSources,
-						metadata: currentPlaylistItem.metadata,
-						timeMarkers: currentPlaylistItem.timeMarkers,
-						duration: currentPlaylistItem.duration,
-						isLive: currentPlaylistItem.isLive,
-						liveSettings: currentPlaylistItem.liveSettings,
-						playOffline: currentPlaylistItem.playOffline,
-						addedAt: currentPlaylistItem.addedAt,
-						extraData: currentPlaylistItem.extraData,
+						id: currentItem.id,
+						type: currentItem.type,
+						status: currentItem.status,
+						resolvedSources: currentItem.resolvedSources,
+						metadata: currentItem.metadata,
+						timeMarkers: currentItem.timeMarkers,
+						duration: currentItem.duration,
+						isLive: currentItem.isLive,
+						liveSettings: currentItem.liveSettings,
+						playOffline: currentItem.playOffline,
+						addedAt: currentItem.addedAt,
+						extraData: currentItem.extraData,
 					};
 
 					props.hooks.addContentProgress(itemSimplified, currentTime, duration);
