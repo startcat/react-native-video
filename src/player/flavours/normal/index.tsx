@@ -1055,7 +1055,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						//pictureInPicture (ios)
 						playInBackground={isAirplayConnected}
 						playWhenInactive={isAirplayConnected}
-						poster={props?.playerMetadata?.poster}
+						poster={props?.playlistItem?.metadata?.poster}
 						preventsDisplaySleepDuringVideoPlayback={!isAirplayConnected}
 						progressUpdateInterval={1000}
 						selectedVideoTrack={selectedVideoTrack}
@@ -1105,7 +1105,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 			{isAirplayConnected ? (
 				<Suspense fallback={props.components?.loader}>
-					<BackgroundPoster poster={props.playerMetadata?.poster} />
+					<BackgroundPoster poster={props.playlistItem?.metadata?.poster} />
 				</Suspense>
 			) : null}
 
@@ -1123,7 +1123,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					subtitleIndex={props.initialState?.subtitleIndex}
 					speedRate={speedRate}
 					// Nuevas Props Agrupadas
-					playerMetadata={props.playerMetadata}
+					playerMetadata={props.playlistItem?.metadata}
 					playerProgress={{
 						...props.playerProgress,
 						currentTime: currentTime,
