@@ -22,6 +22,8 @@ import {
 import {
 	PlaylistEventType,
 	PlaylistItem,
+	PlaylistItemSimplified,
+	PlaylistItemType,
 	PlaylistRepeatMode,
 	playlistsManager,
 } from "./player/features/playlists";
@@ -165,23 +167,44 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		initPlaylistsManager();
 
 		// Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
-		// if (
-		// 	typeof props.hooks?.watchingProgressInterval === "number" &&
-		// 	props.hooks?.watchingProgressInterval > 0 &&
-		// 	props.hooks?.addContentProgress
-		// ) {
-		// 	watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
-		// 		// Evitamos mandar el watching progress en directos y en Chromecast
-		// 		if (hasBeenLoaded.current && !currentPlaylistItem?.isLive && !isCasting.current) {
-		// 			// @ts-ignore
-		// 			props.hooks?.addContentProgress(
-		// 				playerProgress.current?.currentTime,
-		// 				playerProgress.current?.duration,
-		// 				currentPlaylistItem?.id
-		// 			);
-		// 		}
-		// 	}, props.hooks?.watchingProgressInterval);
-		// }
+		if (
+			typeof props.hooks?.watchingProgressInterval === "number" &&
+			props.hooks?.watchingProgressInterval > 0 &&
+			props.hooks?.addContentProgress
+		) {
+			watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
+				// Evitamos mandar el watching progress en directos y en Chromecast
+				if (
+					hasBeenLoaded.current &&
+					!currentPlaylistItem?.isLive &&
+					!isCasting.current &&
+					currentPlaylistItem &&
+					currentPlaylistItem.type !== PlaylistItemType.TUDUM &&
+					props.hooks?.addContentProgress
+				) {
+					const currentTime = playerProgress.current?.currentTime ?? 0;
+					const duration = playerProgress.current?.duration ?? 0;
+
+					// Crear objeto simplificado del playlist item
+					const itemSimplified: PlaylistItemSimplified = {
+						id: currentPlaylistItem.id,
+						type: currentPlaylistItem.type,
+						status: currentPlaylistItem.status,
+						resolvedSources: currentPlaylistItem.resolvedSources,
+						metadata: currentPlaylistItem.metadata,
+						timeMarkers: currentPlaylistItem.timeMarkers,
+						duration: currentPlaylistItem.duration,
+						isLive: currentPlaylistItem.isLive,
+						liveSettings: currentPlaylistItem.liveSettings,
+						playOffline: currentPlaylistItem.playOffline,
+						addedAt: currentPlaylistItem.addedAt,
+						extraData: currentPlaylistItem.extraData,
+					};
+
+					props.hooks.addContentProgress(itemSimplified, currentTime, duration);
+				}
+			}, props.hooks?.watchingProgressInterval);
+		}
 
 		const baseTimer = setTimeout(() => {
 			setCorrectCastState(true);
