@@ -1,6 +1,7 @@
 import { Spinner } from "@ui-kitten/components";
 import React, { createElement, useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
+import BackgroundTimer from "react-native-background-timer";
 import { EventRegister } from "react-native-event-listeners";
 import {
 	CastState as NativeCastState,
@@ -12,6 +13,8 @@ import { ComponentLogger, Logger, LoggerFactory } from "../../features/logger";
 import {
 	PlaylistEventType,
 	PlaylistItem,
+	PlaylistItemSimplified,
+	PlaylistItemType,
 	PlaylistRepeatMode,
 	playlistsManager,
 } from "../../features/playlists";
@@ -58,7 +61,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 	// Estado de sincronización entre flavours (móvil ↔ Chromecast)
 	const [syncState, setSyncState] = useState<ICommonData>({});
 
-	// const watchingProgressIntervalObj = useRef<ReturnType<typeof setTimeout>>();
+	const watchingProgressIntervalObj = useRef<number>();
 
 	if (!playerLogger.current) {
 		playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
@@ -178,39 +181,52 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 		}
 	}, [contentId]);
 
-	// React.useEffect(() => {
-	// 	console.log(
-	// 		`[Audio Player Bar] dpoData?.playerMetadata?.id ${dpoData?.playerMetadata?.id}`
-	// 	);
+	React.useEffect(() => {
+		// Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
+		if (
+			typeof dpoData?.hooks?.watchingProgressInterval === "number" &&
+			dpoData?.hooks?.watchingProgressInterval > 0 &&
+			dpoData?.hooks?.addContentProgress
+		) {
+			watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
+				// Evitamos mandar el watching progress en directos y en Chromecast
+				if (
+					hasBeenLoaded.current &&
+					currentPlaylistItem &&
+					!currentPlaylistItem.isLive &&
+					currentPlaylistItem.type !== PlaylistItemType.TUDUM &&
+					dpoData.hooks?.addContentProgress
+				) {
+					const currentTime = syncState.time ?? 0;
+					const duration = syncState.duration ?? 0;
 
-	// 	currentLogger.current?.debug(`New DPO Metadata ID ${dpoData?.playerMetadata?.id}`);
+					// Crear objeto simplificado del playlist item
+					const itemSimplified: PlaylistItemSimplified = {
+						id: currentPlaylistItem.id,
+						type: currentPlaylistItem.type,
+						status: currentPlaylistItem.status,
+						resolvedSources: currentPlaylistItem.resolvedSources,
+						metadata: currentPlaylistItem.metadata,
+						timeMarkers: currentPlaylistItem.timeMarkers,
+						duration: currentPlaylistItem.duration,
+						isLive: currentPlaylistItem.isLive,
+						liveSettings: currentPlaylistItem.liveSettings,
+						playOffline: currentPlaylistItem.playOffline,
+						addedAt: currentPlaylistItem.addedAt,
+						extraData: currentPlaylistItem.extraData,
+					};
 
-	// 	// Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
-	// 	if (
-	// 		typeof dpoData?.hooks?.watchingProgressInterval === "number" &&
-	// 		dpoData?.hooks?.watchingProgressInterval > 0 &&
-	// 		dpoData?.hooks?.addContentProgress
-	// 	) {
-	// 		watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
-	// 			// Evitamos mandar el watching progress en directos y en Chromecast
-	// 			if (hasBeenLoaded.current && !dpoData?.isLive) {
-	// 				// TODO: Actualizar para pasar PlaylistItemSimplified como primer parámetro
-	// 				// const playlistItemSimplified = { ... };
-	// 				// dpoData.hooks?.addContentProgress(
-	// 				// 	playlistItemSimplified,
-	// 				// 	dpoData.playerProgress?.currentTime,
-	// 				// 	dpoData.playerProgress?.duration
-	// 				// );
-	// 			}
-	// 		}, dpoData?.hooks?.watchingProgressInterval);
-	// 	}
+					dpoData.hooks.addContentProgress(itemSimplified, currentTime, duration);
+				}
+			}, dpoData?.hooks?.watchingProgressInterval);
+		}
 
-	// 	return () => {
-	// 		if (watchingProgressIntervalObj.current) {
-	// 			BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
-	// 		}
-	// 	};
-	// }, [dpoData?.playerMetadata?.id]);
+		return () => {
+			if (watchingProgressIntervalObj.current) {
+				BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
+			}
+		};
+	}, [dpoData?.hooks, currentPlaylistItem, syncState]);
 
 	const clearDataToChangeContents = () => {
 		hasBeenLoaded.current = false;
