@@ -958,6 +958,22 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			}
 		}
 
+		// Verificar si el Sleep Timer está en modo finish-current
+		// Si lo está, NO avanzar al siguiente episodio
+		try {
+			const sleepTimerStatus = await SleepTimerControl.getSleepTimerStatus();
+			if (sleepTimerStatus?.isActive && sleepTimerStatus?.isFinishCurrentMode) {
+				currentLogger.current?.info(
+					"[Sleep Timer] Finish-current mode active - preventing auto-advance"
+				);
+				// Pausar el player
+				setPaused(true);
+				return; // NO llamar a onEnd, prevenir auto-advance
+			}
+		} catch (error) {
+			currentLogger.current?.warn("[Sleep Timer] Failed to check status:", error);
+		}
+
 		// NOTE: We don't notify the native PlaylistControlModule here because:
 		// 1. In coordinated mode, the PlaylistsManager (TypeScript) controls which item plays
 		// 2. The native module is only used for standalone mode (audio-only apps)

@@ -43,11 +43,20 @@ class VideoSleepTimerModule: RCTEventEmitter {
     /**
      * Maneja la notificación cuando el player termina
      */
-    @objc private func handlePlayerDidEnd() {
+    @objc private func handlePlayerDidEnd(_ notification: Notification) {
         RCTLogInfo("🔔 [SLEEP TIMER iOS] Received player did end notification")
         
         if VideoSleepTimerModule.sleepTimerActive && VideoSleepTimerModule.sleepTimerFinishCurrentMode {
-            RCTLogInfo("🔔 [SLEEP TIMER iOS] ⏸️ Player ended in finish-current mode - PAUSING")
+            RCTLogInfo("🔔 [SLEEP TIMER iOS] ⏸️ Player ended in finish-current mode - PAUSING IMMEDIATELY")
+            
+            // Llamar al callback para prevenir auto-advance
+            if let preventAutoAdvanceCallback = notification.userInfo?["preventAutoAdvance"] as? () -> Void {
+                preventAutoAdvanceCallback()
+                RCTLogInfo("🔔 [SLEEP TIMER iOS] ✅ Auto-advance prevented")
+            }
+            
+            // Pausar INMEDIATAMENTE antes de que el playlist avance
+            NowPlayingInfoCenterManager.shared.pauseCurrentPlayer()
             
             // Cancelar timer
             VideoSleepTimerModule.sleepTimer?.invalidate()
@@ -56,9 +65,9 @@ class VideoSleepTimerModule: RCTEventEmitter {
             VideoSleepTimerModule.sleepTimerActive = false
             VideoSleepTimerModule.sleepTimerFinishCurrentMode = false
             
-            // Emitir evento a JavaScript
+            // Emitir evento a JavaScript para actualizar UI
             sendEvent(withName: "sleepTimerFinished", body: nil)
-            RCTLogInfo("🔔 [SLEEP TIMER iOS] ✅ Event emitted to JavaScript")
+            RCTLogInfo("🔔 [SLEEP TIMER iOS] ✅ Player paused and event emitted")
         } else {
             RCTLogInfo("🔔 [SLEEP TIMER iOS] Player ended but timer not in finish-current mode (active=\(VideoSleepTimerModule.sleepTimerActive), finishCurrentMode=\(VideoSleepTimerModule.sleepTimerFinishCurrentMode))")
         }
