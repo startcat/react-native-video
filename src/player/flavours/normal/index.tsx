@@ -37,6 +37,8 @@ import {
 	VODProgressManagerClass,
 } from "../../core/progress";
 
+import { playlistsManager } from "../../features/playlists";
+
 import { ComponentLogger } from "../../features/logger";
 
 import { useVideoAnalytics } from "../../core/events/hooks/useVideoAnalytics";
@@ -551,7 +553,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	 *
 	 */
 
-	const handleOnControlsPress = (id: CONTROL_ACTION, value?: number | boolean) => {
+	const handleOnControlsPress = async (id: CONTROL_ACTION, value?: number | boolean) => {
 		const COMMON_DATA_FIELDS = [
 			"time",
 			"volume",
@@ -572,17 +574,23 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			setMuted(!!value);
 		}
 
-		if (id === CONTROL_ACTION.NEXT && props.events?.onNext) {
+		if (id === CONTROL_ACTION.NEXT) {
 			setIsContentLoaded(false);
-			props.events?.onNext();
+			await playlistsManager.goToNext();
+			if (props.events?.onNext) {
+				props.events?.onNext();
+			}
 
 			// Evento analíticas
 			analyticsEvents.onStop({ reason: "navigation" });
 		}
 
-		if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious) {
+		if (id === CONTROL_ACTION.PREVIOUS) {
 			setIsContentLoaded(false);
-			props.events.onPrevious();
+			await playlistsManager.goToPrevious();
+			if (props.events?.onPrevious) {
+				props.events.onPrevious();
+			}
 
 			// Evento analíticas
 			analyticsEvents.onStop({ reason: "navigation" });

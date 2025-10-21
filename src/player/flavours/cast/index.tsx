@@ -34,6 +34,7 @@ import { ComponentLogger } from "../../features/logger";
 import { getTrackId, mergeCastMenuData } from "../../utils";
 
 import { useIsBuffering } from "../../core/buffering";
+import { playlistsManager } from "../../features/playlists";
 import { SourceClass, type onSourceChangedProps } from "../../modules/source";
 
 // Importar hooks individuales de Cast como en AudioCastFlavour
@@ -107,7 +108,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
 	const onEndRef = useRef<() => void>();
 	const onErrorRef = useRef<(error: PlayerError) => void>();
-	
+
 	// Ref para evitar llamadas duplicadas a onChangeCommonData
 	const lastCommonDataRef = useRef<{ time?: number; duration?: number }>({});
 
@@ -591,7 +592,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 							subtitle: props.playlistItem?.metadata?.subtitle,
 							description: props.playlistItem?.metadata?.description,
 							poster:
-								props.playlistItem?.metadata?.squaredPoster || props.playlistItem?.metadata?.poster,
+								props.playlistItem?.metadata?.squaredPoster ||
+								props.playlistItem?.metadata?.poster,
 							liveStartDate: props.playlistItem?.liveSettings?.liveStartDate,
 							adTagUrl: props.playlistItem?.ads?.adTagUrl,
 							hasNext: !!props.events?.onNext,
@@ -632,9 +634,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			currentLogger.current?.debug(`onSourceChanged - data: ${JSON.stringify(data)}`);
 
 			if (data.isDVR && dvrProgressManagerRef.current) {
-				dvrProgressManagerRef.current.setDVRWindowSeconds(
-					data.dvrWindowSeconds || 3600
-				);
+				dvrProgressManagerRef.current.setDVRWindowSeconds(data.dvrWindowSeconds || 3600);
 			}
 
 			// Actualizar playerProgressRef inline
@@ -909,9 +909,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	const handleOnError = useCallback(
 		(error: PlayerError) => {
-			currentLogger.current?.error(
-				`handleOnError: ${JSON.stringify(error?.message)}`
-			);
+			currentLogger.current?.error(`handleOnError: ${JSON.stringify(error?.message)}`);
 			setIsLoadingContent(false);
 
 			if (props.events?.onError && typeof props.events.onError === "function") {
@@ -961,7 +959,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				// Evitar llamadas duplicadas con los mismos valores
 				const newTime = e.currentTime;
 				const newDuration = e.seekableDuration;
-				
+
 				if (
 					lastCommonDataRef.current.time !== newTime ||
 					lastCommonDataRef.current.duration !== newDuration
@@ -993,7 +991,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// CONTROLS PRESS HANDLER
 	const onControlsPress = useCallback(
-		(id: CONTROL_ACTION, value?: number | boolean) => {
+		async (id: CONTROL_ACTION, value?: number | boolean) => {
 			const COMMON_DATA_FIELDS = [
 				"time",
 				"volume",
@@ -1042,14 +1040,20 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				}
 			}
 
-			if (id === CONTROL_ACTION.NEXT && props.events?.onNext) {
+			if (id === CONTROL_ACTION.NEXT) {
 				setIsContentLoaded(false);
-				props.events?.onNext();
+				await playlistsManager.goToNext();
+				if (props.events?.onNext) {
+					props.events.onNext();
+				}
 			}
 
-			if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious) {
+			if (id === CONTROL_ACTION.PREVIOUS) {
 				setIsContentLoaded(false);
-				props.events.onPrevious();
+				await playlistsManager.goToPrevious();
+				if (props.events?.onPrevious) {
+					props.events.onPrevious();
+				}
 			}
 
 			if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR) {
