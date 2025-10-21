@@ -1026,6 +1026,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	const [sleepTimerForControls, setSleepTimerForControls] = useState({
 		isActive: false,
 		remainingSeconds: 0,
+		isFinishCurrentMode: false,
 	});
 
 	// Actualizar el estado del sleep timer para los controles cada segundo
