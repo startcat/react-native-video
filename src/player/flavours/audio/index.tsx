@@ -29,6 +29,7 @@ import {
 } from "../../core/progress";
 
 import { ComponentLogger } from "../../features/logger";
+import { playlistsManager } from "../../features/playlists";
 import { SleepTimerControl } from "../../features/sleepTimer";
 
 import { styles } from "../styles";
@@ -576,17 +577,23 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 				setMuted(!!value);
 			}
 
-			if (id === CONTROL_ACTION.NEXT && props.events?.onNext) {
+			if (id === CONTROL_ACTION.NEXT) {
 				setIsContentLoaded(false);
-				props.events.onNext();
+				await playlistsManager.goToNext();
+				if (props.events?.onNext) {
+					props.events.onNext();
+				}
 
 				// Evento analíticas
 				analyticsEvents.onStop({ reason: "navigation" });
 			}
 
-			if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious) {
+			if (id === CONTROL_ACTION.PREVIOUS) {
 				setIsContentLoaded(false);
-				props.events.onPrevious();
+				await playlistsManager.goToPrevious();
+				if (props.events?.onPrevious) {
+					props.events.onPrevious();
+				}
 
 				// Evento analíticas
 				analyticsEvents.onStop({ reason: "navigation" });

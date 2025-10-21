@@ -18,6 +18,7 @@ import { type CastContentInfo } from "../../features/cast/types/types";
 
 import { useIsBuffering } from "../../core/buffering";
 
+import { playlistsManager } from "../../features/playlists";
 import { type onSourceChangedProps, SourceClass } from "../../modules/source";
 
 import {
@@ -96,7 +97,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			isChangingSource.current = false;
 			setHasTriedLoading(true);
 			currentContentUri.current = content.source.uri;
-			
+
 			// No marcar como loaded aún, esperar a que tengamos la duración
 			currentLogger.current?.debug(
 				`onContentLoadedCallback - waiting for duration, current: ${castProgress.duration}`
@@ -331,7 +332,12 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 				duration: castProgress.duration,
 			});
 		}
-	}, [castProgress.duration, isContentLoaded, hasTriedLoading, props.playlistItem?.initialState?.startPosition]);
+	}, [
+		castProgress.duration,
+		isContentLoaded,
+		hasTriedLoading,
+		props.playlistItem?.initialState?.startPosition,
+	]);
 
 	useEffect(() => {
 		currentLogger.current?.info(`useEffect playlistItem - type: ${props.playlistItem?.type}`);
@@ -551,7 +557,8 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 							subtitle: props.playlistItem?.metadata?.subtitle,
 							description: props.playlistItem?.metadata?.description,
 							poster:
-								props.playlistItem?.metadata?.squaredPoster || props.playlistItem?.metadata?.poster,
+								props.playlistItem?.metadata?.squaredPoster ||
+								props.playlistItem?.metadata?.poster,
 							liveStartDate: props.playlistItem?.liveSettings?.liveStartDate,
 							adTagUrl: props.playlistItem?.ads?.adTagUrl,
 							hasNext: !!props.events?.onNext,
@@ -601,9 +608,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			currentLogger.current?.debug(`onSourceChanged - data: ${JSON.stringify(data)}`);
 
 			if (data.isDVR && dvrProgressManagerRef.current) {
-				dvrProgressManagerRef.current.setDVRWindowSeconds(
-					data.dvrWindowSeconds || 3600
-				);
+				dvrProgressManagerRef.current.setDVRWindowSeconds(data.dvrWindowSeconds || 3600);
 			}
 
 			// Actualizar playerProgressRef
@@ -626,7 +631,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 		},
 		[loadContentWithCastManager, currentTime, sliderValues, paused, muted, isContentLoaded]
 	);
-
 
 	const onDVRModeChange = useCallback((data: ModeChangeData) => {
 		currentLogger.current?.debug(`onDVRModeChange: ${JSON.stringify(data)}`);
@@ -655,7 +659,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	const onProgressUpdate = useCallback((data: ProgressUpdateData) => {
 		currentLogger.current?.debug(`onProgressUpdate: ${JSON.stringify(data)}`);
-		
+
 		sliderValues.current = {
 			minimumValue: data.minimumValue,
 			maximumValue: data.maximumValue,
@@ -672,7 +676,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 		};
 
 		updatePlayerProgressRef();
-		
+
 		// Trigger re-render para emitir eventos con nuevos sliderValues
 		setSliderValuesUpdate((prev: number) => prev + 1);
 	}, []);
@@ -801,14 +805,20 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 				}
 			}
 
-			if (id === CONTROL_ACTION.NEXT && props.events?.onNext) {
+			if (id === CONTROL_ACTION.NEXT) {
 				setIsContentLoaded(false);
-				props.events.onNext();
+				await playlistsManager.goToNext();
+				if (props.events?.onNext) {
+					props.events.onNext();
+				}
 			}
 
-			if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious) {
+			if (id === CONTROL_ACTION.PREVIOUS) {
 				setIsContentLoaded(false);
-				props.events.onPrevious();
+				await playlistsManager.goToPrevious();
+				if (props.events?.onPrevious) {
+					props.events.onPrevious();
+				}
 			}
 
 			if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR) {
@@ -959,11 +969,11 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			// Normalizar ambas URLs para comparación (decodificar URL encoding)
 			const currentUri = currentContentUri.current;
 			const castUri = castMedia.url;
-			
+
 			if (currentUri && castUri) {
 				const normalizedCurrent = decodeURIComponent(currentUri);
 				const normalizedCast = decodeURIComponent(castUri);
-				
+
 				if (normalizedCurrent !== normalizedCast) {
 					currentLogger.current?.debug(
 						`Cast idle but URL mismatch - current: ${normalizedCurrent}, cast: ${normalizedCast}`
@@ -971,7 +981,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 					return;
 				}
 			}
-			
+
 			currentLogger.current?.debug(`Cast content ended from idle state`);
 			onEndRef.current?.();
 		}
@@ -1032,9 +1042,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	const handleOnError = useCallback(
 		(error: PlayerError) => {
-			currentLogger.current?.error(
-				`handleOnError: ${JSON.stringify(error?.message)}`
-			);
+			currentLogger.current?.error(`handleOnError: ${JSON.stringify(error?.message)}`);
 			setIsLoadingContent(false);
 
 			if (props.events?.onError && typeof props.events.onError === "function") {
