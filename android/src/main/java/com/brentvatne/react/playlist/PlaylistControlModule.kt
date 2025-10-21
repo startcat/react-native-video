@@ -225,6 +225,13 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     }
                 } else {
                     Log.d(TAG, "Coordinated mode - skipping standalone setup")
+                    
+                    // Emit ITEM_STARTED for the first item in coordinated mode
+                    val firstItem = items.getOrNull(currentIndex)
+                    if (firstItem != null) {
+                        emitItemStarted(firstItem)
+                        Log.d(TAG, "[Coordinated] Initial item started event emitted for item: ${firstItem.metadata.title}")
+                    }
                 }
                 
                 Log.d(TAG, "setPlaylist completed successfully")
@@ -348,6 +355,9 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         currentIndex = getNextIndex()
                         val nextItem = items[currentIndex]
                         emitItemChanged(nextItem, currentIndex, previousIndex)
+                        // Emit item started event for coordinated mode
+                        emitItemStarted(nextItem)
+                        Log.d(TAG, "[Coordinated] Item started event emitted")
                     } else {
                         advanceToNextItemStandalone()
                     }
@@ -376,6 +386,9 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         emitControlAction("previous")
                         Log.d(TAG, "[Coordinated] Previous action emitted")
                         emitItemChanged(prevItem, currentIndex, previousIndex)
+                        // Emit item started event for coordinated mode
+                        emitItemStarted(prevItem)
+                        Log.d(TAG, "[Coordinated] Item started event emitted")
                     } else {
                         Log.d(TAG, "[Standalone] Going to previous item: ${prevItem.metadata.title}")
                         emitItemChanged(prevItem, currentIndex, previousIndex)
@@ -643,6 +656,12 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         
         // Emit event to JavaScript
         emitItemChanged(nextItem, currentIndex, previousIndex)
+        
+        // Emit item started event for coordinated mode
+        if (config.coordinatedMode) {
+            emitItemStarted(nextItem)
+            Log.d(TAG, "[Coordinated] Item started event emitted")
+        }
         
         // In coordinated mode, JavaScript handles the source update via the event
         // In standalone mode, this is called from player listener which then loads the item

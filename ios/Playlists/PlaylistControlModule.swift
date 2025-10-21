@@ -174,6 +174,20 @@ class PlaylistControlModule: RCTEventEmitter {
                 "item": nextItem.toDict()
             ]
         )
+        
+        // Emit item started event for coordinated mode
+        if operationMode == .coordinated {
+            sendEvent(
+                withName: "onPlaylistItemStarted",
+                body: [
+                    "itemId": nextItem.id,
+                    "index": currentIndex,
+                    "startPosition": nextItem.startPosition ?? 0,
+                    "timestamp": Date().timeIntervalSince1970 * 1000
+                ]
+            )
+            print("[PlaylistControlModule] 🎬 [Coordinated] Item started event emitted")
+        }
     }
     
     // MARK: - React Native Module Setup
@@ -262,6 +276,20 @@ class PlaylistControlModule: RCTEventEmitter {
             let modeStr = self.operationMode == .coordinated ? "COORDINATED" : "STANDALONE"
             print("[PlaylistControlModule] 🎭 Operation mode: \(modeStr) (RCTVideo handles playback: \(self.operationMode == .coordinated))")
             
+            // Emit ITEM_STARTED for the first item in coordinated mode
+            if self.operationMode == .coordinated, let firstItem = self.getCurrentItem() {
+                self.sendEvent(
+                    withName: "onPlaylistItemStarted",
+                    body: [
+                        "itemId": firstItem.id,
+                        "index": self.currentIndex,
+                        "startPosition": firstItem.startPosition ?? 0,
+                        "timestamp": Date().timeIntervalSince1970 * 1000
+                    ]
+                )
+                print("[PlaylistControlModule] 🎬 [Coordinated] Initial item started event emitted for item: \(firstItem.metadata.title ?? "Unknown")")
+            }
+            
             // Setup remote commands if not already done
             // if !self.hasSetupRemoteCommands {
             //     self.setupRemoteCommands()
@@ -339,6 +367,18 @@ class PlaylistControlModule: RCTEventEmitter {
                 self.loadCurrentItem()
             } else {
                 print("[PlaylistControlModule] 🎬 Coordinated mode: RCTVideo will handle playback")
+                
+                // Emit item started event for coordinated mode
+                self.sendEvent(
+                    withName: "onPlaylistItemStarted",
+                    body: [
+                        "itemId": item.id,
+                        "index": index,
+                        "startPosition": item.startPosition ?? 0,
+                        "timestamp": Date().timeIntervalSince1970 * 1000
+                    ]
+                )
+                print("[PlaylistControlModule] 🎬 [Coordinated] Item started event emitted")
             }
         }
     }
