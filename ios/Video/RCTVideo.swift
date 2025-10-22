@@ -1935,6 +1935,39 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         
         var nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [String: Any]()
         
+        // ✅ CRITICAL FIX: Include metadata (title, artist, artwork) for live streams
+        // Without this, iOS widget shows no metadata for live content in coordinated mode
+        if let currentItem = _player?.currentItem {
+            let metadata = currentItem.externalMetadata
+            
+            let titleItem = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierTitle).first?.stringValue ?? ""
+            let artistItem = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtist).first?.stringValue ?? ""
+            
+            // Set metadata in Now Playing Info
+            if !titleItem.isEmpty {
+                nowPlayingInfo[MPMediaItemPropertyTitle] = titleItem
+                debugPrint("[RCTVideo] 📝 Setting title: \(titleItem)")
+            }
+            if !artistItem.isEmpty {
+                nowPlayingInfo[MPMediaItemPropertyArtist] = artistItem
+                debugPrint("[RCTVideo] 🎤 Setting artist: \(artistItem)")
+            }
+            
+            // Set artwork if available
+            let imgData = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork).first?.dataValue
+            if let imgData = imgData, let image = UIImage(data: imgData) {
+                let artworkItem = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                nowPlayingInfo[MPMediaItemPropertyArtwork] = artworkItem
+                debugPrint("[RCTVideo] 🖼️ Setting artwork (size: \(image.size))")
+            }
+            
+            // Set isLiveStream flag for live content
+            if CMTIME_IS_INDEFINITE(currentItem.asset.duration) {
+                nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] = true
+                debugPrint("[RCTVideo] 📡 Marking as live stream")
+            }
+        }
+        
         nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
         nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration
         
