@@ -82,7 +82,15 @@ class PlaylistControlModule: RCTEventEmitter {
     
     deinit {
         cleanup()
-        NotificationCenter.default.removeObserver(self)
+        removeNativeEventListeners()
+    }
+    
+    /// Limpieza explícita del observer (llamado por React Native antes de destruir el módulo)
+    override func invalidate() {
+        print("[PlaylistControlModule] 🧹 invalidate() called - cleaning up observers")
+        removeNativeEventListeners()
+        cleanup()
+        super.invalidate()
     }
     
     // MARK: - Native Event Listeners
@@ -95,6 +103,12 @@ class PlaylistControlModule: RCTEventEmitter {
             name: .RCTVideoItemDidFinish,
             object: nil
         )
+    }
+    
+    /// Remueve los observers de NotificationCenter
+    private func removeNativeEventListeners() {
+        NotificationCenter.default.removeObserver(self)
+        print("[PlaylistControlModule] 📻 NotificationCenter observers removed")
     }
     
     @objc private func handleRCTVideoItemFinished(_ notification: Notification) {
