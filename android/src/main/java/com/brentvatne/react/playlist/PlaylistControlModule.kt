@@ -53,8 +53,13 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     private val items = mutableListOf<PlaylistItem>()
     private var currentIndex: Int = 0
     private var config = PlaylistConfiguration()
-    private var isPlaybackActive = false
-    private var hasSetupMediaSession = false
+    private var isPlaybackActive: Boolean = false
+    private var hasSetupRemoteCommands: Boolean = false
+    
+    // Audio focus retry management
+    private var audioFocusRetryCount = 0
+    private val maxAudioFocusRetries = 3
+    private val audioFocusRetryRunnable = Runnable { retryRequestAudioFocus() }
     
     // Standalone mode components
     private var standalonePlayer: ExoPlayer? = null
@@ -105,6 +110,10 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
 
     override fun invalidate() {
         super.invalidate()
+        
+        // Cancel any pending audio focus retries
+        handler.removeCallbacks(audioFocusRetryRunnable)
+        handler.removeCallbacksAndMessages(null)
         
         // Release standalone player if active
         releaseStandalonePlayer()
@@ -761,26 +770,18 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         Log.d(TAG, "[Standalone] Playback resumed after gaining focus")
                     }
                     AudioManager.AUDIOFOCUS_LOSS -> {
-                        Log.d(TAG, "[Standalone] Audio focus LOST - attempting to reclaim")
+                        Log.d(TAG, "[Standalone] Audio focus LOST - will retry with backoff")
                         hasAudioFocus = false
-                        // Intentar recuperar el focus después de un breve delay
-                        handler.postDelayed({
-                            if (standalonePlayer != null && isPlaybackActive) {
-                                Log.d(TAG, "[Standalone] Re-requesting audio focus after loss...")
-                                requestAudioFocus()
-                            }
-                        }, 500) // Esperar 500ms antes de re-solicitar
+                        standalonePlayer?.pause()
+                        // Reset retry count and schedule retry with exponential backoff
+                        audioFocusRetryCount = 0
+                        scheduleAudioFocusRetry()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                        Log.d(TAG, "[Standalone] Audio focus LOST TRANSIENT - will reclaim when possible")
+                        Log.d(TAG, "[Standalone] Audio focus LOST TRANSIENT - pausing playback")
                         hasAudioFocus = false
-                        // Para pérdidas transitorias, esperamos un poco más
-                        handler.postDelayed({
-                            if (standalonePlayer != null && isPlaybackActive) {
-                                Log.d(TAG, "[Standalone] Re-requesting audio focus after transient loss...")
-                                requestAudioFocus()
-                            }
-                        }, 1000)
+                        standalonePlayer?.pause()
+                        // Don't retry for transient loss, system will notify when available
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                         Log.d(TAG, "[Standalone] Audio focus DUCK - reducing volume")
@@ -815,10 +816,48 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         }
     }
     
+    private fun scheduleAudioFocusRetry() {
+        if (audioFocusRetryCount >= maxAudioFocusRetries) {
+            Log.w(TAG, "[Standalone] Max audio focus retries reached ($maxAudioFocusRetries), giving up")
+            isPlaybackActive = false
+            return
+        }
+        
+        // Exponential backoff: 500ms, 1000ms, 2000ms
+        val delayMs = 500L * (1 shl audioFocusRetryCount)
+        audioFocusRetryCount++
+        
+        Log.d(TAG, "[Standalone] Scheduling audio focus retry #$audioFocusRetryCount in ${delayMs}ms")
+        handler.removeCallbacks(audioFocusRetryRunnable)
+        handler.postDelayed(audioFocusRetryRunnable, delayMs)
+    }
+    
+    private fun retryRequestAudioFocus() {
+        if (standalonePlayer == null || !isPlaybackActive) {
+            Log.d(TAG, "[Standalone] Skipping audio focus retry - player inactive")
+            return
+        }
+        
+        Log.d(TAG, "[Standalone] Retrying audio focus request (attempt $audioFocusRetryCount/$maxAudioFocusRetries)")
+        requestAudioFocus()
+        
+        // If still don't have focus after request, schedule another retry
+        if (!hasAudioFocus) {
+            scheduleAudioFocusRetry()
+        } else {
+            // Success! Reset retry count
+            audioFocusRetryCount = 0
+        }
+    }
+    
     private fun abandonAudioFocus() {
         if (!hasAudioFocus) return
         
         Log.d(TAG, "[Standalone] Abandoning audio focus...")
+        
+        // Cancel any pending retries
+        handler.removeCallbacks(audioFocusRetryRunnable)
+        audioFocusRetryCount = 0
         
         val manager = ContextCompat.getSystemService(reactApplicationContext, AudioManager::class.java)
         audioFocusRequest?.let { request ->
@@ -947,6 +986,8 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             Log.d(TAG, "[Standalone] Player released")
         }
         
+        // Cancel any pending handlers and abandon audio focus
+        handler.removeCallbacks(audioFocusRetryRunnable)
         abandonAudioFocus()
         isPlaybackActive = false
     }
