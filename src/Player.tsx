@@ -72,8 +72,6 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	const playerLogger = useRef<Logger | null>(null);
 	const currentLogger = useRef<ComponentLogger | null>(null);
 	const playerProgress = useRef<IPlayerProgress | null>(null);
-	// Control de montaje para prevenir actualizaciones después del unmount
-	const isMountedRef = useRef<boolean>(true);
 	const [currentPlaylistItem, setCurrentPlaylistItem] = useState<PlaylistItem | null>(null);
 
 	// Estado de sincronización entre flavours (móvil ↔ Chromecast)
@@ -231,24 +229,8 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		currentLogger.current?.debug(`Received playlist with ${props.playlist?.length || 0} items`);
 
 		return () => {
-			currentLogger.current?.info('🧹 Player UNMOUNTING - cleaning up resources');
-			isMountedRef.current = false;
-			
-			// Limpiar interval de watching progress
 			if (watchingProgressIntervalObj.current) {
 				BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
-				watchingProgressIntervalObj.current = undefined;
-			}
-			
-			// Limpiar event listeners de playlistsManager
-			try {
-				playlistsManager.removeAllListeners(PlaylistEventType.ITEM_CHANGED);
-				playlistsManager.removeAllListeners(PlaylistEventType.ITEM_STARTED);
-				playlistsManager.removeAllListeners(PlaylistEventType.ITEM_COMPLETED);
-				playlistsManager.removeAllListeners(PlaylistEventType.ITEM_ERROR);
-				playlistsManager.removeAllListeners(PlaylistEventType.PLAYLIST_ENDED);
-			} catch (error) {
-				currentLogger.current?.warn('Error removing playlistsManager listeners:', error);
 			}
 
 			deactivateKeepAwake();
@@ -271,16 +253,6 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			}
 
 			clearTimeout(baseTimer);
-			
-			// Limpiar refs
-			hasBeenLoaded.current = false;
-			hasBeenLoadedAudio.current = false;
-			isCasting.current = false;
-			currentPlaylistItemRef.current = null;
-			syncStateRef.current = {};
-			playerProgress.current = null;
-			
-			currentLogger.current?.info('✅ Player cleanup complete');
 		};
 	}, []);
 
