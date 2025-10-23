@@ -42,6 +42,9 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	// Manual seeking (CORREGIDO: sin timeout automático)
 	private _isManualSeeking: boolean = false;
 
+	// Timeout de initial seek (para limpieza en destroy)
+	private _initialSeekTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	// Referencia al item de playlist actual (para hooks)
 	private _currentPlaylistItem: PlaylistItemSimplified | null = null;
 
@@ -349,6 +352,12 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			return;
 		}
 
+		// Limpiar timeout anterior si existe (evitar acumulación)
+		if (this._initialSeekTimeout) {
+			clearTimeout(this._initialSeekTimeout);
+			this._initialSeekTimeout = null;
+		}
+
 		// Calcular la posición real actual basada en datos del player
 		const actualOffset = this._seekableRange.end - this._currentTime;
 		const isActuallyAtLiveEdge = actualOffset <= LIVE_EDGE_TOLERANCE;
@@ -370,7 +379,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 				this._currentLogger?.info(
 					`PLAYLIST mode - going to live edge (actualOffset: ${actualOffset.toFixed(1)}s > ${strictOffset}s)`
 				);
-				setTimeout(() => {
+				this._initialSeekTimeout = setTimeout(() => {
 					this.goToLive();
 				}, 300);
 			} else {
@@ -384,7 +393,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		// PROGRAM mode: inicia en el inicio del programa
 		if (this._playbackType === DVR_PLAYBACK_TYPE.PROGRAM && this._currentProgram) {
 			this._currentLogger?.info(`PROGRAM mode - seeking to program start`);
-			setTimeout(() => {
+			this._initialSeekTimeout = setTimeout(() => {
 				this._isLiveEdgePosition = false;
 				this.goToProgramStart();
 			}, 300);
@@ -396,7 +405,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			this._currentLogger?.info(
 				`WINDOW mode - going to live edge (offset: ${actualOffset.toFixed(1)}s)`
 			);
-			setTimeout(() => {
+			this._initialSeekTimeout = setTimeout(() => {
 				this.goToLive();
 			}, 300);
 			return;
@@ -1247,6 +1256,12 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
 		// Limpiar timeouts EPG pendientes
 		this._clearEPGRetryTimeouts();
+
+		// Limpiar timeout de initial seek si existe
+		if (this._initialSeekTimeout) {
+			clearTimeout(this._initialSeekTimeout);
+			this._initialSeekTimeout = null;
+		}
 
 		// Limpiar callbacks para evitar requests después de destrucción
 		this._dvrCallbacks = {};
