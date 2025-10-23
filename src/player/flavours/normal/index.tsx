@@ -115,6 +115,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
 	const hasCalledInitialSeekRef = useRef<boolean>(false);
+	const dvrTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
 	// Hook para la orientación de la pantalla
 	const isLandscapePlayer = useIsLandscape();
@@ -525,6 +526,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	useEffect(() => {
 		return () => {
+			// Limpiar todos los timeouts pendientes
+			dvrTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
+			dvrTimeoutsRef.current = [];
+
 			if (vodProgressManagerRef.current) {
 				vodProgressManagerRef.current.destroy();
 			}
@@ -657,9 +662,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					dvrProgressManagerRef.current?.setPlaybackType(DVR_PLAYBACK_TYPE.PROGRAM);
 				}
 
-				setTimeout(() => {
+				const timeout = setTimeout(() => {
 					setVideoSource(sourceRef.current?.playerSource!);
 				}, 100);
+				dvrTimeoutsRef.current.push(timeout);
 			}
 		}
 
@@ -676,10 +682,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					// 	sourceRef.current.reloadDvrStream();
 					// }
 
-					setTimeout(() => {
+					const timeout = setTimeout(() => {
 						setVideoSource(sourceRef.current?.playerSource!);
 						dvrProgressManagerRef.current?.reset();
 					}, 100);
+					dvrTimeoutsRef.current.push(timeout);
 				} catch (error: any) {
 					currentLogger.current?.error(`DVR reload stream failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
