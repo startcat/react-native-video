@@ -381,5 +381,10 @@ export abstract class BaseProgressManager {
 
     destroy(): void {
         this._currentLogger?.info('Destroying manager');
+        
+        // Limpiar callbacks para evitar memory leaks
+        this._options.onProgressUpdate = null;
+        this._options.onSeekRequest = null;
+        this._options.onValidationError = null;
     }
 }
