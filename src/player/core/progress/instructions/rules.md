@@ -101,8 +101,10 @@
 
 ✅ **BaseProgressManager**: funcionalidad común entre VOD y DVR  
 ✅ **DVRProgressManagerClass**: hereda de Base, añade lógica específica DVR  
+✅ **ProgressManagerUnified**: fachada que unifica VOD y DVR managers  
 ✅ **Callbacks configurables**: onProgressUpdate, onSeekRequest, onValidationError + específicos DVR  
-✅ **Sistema de logs** - Con niveles debug/info/warn/error y LOG_ENABLED
+✅ **Sistema de logs** - Con niveles debug/info/warn/error y LOG_ENABLED  
+✅ **⚠️ Sistema de errores PlayerError** - TODOS los managers DEBEN usar PlayerError (ver src/player/core/errors/instructions/ErrorSystem.md)
 
 ## ⚠️ **INVARIANTES CRÍTICOS**
 
