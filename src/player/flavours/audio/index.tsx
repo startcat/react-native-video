@@ -19,7 +19,7 @@ import { useIsBuffering } from "../../core/buffering";
 import { useVideoAnalytics } from "../../core/events/hooks/useVideoAnalytics";
 import { useAppIsInBackground } from "../../hooks/isInBackground";
 
-import { type onSourceChangedProps, type SourceContext, SourceClass } from "../../modules/source";
+import { type onSourceChangedProps, type SourceContext, SourceClass } from "../../core/source";
 
 import {
 	type ModeChangeData,

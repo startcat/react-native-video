@@ -28,7 +28,7 @@ import { useIsBuffering } from "../../core/buffering";
 
 import { mergeMenuData, onAdStarted } from "../../utils";
 
-import { type onSourceChangedProps, type SourceContext, SourceClass } from "../../modules/source";
+import { type onSourceChangedProps, type SourceContext, SourceClass } from "../../core/source";
 
 import {
 	type ModeChangeData,

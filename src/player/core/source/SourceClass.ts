@@ -15,7 +15,7 @@ import {
 	getManifestSourceType,
 } from "../../utils";
 
-import { PlayerError } from "../../core/errors";
+import { PlayerError } from "../errors";
 import { type ResolvedSources } from "../../features/playlists/types";
 
 import { ComponentLogger, Logger } from "../../features/logger";
@@ -327,20 +327,6 @@ export class SourceClass {
 
 		return startPosition;
 	}
-
-	// private changeUriStartTimestamp(uri: string, timestamp?: number): string {
-	// 	if (!uri || typeof uri !== "string") {
-	// 		return uri;
-	// 	}
-
-	// 	if (uri.indexOf("?") > -1) {
-	// 		uri = `${uri.substring(0, uri.indexOf("?"))}?start=${timestamp}`; //&start-tag=true
-	// 	} else {
-	// 		uri = `${uri}?start=${timestamp}`; //&start-tag=true
-	// 	}
-
-	// 	return uri;
-	// }
 
 	private getStats() {
 		const stats = {

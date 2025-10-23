@@ -19,7 +19,7 @@ import { type CastContentInfo } from "../../features/cast/types/types";
 import { useIsBuffering } from "../../core/buffering";
 
 import { playlistsManager } from "../../features/playlists";
-import { type onSourceChangedProps, SourceClass } from "../../modules/source";
+import { type onSourceChangedProps, SourceClass } from "../../core/source";
 
 import {
 	type ModeChangeData,
