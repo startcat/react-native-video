@@ -93,6 +93,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
 	const hasCalledInitialSeekRef = useRef<boolean>(false);
+	const checkInitialSeekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Hook para el estado de buffering
 	const isBuffering = useIsBuffering({
@@ -125,20 +126,32 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	useEffect(() => {
 		// HACK para reanudar la reproducción si se pausa al pasar a background
+		const timeouts: ReturnType<typeof setTimeout>[] = [];
+
 		if (isInBackground && !paused && refVideoPlayer.current && Platform.OS === "ios") {
 			refVideoPlayer.current?.resume();
-			setTimeout(() => {
-				refVideoPlayer.current?.resume();
-			}, 100);
+			timeouts.push(
+				setTimeout(() => {
+					refVideoPlayer.current?.resume();
+				}, 100)
+			);
 
-			setTimeout(() => {
-				refVideoPlayer.current?.resume();
-			}, 200);
+			timeouts.push(
+				setTimeout(() => {
+					refVideoPlayer.current?.resume();
+				}, 200)
+			);
 
-			setTimeout(() => {
-				refVideoPlayer.current?.resume();
-			}, 300);
+			timeouts.push(
+				setTimeout(() => {
+					refVideoPlayer.current?.resume();
+				}, 300)
+			);
 		}
+
+		return () => {
+			timeouts.forEach((timeout) => clearTimeout(timeout));
+		};
 	}, [isInBackground, paused, refVideoPlayer.current]);
 
 	useEffect(() => {
@@ -500,6 +513,12 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	useEffect(() => {
 		return () => {
+			// Limpiar timeout de checkInitialSeek si existe
+			if (checkInitialSeekTimeoutRef.current) {
+				clearTimeout(checkInitialSeekTimeoutRef.current);
+				checkInitialSeekTimeoutRef.current = null;
+			}
+
 			if (vodProgressManagerRef.current) {
 				vodProgressManagerRef.current.destroy();
 			}
@@ -906,8 +925,13 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 							`⏳ DVR Manager ready - Scheduling checkInitialSeek in 500ms (waiting for native seek to complete)`
 						);
 
+						// Limpiar timeout anterior si existe
+						if (checkInitialSeekTimeoutRef.current) {
+							clearTimeout(checkInitialSeekTimeoutRef.current);
+						}
+
 						// Esperar 500ms para que el player nativo complete su seek automático
-						setTimeout(() => {
+						checkInitialSeekTimeoutRef.current = setTimeout(() => {
 							try {
 								currentLogger.current?.info(
 									`✅ Calling checkInitialSeek with isLiveProgramRestricted: ${isLiveProgramRestricted}, playbackType: ${props.playlistItem?.liveSettings?.playbackType}`
