@@ -359,17 +359,23 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
 		// PLAYLIST mode: SIEMPRE inicia en live edge (como WINDOW)
 		// isLiveProgramRestricted solo afecta a la navegación (límites del slider), NO a la posición inicial
+		// IMPORTANTE: En PLAYLIST, siempre hacemos seek al live edge para garantizar posición exacta,
+		// incluso si estamos dentro de la tolerancia (ej: al cambiar de directo a directo)
 		if (this._playbackType === DVR_PLAYBACK_TYPE.PLAYLIST) {
-			if (!isActuallyAtLiveEdge) {
+			// Usar tolerancia más estricta (5 segundos) para PLAYLIST mode
+			const strictOffset = 5; // segundos
+			const needsSeek = actualOffset > strictOffset;
+			
+			if (needsSeek) {
 				this._currentLogger?.info(
-					`PLAYLIST mode - going to live edge (actualOffset: ${actualOffset.toFixed(1)}s)`
+					`PLAYLIST mode - going to live edge (actualOffset: ${actualOffset.toFixed(1)}s > ${strictOffset}s)`
 				);
 				setTimeout(() => {
 					this.goToLive();
 				}, 300);
 			} else {
 				this._currentLogger?.info(
-					`PLAYLIST mode - already at live edge, no seek needed`
+					`PLAYLIST mode - already at live edge (offset: ${actualOffset.toFixed(1)}s <= ${strictOffset}s), no seek needed`
 				);
 			}
 			return;

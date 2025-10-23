@@ -889,32 +889,41 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 				});
 
 				// Ejecutar checkInitialSeek DESPUÉS de que el DVR Manager tenga datos válidos
+				// IMPORTANTE: Esperar 500ms para que el player nativo termine su seek automático al startPosition
 				if (!hasCalledInitialSeekRef.current && dvrProgressManagerRef.current) {
 					// Verificar que el DVR Manager esté listo para operaciones de seek
 					if (dvrProgressManagerRef.current.isReadyForSeek) {
-						try {
-							// Determinar si estamos restringidos al programa actual
-							const isLiveProgramRestricted =
-								props.playlistItem?.liveSettings?.playbackType === "playlist" &&
-								!!props.playlistItem?.liveSettings?.currentProgram;
+						// Determinar si estamos restringidos al programa actual
+						const isLiveProgramRestricted =
+							props.playlistItem?.liveSettings?.playbackType === "playlist" &&
+							!!props.playlistItem?.liveSettings?.currentProgram;
 
-							currentLogger.current?.info(
-								`✅ DVR Manager ready - Calling checkInitialSeek with isLiveProgramRestricted: ${isLiveProgramRestricted}, playbackType: ${props.playlistItem?.liveSettings?.playbackType}`
-							);
+						currentLogger.current?.info(
+							`⏳ DVR Manager ready - Scheduling checkInitialSeek in 500ms (waiting for native seek to complete)`
+						);
 
-							dvrProgressManagerRef.current.checkInitialSeek(
-								"player",
-								isLiveProgramRestricted
-							);
-							hasCalledInitialSeekRef.current = true;
-						} catch (error: any) {
-							currentLogger.current?.error(
-								`DVR checkInitialSeek failed: ${error?.message}`
-							);
-							handleOnInternalError(
-								handleErrorException(error, "PLAYER_SEEK_FAILED")
-							);
-						}
+						// Esperar 500ms para que el player nativo complete su seek automático
+						setTimeout(() => {
+							try {
+								currentLogger.current?.info(
+									`✅ Calling checkInitialSeek with isLiveProgramRestricted: ${isLiveProgramRestricted}, playbackType: ${props.playlistItem?.liveSettings?.playbackType}`
+								);
+
+								dvrProgressManagerRef.current?.checkInitialSeek(
+									"player",
+									isLiveProgramRestricted
+								);
+							} catch (error: any) {
+								currentLogger.current?.error(
+									`DVR checkInitialSeek failed: ${error?.message}`
+								);
+								handleOnInternalError(
+									handleErrorException(error, "PLAYER_SEEK_FAILED")
+								);
+							}
+						}, 500);
+
+						hasCalledInitialSeekRef.current = true;
 					} else {
 						currentLogger.current?.debug(
 							`⏳ DVR Manager not ready yet for checkInitialSeek - will retry on next progress update`
