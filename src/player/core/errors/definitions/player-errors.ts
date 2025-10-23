@@ -6,6 +6,8 @@
 
 export const PLAYER_ERROR_DEFINITIONS = {
 	// === ERRORES DE REPRODUCCIÓN BÁSICOS ===
+	// Nota: Estos errores están definidos para compatibilidad con errores nativos
+	// pero actualmente no se lanzan desde código TypeScript
 	PLAYER_MEDIA_LOAD_FAILED: {
 		message: "Failed to load media content.",
 	},
@@ -29,30 +31,6 @@ export const PLAYER_ERROR_DEFINITIONS = {
 	},
 	PLAYER_SEEK_FAILED: {
 		message: "Failed to seek to requested position.",
-	},
-
-	// === ERRORES DE AUDIO ===
-	PLAYER_AUDIO_RENDERER_ERROR: {
-		message: "Audio renderer error occurred.",
-	},
-	PLAYER_AUDIO_TRACK_SELECTION_FAILED: {
-		message: "Failed to select audio track.",
-	},
-
-	// === ERRORES DE VIDEO ===
-	PLAYER_VIDEO_RENDERER_ERROR: {
-		message: "Video renderer error occurred.",
-	},
-	PLAYER_VIDEO_SURFACE_ERROR: {
-		message: "Video surface error occurred.",
-	},
-
-	// === ERRORES DE SUBTÍTULOS ===
-	PLAYER_SUBTITLE_LOAD_FAILED: {
-		message: "Failed to load subtitle track.",
-	},
-	PLAYER_SUBTITLE_PARSE_ERROR: {
-		message: "Failed to parse subtitle content.",
 	},
 
 	// === ERRORES DE DRM ===
@@ -95,74 +73,16 @@ export const PLAYER_ERROR_DEFINITIONS = {
 		message: "Cast operation failed to execute.",
 	},
 
-	// === ERRORES DE AIRPLAY ===
-	PLAYER_AIRPLAY_NOT_AVAILABLE: {
-		message: "AirPlay is not available on this device.",
-	},
-	PLAYER_AIRPLAY_CONNECTION_FAILED: {
-		message: "Failed to connect to AirPlay device.",
-	},
-	PLAYER_AIRPLAY_PLAYBACK_FAILED: {
-		message: "AirPlay playback failed to start.",
-	},
-	PLAYER_AIRPLAY_MIRRORING_FAILED: {
-		message: "AirPlay screen mirroring failed.",
-	},
-	PLAYER_AIRPLAY_ROUTE_SELECTION_FAILED: {
-		message: "Failed to select AirPlay route.",
-	},
-	PLAYER_AIRPLAY_INTERRUPTED: {
-		message: "AirPlay session was interrupted.",
-	},
-	PLAYER_AIRPLAY_UNSUPPORTED_CONTENT: {
-		message: "Content type not supported by AirPlay.",
-	},
 
     // === ERRORES DE ANALYTICS ===
 	PLAYER_ANALYTICS_PLUGIN_CREATION_FAILED: {
 		message: "Failed to create analytics plugin.",
-	},
-	PLAYER_ANALYTICS_PLUGIN_INITIALIZATION_FAILED: {
-		message: "Analytics plugin failed to initialize.",
 	},
 	PLAYER_ANALYTICS_PLUGIN_EXECUTION_ERROR: {
 		message: "Error executing analytics plugin method.",
 	},
 	PLAYER_ANALYTICS_PLUGIN_DESTROY_ERROR: {
 		message: "Error destroying analytics plugin.",
-	},
-	PLAYER_ANALYTICS_FACTORY_REGISTRATION_FAILED: {
-		message: "Failed to register analytics plugin in factory.",
-	},
-	PLAYER_ANALYTICS_INVALID_CONFIGURATION: {
-		message: "Invalid analytics plugin configuration.",
-	},
-	PLAYER_ANALYTICS_MISSING_DEPENDENCY: {
-		message: "Required analytics dependency not found.",
-	},
-	PLAYER_ANALYTICS_NETWORK_ERROR: {
-		message: "Analytics network request failed.",
-	},
-	PLAYER_ANALYTICS_DATA_VALIDATION_FAILED: {
-		message: "Analytics data validation failed.",
-	},
-	PLAYER_ANALYTICS_SESSION_CREATION_FAILED: {
-		message: "Failed to create analytics session.",
-	},
-	PLAYER_ANALYTICS_METADATA_MAPPING_ERROR: {
-		message: "Error mapping media data to analytics metadata.",
-	},
-	PLAYER_ANALYTICS_PLUGIN_NOT_FOUND: {
-		message: "Requested analytics plugin not found in registry.",
-	},
-	PLAYER_ANALYTICS_ENVIRONMENT_MISMATCH: {
-		message: "Analytics configuration environment mismatch.",
-	},
-	PLAYER_ANALYTICS_TRACKING_DISABLED: {
-		message: "Analytics tracking is disabled or unavailable.",
-	},
-	PLAYER_ANALYTICS_BUFFER_OVERFLOW: {
-		message: "Analytics event buffer overflow.",
 	},
 
 	// === ERRORES DE SOURCE ===
@@ -178,52 +98,11 @@ export const PLAYER_ERROR_DEFINITIONS = {
 	PLAYER_SOURCE_OFFLINE_FILE_URI_INVALID: {
 		message: "Invalid file URI for offline content.",
 	},
-	PLAYER_SOURCE_URI_CALCULATION_FAILED: {
-		message: "Failed to calculate source URI.",
-	},
-	PLAYER_SOURCE_MANIFEST_URI_INVALID: {
-		message: "Invalid manifest URI provided.",
-	},
 	PLAYER_SOURCE_URL_PARSING_ERROR: {
 		message: "Error parsing source URL parameters.",
 	},
-	PLAYER_SOURCE_CONFIGURATION_INVALID: {
-		message: "Invalid source configuration provided.",
-	},
-
-	// === ERRORES DE TUDUM ===
-	PLAYER_TUDUM_SOURCE_HOOK_FAILED: {
-		message: "Tudum source hook execution failed.",
-	},
-	PLAYER_TUDUM_MANIFEST_HOOK_FAILED: {
-		message: "Tudum manifest hook execution failed.",
-	},
-	PLAYER_TUDUM_SOURCE_INVALID: {
-		message: "Invalid tudum source returned from hook.",
-	},
-	PLAYER_TUDUM_MANIFEST_INVALID: {
-		message: "Invalid tudum manifest returned from hook.",
-	},
-	PLAYER_TUDUM_URI_GENERATION_FAILED: {
-		message: "Failed to generate tudum URI from manifest.",
-	},
-	PLAYER_TUDUM_DRM_PROCESSING_FAILED: {
-		message: "Failed to process DRM for tudum content.",
-	},
-	PLAYER_TUDUM_CONFIGURATION_INVALID: {
-		message: "Invalid tudum configuration provided.",
-	},
 
     // === ERRORES DE GESTIÓN DE EVENTOS ===
-    PLAYER_EVENT_ANALYTICS_DISPATCH_FAILED: {
-        message: "Failed to dispatch analytics event.",
-    },
-    PLAYER_EVENT_CALLBACK_EXECUTION_ERROR: {
-        message: "Error executing event callback.",
-    },
-    PLAYER_EVENT_STATE_SYNCHRONIZATION_ERROR: {
-        message: "Event state synchronization failed.",
-    },
     PLAYER_ERROR_PROCESSING_ERROR: {
         message: "Error processing error event.",
     },
@@ -294,124 +173,46 @@ export const PLAYER_ERROR_DEFINITIONS = {
     },
 
     // === ERRORES DE TRACKING DE PROGRESO ===
-    PLAYER_PROGRESS_TRACKING_FAILED: {
-        message: "Failed to track playback progress.",
-    },
     PLAYER_SEEK_TRACKING_ERROR: {
         message: "Error tracking seek operation.",
-    },
-    PLAYER_SEEK_TRACKING_TIMEOUT: {
-        message: "Seek operation tracking timeout.",
-    },
-    PLAYER_POSITION_CALCULATION_ERROR: {
-        message: "Error calculating playback position.",
     },
     
     // === ERRORES DE PROGRESS MANAGERS ===
     PLAYER_PROGRESS_MANAGER_NOT_INITIALIZED: {
         message: "Progress manager must be initialized before use.",
     },
-    PLAYER_PROGRESS_MANAGER_DISPOSED: {
-        message: "Cannot perform operation on disposed progress manager.",
-    },
-    PLAYER_PROGRESS_INVALID_CONTENT_TYPE: {
-        message: "Invalid content type provided to progress manager.",
-    },
-    PLAYER_PROGRESS_INVALID_SEEK_TIME: {
-        message: "Seek time is outside valid seekable range.",
-    },
     PLAYER_PROGRESS_UPDATE_FAILED: {
         message: "Failed to update player progress data.",
     },
-    PLAYER_PROGRESS_INVALID_STATE: {
-        message: "Progress manager is in an invalid state for this operation.",
-    },
+	PLAYER_PROGRESS_INVALID_STATE: {
+		message: "Progress manager is in an invalid state for this operation.",
+	},
     PLAYER_PROGRESS_MANAGER_CREATION_FAILED: {
         message: "Failed to create progress manager instance.",
     },
 
-    // === ERRORES DE METADATA Y PISTAS ===
-    PLAYER_TRACK_ENUMERATION_FAILED: {
-        message: "Failed to enumerate available tracks.",
-    },
-    PLAYER_TRACK_METADATA_EXTRACTION_ERROR: {
-        message: "Error extracting track metadata.",
-    },
-    PLAYER_TIMED_METADATA_PARSE_ERROR: {
-        message: "Failed to parse timed metadata.",
-    },
 
-    // === ERRORES DE ANUNCIOS (ADS) ===
-    PLAYER_AD_EVENT_PROCESSING_ERROR: {
-        message: "Error processing ad event.",
-    },
-    PLAYER_AD_BREAK_TRACKING_FAILED: {
-        message: "Failed to track ad break progression.",
-    },
-    PLAYER_AD_METADATA_INVALID: {
-        message: "Invalid or missing ad metadata.",
-    },
+	// === ERRORES DE ANUNCIOS (ADS) ===
+	PLAYER_AD_EVENT_PROCESSING_ERROR: {
+		message: "Error processing ad event.",
+	},
 
-    // === ERRORES DE CALIDAD Y BITRATE ===
-    PLAYER_QUALITY_DETECTION_FAILED: {
-        message: "Failed to detect video quality changes.",
-    },
-    PLAYER_BITRATE_CALCULATION_ERROR: {
-        message: "Error calculating current bitrate.",
-    },
-    PLAYER_ADAPTIVE_STREAMING_ERROR: {
-        message: "Adaptive streaming quality adjustment failed.",
-    },
 
-    // === ERRORES DE PLAYLIST ===
-    PLAYLIST_INITIALIZATION_FAILED: {
-        message: "Failed to initialize playlist manager.",
-    },
-    PLAYLIST_NOT_INITIALIZED: {
-        message: "Playlist manager is not initialized.",
-    },
-    PLAYLIST_SET_FAILED: {
-        message: "Failed to set playlist.",
-    },
-    PLAYLIST_ADD_ITEM_FAILED: {
-        message: "Failed to add item to playlist.",
-    },
-    PLAYLIST_ADD_ITEMS_FAILED: {
-        message: "Failed to add items to playlist.",
-    },
-    PLAYLIST_ADD_ITEMS_PARTIAL_FAILURE: {
-        message: "Some items failed to be added to playlist.",
-    },
-    PLAYLIST_INSERT_ITEM_FAILED: {
-        message: "Failed to insert item into playlist.",
-    },
-    PLAYLIST_REMOVE_ITEM_FAILED: {
-        message: "Failed to remove item from playlist.",
-    },
-    PLAYLIST_CLEAR_FAILED: {
-        message: "Failed to clear playlist.",
-    },
-    PLAYLIST_NEXT_FAILED: {
-        message: "Failed to go to next item.",
-    },
-    PLAYLIST_PREVIOUS_FAILED: {
-        message: "Failed to go to previous item.",
-    },
-    PLAYLIST_GOTO_INDEX_FAILED: {
-        message: "Failed to go to playlist index.",
-    },
-    PLAYLIST_INVALID_INDEX: {
-        message: "Invalid playlist index.",
-    },
-    PLAYLIST_ITEM_NOT_FOUND: {
-        message: "Playlist item not found.",
-    },
-    PLAYLIST_INVALID_ITEM: {
-        message: "Invalid playlist item.",
-    },
-    PLAYLIST_EMPTY: {
-        message: "Playlist cannot be empty.",
-    },
+	// === ERRORES DE PLAYLIST ===
+	// Nota: Estos errores están reservados para el sistema de playlists nativo
+	// que se gestiona principalmente en el lado nativo (iOS/Android)
+	PLAYLIST_INITIALIZATION_FAILED: {
+		message: "Failed to initialize playlist manager.",
+	},
+	PLAYLIST_NOT_INITIALIZED: {
+		message: "Playlist manager is not initialized.",
+	},
+	PLAYLIST_INVALID_ITEM: {
+		message: "Invalid playlist item.",
+	},
+	PLAYLIST_EMPTY: {
+		message: "Playlist cannot be empty.",
+	},
 
     // === ERROR DESCONOCIDO ===
 	PLAYER_UNKNOWN_999: {
