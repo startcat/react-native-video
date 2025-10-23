@@ -746,7 +746,11 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	useEffect(() => {
 		const updateProgress = async () => {
 			// Obtener estado del sleep timer
-			let sleepTimerStatus = { isActive: false, remainingSeconds: 0 };
+			let sleepTimerStatus = { 
+				isActive: false, 
+				remainingSeconds: 0, 
+				isFinishCurrentMode: false 
+			};
 			try {
 				sleepTimerStatus = await SleepTimerControl.getSleepTimerStatus();
 			} catch (error) {
