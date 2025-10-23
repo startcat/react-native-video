@@ -306,6 +306,29 @@ export const PLAYER_ERROR_DEFINITIONS = {
     PLAYER_POSITION_CALCULATION_ERROR: {
         message: "Error calculating playback position.",
     },
+    
+    // === ERRORES DE PROGRESS MANAGERS ===
+    PLAYER_PROGRESS_MANAGER_NOT_INITIALIZED: {
+        message: "Progress manager must be initialized before use.",
+    },
+    PLAYER_PROGRESS_MANAGER_DISPOSED: {
+        message: "Cannot perform operation on disposed progress manager.",
+    },
+    PLAYER_PROGRESS_INVALID_CONTENT_TYPE: {
+        message: "Invalid content type provided to progress manager.",
+    },
+    PLAYER_PROGRESS_INVALID_SEEK_TIME: {
+        message: "Seek time is outside valid seekable range.",
+    },
+    PLAYER_PROGRESS_UPDATE_FAILED: {
+        message: "Failed to update player progress data.",
+    },
+    PLAYER_PROGRESS_INVALID_STATE: {
+        message: "Progress manager is in an invalid state for this operation.",
+    },
+    PLAYER_PROGRESS_MANAGER_CREATION_FAILED: {
+        message: "Failed to create progress manager instance.",
+    },
 
     // === ERRORES DE METADATA Y PISTAS ===
     PLAYER_TRACK_ENUMERATION_FAILED: {
