@@ -34,8 +34,8 @@ import { ComponentLogger } from "../../features/logger";
 import { getTrackId, mergeCastMenuData } from "../../utils";
 
 import { useIsBuffering } from "../../core/buffering";
-import { playlistsManager } from "../../features/playlists";
 import { SourceClass, type onSourceChangedProps } from "../../core/source";
+import { playlistsManager } from "../../features/playlists";
 
 // Importar hooks individuales de Cast como en AudioCastFlavour
 import {
@@ -96,6 +96,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
+
+	// Timeouts para limpieza
+	const loadContentTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
 	// USAR HOOKS INDIVIDUALES DE CAST como en AudioCastFlavour
 	const castConnected = useCastConnected(castLoggerConfig);
@@ -405,9 +408,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				isReady: true,
 			};
 
-			setTimeout(() => {
+			const timeout = setTimeout(() => {
 				loadContentWithCastManager(sourceData);
 			}, 100);
+			loadContentTimeoutsRef.current.push(timeout);
 		}
 	}, [castConnected, isContentLoaded, isLoadingContent, hasTriedLoading, castManager]);
 
@@ -1068,10 +1072,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					setBuffering(true);
 					setIsLiveProgramRestricted(true);
 
-					// if (sourceRef.current) {
-					// 	sourceRef.current.changeDvrUriParameters(timestamp);
-					// }
-
 					if (dvrProgressManagerRef.current) {
 						dvrProgressManagerRef.current?.reset();
 						dvrProgressManagerRef.current?.setPlaybackType(DVR_PLAYBACK_TYPE.PROGRAM);
@@ -1101,10 +1101,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					setBuffering(true);
 					setIsLiveProgramRestricted(false);
 
-					// if (sourceRef.current) {
-					// 	sourceRef.current.reloadDvrStream();
-					// }
-
 					const sourceData: onSourceChangedProps = {
 						id: sourceRef.current?.id,
 						source: sourceRef.current?.playerSource,
@@ -1118,9 +1114,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 					dvrProgressManagerRef.current?.reset();
 
-					setTimeout(() => {
+					const timeout = setTimeout(() => {
 						loadContentWithCastManager(sourceData);
 					}, 100);
+					loadContentTimeoutsRef.current.push(timeout);
 				} else {
 					// Volver al directo en DVR
 					dvrProgressManagerRef.current?.goToLive();
