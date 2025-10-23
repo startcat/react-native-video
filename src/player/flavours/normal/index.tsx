@@ -59,6 +59,8 @@ import {
 
 export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const currentLogger = useRef<ComponentLogger | null>(null);
+	// Control de montaje para prevenir actualizaciones después del unmount
+	const isMountedRef = useRef<boolean>(true);
 
 	const [isPlayingAd, setIsPlayingAd] = useState<boolean>(false);
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
@@ -524,13 +526,38 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	]);
 
 	useEffect(() => {
+		currentLogger.current?.info('🎯 NormalFlavour MOUNTED');
+		isMountedRef.current = true;
+		
 		return () => {
+			currentLogger.current?.info('🧹 NormalFlavour UNMOUNTING - cleaning up all resources');
+			isMountedRef.current = false;
+			
+			// Destruir managers de progreso
 			if (vodProgressManagerRef.current) {
+				currentLogger.current?.info('🧹 Destroying VOD Progress Manager');
 				vodProgressManagerRef.current.destroy();
+				vodProgressManagerRef.current = null;
 			}
+			
 			if (dvrProgressManagerRef.current) {
+				currentLogger.current?.info('🧹 Destroying DVR Progress Manager');
 				dvrProgressManagerRef.current.destroy();
+				dvrProgressManagerRef.current = null;
 			}
+			
+			// Limpiar otras refs
+			sourceRef.current = null;
+			playerProgressRef.current = undefined;
+			youboraForVideo.current = undefined;
+			drm.current = undefined;
+			// refVideoPlayer es read-only, no se puede limpiar
+			lastProcessedItemIdRef.current = undefined;
+			isChangingSource.current = false;
+			hasCalledInitialSeekRef.current = false;
+			videoQualityIndex.current = -1;
+			
+			currentLogger.current?.info('✅ NormalFlavour cleanup complete');
 		};
 	}, []);
 

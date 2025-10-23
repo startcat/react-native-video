@@ -290,6 +290,12 @@ export abstract class BaseProgressManager {
     }
 
     protected _emitProgressUpdate(): void {
+        // CRÍTICO: Salir inmediatamente si el manager fue destruido
+        if (!this._isInitialized) {
+            // No loguear para evitar spam después del desmontaje
+            return;
+        }
+        
         if (!this._hasReceivedPlayerData) {
             this._currentLogger?.debug('_emitProgressUpdate: No player data received yet, skipping');
             return;
@@ -338,6 +344,11 @@ export abstract class BaseProgressManager {
     }
 
     protected _emitFallbackProgressUpdate(): void {
+        // CRÍTICO: No emitir si el manager fue destruido
+        if (!this._isInitialized) {
+            return;
+        }
+        
         // Emitir datos mínimos para mantener la UI funcionando
         const fallbackData = {
             minimumValue: 0,
@@ -380,6 +391,15 @@ export abstract class BaseProgressManager {
      */
 
     destroy(): void {
-        this._currentLogger?.info('Destroying manager');
+        this._currentLogger?.info('Destroying manager - cleaning up callbacks');
+        
+        // Limpiar todos los callbacks para prevenir emisiones después del desmontaje
+        this._options.onProgressUpdate = null;
+        this._options.onSeekRequest = null;
+        this._options.onValidationError = null;
+        
+        // Marcar como no inicializado
+        this._isInitialized = false;
+        this._hasReceivedPlayerData = false;
     }
 }
