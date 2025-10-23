@@ -57,6 +57,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 	const drm = useRef<IDrm>();
 	const isChangingSource = useRef<boolean>(true);
 	const currentContentUri = useRef<string | null>(null);
+	const loadContentTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	const [currentTime, setCurrentTime] = useState<number>(
 		props.playlistItem?.initialState?.startPosition || 0
@@ -284,7 +285,12 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 				isReady: true,
 			};
 
-			setTimeout(() => {
+			// Limpiar timeout anterior si existe
+			if (loadContentTimeoutRef.current) {
+				clearTimeout(loadContentTimeoutRef.current);
+			}
+
+			loadContentTimeoutRef.current = setTimeout(() => {
 				loadContentWithCastManager(sourceData);
 			}, 100);
 		}
@@ -751,6 +757,25 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 		onProgressUpdate,
 		onSeekRequest,
 	]);
+
+	// Cleanup on unmount
+	useEffect(() => {
+		return () => {
+			// Limpiar timeout de loadContent si existe
+			if (loadContentTimeoutRef.current) {
+				clearTimeout(loadContentTimeoutRef.current);
+				loadContentTimeoutRef.current = null;
+			}
+
+			// Destruir progress managers
+			if (vodProgressManagerRef.current) {
+				vodProgressManagerRef.current.destroy();
+			}
+			if (dvrProgressManagerRef.current) {
+				dvrProgressManagerRef.current.destroy();
+			}
+		};
+	}, []);
 
 	const onControlsPress = useCallback(
 		async (id: CONTROL_ACTION, value?: number | boolean) => {
