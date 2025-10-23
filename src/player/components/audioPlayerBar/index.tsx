@@ -47,8 +47,6 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 	const playerContext = useRef<PlayerContext | null>(null);
 	const playerLogger = useRef<Logger | null>(null);
 	const currentLogger = useRef<ComponentLogger | null>(null);
-	// Control de montaje para prevenir actualizaciones después del unmount
-	const isMountedRef = useRef<boolean>(true);
 
 	const playerMaxHeight = useRef<number | string>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
 	const audioPlayerHeight = useSharedValue(0);
@@ -130,10 +128,6 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 		);
 
 		return () => {
-			currentLogger.current?.info('🧹 AudioPlayerBar UNMOUNTING - cleaning up resources');
-			isMountedRef.current = false;
-			
-			// Limpiar event listeners de EventRegister
 			if (typeof changesAudioPlayerListener === "string") {
 				EventRegister.removeEventListener(changesAudioPlayerListener);
 			}
@@ -141,32 +135,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			if (typeof actionsAudioPlayerListener === "string") {
 				EventRegister.removeEventListener(actionsAudioPlayerListener);
 			}
-			
-			// Limpiar event listeners de playlistsManager
-			// Nota: removeAllListeners limpia todos los listeners de estos eventos
-			// Si hay otros componentes escuchando, esto podría afectarlos
-			try {
-				playlistsManager.removeAllListeners(PlaylistEventType.ITEM_CHANGED);
-				playlistsManager.removeAllListeners(PlaylistEventType.ITEM_STARTED);
-				playlistsManager.removeAllListeners(PlaylistEventType.ITEM_COMPLETED);
-				playlistsManager.removeAllListeners(PlaylistEventType.ITEM_ERROR);
-				playlistsManager.removeAllListeners(PlaylistEventType.PLAYLIST_ENDED);
-			} catch (error) {
-				currentLogger.current?.warn('Error removing playlistsManager listeners:', error);
-			}
-			
-			// Limpiar interval de watching progress
-			if (watchingProgressIntervalObj.current) {
-				BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
-				watchingProgressIntervalObj.current = undefined;
-			}
-			
-			// Limpiar refs
-			hasBeenLoaded.current = false;
-			syncStateRef.current = {};
-			currentPlaylistItemRef.current = null;
-			
-			currentLogger.current?.info('✅ AudioPlayerBar cleanup complete');
+			currentLogger.current?.debug(`Unmounted`);
 		};
 	}, []);
 
@@ -275,10 +244,9 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 	}, [dpoData?.hooks]);
 
 	const clearDataToChangeContents = () => {
-		currentLogger.current?.info('🧹 Clearing data to change contents');
 		hasBeenLoaded.current = false;
 		setDpoData(null);
-		// NO limpiar currentLogger.current - lo necesitamos para logs
+		currentLogger.current = null;
 		// Limpiar estado de sincronización al cambiar de contenido
 		setSyncState({});
 	};

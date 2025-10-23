@@ -1235,26 +1235,22 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
 	destroy(): void {
 		this._currentLogger?.info("Destroying DVR progress manager");
-		
-		// CRÍTICO: Limpiar timer de pausa PRIMERO para prevenir race conditions
+		super.destroy();
+
+		this._isManualSeeking = false;
+
+		// Limpiar timeouts EPG pendientes
+		this._clearEPGRetryTimeouts();
+
+		// Limpiar callbacks para evitar requests después de destrucción
+		this._dvrCallbacks = {};
+
+		// Limpiar recursos específicos del DVR
+		this._epgRetryCount.clear();
+
 		if (this._pauseUpdateInterval) {
-			this._currentLogger?.info("⏰ Clearing pause update timer before destroy");
 			clearInterval(this._pauseUpdateInterval);
 			this._pauseUpdateInterval = null;
 		}
-		
-		// Limpiar timeouts EPG pendientes
-		this._clearEPGRetryTimeouts();
-		
-		// Limpiar callbacks DVR específicos para evitar requests después de destrucción
-		this._dvrCallbacks = {};
-		
-		// Limpiar recursos específicos del DVR
-		this._epgRetryCount.clear();
-		
-		this._isManualSeeking = false;
-
-		// Llamar a super.destroy() AL FINAL para limpiar callbacks base
-		super.destroy();
 	}
 }

@@ -47,8 +47,6 @@ import {
 
 export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 	const currentLogger = useRef<ComponentLogger | null>(null);
-	// Control de montaje para prevenir actualizaciones después del unmount
-	const isMountedRef = useRef<boolean>(true);
 
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
 	const [isLoadingContent, setIsLoadingContent] = useState<boolean>(false);
@@ -753,42 +751,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 		onProgressUpdate,
 		onSeekRequest,
 	]);
-
-	useEffect(() => {
-		currentLogger.current?.info('🎯 AudioCastFlavour MOUNTED');
-		isMountedRef.current = true;
-		
-		return () => {
-			currentLogger.current?.info('🧹 AudioCastFlavour UNMOUNTING - cleaning up all resources');
-			isMountedRef.current = false;
-			
-			// Destruir managers de progreso
-			if (vodProgressManagerRef.current) {
-				currentLogger.current?.info('🧹 Destroying VOD Progress Manager');
-				vodProgressManagerRef.current.destroy();
-				vodProgressManagerRef.current = null;
-			}
-			
-			if (dvrProgressManagerRef.current) {
-				currentLogger.current?.info('🧹 Destroying DVR Progress Manager');
-				dvrProgressManagerRef.current.destroy();
-				dvrProgressManagerRef.current = null;
-			}
-			
-			// Limpiar otras refs
-			sourceRef.current = null;
-			playerProgressRef.current = undefined;
-			youboraForVideo.current = undefined;
-			drm.current = undefined;
-			lastProcessedItemIdRef.current = undefined;
-			isChangingSource.current = false;
-			hasCalledInitialSeekRef.current = false;
-			currentContentUri.current = null;
-			sliderValues.current = undefined;
-			
-			currentLogger.current?.info('✅ AudioCastFlavour cleanup complete');
-		};
-	}, []);
 
 	const onControlsPress = useCallback(
 		async (id: CONTROL_ACTION, value?: number | boolean) => {
