@@ -35,7 +35,7 @@ import { getTrackId, mergeCastMenuData } from "../../utils";
 
 import { useIsBuffering } from "../../core/buffering";
 import { playlistsManager } from "../../features/playlists";
-import { SourceClass, type onSourceChangedProps } from "../../modules/source";
+import { SourceClass, type onSourceChangedProps } from "../../core/source";
 
 // Importar hooks individuales de Cast como en AudioCastFlavour
 import {
