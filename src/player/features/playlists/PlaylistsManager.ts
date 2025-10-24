@@ -15,6 +15,7 @@ import { PlayerError } from "../../core/errors";
 import { Logger, LogLevel } from "../logger";
 import { DEFAULT_CONFIG } from "./config";
 import { LOG_TAGS } from "./constants";
+import { PlaylistControl } from "./PlaylistControl";
 
 import {
 	ConfigChangedEventData,
@@ -461,6 +462,52 @@ export class PlaylistsManager {
 	}
 
 	/*
+	 * Notify that the current item has started (for coordinated mode)
+	 * This method notifies the native module when content is loaded and ready to play.
+	 * This is critical for Android to emit ITEM_STARTED at the correct time.
+	 *
+	 * @param itemId - Optional ID to verify the started item
+	 * @returns Promise<boolean> - true if notification was successful
+	 *
+	 */
+
+	public async notifyItemStarted(itemId?: string): Promise<boolean> {
+		this.ensureInitialized();
+
+		const currentItem = this.getCurrentItem();
+
+		// Verify item ID matches if provided
+		if (itemId && currentItem?.id !== itemId) {
+			this.logger.warn(
+				LOG_TAGS.PLAYLISTS_MANAGER,
+				`Item started ID mismatch: expected ${currentItem?.id}, got ${itemId}`
+			);
+		}
+
+		this.logger.debug(
+			LOG_TAGS.PLAYLISTS_MANAGER,
+			`Notifying native module that item started: ${currentItem?.id}`
+		);
+
+		// Notify native module (Android only)
+		if (this.nativeModule && Platform.OS === "android") {
+			try {
+				await PlaylistControl.notifyItemStarted(itemId);
+				return true;
+			} catch (error) {
+				this.logger.error(
+					LOG_TAGS.PLAYLISTS_MANAGER,
+					`Failed to notify native module of item start:`,
+					error
+				);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/*
 	 * Notify that the current item has completed externally
 	 * This method is designed for coordinated playback where an external player
 	 * (e.g., Video component) is handling the actual playback, but PlaylistsManager
@@ -501,11 +548,15 @@ export class PlaylistsManager {
 			);
 		}
 
-		// Update item status
+		// Update item status (create a new object to avoid mutating frozen objects)
 		if (currentItem) {
 			const index = this.items.findIndex(item => item.id === currentItem.id);
 			if (index !== -1) {
-				this.items[index]!.status = PlaylistItemStatus.COMPLETED;
+				// Create a new object instead of mutating the existing one
+				this.items[index] = {
+					...this.items[index]!,
+					status: PlaylistItemStatus.COMPLETED,
+				};
 			}
 		}
 
@@ -520,6 +571,12 @@ export class PlaylistsManager {
 			LOG_TAGS.PLAYLISTS_MANAGER,
 			`Item completed notification: ${currentItem?.id}`
 		);
+
+		// NOTA: Este método se mantiene para compatibilidad, pero en modo coordinated
+		// el módulo nativo detecta automáticamente la finalización de items y maneja
+		// el auto-advance por sí mismo. Este método solo se usa cuando JavaScript
+		// necesita forzar un auto-advance explícitamente (ej: cuando el usuario pulsa
+		// un botón de "siguiente").
 
 		// Auto-advance if type TUDUM
 		if (currentItem?.type === PlaylistItemType.TUDUM) {

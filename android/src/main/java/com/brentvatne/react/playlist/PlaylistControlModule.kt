@@ -572,17 +572,53 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             try {
                 Log.d(TAG, "📢 notifyItemFinished called from JavaScript: $itemId")
                 
-                // Only process in coordinated mode
-                if (!config.coordinatedMode) {
-                    Log.d(TAG, "⚠️ notifyItemFinished ignored - not in coordinated mode")
+                // Handle item completion (works in both coordinated and standalone modes)
+                if (config.coordinatedMode) {
+                    handleItemCompletionInCoordinatedMode(itemId)
+                } else {
+                    // In standalone mode, just emit the completion event
+                    // (auto-advance is handled internally by the native player)
+                    val currentItem = items.getOrNull(currentIndex)
+                    if (currentItem != null) {
+                        emitItemCompleted(currentItem)
+                    }
+                }
+                promise.resolve(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in notifyItemFinished", e)
+                promise.reject("NOTIFY_ERROR", e.message, e)
+            }
+        }
+    }
+
+    /**
+     * Notify that current item has started (for coordinated mode)
+     * This allows JavaScript to notify the native module when content is loaded and ready
+     */
+    @ReactMethod
+    fun notifyItemStarted(itemId: String?, promise: Promise) {
+        handler.post {
+            try {
+                Log.d(TAG, "📢 notifyItemStarted called from JavaScript: $itemId")
+                
+                val currentItem = items.getOrNull(currentIndex)
+                if (currentItem == null) {
+                    Log.w(TAG, "⚠️ notifyItemStarted: No current item at index $currentIndex")
                     promise.resolve(false)
                     return@post
                 }
                 
-                handleItemCompletionInCoordinatedMode(itemId)
+                if (itemId != null && currentItem.id != itemId) {
+                    Log.w(TAG, "⚠️ notifyItemStarted: Item ID mismatch - expected ${currentItem.id}, got $itemId")
+                }
+                
+                // Emit item started event (works in both coordinated and standalone modes)
+                emitItemStarted(currentItem)
+                Log.d(TAG, "✅ Item started event emitted for: ${currentItem.metadata.title}")
+                
                 promise.resolve(true)
             } catch (e: Exception) {
-                Log.e(TAG, "Error in notifyItemFinished", e)
+                Log.e(TAG, "Error in notifyItemStarted", e)
                 promise.reject("NOTIFY_ERROR", e.message, e)
             }
         }
@@ -657,10 +693,17 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         // Emit event to JavaScript
         emitItemChanged(nextItem, currentIndex, previousIndex)
         
-        // Emit item started event for coordinated mode
-        if (config.coordinatedMode) {
+        // ❌ NO emitir ITEM_STARTED en modo coordinated aquí
+        // En modo coordinated, JavaScript emitirá ITEM_STARTED cuando el contenido
+        // realmente esté cargado y listo para reproducirse (en handleOnLoad)
+        // Emitir ITEM_STARTED prematuramente causa que AudioPlayerBar llame a onEnd
+        // antes de que el contenido se haya cargado, causando saltos de items
+        if (!config.coordinatedMode) {
+            // Solo en modo standalone emitimos ITEM_STARTED aquí
             emitItemStarted(nextItem)
-            Log.d(TAG, "[Coordinated] Item started event emitted")
+            Log.d(TAG, "[Standalone] Item started event emitted")
+        } else {
+            Log.d(TAG, "[Coordinated] Skipping ITEM_STARTED emission - JavaScript will emit when content loads")
         }
         
         // In coordinated mode, JavaScript handles the source update via the event

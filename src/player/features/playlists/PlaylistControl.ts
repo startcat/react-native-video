@@ -183,6 +183,18 @@ export class PlaylistControl {
 	}
 
 	/*
+	 * Notificar al módulo nativo que un item ha comenzado (modo coordinated)
+	 * Esto permite que el módulo nativo emita el evento ITEM_STARTED cuando el contenido
+	 * realmente esté cargado y listo para reproducirse
+	 * @param itemId - ID del item que comenzó
+	 *
+	 */
+
+	static async notifyItemStarted(itemId?: string): Promise<boolean> {
+		return PlaylistControlModule.notifyItemStarted(itemId || null);
+	}
+
+	/*
 	 * Notificar al módulo nativo que un item ha terminado (modo coordinated)
 	 * Esto permite que el módulo nativo maneje el auto-advance para TUDUMs
 	 * @param itemId - ID del item que terminó

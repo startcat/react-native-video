@@ -851,6 +851,24 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			isChangingSource.current = false;
 			setIsContentLoaded(true);
 
+			// Notificar al módulo nativo que el item ha comenzado (modo coordinated)
+			// Esto emite el evento ITEM_STARTED en el momento correcto, cuando el contenido
+			// realmente está cargado y listo para reproducirse
+			// Funciona tanto en Android como en iOS
+			if (props.playlistItem?.id) {
+				try {
+					await playlistsManager.notifyItemStarted(props.playlistItem.id.toString());
+					currentLogger.current?.debug(
+						`✅ Notified native module that item started: ${props.playlistItem.id}`
+					);
+				} catch (error) {
+					currentLogger.current?.warn(
+						`⚠️ Failed to notify item started to native module:`,
+						error
+					);
+				}
+			}
+
 			if (props.events?.onStart) {
 				props.events.onStart();
 			}
@@ -1018,15 +1036,20 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			currentLogger.current?.warn("[Sleep Timer] Failed to check status:", error);
 		}
 
-		// NOTE: We don't notify the native PlaylistControlModule here because:
-		// 1. In coordinated mode, the PlaylistsManager (TypeScript) controls which item plays
-		// 2. The native module is only used for standalone mode (audio-only apps)
-		// 3. Auto-advance is handled by the parent component (AudioPlayerBar) which uses PlaylistsManager
+		// IMPORTANTE: En modo coordinated, el módulo nativo detecta automáticamente
+		// cuando un item termina (via broadcast ACTION_VIDEO_ITEM_FINISHED) y maneja
+		// el auto-advance por sí mismo. Esto es necesario para que las playlists
+		// funcionen en background cuando React Native está deshabilitado.
+		//
+		// JavaScript solo debe:
+		// 1. Escuchar eventos ITEM_CHANGED del nativo para actualizar UI
+		// 2. Notificar props.events.onEnd para que AudioPlayerBar actualice su estado
+		// 3. NO intentar controlar la navegación (el nativo ya lo hace)
+		//
+		// La única excepción es cuando el usuario pulsa botones de navegación
+		// (next, previous, goToIndex) - en ese caso sí llamamos al nativo explícitamente.
 
-		// Always notify parent that item has ended
-		// Parent component (audioPlayerBar) will decide whether to auto-advance based on:
-		// - Item type (TUDUM always auto-advances)
-		// - autoNext configuration (for regular content)
+		// Notificar al parent component que el item terminó (solo para actualizar UI)
 		if (props.events?.onEnd) {
 			props.events.onEnd();
 		}

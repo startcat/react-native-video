@@ -108,6 +108,28 @@ await PlaylistControl.play();
 
 ## ⚖️ Reglas Fundamentales
 
+### 0. **Eventos Nativos Funcionan en Ambos Modos**
+
+> **📢 IMPORTANTE:** Los eventos del módulo nativo (`ITEM_CHANGED`, `ITEM_COMPLETED`, `ITEM_STARTED`, `PLAYLIST_ENDED`) se emiten **SIEMPRE**, independientemente del modo (coordinated o standalone).
+
+**Por qué es importante:**
+- JavaScript puede escuchar eventos en ambos modos
+- El widget multimedia se actualiza en ambos modos
+- Analytics/tracking funcionan en ambos modos
+- Si la app vuelve a foreground, JavaScript puede sincronizarse
+
+**Lo que SÍ cambia entre modos:**
+- **Coordinated:** `<Video>` de React Native controla el player
+- **Standalone:** Player nativo interno (AVPlayer/ExoPlayer) controla el player
+
+**Lo que NO cambia entre modos:**
+- ✅ Eventos se emiten igual
+- ✅ JavaScript puede escuchar eventos
+- ✅ Widget multimedia se actualiza
+- ✅ Métodos `notifyItemStarted` y `notifyItemFinished` funcionan
+
+---
+
 ### 1. **Tudum es un Item Más de la Playlist**
 
 **❌ INCORRECTO (Sistema antiguo):**
@@ -134,36 +156,92 @@ await playlistsManager.setPlaylist(items);
 
 ---
 
-### 2. **Modo Coordinated: JavaScript Controla, Nativo Detecta**
+### 2. **Modo Coordinated: Nativo Controla Navegación, JavaScript Actualiza UI**
 
-**Responsabilidades:**
-- **JavaScript (PlaylistsManager):**
-  - Decide qué item reproducir
-  - Mantiene el estado de la playlist
-  - Actualiza la UI
-  
+> **🎯 OBJETIVO PRINCIPAL:** Permitir que las playlists funcionen en **background**, incluso cuando React Native está **completamente deshabilitado** (app en segundo plano, pantalla bloqueada, etc.).
+
+**Responsabilidades Críticas:**
+
 - **Nativo (PlaylistControlModule):**
-  - Escucha broadcasts de finalización
-  - Detecta TUDUMs y hace auto-advance
-  - Emite eventos de cambio de item
+  - ✅ **Detecta automáticamente** cuando un item termina (via broadcast `ACTION_VIDEO_ITEM_FINISHED`)
+  - ✅ **Controla la navegación** de playlist (auto-advance)
+  - ✅ **Funciona en background** sin JavaScript
+  - ✅ **Emite eventos** `ITEM_CHANGED`, `ITEM_COMPLETED`, `ITEM_STARTED` (en ambos modos)
+  - ✅ Actualiza widget multimedia
+  
+- **JavaScript (PlaylistsManager + AudioFlavour):**
+  - ✅ **Escucha eventos** del módulo nativo (en ambos modos)
+  - ✅ **Actualiza UI** basándose en esos eventos
+  - ✅ **Puede notificar** `notifyItemStarted` cuando contenido está cargado (funciona en ambos modos)
+  - ❌ **NO detecta finalización** (el nativo ya lo hace)
+  - ❌ **NO controla navegación automática** (el nativo lo hace)
+  - ✅ **SÍ controla navegación manual** cuando usuario pulsa botones (next, previous, goToIndex)
+
+**Flujo de Finalización de Item:**
+```
+1. Item termina en <Video> nativo
+   ↓
+2. <Video> envía broadcast ACTION_VIDEO_ITEM_FINISHED
+   ↓
+3. Módulo nativo detecta broadcast (✅ Funciona en background)
+   ↓
+4. Módulo nativo hace auto-advance automáticamente
+   ↓
+5. Módulo nativo emite ITEM_CHANGED
+   ↓
+6. JavaScript escucha evento (solo si app en foreground)
+   ↓
+7. JavaScript actualiza UI
+```
 
 **❌ INCORRECTO:**
 ```typescript
-// Intentar hacer auto-advance desde JavaScript en background
-onEnd={() => {
-    playlistsManager.next(); // ❌ No funciona en background
-}}
+// Intentar notificar al nativo que un item terminó
+const handleOnEnd = async () => {
+    await playlistsManager.notifyItemCompleted(itemId); // ❌ REDUNDANTE
+    // El nativo YA lo detectó via broadcast
+};
+```
+
+**❌ INCORRECTO:**
+```typescript
+// Intentar hacer auto-advance desde JavaScript
+const handleOnEnd = () => {
+    if (autoNext) {
+        playlistsManager.goToNext(); // ❌ Causa doble avance
+    }
+};
 ```
 
 **✅ CORRECTO:**
 ```typescript
-// El módulo nativo hace auto-advance automáticamente
-// JavaScript solo escucha el evento
+// JavaScript SOLO escucha eventos y actualiza UI
+const handleOnEnd = () => {
+    // Solo notificar a la UI que el item terminó
+    // NO intentar controlar navegación
+    if (props.events?.onEnd) {
+        props.events.onEnd(); // Solo para actualizar estado UI
+    }
+};
+
+// Escuchar cambios de item del nativo
 playlistsManager.on('itemChanged', (event) => {
     // Actualizar UI con el nuevo item
     setCurrentItem(event.currentItem);
 });
 ```
+
+**✅ CORRECTO - Navegación Manual:**
+```typescript
+// Cuando el USUARIO pulsa un botón
+const handleNextButton = async () => {
+    // Aquí SÍ controlamos la navegación explícitamente
+    await playlistsManager.goToNext();
+};
+```
+
+**⚠️ REGLA DE ORO:**
+> En modo coordinated, **JavaScript NUNCA intenta controlar la navegación automática de playlist**. El módulo nativo lo hace por sí mismo detectando broadcasts. JavaScript solo actualiza UI cuando recibe eventos del nativo.
 
 ---
 
@@ -304,26 +382,55 @@ this.currentIndex = newIndex; // ❌ Módulo nativo desincronizado
 
 ---
 
-### 8. **Background: Solo Nativo Funciona**
+### 8. **Background: Solo Nativo Funciona - OBJETIVO PRINCIPAL DEL SISTEMA**
+
+> **🎯 OBJETIVO CRÍTICO:** El sistema de playlists está diseñado para funcionar **completamente en background**, incluso cuando React Native está **totalmente deshabilitado** (app en segundo plano, pantalla bloqueada, sistema operativo suspendió JavaScript, etc.).
 
 **Regla fundamental:** Cuando la app está en background, **solo el código nativo puede ejecutarse**.
 
-**Implicaciones:**
+**¿Por qué es crítico?**
+- Las playlists de audio deben continuar reproduciéndose cuando el usuario bloquea la pantalla
+- El auto-advance debe funcionar sin intervención de JavaScript
+- El widget multimedia debe actualizarse correctamente
+- Android Auto / CarPlay deben funcionar sin la app en foreground
+
+**Implicaciones técnicas:**
 - ❌ No se pueden ejecutar callbacks de JavaScript
 - ❌ No se puede actualizar estado de React
 - ❌ No se pueden hacer llamadas a APIs desde JavaScript
-- ✅ El módulo nativo puede detectar finalización
+- ❌ `props.events?.onEnd()` no se ejecuta
+- ❌ `playlistsManager.goToNext()` no funciona
+- ✅ El módulo nativo puede detectar finalización (via broadcast)
 - ✅ El módulo nativo puede hacer auto-advance
 - ✅ El módulo nativo puede actualizar widget multimedia
+- ✅ El módulo nativo puede reproducir siguiente item
 
-**Diseño correcto:**
+**Diseño correcto (modo coordinated):**
 ```
-Item termina en background
-→ Módulo nativo detecta (✅ Funciona)
+Usuario bloquea pantalla
+→ React Native se suspende (❌ JavaScript no funciona)
+→ Item termina en <Video> nativo
+→ <Video> envía broadcast ACTION_VIDEO_ITEM_FINISHED (✅ Funciona)
+→ Módulo nativo detecta broadcast (✅ Funciona)
 → Módulo nativo hace auto-advance (✅ Funciona)
 → Módulo nativo actualiza widget (✅ Funciona)
-→ JavaScript callback (❌ No se ejecuta hasta foreground)
+→ Módulo nativo reproduce siguiente item (✅ Funciona)
+→ Usuario desbloquea pantalla
+→ React Native se reactiva
+→ JavaScript recibe evento ITEM_CHANGED
+→ UI se actualiza con el item actual
 ```
+
+**❌ Diseño INCORRECTO (no funciona en background):**
+```
+Item termina en <Video> nativo
+→ <Video> llama a onEnd callback de JavaScript (❌ No funciona en background)
+→ JavaScript intenta hacer playlistsManager.goToNext() (❌ No funciona en background)
+→ Playlist se detiene (❌ Mala experiencia de usuario)
+```
+
+**⚠️ REGLA CRÍTICA:**
+> **NUNCA** diseñes flujos que dependan de JavaScript para la navegación automática de playlist. El módulo nativo debe ser completamente autónomo y capaz de gestionar la playlist sin ninguna intervención de JavaScript.
 
 ---
 
@@ -436,4 +543,13 @@ case Player.STATE_ENDED:
 
 ---
 
-**Última actualización:** 2025-10-17
+**Última actualización:** 2025-10-24 (12:10)
+
+**Cambios importantes en esta versión:**
+- ✅ Aclarado que el **objetivo principal** es funcionar en background sin React Native
+- ✅ Documentado que el módulo nativo detecta finalización automáticamente via broadcast
+- ✅ Aclarado que JavaScript **NUNCA** debe intentar controlar navegación automática
+- ✅ Agregados ejemplos de flujos correctos e incorrectos
+- ✅ Enfatizado que `notifyItemCompleted` es redundante (el nativo ya lo detectó)
+- ✅ **NUEVO:** Los eventos nativos funcionan en **AMBOS modos** (coordinated y standalone)
+- ✅ **NUEVO:** Eliminadas restricciones de modo en `notifyItemStarted` y `notifyItemFinished`
