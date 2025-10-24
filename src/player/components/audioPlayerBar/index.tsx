@@ -135,7 +135,15 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			if (typeof actionsAudioPlayerListener === "string") {
 				EventRegister.removeEventListener(actionsAudioPlayerListener);
 			}
-			currentLogger.current?.debug(`Unmounted`);
+
+			// Limpiar listeners del PlaylistsManager para evitar duplicados
+			playlistsManager.removeAllListeners(PlaylistEventType.ITEM_CHANGED);
+			playlistsManager.removeAllListeners(PlaylistEventType.ITEM_STARTED);
+			playlistsManager.removeAllListeners(PlaylistEventType.ITEM_COMPLETED);
+			playlistsManager.removeAllListeners(PlaylistEventType.ITEM_ERROR);
+			playlistsManager.removeAllListeners(PlaylistEventType.PLAYLIST_ENDED);
+
+			currentLogger.current?.debug(`Unmounted and cleaned up playlist listeners`);
 		};
 	}, []);
 
