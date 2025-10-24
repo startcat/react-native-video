@@ -189,19 +189,12 @@ class PlaylistControlModule: RCTEventEmitter {
             ]
         )
         
-        // Emit item started event for coordinated mode
-        if operationMode == .coordinated {
-            sendEvent(
-                withName: "onPlaylistItemStarted",
-                body: [
-                    "itemId": nextItem.id,
-                    "index": currentIndex,
-                    "startPosition": nextItem.startPosition ?? 0,
-                    "timestamp": Date().timeIntervalSince1970 * 1000
-                ]
-            )
-            print("[PlaylistControlModule] 🎬 [Coordinated] Item started event emitted")
-        }
+        // ❌ NO emitir ITEM_STARTED en modo coordinated aquí
+        // En modo coordinated, JavaScript emitirá ITEM_STARTED cuando el contenido
+        // realmente esté cargado (via notifyItemStarted)
+        // Esto previene que se emita ITEM_STARTED antes de que el contenido esté listo
+        
+        print("[PlaylistControlModule] 🎬 [Coordinated] Item changed, waiting for JavaScript to notify when loaded")
     }
     
     // MARK: - React Native Module Setup
@@ -649,6 +642,31 @@ class PlaylistControlModule: RCTEventEmitter {
         }
     }
     
+    @objc func notifyItemStarted(_ itemId: String?, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else {
+                reject("ERROR", "Module not initialized", nil)
+                return
+            }
+            
+            // Only allow active instance
+            guard self.isActiveInstance else {
+                print("[PlaylistControlModule] ⚠️ notifyItemStarted called on inactive instance (ignored)")
+                resolve(false)
+                return
+            }
+            
+            print("[PlaylistControlModule] 📢 notifyItemStarted called from JavaScript: \(itemId ?? "nil")")
+            
+            // Emit ITEM_STARTED event (works in both coordinated and standalone modes)
+            if let currentItem = self.getCurrentItem() {
+                self.emitItemStarted(item: currentItem, index: self.currentIndex)
+            }
+            
+            resolve(true)
+        }
+    }
+    
     @objc func notifyItemFinished(_ itemId: String?, resolve: @escaping RCTPromiseResolveBlock, reject: @escaping RCTPromiseRejectBlock) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else {
@@ -665,14 +683,17 @@ class PlaylistControlModule: RCTEventEmitter {
             
             print("[PlaylistControlModule] 📢 notifyItemFinished called from JavaScript: \(itemId ?? "nil")")
             
-            // Only process in coordinated mode
-            guard self.config.coordinatedMode else {
-                print("[PlaylistControlModule] ⚠️ notifyItemFinished ignored - not in coordinated mode")
-                resolve(false)
-                return
+            // Handle item completion (works in both coordinated and standalone modes)
+            if self.config.coordinatedMode {
+                self.handleItemCompletionInCoordinatedMode(itemId: itemId)
+            } else {
+                // In standalone mode, just emit the completion event
+                // (auto-advance is handled internally by the native player)
+                if let currentItem = self.getCurrentItem() {
+                    self.emitItemCompleted(item: currentItem, index: self.currentIndex)
+                }
             }
             
-            self.handleItemCompletionInCoordinatedMode(itemId: itemId)
             resolve(true)
         }
     }
@@ -1067,6 +1088,28 @@ class PlaylistControlModule: RCTEventEmitter {
                 "itemId": item.id,
                 "index": index,
                 "previousIndex": previousIndex,
+                "timestamp": Date().timeIntervalSince1970 * 1000
+            ]
+        )
+    }
+    
+    private func emitItemStarted(item: PlaylistItem, index: Int) {
+        sendEvent(
+            withName: "onPlaylistItemStarted",
+            body: [
+                "itemId": item.id,
+                "index": index,
+                "timestamp": Date().timeIntervalSince1970 * 1000
+            ]
+        )
+    }
+    
+    private func emitItemCompleted(item: PlaylistItem, index: Int) {
+        sendEvent(
+            withName: "onPlaylistItemCompleted",
+            body: [
+                "itemId": item.id,
+                "index": index,
                 "timestamp": Date().timeIntervalSince1970 * 1000
             ]
         )

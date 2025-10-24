@@ -62,4 +62,14 @@ RCT_EXTERN_METHOD(stop:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(getPlaybackState:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 
+// Notify that item has started (coordinated mode)
+RCT_EXTERN_METHOD(notifyItemStarted:(NSString *)itemId
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+
+// Notify that item has finished (coordinated mode)
+RCT_EXTERN_METHOD(notifyItemFinished:(NSString *)itemId
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+
 @end
