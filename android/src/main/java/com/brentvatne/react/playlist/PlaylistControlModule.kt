@@ -56,6 +56,9 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     private var isPlaybackActive = false
     private var hasSetupMediaSession = false
     
+    // Track which items have already emitted ITEM_STARTED to prevent duplicates
+    private val itemsStartedSet = mutableSetOf<String>()
+    
     // Standalone mode components
     private var standalonePlayer: ExoPlayer? = null
     private var audioFocusRequest: AudioFocusRequestCompat? = null
@@ -156,6 +159,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             try {
                 // Parse items
                 items.clear()
+                itemsStartedSet.clear() // Clear started items tracking for new playlist
                 var successCount = 0
                 var failCount = 0
                 
@@ -226,11 +230,13 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 } else {
                     Log.d(TAG, "Coordinated mode - skipping standalone setup")
                     
-                    // Emit ITEM_STARTED for the first item in coordinated mode
+                    // En modo coordinated, emitir ITEM_STARTED para que la reproducción comience
+                    // notifyItemStarted() verificará si ya se emitió para evitar duplicados
                     val firstItem = items.getOrNull(currentIndex)
                     if (firstItem != null) {
                         emitItemStarted(firstItem)
-                        Log.d(TAG, "[Coordinated] Initial item started event emitted for item: ${firstItem.metadata.title}")
+                        itemsStartedSet.add(firstItem.id) // Track that this item has started
+                        Log.d(TAG, "[Coordinated] ITEM_STARTED emitted for initial item: ${firstItem.metadata.title}")
                     }
                 }
                 
@@ -259,6 +265,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 
                 // Clear items and reset state
                 items.clear()
+                itemsStartedSet.clear() // Clear started items tracking
                 currentIndex = 0
                 isPlaybackActive = false
                 
@@ -357,6 +364,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         emitItemChanged(nextItem, currentIndex, previousIndex)
                         // Emit item started event for coordinated mode
                         emitItemStarted(nextItem)
+                        itemsStartedSet.add(nextItem.id)
                         Log.d(TAG, "[Coordinated] Item started event emitted")
                     } else {
                         advanceToNextItemStandalone()
@@ -388,6 +396,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         emitItemChanged(prevItem, currentIndex, previousIndex)
                         // Emit item started event for coordinated mode
                         emitItemStarted(prevItem)
+                        itemsStartedSet.add(prevItem.id)
                         Log.d(TAG, "[Coordinated] Item started event emitted")
                     } else {
                         Log.d(TAG, "[Standalone] Going to previous item: ${prevItem.metadata.title}")
@@ -469,7 +478,11 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 
                 val previousIndex = currentIndex
                 currentIndex = index
-                val item = items[currentIndex]
+                val item = items[index]
+                
+                // When moving to a different item, allow it to emit ITEM_STARTED again
+                // (in case user goes back to a previous item)
+                itemsStartedSet.clear()
                 
                 Log.d(TAG, "Going to index $index: ${item.metadata.title}")
                 Log.d(TAG, "  Mode: ${if (config.coordinatedMode) "COORDINATED" else "STANDALONE"}")
@@ -612,8 +625,16 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     Log.w(TAG, "⚠️ notifyItemStarted: Item ID mismatch - expected ${currentItem.id}, got $itemId")
                 }
                 
+                // Check if this item already emitted ITEM_STARTED
+                if (itemsStartedSet.contains(currentItem.id)) {
+                    Log.d(TAG, "⏭️ Skipping duplicate ITEM_STARTED for: ${currentItem.id}")
+                    promise.resolve(true)
+                    return@post
+                }
+                
                 // Emit item started event (works in both coordinated and standalone modes)
                 emitItemStarted(currentItem)
+                itemsStartedSet.add(currentItem.id)
                 Log.d(TAG, "✅ Item started event emitted for: ${currentItem.metadata.title}")
                 
                 promise.resolve(true)
@@ -701,6 +722,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         if (!config.coordinatedMode) {
             // Solo en modo standalone emitimos ITEM_STARTED aquí
             emitItemStarted(nextItem)
+            itemsStartedSet.add(nextItem.id)
             Log.d(TAG, "[Standalone] Item started event emitted")
         } else {
             Log.d(TAG, "[Coordinated] Skipping ITEM_STARTED emission - JavaScript will emit when content loads")
@@ -916,6 +938,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             
             // Emit started event
             emitItemStarted(currentItem)
+            itemsStartedSet.add(currentItem.id)
             
         } catch (e: Exception) {
             Log.e(TAG, "[Standalone] Failed to load item: ${e.message}", e)
