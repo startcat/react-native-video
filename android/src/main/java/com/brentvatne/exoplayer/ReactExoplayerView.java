@@ -2568,11 +2568,70 @@ public class ReactExoplayerView extends FrameLayout implements
 
     public void setDisableFocus(boolean disableFocus) {
         this.disableFocus = disableFocus;
+        
+        // Si se deshabilita el focus y ya lo tenemos, abandonarlo
+        if (disableFocus && hasAudioFocus) {
+            audioManager.abandonAudioFocus(audioFocusChangeListener);
+            hasAudioFocus = false;
+        }
     }
 
     public void setFocusable(boolean focusable) {
         this.focusable = focusable;
         exoPlayerView.setFocusable(this.focusable);
+    }
+    
+    /**
+     * Solicita audio focus manualmente
+     * Útil cuando disableFocus está habilitado y se quiere control manual
+     * 
+     * @return true si se obtuvo el audio focus, false en caso contrario
+     */
+    public boolean manualRequestAudioFocus() {
+        if (hasAudioFocus) {
+            DebugLog.d(TAG, "manualRequestAudioFocus - Already has audio focus");
+            return true;
+        }
+        
+        DebugLog.d(TAG, "manualRequestAudioFocus - Requesting audio focus...");
+        int result = audioManager.requestAudioFocus(audioFocusChangeListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN);
+        
+        hasAudioFocus = (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED);
+        
+        if (hasAudioFocus) {
+            DebugLog.d(TAG, "manualRequestAudioFocus - Audio focus GRANTED");
+            eventEmitter.audioFocusChanged(true);
+        } else {
+            DebugLog.w(TAG, "manualRequestAudioFocus - Audio focus DENIED");
+        }
+        
+        return hasAudioFocus;
+    }
+    
+    /**
+     * Abandona el audio focus manualmente
+     */
+    public void manualAbandonAudioFocus() {
+        if (!hasAudioFocus) {
+            DebugLog.d(TAG, "manualAbandonAudioFocus - No audio focus to abandon");
+            return;
+        }
+        
+        DebugLog.d(TAG, "manualAbandonAudioFocus - Abandoning audio focus...");
+        audioManager.abandonAudioFocus(audioFocusChangeListener);
+        hasAudioFocus = false;
+        eventEmitter.audioFocusChanged(false);
+    }
+    
+    /**
+     * Obtiene el estado actual del audio focus
+     * 
+     * @return true si tiene audio focus, false en caso contrario
+     */
+    public boolean getHasAudioFocus() {
+        return hasAudioFocus;
     }
 
     public void setContentStartTime(int contentStartTime) {

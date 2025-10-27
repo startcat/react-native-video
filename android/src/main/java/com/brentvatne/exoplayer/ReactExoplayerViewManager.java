@@ -542,6 +542,9 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 		commands.put("activateSleepTimer", 1);
 		commands.put("cancelSleepTimer", 2);
 		commands.put("getSleepTimerStatus", 3);
+		commands.put("requestAudioFocus", 4);
+		commands.put("abandonAudioFocus", 5);
+		commands.put("getAudioFocusState", 6);
 		return commands;
 	}
 
@@ -568,6 +571,19 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 				Log.d(TAG, "🔔 [ViewManager] getSleepTimerStatus case matched (handled by module)");
 				// getSleepTimerStatus se maneja a través de VideoSleepTimerModule
 				// ya que receiveCommand no puede retornar Promises
+				break;
+			case "requestAudioFocus":
+				Log.d(TAG, "🔊 [ViewManager] requestAudioFocus case matched");
+				view.manualRequestAudioFocus();
+				break;
+			case "abandonAudioFocus":
+				Log.d(TAG, "🔊 [ViewManager] abandonAudioFocus case matched");
+				view.manualAbandonAudioFocus();
+				break;
+			case "getAudioFocusState":
+				Log.d(TAG, "🔊 [ViewManager] getAudioFocusState case matched (handled by module)");
+				// getAudioFocusState se maneja a través de VideoAudioFocusModule
+				// ya que receiveCommand no puede retornar valores directamente
 				break;
 			default:
 				Log.w(TAG, "🔔 [ViewManager] Unknown command: " + commandId);

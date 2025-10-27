@@ -34,6 +34,7 @@ public class ReactVideoPackage implements ReactPackage {
         modules.add(new DownloadsModule(reactContext));
         modules.add(new PlaylistControlModule(reactContext));
         modules.add(new VideoSleepTimerModule(reactContext));
+        modules.add(new VideoAudioFocusModule(reactContext));
 
         return modules;
     }
