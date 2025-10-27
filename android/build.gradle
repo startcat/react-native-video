@@ -238,6 +238,9 @@ dependencies {
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 
+    // Gson for JSON serialization (Android Auto MediaCache)
+    implementation 'com.google.code.gson:gson:2.10.1'
+
     // Youbora
     implementation 'com.npaw.plugin:plugin:7.2.14'
     implementation "com.npaw.plugin:plugin-media3-exoplayer:$media3_version-7.2.14"
