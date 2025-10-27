@@ -292,6 +292,17 @@ export interface PlaylistConfig {
 	 *   Útil para reproducción desde servicios JavaScript sin componentes visuales.
 	 */
 	coordinatedMode?: boolean;
+
+	/**
+	 * Deshabilitar solicitud automática de audio focus (default: false)
+	 *
+	 * - false: Solicita audio focus automáticamente al reproducir (comportamiento normal)
+	 * - true: NO solicita audio focus automáticamente. Útil para Android Auto/CarPlay
+	 *   donde el sistema ya gestiona el audio focus.
+	 *
+	 * Cuando está habilitado, puedes usar requestAudioFocus() manualmente.
+	 */
+	disableAudioFocus?: boolean;
 }
 
 /*
