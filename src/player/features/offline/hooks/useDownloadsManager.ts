@@ -205,15 +205,9 @@ export function useDownloadsManager(
 			})
 		);
 
-		// Eventos de cola
+		// Evento de eliminación (crítico para actualizar UI inmediatamente)
 		unsubscribers.push(
-			downloadsManager.subscribe("queue:item_added", () => {
-				updateState();
-			})
-		);
-
-		unsubscribers.push(
-			downloadsManager.subscribe("queue:item_removed", () => {
+			downloadsManager.subscribe(DownloadEventType.REMOVED, () => {
 				updateState();
 			})
 		);
@@ -227,6 +221,13 @@ export function useDownloadsManager(
 
 		unsubscribers.push(
 			downloadsManager.subscribe("storage:change", () => {
+				updateState();
+			})
+		);
+
+		// Eventos de perfil (crítico para actualizar filtrado cuando cambia perfil activo)
+		unsubscribers.push(
+			downloadsManager.subscribe("profile:profile_changed", () => {
 				updateState();
 			})
 		);
