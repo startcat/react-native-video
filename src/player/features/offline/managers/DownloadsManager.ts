@@ -790,6 +790,35 @@ export class DownloadsManager {
 		return downloads;
 	}
 
+	/*
+	 * Obtiene una descarga individual por ID
+	 * Aplica filtrado por perfil si está habilitado
+	 *
+	 */
+
+	public getDownload(downloadId: string): DownloadItem | null {
+		if (!this.state.isInitialized) {
+			return null;
+		}
+
+		// Obtener la descarga del QueueManager
+		const download = queueManager.getDownload(downloadId);
+
+		if (!download) {
+			return null;
+		}
+
+		// Aplicar filtrado por perfil si está habilitado
+		if (this.config.profileManagementEnabled) {
+			const shouldShow = profileManager.shouldShowContent(download);
+			if (!shouldShow) {
+				return null; // No mostrar si no pertenece al perfil activo
+			}
+		}
+
+		return download;
+	}
+
 	public getActiveDownloads(): DownloadItem[] {
 		return this.getDownloads().filter(
 			item =>
