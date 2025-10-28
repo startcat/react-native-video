@@ -2,18 +2,14 @@
 
 ## Visión General
 
-Este documento establece el contexto, reglas fundamentales y arquitectura para la integración de **Android Auto** en el reproductor de audio de react-native-video.
+## Objetivo
 
----
-
-## Objetivo Principal
-
-Permitir que aplicaciones que usen este reproductor de audio puedan **integrarse con Android Auto** de forma:
-
-- ✅ **Opcional**: No afecta a apps que no usen Android Auto
-- ✅ **No invasiva**: Mínimo impacto en código existente
-- ✅ **Coordinada**: JavaScript controla el reproductor, Android Auto es una UI adicional
-- ✅ **Sincronizada**: Cambios en Android Auto se reflejan en móvil y viceversa
+Integrar Android Auto con `react-native-video` de forma:
+- **Opcional:** No afecta apps que no lo usen
+- **Mínimamente invasiva:** Sin modificar lógica core
+- **Funcional con app cerrada:** Navegación Y reproducción sin JavaScript activo
+- **Reproducción nativa:** ExoPlayer directo con notificación multimedia
+- **Sincronizada**: Cambios en Android Auto se reflejan en móvil y viceversa
 
 ---
 
@@ -731,6 +727,55 @@ Pantalla móvil permanece apagada ✅
 
 ---
 
+## Solución Final Implementada
+
+### **Reproducción Nativa Completa** ✅
+
+**Decisión:** Reproducir directamente con ExoPlayer nativo, sin depender de React Native.
+
+**Componentes clave:**
+1. **GlobalPlayerManager** - Singleton con ExoPlayer compartido
+2. **MediaCache con URIs** - Almacena URIs para reproducción directa
+3. **VideoPlaybackService** - Foreground Service con notificación
+4. **Audio Focus** - Configurado automáticamente en ExoPlayer
+
+**Flujo completo (app cerrada):**
+```
+Usuario selecciona en Android Auto
+    ↓
+AndroidAutoMediaBrowserService.onAddMediaItems()
+    ↓
+MediaCache.getCachedItem(mediaId) → { mediaUri, title, artist }
+    ↓
+GlobalPlayerManager.playMedia(uri, metadata)
+    ↓
+ExoPlayer (main thread) → setMediaItem() + prepare() + play()
+    ↓
+GlobalPlayerManager.registerWithPlaybackService()
+    ↓
+VideoPlaybackService.registerPlayerForBackground()
+    ↓
+startForeground(notification)
+    ↓
+✅ Audio se reproduce
+✅ Notificación multimedia aparece
+✅ Android Auto muestra reproductor con controles
+✅ Sincronización perfecta (mismo MediaSession)
+```
+
+**Ventajas de esta solución:**
+- ✅ Funciona con app completamente cerrada
+- ✅ No requiere abrir React Native
+- ✅ Respuesta instantánea
+- ✅ Notificación multimedia rica
+- ✅ Audio focus manejado automáticamente
+- ✅ Sincronización perfecta Android Auto ↔ Notificación
+- ✅ Foreground Service mantiene playback vivo
+
+**Ver:** [native-playback.md](./native-playback.md) para código completo
+
+---
+
 ## Reglas de Implementación
 
 ### **DO's ✅**
@@ -739,17 +784,20 @@ Pantalla móvil permanece apagada ✅
    - Todo en `src/player/features/androidAuto/`
    - Fácil de eliminar si no se necesita
 
-2. **Usar MediaSession existente**
-   - NO crear MediaSession duplicada
-   - Reutilizar VideoPlaybackService
+2. **Usar GlobalPlayerManager**
+   - Singleton compartido
+   - Configurar audio attributes y focus
+   - Ejecutar en main thread
 
-3. **Eventos para comunicación**
-   - JS → Native: Métodos de módulo
-   - Native → JS: DeviceEventEmitter
+3. **Guardar URIs en MediaCache**
+   - Campo `mediaUri` en CachedMediaItem
+   - Persistente en disco
+   - Disponible sin JavaScript
 
-4. **Caché para arranque rápido**
-   - Respuesta inmediata desde caché
-   - Actualización en background
+4. **Registrar con VideoPlaybackService**
+   - Usar `registerPlayerForBackground()`
+   - Foreground Service con notificación
+   - MediaSession con controles
 
 5. **Sincronización automática**
    - MediaSession como fuente de verdad

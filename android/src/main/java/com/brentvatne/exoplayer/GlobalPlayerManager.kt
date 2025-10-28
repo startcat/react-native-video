@@ -44,8 +44,19 @@ object GlobalPlayerManager {
     fun getOrCreatePlayer(context: Context): ExoPlayer {
         if (globalPlayer == null) {
             Log.i(TAG, "Creating new global ExoPlayer instance")
-            globalPlayer = ExoPlayer.Builder(context.applicationContext).build()
+            
+            // Configurar audio attributes para Android Auto
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                .setUsage(C.USAGE_MEDIA)
+                .build()
+            
+            globalPlayer = ExoPlayer.Builder(context.applicationContext)
+                .setAudioAttributes(audioAttributes, true) // true = handle audio focus
+                .build()
+            
             currentContext = context.applicationContext
+            Log.i(TAG, "ExoPlayer created with audio focus handling")
         }
         return globalPlayer!!
     }
@@ -168,6 +179,46 @@ object GlobalPlayerManager {
     }
     
     /**
+     * Actualizar metadata del contenido actual
+     * Útil cuando se reproduce desde la app y queremos actualizar Android Auto
+     */
+    fun updateMetadata(title: String?, artist: String?, artworkUri: String?) {
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val player = globalPlayer ?: return@post
+                
+                // Actualizar metadata del MediaItem actual
+                val currentItem = player.currentMediaItem
+                if (currentItem != null) {
+                    val updatedMetadata = currentItem.mediaMetadata.buildUpon()
+                        .setTitle(title)
+                        .setArtist(artist)
+                        .setArtworkUri(artworkUri?.let { android.net.Uri.parse(it) })
+                        .build()
+                    
+                    val updatedItem = currentItem.buildUpon()
+                        .setMediaMetadata(updatedMetadata)
+                        .build()
+                    
+                    // Reemplazar item actual con metadata actualizada
+                    player.replaceMediaItem(player.currentMediaItemIndex, updatedItem)
+                    
+                    Log.i(TAG, "Metadata updated: $title - $artist")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update metadata", e)
+            }
+        }
+    }
+    
+    /**
+     * Verificar si el player está reproduciendo
+     */
+    fun isPlaying(): Boolean {
+        return globalPlayer?.isPlaying ?: false
+    }
+    
+    /**
      * Detener y liberar el player
      */
     fun release() {
@@ -187,12 +238,5 @@ object GlobalPlayerManager {
         // Liberar player
         globalPlayer?.release()
         globalPlayer = null
-    }
-    
-    /**
-     * Verificar si hay reproducción activa
-     */
-    fun isPlaying(): Boolean {
-        return globalPlayer?.isPlaying ?: false
     }
 }

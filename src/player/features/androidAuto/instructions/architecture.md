@@ -1,151 +1,194 @@
 # Android Auto - Arquitectura Detallada
 
+> **Ver también:** [native-playback.md](./native-playback.md) para detalles de implementación completa.
+
 ## Componentes del Sistema
 
-### **1. MediaBrowserService (Nativo)**
+### **1. AndroidAutoMediaBrowserService (Nativo)**
 - Interfaz entre Android Auto y el reproductor
 - Gestiona navegación de contenido
-- Retorna MediaSession compartida
-- Implementa caché para respuesta rápida
+- MediaSession conectado a GlobalPlayerManager
+- Reproduce directamente desde URIs en cache
 
-### **2. MediaBrowserCallback (Nativo)**
-- Maneja comandos de reproducción desde Android Auto
-- Notifica a JavaScript cuando usuario selecciona contenido
-- Delega comandos básicos (play/pause) a MediaSession
+### **2. GlobalPlayerManager (Nativo - Nuevo)**
+- Singleton con ExoPlayer compartido
+- Reproduce media directamente desde URI
+- Se registra con VideoPlaybackService
+- Maneja audio focus automáticamente
 
 ### **3. MediaCache (Nativo)**
-- Almacena biblioteca de medios en SharedPreferences
+- Almacena biblioteca de medios en disco (SharedPreferences)
+- Incluye URIs para reproducción directa
 - Respuesta instantánea sin esperar JavaScript
-- Actualización en background cuando JS está activo
+- Persistente entre reinicios
 
-### **4. AndroidAutoModule (Bridge)**
+### **4. VideoPlaybackService (Existente)**
+- Foreground Service con notificación multimedia
+- MediaSession con controles (Play/Pause/Seek)
+- Mantiene playback vivo en background
+- Integración con Now Playing
+
+### **5. AndroidAutoModule (Bridge)**
 - Expone métodos nativos a JavaScript
-- Emite eventos de Android Auto a JS
+- Emite eventos de Android Auto a JS (opcional)
 - Gestiona comunicación bidireccional
 
-### **5. AndroidAutoControl (JavaScript)**
+### **6. AndroidAutoControl (JavaScript)**
 - API simple para apps
-- Registra callbacks de eventos
-- Actualiza biblioteca y metadata
+- Configura biblioteca con URIs
+- Registra callbacks de eventos (opcional)
+- Actualiza metadata
 
 ---
 
 ## Flujos Principales
 
-### **Navegación en Android Auto**
+### **Navegación en Android Auto (App Cerrada)**
 ```
-Usuario → Android Auto → MediaBrowserService.onGetChildren()
+Usuario → Android Auto → onGetChildren()
     ↓
-Retorna caché inmediatamente
+MediaCache.getChildren() desde disco
     ↓
-En background: solicita actualización a JS
+Retorna items inmediatamente
     ↓
-JS responde con items frescos
-    ↓
-Actualiza caché y notifica cambios
+✅ Navegación funciona sin app
 ```
 
-### **Reproducción desde Android Auto**
+### **Reproducción desde Android Auto (App Cerrada)**
 ```
-Usuario selecciona item → onPlayFromMediaId()
+Usuario selecciona item → onAddMediaItems()
     ↓
-Emite evento a JavaScript
+MediaCache.getCachedItem(mediaId)
     ↓
-JS carga contenido en <Video>
+Obtiene: { mediaUri, title, artist, artworkUri }
     ↓
-ExoPlayer actualiza MediaSession
+GlobalPlayerManager.playMedia(uri, metadata)
     ↓
-Android Auto muestra Now Playing
+ExoPlayer.setMediaItem() + prepare() + play()
+    ↓
+GlobalPlayerManager.registerWithPlaybackService()
+    ↓
+VideoPlaybackService.registerPlayerForBackground()
+    ↓
+startForeground(notification)
+    ↓
+✅ Audio se reproduce
+✅ Notificación multimedia aparece
+✅ Android Auto muestra reproductor
 ```
 
-### **Sincronización Móvil ↔ Android Auto**
+### **Sincronización Automática**
 ```
-Usuario en móvil pulsa Play
+MediaSession de AndroidAutoMediaBrowserService
     ↓
-AudioFlavour → <Video> → ExoPlayer
+Conectado a GlobalPlayerManager.player
     ↓
-MediaSession detecta cambio
+Cambios en player → MediaSession → Android Auto
     ↓
-Android Auto actualiza UI automáticamente
+Controles en Android Auto → MediaSession → Player
+    ↓
+✅ Sincronización perfecta
 ```
 
 ---
 
 ## Integración con Código Existente
 
-### **VideoPlaybackService (Modificación Mínima)**
+### **VideoPlaybackService (Nuevo Método)**
 ```kotlin
-// Solo añadir getter estático
-companion object {
-    private var sharedMediaSession: MediaSession? = null
-    
-    fun getSharedMediaSession(): MediaSession? = sharedMediaSession
+// Método para registrar player sin Activity
+fun registerPlayerForBackground(player: ExoPlayer) {
+    registerPlayerInternal(player, null)
+}
+
+private fun registerPlayerInternal(player: ExoPlayer, from: Class<Activity>?) {
+    // Crear MediaSession
+    // Iniciar Foreground Service
+    // Mostrar notificación multimedia
 }
 ```
 
-### **AudioFlavour (Hook Opcional)**
+### **GlobalPlayerManager (Nuevo)**
+```kotlin
+object GlobalPlayerManager {
+    fun getOrCreatePlayer(context: Context): ExoPlayer
+    fun playMedia(context, uri, title, artist, artworkUri)
+    fun pause()
+    fun play()
+    fun release()
+}
+```
+
+### **AndroidAutoProvider (JavaScript - Opcional)**
 ```typescript
-// Hook opcional que no afecta funcionalidad base
-useAndroidAuto({
-    enabled: props.androidAuto?.enabled,
-    onPlayFromMediaId: (mediaId) => loadContent(mediaId)
-});
+// Provider global que configura Android Auto
+<AndroidAutoProvider>
+  <App />
+</AndroidAutoProvider>
+
+// Configura biblioteca con URIs
+AndroidAutoControl.setMediaLibrary([
+  {
+    id: 'podcast_1',
+    title: 'Episodio 1',
+    uri: 'https://example.com/audio.mp3', // ← IMPORTANTE
+    artist: 'Host',
+    artworkUri: 'https://example.com/image.jpg',
+    playable: true
+  }
+]);
 ```
 
 ---
 
-## Arranque con App Cerrada
+## Reproducción Nativa Completa
 
-### **Estrategia: Navegación + Abrir App (Opción A)**
+### **Estrategia Final: Reproducción Nativa (Implementada)**
 
-**Limitación:** El componente `<Video>` requiere renderizado React. No funciona en headless mode.
-
-**Solución:** Separar navegación (sin app) de reproducción (con app).
+**Solución:** Reproducción completamente nativa usando ExoPlayer directamente.
 
 ### **Navegación sin App:**
 ```kotlin
 override fun onGetChildren(...) {
-    // ✅ Retorna caché nativo inmediatamente
+    // ✅ Retorna caché desde disco inmediatamente
     val cached = mediaCache.getChildren(parentId)
-    
-    // Si app está activa, actualizar en background
-    if (isAppActive()) {
-        requestFreshDataFromJS(parentId)
-    }
-    
     return Futures.immediateFuture(cached)
 }
 ```
 
-### **Reproducción Abre App:**
+### **Reproducción Nativa:**
 ```kotlin
-override fun onPlayFromMediaId(...) {
-    if (isAppActive()) {
-        // App activa: notificar a JS
-        sendEventToJS("onPlayFromMediaId", mediaId)
-    } else {
-        // App cerrada: abrir en background
-        openAppToPlay(mediaId)
+override fun onAddMediaItems(...) {
+    val cachedItem = mediaCache.getCachedItem(mediaId)
+    
+    if (cachedItem?.mediaUri != null) {
+        // ✅ Reproducir directamente desde cache
+        GlobalPlayerManager.playMedia(
+            context = this@AndroidAutoMediaBrowserService,
+            uri = cachedItem.mediaUri,
+            title = cachedItem.title,
+            artist = cachedItem.artist,
+            artworkUri = cachedItem.artworkUri
+        )
+        
+        // Opcional: notificar a JavaScript si está activo
+        if (module?.isJavaScriptReady() == true) {
+            notifyJavaScriptPlayRequest(mediaId)
+        }
     }
-}
-
-private fun openAppToPlay(mediaId: String) {
-    val intent = Intent(this, MainActivity::class.java).apply {
-        flags = Intent.FLAG_ACTIVITY_NEW_TASK or 
-                Intent.FLAG_ACTIVITY_NO_ANIMATION
-        putExtra("ANDROID_AUTO_PLAY_MEDIA_ID", mediaId)
-        putExtra("ANDROID_AUTO_BACKGROUND_START", true)
-    }
-    startActivity(intent)
+    
+    return Futures.immediateFuture(mediaItems)
 }
 ```
 
 **Ventajas:**
 - ✅ Navegación instantánea sin app
-- ✅ Reproducción usa arquitectura existente
-- ✅ Funciona con pantalla apagada
-- ✅ Sin duplicación de lógica
-- ✅ UX estándar de Android Auto
+- ✅ Reproducción sin abrir React Native
+- ✅ Funciona con app completamente cerrada
+- ✅ Notificación multimedia rica
+- ✅ Sincronización perfecta Android Auto ↔ Notificación
+- ✅ Audio focus manejado automáticamente
+- ✅ Foreground Service mantiene playback vivo
 
 ---
 
@@ -153,18 +196,23 @@ private fun openAppToPlay(mediaId: String) {
 
 ### **✅ DO's**
 - Aislar código en `androidAuto/`
-- Reutilizar MediaSession existente
-- Usar eventos para comunicación
-- Implementar caché nativo
+- Usar GlobalPlayerManager para reproducción
+- Guardar URIs en MediaCache
+- Configurar audio focus en ExoPlayer
+- Registrar con VideoPlaybackService
 - Hacer opt-in, no obligatorio
 
 ### **❌ DON'Ts**
-- NO modificar lógica core
-- NO duplicar estado
-- NO gestionar reproducción en nativo
+- NO modificar lógica core del player
+- NO duplicar estado de reproducción
 - NO asumir JS siempre activo
 - NO hacer obligatorio
+- NO olvidar audio attributes
 
 ---
 
-Ver `implementation-steps.md` para pasos detallados de implementación.
+## Documentos Relacionados
+
+- **[native-playback.md](./native-playback.md)** - Implementación completa con código
+- **[implementation-steps.md](./implementation-steps.md)** - Pasos de implementación
+- **[context.md](./context.md)** - Contexto y decisiones de diseño

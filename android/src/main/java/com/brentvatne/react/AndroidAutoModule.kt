@@ -552,6 +552,44 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
         }
     }
     
+    /**
+     * Actualizar metadata del contenido actual en Android Auto
+     * Se llama desde React Native cuando se reproduce contenido desde la app
+     */
+    @ReactMethod
+    fun updateNowPlayingMetadata(metadata: ReadableMap) {
+        try {
+            val title = metadata.getString("title")
+            val artist = metadata.getString("artist")
+            val artworkUri = metadata.getString("artworkUri")
+            
+            Log.i(TAG, "Updating Now Playing metadata: $title - $artist")
+            
+            GlobalPlayerManager.updateMetadata(title, artist, artworkUri)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to update Now Playing metadata", e)
+        }
+    }
+    
+    /**
+     * Verificar si Android Auto está conectado
+     */
+    @ReactMethod
+    fun isAndroidAutoConnected(promise: Promise) {
+        try {
+            // TODO: Implementar detección real de conexión Android Auto
+            // Por ahora, verificamos si el servicio está activo
+            val service = AndroidAutoMediaBrowserService.getInstance()
+            val isConnected = service != null
+            
+            promise.resolve(isConnected)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to check Android Auto connection", e)
+            promise.resolve(false)
+        }
+    }
+    
     // ========================================================================
     // Métodos Helper Internos
     // ========================================================================

@@ -339,40 +339,6 @@ export class AndroidAutoControl {
     }
     
     /**
-     * Actualizar metadata del contenido actual
-     * 
-     * Actualiza la información mostrada en Android Auto durante reproducción.
-     * Se sincroniza automáticamente con MediaSession.
-     * 
-     * @param metadata Metadata del contenido
-     * 
-     * @example
-     * ```typescript
-     * AndroidAutoControl.updateNowPlaying({
-     *     title: 'Episode 1',
-     *     artist: 'Podcast Name',
-     *     artworkUri: 'https://...',
-     *     duration: 3600,
-     *     position: 120
-     * });
-     * ```
-     */
-    static updateNowPlaying(metadata: MediaMetadata): void {
-        this.checkAvailability();
-        
-        if (!this.enabled) {
-            console.warn('[AndroidAuto] Not enabled, ignoring updateNowPlaying');
-            return;
-        }
-        
-        try {
-            AndroidAutoModule.updateNowPlaying(metadata);
-        } catch (error) {
-            console.error('[AndroidAuto] Failed to update now playing:', error);
-        }
-    }
-    
-    /**
      * Registrar callback para navegación
      * 
      * Llamado cuando Android Auto solicita contenido de un parentId.
@@ -492,19 +458,85 @@ export class AndroidAutoControl {
     }
     
     /**
-     * Verificar si Android Auto está habilitado
+     * Verificar si está habilitado
      * 
-     * @returns true si está habilitado
+     * @returns true si Android Auto está habilitado
      * 
      * @example
      * ```typescript
      * if (AndroidAutoControl.isEnabled()) {
-     *     console.log('Android Auto is enabled');
+     *     console.log('Android Auto is active');
      * }
      * ```
      */
     static isEnabled(): boolean {
         return this.enabled;
+    }
+    
+    /**
+     * Actualizar metadata del contenido actual en Android Auto
+     * 
+     * Se usa cuando se reproduce contenido desde la app para sincronizar
+     * el Now Playing de Android Auto con la metadata actual.
+     * 
+     * @param metadata Metadata del contenido actual
+     * 
+     * @example
+     * ```typescript
+     * AndroidAutoControl.updateNowPlaying({
+     *     title: 'Episodio 1',
+     *     artist: 'Podcast Host',
+     *     artworkUri: 'https://example.com/image.jpg'
+     * });
+     * ```
+     */
+    static updateNowPlaying(metadata: MediaMetadata): void {
+        this.checkAvailability();
+        
+        if (!this.enabled) {
+            console.warn('[AndroidAuto] Not enabled, skipping metadata update');
+            return;
+        }
+        
+        try {
+            AndroidAutoModule.updateNowPlayingMetadata({
+                title: metadata.title || '',
+                artist: metadata.artist || '',
+                artworkUri: metadata.artworkUri || ''
+            });
+            
+            console.log('[AndroidAuto] Now Playing metadata updated:', metadata.title);
+        } catch (error) {
+            console.error('[AndroidAuto] Failed to update Now Playing:', error);
+        }
+    }
+    
+    /**
+     * Verificar si Android Auto está conectado actualmente
+     * 
+     * @returns Promise que resuelve a true si Android Auto está conectado
+     * 
+     * @example
+     * ```typescript
+     * const connected = await AndroidAutoControl.isAndroidAutoConnected();
+     * if (connected) {
+     *     console.log('Android Auto is connected');
+     * }
+     * ```
+     */
+    static async isAndroidAutoConnected(): Promise<boolean> {
+        this.checkAvailability();
+        
+        if (!this.enabled) {
+            return false;
+        }
+        
+        try {
+            return await AndroidAutoModule.isAndroidAutoConnected();
+        } catch (error) {
+            console.error('[AndroidAuto] Failed to check connection:', error);
+            return false;
+        }
     }
     
     /**
