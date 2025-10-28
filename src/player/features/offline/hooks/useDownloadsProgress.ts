@@ -3,10 +3,10 @@
  *
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlayerError } from "../../../core/errors";
 import { queueManager } from "../managers/QueueManager";
-import { DownloadEventType, DownloadItemMetadata, DownloadStates, DownloadType } from "../types";
+import { DownloadItemMetadata, DownloadStates, DownloadType } from "../types";
 import { calculateRemainingTime, generateDownloadIdFromUri, isValidUri } from "../utils";
 
 interface UseDownloadsProgressReturn {
@@ -61,20 +61,20 @@ interface UseDownloadsProgressReturn {
 export function useDownloadsProgress(
 	downloadIdOrUri: string | null | undefined
 ): UseDownloadsProgressReturn {
-	// Determinar si es downloadId directo o URI
-	const isUri = downloadIdOrUri ? isValidUri(downloadIdOrUri) : false;
-	const downloadId = downloadIdOrUri
-		? isUri
-			? generateDownloadIdFromUri(downloadIdOrUri)
-			: downloadIdOrUri
-		: "";
+	// Memoizar cálculo de downloadId para evitar recalcular en cada render
+	const downloadId = useMemo(() => {
+		if (!downloadIdOrUri) return "";
+		const isUri = isValidUri(downloadIdOrUri);
+		return isUri ? generateDownloadIdFromUri(downloadIdOrUri) : downloadIdOrUri;
+	}, [downloadIdOrUri]);
 
 	// Estado principal del hook
 	const [hookState, setHookState] = useState<UseDownloadsProgressReturn>(() =>
 		createInitialState()
 	);
 
-	// Función para obtener el estado actual del download
+	// Memoizar getCurrentState para evitar recrear la función en cada render
+	// Solo se recrea cuando downloadId cambia
 	const getCurrentState = useCallback((): UseDownloadsProgressReturn => {
 		if (!downloadId) {
 			return createInitialState();
@@ -191,61 +191,19 @@ export function useDownloadsProgress(
 		setHookState(newState);
 	}, [getCurrentState]);
 
-	// Suscribirse a eventos de descarga
+	// Suscribirse a eventos de descarga (OPTIMIZADO)
+	// Usa subscribeToDownload que filtra eventos por downloadId específico
 	useEffect(() => {
 		if (!downloadId) return;
 
-		const handleDownloadEvent = (eventData: any) => {
-			// Solo procesar eventos relacionados con nuestro downloadId
-			if (eventData.downloadId === downloadId) {
-				setHookState(getCurrentState());
-			}
-		};
+		// Una sola suscripción filtrada en lugar de 8 suscripciones
+		// Esto reduce drásticamente el número de callbacks ejecutados
+		const unsubscribe = queueManager.subscribeToDownload(downloadId, () => {
+			// Solo se ejecuta cuando HAY cambios en ESTE downloadId específico
+			setHookState(getCurrentState());
+		});
 
-		// Suscribirse a todos los eventos relevantes
-		const unsubscribeProgress = queueManager.subscribe(
-			DownloadEventType.PROGRESS,
-			handleDownloadEvent
-		);
-		const unsubscribeStarted = queueManager.subscribe(
-			DownloadEventType.STARTED,
-			handleDownloadEvent
-		);
-		const unsubscribeCompleted = queueManager.subscribe(
-			DownloadEventType.COMPLETED,
-			handleDownloadEvent
-		);
-		const unsubscribeFailed = queueManager.subscribe(
-			DownloadEventType.FAILED,
-			handleDownloadEvent
-		);
-		const unsubscribePaused = queueManager.subscribe(
-			DownloadEventType.PAUSED,
-			handleDownloadEvent
-		);
-		const unsubscribeResumed = queueManager.subscribe(
-			DownloadEventType.RESUMED,
-			handleDownloadEvent
-		);
-		const unsubscribeQueued = queueManager.subscribe(
-			DownloadEventType.QUEUED,
-			handleDownloadEvent
-		);
-		const unsubscribeRemoved = queueManager.subscribe(
-			DownloadEventType.REMOVED,
-			handleDownloadEvent
-		);
-
-		return () => {
-			unsubscribeProgress();
-			unsubscribeStarted();
-			unsubscribeCompleted();
-			unsubscribeFailed();
-			unsubscribePaused();
-			unsubscribeResumed();
-			unsubscribeQueued();
-			unsubscribeRemoved();
-		};
+		return unsubscribe;
 	}, [downloadId, getCurrentState]);
 
 	return hookState;

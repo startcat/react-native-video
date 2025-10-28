@@ -772,6 +772,51 @@ export class QueueManager {
 	}
 
 	/*
+	 * Suscribe a eventos de un download específico (OPTIMIZADO)
+	 * Solo emite eventos cuando el downloadId coincide
+	 *
+	 * @param downloadId - ID del download a monitorear
+	 * @param callback - Función a ejecutar cuando hay cambios
+	 * @returns Función para cancelar la suscripción
+	 */
+
+	public subscribeToDownload(
+		downloadId: string,
+		callback: (data: any) => void
+	): () => void {
+		// Wrapper que filtra eventos por downloadId
+		const filteredCallback = (eventData: any) => {
+			// Solo ejecutar callback si el evento es para este downloadId
+			if (eventData?.downloadId === downloadId || eventData?.taskId === downloadId) {
+				callback(eventData);
+			}
+		};
+
+		// Suscribirse a todos los eventos relevantes con el filtro
+		const events: DownloadEventType[] = [
+			DownloadEventType.PROGRESS,
+			DownloadEventType.STARTED,
+			DownloadEventType.COMPLETED,
+			DownloadEventType.FAILED,
+			DownloadEventType.PAUSED,
+			DownloadEventType.RESUMED,
+			DownloadEventType.QUEUED,
+			DownloadEventType.REMOVED,
+		];
+
+		events.forEach(event => {
+			this.eventEmitter.on(event, filteredCallback);
+		});
+
+		// Retornar función de cleanup
+		return () => {
+			events.forEach(event => {
+				this.eventEmitter.off(event, filteredCallback);
+			});
+		};
+	}
+
+	/*
 	 * Inicia el procesamiento de descargas (método público)
 	 *
 	 */
