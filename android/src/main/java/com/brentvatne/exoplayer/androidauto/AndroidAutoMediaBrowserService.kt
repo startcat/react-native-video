@@ -61,6 +61,7 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
     }
     
     private var mediaLibrarySession: MediaLibrarySession? = null
+    private var player: Player? = null
     private var androidAutoModule: AndroidAutoModule? = null
     private var mediaCache: MediaCache? = null
     private var appLaunchAttempted = false
@@ -86,7 +87,7 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
             Log.d(TAG, "Using GlobalPlayerManager player for Android Auto session")
             
             // Crear sesión de media
-            session = MediaLibrarySession.Builder(this, player, MediaLibrarySessionCallback())
+            mediaLibrarySession = MediaLibrarySession.Builder(this, player!!, MediaLibrarySessionCallback())
                 .build()
             
             Log.i(TAG, "MediaBrowserService initialized successfully")
