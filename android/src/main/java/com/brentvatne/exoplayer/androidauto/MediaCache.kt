@@ -35,11 +35,17 @@ class MediaCache private constructor(private val context: Context) {
         
         /**
          * Obtener instancia singleton
+         * 
+         * IMPORTANTE: Inicializa automáticamente el caché desde disco
+         * para que el servicio headless tenga contenido disponible inmediatamente.
          */
         fun getInstance(context: Context): MediaCache {
             return instance ?: synchronized(this) {
                 instance ?: MediaCache(context.applicationContext).also { 
-                    instance = it 
+                    instance = it
+                    // Inicializar automáticamente al crear la instancia
+                    it.initialize()
+                    Log.i(TAG, "MediaCache instance created and auto-initialized")
                 }
             }
         }
@@ -63,6 +69,10 @@ class MediaCache private constructor(private val context: Context) {
     /**
      * Inicializar caché
      * Carga datos desde disco a memoria
+     * 
+     * NOTA: La inicialización se ejecuta automáticamente en getInstance()
+     * para que el servicio headless tenga contenido disponible inmediatamente.
+     * Este método es público para permitir reinicialización manual si es necesario.
      */
     fun initialize() {
         if (initialized) {
@@ -87,10 +97,27 @@ class MediaCache private constructor(private val context: Context) {
      */
     fun getChildren(parentId: String): List<MediaItem> {
         val cached = memoryCache[parentId] ?: emptyList()
-        val mediaItems = cached.map { it.toMediaItem() }
-        
-        Log.d(TAG, "getChildren($parentId): ${mediaItems.size} items")
-        return mediaItems
+        Log.d(TAG, "getChildren($parentId): ${cached.size} items")
+        return cached.map { it.toMediaItem() }
+    }
+    
+    /**
+     * Obtener un item cacheado específico por su mediaId
+     * 
+     * @param mediaId ID del media
+     * @return CachedMediaItem o null si no existe
+     */
+    fun getCachedItem(mediaId: String): CachedMediaItem? {
+        // Buscar en todos los nodos padre
+        for (children in memoryCache.values) {
+            val item = children.find { it.mediaId == mediaId }
+            if (item != null) {
+                Log.d(TAG, "getCachedItem($mediaId): found")
+                return item
+            }
+        }
+        Log.w(TAG, "getCachedItem($mediaId): not found")
+        return null
     }
     
     /**
@@ -147,6 +174,15 @@ class MediaCache private constructor(private val context: Context) {
             }
         }
         return false
+    }
+    
+    /**
+     * Verificar si el caché tiene contenido
+     * 
+     * @return true si hay al menos un nodo con items
+     */
+    fun hasContent(): Boolean {
+        return memoryCache.isNotEmpty()
     }
     
     /**
@@ -294,6 +330,7 @@ class MediaCache private constructor(private val context: Context) {
         val artist: String?,
         val album: String?,
         val artworkUri: String?,
+        val mediaUri: String?,  // URI del media para reproducción
         val isBrowsable: Boolean,
         val isPlayable: Boolean,
         val parentId: String?
@@ -330,6 +367,7 @@ class MediaCache private constructor(private val context: Context) {
                     artist = item.mediaMetadata.artist?.toString(),
                     album = item.mediaMetadata.albumTitle?.toString(),
                     artworkUri = item.mediaMetadata.artworkUri?.toString(),
+                    mediaUri = item.localConfiguration?.uri?.toString(), // URI del media
                     isBrowsable = item.mediaMetadata.isBrowsable ?: false,
                     isPlayable = item.mediaMetadata.isPlayable ?: false,
                     parentId = null // Se infiere del parentId en updateChildren

@@ -554,4 +554,28 @@ export class AndroidAutoControl {
             throw error;
         }
     }
+    
+    /**
+     * Marcar JavaScript como no listo
+     * 
+     * Indica que los componentes de React se han desmontado y los callbacks
+     * ya no están disponibles. Llamar en cleanup de providers.
+     * 
+     * @example
+     * ```typescript
+     * // En cleanup de AndroidAutoProvider
+     * await AndroidAutoControl.setJavaScriptNotReady();
+     * ```
+     */
+    static async setJavaScriptNotReady(): Promise<void> {
+        this.checkAvailability();
+        
+        try {
+            await AndroidAutoModule.setJavaScriptNotReady();
+            console.log('[AndroidAuto] JavaScript marked as NOT ready');
+        } catch (error) {
+            console.error('[AndroidAuto] Failed to set JS not ready:', error);
+            throw error;
+        }
+    }
 }

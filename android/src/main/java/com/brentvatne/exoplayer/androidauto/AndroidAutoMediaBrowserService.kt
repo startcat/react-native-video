@@ -16,6 +16,7 @@ import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
+import com.brentvatne.exoplayer.GlobalPlayerManager
 import com.brentvatne.react.AndroidAutoModule
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
@@ -26,18 +27,22 @@ import com.google.common.util.concurrent.ListenableFuture
 /**
  * AndroidAutoMediaBrowserService
  * 
- * Servicio que permite a Android Auto navegar y controlar la reproducción de medios.
+ * Servicio headless que permite a Android Auto navegar y controlar la reproducción de medios.
  * 
  * Arquitectura:
  * - Usa MediaCache para responder instantáneamente con app cerrada
+ * - MediaCache se carga AUTOMÁTICAMENTE desde disco al iniciar el servicio
  * - Detecta si app está activa o cerrada
- * - Si app cerrada: abre app en background para reproducción
+ * - Si app cerrada: abre app en background AUTOMÁTICAMENTE al solicitar contenido
  * - Si app activa: envía eventos a JavaScript para coordinación
  * 
  * Flujos:
- * 1. Navegación: Android Auto solicita contenido → MediaCache responde
- * 2. Reproducción (app cerrada): Android Auto solicita play → Abre app → JS controla player
- * 3. Reproducción (app activa): Android Auto solicita play → Evento a JS → JS controla player
+ * 1. Inicio del servicio: MediaCache se carga automáticamente desde SharedPreferences
+ * 2. Navegación: Android Auto solicita contenido → MediaCache responde instantáneamente
+ * 3. Auto-lanzamiento: Al solicitar contenido con app cerrada → Abre app en background automáticamente
+ * 4. Reproducción (app cerrada): Android Auto solicita play → App ya está lista → JS controla player
+ * 5. Reproducción (app activa): Android Auto solicita play → Evento a JS → JS controla player
+ * 6. Actualización: JavaScript puede actualizar MediaCache vía AndroidAutoModule
  */
 class AndroidAutoMediaBrowserService : MediaLibraryService() {
     
@@ -59,6 +64,7 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
     private var androidAutoModule: AndroidAutoModule? = null
     private var mediaCache: MediaCache? = null
     private var appLaunchAttempted = false
+    private var isConnected = false
     
     override fun onCreate() {
         super.onCreate()
@@ -70,13 +76,17 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
             // Crear notificación vacía para evitar "Context.startForegroundService() did not call Service.startForeground()"
             startAndStopEmptyNotificationToAvoidANR()
             
-            // Inicializar MediaCache
-            mediaCache = MediaCache.getInstance(applicationContext)
-            mediaCache?.initialize()
+            // Cargar MediaCache automáticamente desde disco
+            mediaCache = MediaCache.getInstance(this)
+            Log.d(TAG, "MediaCache loaded")
             
-            // Crear MediaLibrarySession simple (sin player real)
-            // El player real está en JavaScript/React Native
-            mediaLibrarySession = MediaLibrarySession.Builder(this, createDummyPlayer(), MediaLibrarySessionCallback())
+            // Usar el player global en lugar de crear uno dummy
+            // Esto conecta Android Auto con el playback real
+            player = GlobalPlayerManager.getOrCreatePlayer(this)
+            Log.d(TAG, "Using GlobalPlayerManager player for Android Auto session")
+            
+            // Crear sesión de media
+            session = MediaLibrarySession.Builder(this, player, MediaLibrarySessionCallback())
                 .build()
             
             Log.i(TAG, "MediaBrowserService initialized successfully")
@@ -174,6 +184,13 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
         ): MediaSession.ConnectionResult {
             Log.d(TAG, "onConnect: ${controller.packageName}")
             
+            // Marcar como conectado si es Android Auto
+            if (controller.packageName.contains("gearhead") || 
+                controller.packageName.contains("projection")) {
+                isConnected = true
+                Log.i(TAG, "Android Auto connected")
+            }
+            
             val isEnabled = getAndroidAutoModule()?.isAndroidAutoEnabled() ?: false
             
             if (isEnabled) {
@@ -188,6 +205,10 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
         
         /**
          * Android Auto solicita la raíz de navegación
+         * 
+         * Siempre devolvemos root con contenido si MediaCache tiene datos.
+         * No verificamos si AndroidAutoModule está habilitado porque MediaCache
+         * funciona independientemente de JavaScript.
          */
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
@@ -196,9 +217,11 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
         ): ListenableFuture<LibraryResult<MediaItem>> {
             Log.d(TAG, "onGetLibraryRoot")
             
-            val isEnabled = getAndroidAutoModule()?.isAndroidAutoEnabled() ?: false
+            // Verificar si MediaCache tiene contenido
+            val hasContent = mediaCache?.hasContent() ?: false
             
-            return if (isEnabled) {
+            return if (hasContent) {
+                Log.i(TAG, "MediaCache has content, returning root")
                 val rootItem = MediaItem.Builder()
                     .setMediaId(ROOT_ID)
                     .setMediaMetadata(
@@ -211,6 +234,7 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
                 
                 Futures.immediateFuture(LibraryResult.ofItem(rootItem, params))
             } else {
+                Log.w(TAG, "MediaCache empty, returning empty root")
                 val emptyRoot = MediaItem.Builder()
                     .setMediaId(EMPTY_ROOT_ID)
                     .setMediaMetadata(
@@ -227,6 +251,10 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
         
         /**
          * Android Auto solicita items hijos de un nodo
+         * 
+         * IMPORTANTE: Cuando Android Auto solicita contenido por primera vez,
+         * lanzamos la app automáticamente en background para que JavaScript
+         * se inicialice y esté listo para reproducir contenido.
          */
         override fun onGetChildren(
             session: MediaLibrarySession,
@@ -243,6 +271,20 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
                 val children = cache?.getChildren(parentId) ?: emptyList()
                 
                 Log.i(TAG, "Returning ${children.size} children for $parentId")
+                
+                // Lanzar app en background si JavaScript no está listo
+                // Esto asegura que JavaScript esté listo cuando el usuario seleccione contenido
+                val module = getAndroidAutoModule()
+                val isJsReady = module?.isJavaScriptReady() ?: false
+                
+                Log.d(TAG, "Checking JS status - Module: ${module != null}, JS Ready: $isJsReady")
+                
+                if (!isJsReady) {
+                    Log.i(TAG, "JavaScript not ready, launching app in background")
+                    launchAppInBackground()
+                } else {
+                    Log.d(TAG, "JavaScript is ready, skipping launch")
+                }
                 
                 // Notificar a JavaScript si está listo
                 notifyJavaScriptBrowseRequest(parentId)
@@ -308,24 +350,49 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
                     val mediaId = mediaItem.mediaId
                     Log.d(TAG, "Processing mediaId: $mediaId")
                     
-                    val module = getAndroidAutoModule()
-                    if (module != null) {
-                        // Verificar si app está activa
-                        val isAppActive = module.isAppActive()
-                        Log.d(TAG, "App active: $isAppActive")
+                    // Intentar reproducir directamente si tenemos el URI en cache
+                    val cache = getMediaCache()
+                    val cachedItem = cache?.getCachedItem(mediaId)
+                    
+                    if (cachedItem != null && cachedItem.mediaUri != null) {
+                        // Tenemos el URI, reproducir directamente
+                        Log.i(TAG, "Playing directly from cache: ${cachedItem.mediaUri}")
                         
-                        if (!isAppActive) {
-                            // App cerrada: abrir en background
-                            Log.i(TAG, "App not active, opening in background")
-                            openAppInBackground()
+                        GlobalPlayerManager.playMedia(
+                            context = this@AndroidAutoMediaBrowserService,
+                            uri = cachedItem.mediaUri,
+                            title = cachedItem.title,
+                            artist = cachedItem.artist,
+                            artworkUri = cachedItem.artworkUri
+                        )
+                        
+                        // También notificar a JavaScript si está listo
+                        val module = getAndroidAutoModule()
+                        if (module?.isJavaScriptReady() == true) {
+                            notifyJavaScriptPlayRequest(mediaId)
+                        }
+                    } else {
+                        // No tenemos URI, usar flujo JavaScript
+                        Log.w(TAG, "No URI in cache, using JavaScript flow")
+                        
+                        val module = getAndroidAutoModule()
+                        val isJsReady = module?.isJavaScriptReady() ?: false
+                        
+                        Log.d(TAG, "Module available: ${module != null}, JS ready: $isJsReady")
+                        
+                        if (!isJsReady) {
+                            // JavaScript no está listo: lanzar app
+                            Log.i(TAG, "JavaScript not ready, ensuring app is launched")
+                            launchAppInBackground()
                             
-                            // Esperar un momento para que la app se inicialice
+                            // Esperar a que JavaScript se inicialice
                             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                Log.d(TAG, "Sending delayed play event for: $mediaId")
                                 notifyJavaScriptPlayRequest(mediaId)
-                            }, 1000)
+                            }, 2500)
                         } else {
-                            // App activa: enviar evento inmediatamente
-                            Log.i(TAG, "App active, sending play event")
+                            // JavaScript listo: enviar evento inmediatamente
+                            Log.i(TAG, "JavaScript ready, sending play event immediately")
                             notifyJavaScriptPlayRequest(mediaId)
                         }
                     }
@@ -385,10 +452,57 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
     }
     
     /**
+     * Notificar que Android Auto ha sido habilitado
+     * 
+     * Cuando la app se habilita, notificamos a Android Auto para que
+     * vuelva a solicitar el root y vea el contenido.
+     */
+    fun onAndroidAutoEnabled() {
+        Log.i(TAG, "Android Auto enabled, notifying root change")
+        
+        try {
+            // Notificar cambio en el root para forzar refresh
+            mediaLibrarySession?.notifyChildrenChanged(ROOT_ID, 0, null)
+            Log.d(TAG, "Root change notification sent")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to notify root change: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Notificar cambios en los hijos de un nodo
+     * 
+     * Llamado por AndroidAutoModule cuando JavaScript actualiza el contenido.
+     * Esto hace que Android Auto actualice su vista automáticamente.
+     * 
+     * @param parentId ID del nodo padre que cambió
+     */
+    fun notifyChildrenChanged(parentId: String) {
+        try {
+            mediaLibrarySession?.notifyChildrenChanged(parentId, 0, null)
+            Log.d(TAG, "Children changed notification sent for: $parentId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to notify children changed for $parentId", e)
+        }
+    }
+    
+    /**
+     * Verificar si Android Auto está conectado
+     * 
+     * @return true si hay al menos una conexión activa de Android Auto
+     */
+    fun isAndroidAutoConnected(): Boolean {
+        return isConnected
+    }
+    
+    /**
      * Abrir la app en background si no está activa
      * 
      * Cuando Android Auto se conecta con la app cerrada, necesitamos
      * abrir la app para que JavaScript se inicialice y habilite Android Auto.
+     * 
+     * Usamos startActivity con FLAG_ACTIVITY_NEW_TASK para iniciar la app.
+     * React Native se inicializará automáticamente y habilitará Android Auto.
      */
     private fun launchAppInBackground() {
         if (appLaunchAttempted) {
@@ -403,13 +517,23 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
             val launchIntent = packageManager.getLaunchIntentForPackage(applicationContext.packageName)
             
             if (launchIntent != null) {
+                // Flags necesarios para abrir la app desde un servicio
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                
+                // Añadir extra para indicar que viene de Android Auto
+                launchIntent.putExtra("LAUNCHED_FROM_ANDROID_AUTO", true)
                 
                 Log.i(TAG, "Launching app in background...")
                 applicationContext.startActivity(launchIntent)
                 
-                Log.i(TAG, "App launched successfully")
+                Log.i(TAG, "App launch intent sent")
+                
+                // Dar tiempo a la app para inicializarse
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    Log.d(TAG, "Waiting for app initialization...")
+                }, 2000)
             } else {
                 Log.e(TAG, "Could not get launch intent for app")
             }
@@ -419,30 +543,12 @@ class AndroidAutoMediaBrowserService : MediaLibraryService() {
     }
     
     /**
-     * Abrir app en background
+     * Abrir app en background (alias de launchAppInBackground)
      * 
-     * Abre la actividad principal de la app sin traerla al frente.
-     * Esto permite que JavaScript se inicialice y controle el player.
+     * Mantiene compatibilidad con código existente.
      */
     private fun openAppInBackground() {
-        try {
-            val packageName = applicationContext.packageName
-            val intent = applicationContext.packageManager
-                .getLaunchIntentForPackage(packageName)
-            
-            if (intent != null) {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                // No usar FLAG_ACTIVITY_BROUGHT_TO_FRONT para mantener en background
-                
-                applicationContext.startActivity(intent)
-                Log.i(TAG, "App opened in background")
-            } else {
-                Log.e(TAG, "Could not get launch intent for package: $packageName")
-            }
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to open app in background", e)
-        }
+        launchAppInBackground()
     }
     
     /**
