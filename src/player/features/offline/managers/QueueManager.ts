@@ -289,7 +289,10 @@ export class QueueManager {
 					// Llamar al módulo nativo para eliminar la descarga
 					// Esto debería limpiar tanto la base de datos interna como los archivos físicos
 					await nativeManager.removeDownload(downloadId);
-					this.currentLogger.info(TAG, `Download removed via native manager: ${downloadId}`);
+					this.currentLogger.info(
+						TAG,
+						`Download removed via native manager: ${downloadId}`
+					);
 				} catch (error) {
 					this.currentLogger.warn(
 						TAG,
@@ -780,10 +783,7 @@ export class QueueManager {
 	 * @returns Función para cancelar la suscripción
 	 */
 
-	public subscribeToDownload(
-		downloadId: string,
-		callback: (data: any) => void
-	): () => void {
+	public subscribeToDownload(downloadId: string, callback: (data: any) => void): () => void {
 		// Wrapper que filtra eventos por downloadId
 		const filteredCallback = (eventData: any) => {
 			// Solo ejecutar callback si el evento es para este downloadId
@@ -990,10 +990,12 @@ export class QueueManager {
 
 			if (item.type === DownloadType.BINARY) {
 				// Para descargas binarias -> react-native-background-downloader
+				// Usar ruta absoluta del directorio de binarios
+				const binariesDir = storageService.getBinariesDirectory();
 				task = {
 					id: item.id,
 					url: item.uri,
-					destination: `/downloads/binary/${item.id}`,
+					destination: `${binariesDir}/${item.id}`,
 					headers: {},
 					resumable: true,
 				} as BinaryDownloadTask;

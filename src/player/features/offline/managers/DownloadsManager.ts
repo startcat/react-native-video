@@ -1008,11 +1008,16 @@ export class DownloadsManager {
 	}
 
 	public isProcessing(): boolean {
-		return this.state.isProcessing;
+		// Calcular dinámicamente si hay descargas activas
+		// en lugar de usar un flag estático que puede quedar desactualizado
+		const stats = queueManager.getQueueStats();
+		return stats.downloading > 0;
 	}
 
 	public isPaused(): boolean {
-		return this.state.isPaused;
+		// Obtener estado real del QueueManager
+		const stats = queueManager.getQueueStats();
+		return stats.isPaused;
 	}
 
 	/*
