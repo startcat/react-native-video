@@ -88,4 +88,4 @@ export class QualityEventsHandler {
 		if (height >= 360) return "360p";
 		return `${width}x${height}`;
 	};
-
+}
