@@ -142,4 +142,4 @@ export class PlaybackEventsHandler {
 	getIsSeekInProgress = () => this.isSeekInProgress;
 	getSeekFromPosition = () => this.seekFromPosition;
 	getSeekToPosition = () => this.seekToPosition;
-
+}
