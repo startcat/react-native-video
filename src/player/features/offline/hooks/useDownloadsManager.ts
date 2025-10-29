@@ -126,12 +126,12 @@ export function useDownloadsManager(
 			setIsInitialized(true);
 			setError(null);
 		} catch (err) {
-			const error =
+			const caughtError =
 				err instanceof PlayerError
 					? err
 					: new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", { originalError: err });
-			setError(error);
-			onError?.(error);
+			setError(caughtError);
+			onError?.(caughtError);
 		}
 	}, [config, onError]);
 
@@ -398,7 +398,7 @@ export function useDownloadsManager(
 				updateState();
 				return downloadId;
 			} catch (err) {
-				const error =
+				const caughtError =
 					err instanceof PlayerError
 						? err
 						: new PlayerError("DOWNLOAD_FAILED", {
@@ -406,9 +406,9 @@ export function useDownloadsManager(
 								downloadId: item.id || "unknown",
 								title: item.title,
 							});
-				setError(error);
-				onError?.(error);
-				throw error;
+				setError(caughtError);
+				onError?.(caughtError);
+				throw caughtError;
 			}
 		},
 		[updateState, onError]
@@ -429,16 +429,16 @@ export function useDownloadsManager(
 				console.log(`[useDownloadsManager] State updated after removing: ${id}`);
 			} catch (err) {
 				console.error(`[useDownloadsManager] Error removing download ${id}:`, err);
-				const error =
+				const caughtError =
 					err instanceof PlayerError
 						? err
 						: new PlayerError("DOWNLOAD_FAILED", {
 								originalError: err,
 								downloadId: id,
 							});
-				setError(error);
-				onError?.(error);
-				throw error;
+				setError(caughtError);
+				onError?.(caughtError);
+				throw caughtError;
 			}
 		},
 		[updateState, onError]
@@ -450,16 +450,16 @@ export function useDownloadsManager(
 				await downloadsManager.pauseDownload(id);
 				updateState();
 			} catch (err) {
-				const error =
+				const caughtError =
 					err instanceof PlayerError
 						? err
 						: new PlayerError("DOWNLOAD_FAILED", {
 								originalError: err,
 								downloadId: id,
 							});
-				setError(error);
-				onError?.(error);
-				throw error;
+				setError(caughtError);
+				onError?.(caughtError);
+				throw caughtError;
 			}
 		},
 		[updateState, onError]
@@ -471,16 +471,16 @@ export function useDownloadsManager(
 				await downloadsManager.resumeDownload(id);
 				updateState();
 			} catch (err) {
-				const error =
+				const caughtError =
 					err instanceof PlayerError
 						? err
 						: new PlayerError("DOWNLOAD_FAILED", {
 								originalError: err,
 								downloadId: id,
 							});
-				setError(error);
-				onError?.(error);
-				throw error;
+				setError(caughtError);
+				onError?.(caughtError);
+				throw caughtError;
 			}
 		},
 		[updateState, onError]
@@ -500,13 +500,13 @@ export function useDownloadsManager(
 			await downloadsManager.clearCompleted();
 			updateState();
 		} catch (err) {
-			const error =
+			const caughtError =
 				err instanceof PlayerError
 					? err
 					: new PlayerError("DOWNLOAD_FAILED", { originalError: err });
-			setError(error);
-			onError?.(error);
-			throw error;
+			setError(caughtError);
+			onError?.(caughtError);
+			throw caughtError;
 		}
 	}, [updateState, onError]);
 
@@ -515,13 +515,13 @@ export function useDownloadsManager(
 			await downloadsManager.clearFailed();
 			updateState();
 		} catch (err) {
-			const error =
+			const caughtError =
 				err instanceof PlayerError
 					? err
 					: new PlayerError("DOWNLOAD_FAILED", { originalError: err });
-			setError(error);
-			onError?.(error);
-			throw error;
+			setError(caughtError);
+			onError?.(caughtError);
+			throw caughtError;
 		}
 	}, [updateState, onError]);
 
@@ -530,13 +530,13 @@ export function useDownloadsManager(
 			await downloadsManager.pauseAll();
 			updateState();
 		} catch (err) {
-			const error =
+			const caughtError =
 				err instanceof PlayerError
 					? err
 					: new PlayerError("DOWNLOAD_FAILED", { originalError: err });
-			setError(error);
-			onError?.(error);
-			throw error;
+			setError(caughtError);
+			onError?.(caughtError);
+			throw caughtError;
 		}
 	}, [updateState, onError]);
 
@@ -545,13 +545,13 @@ export function useDownloadsManager(
 			await downloadsManager.resumeAll();
 			updateState();
 		} catch (err) {
-			const error =
+			const caughtError =
 				err instanceof PlayerError
 					? err
 					: new PlayerError("DOWNLOAD_FAILED", { originalError: err });
-			setError(error);
-			onError?.(error);
-			throw error;
+			setError(caughtError);
+			onError?.(caughtError);
+			throw caughtError;
 		}
 	}, [updateState, onError]);
 
