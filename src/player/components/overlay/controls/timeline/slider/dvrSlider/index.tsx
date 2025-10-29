@@ -1,13 +1,13 @@
-import Slider from '@react-native-community/slider';
-import { throttle } from 'lodash';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, View } from 'react-native';
-import { type SliderDVRProps } from '../../../../../../types';
-import { parseToCounter } from '../../../../../../utils/time';
-import { TimelineText } from '../../texts';
+import Slider from "@react-native-community/slider";
+import { throttle } from "lodash";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Platform, View } from "react-native";
+import { type SliderDVRProps } from "../../../../../../types";
+import { parseToCounter } from "../../../../../../utils/time";
+import { TimelineText } from "../../texts";
 
-import { COLOR } from '../../../../../../theme';
-import { styles } from './styles';
+import { COLOR } from "../../../../../../theme";
+import { styles } from "./styles";
 
 const PLAYER_SLIDER_THROTTLE = 50;
 
@@ -21,14 +21,14 @@ const DVRSliderBase = ({
 	onSlidingComplete: propOnSlidingComplete,
 }: SliderDVRProps): React.ReactElement | null => {
 	const [thumbTintColor, setThumbTintColor] = useState<string>(
-		Platform.OS === 'android' ? COLOR.theme.main : 'transparent'
+		Platform.OS === "android" ? COLOR.theme.main : "transparent"
 	);
 
 	const isDraggingRef = useRef<boolean>(false);
 
 	const handleDragThrottled = useRef(
 		throttle((value: number) => {
-			if (typeof propOnSlidingMove === 'function') {
+			if (typeof propOnSlidingMove === "function") {
 				propOnSlidingMove(value);
 			}
 		}, PLAYER_SLIDER_THROTTLE)
@@ -43,9 +43,9 @@ const DVRSliderBase = ({
 	const handleSlidingStart = useCallback(
 		(value: number) => {
 			isDraggingRef.current = true;
-			setThumbTintColor('white');
+			setThumbTintColor("white");
 
-			if (typeof propOnSlidingStart === 'function') {
+			if (typeof propOnSlidingStart === "function") {
 				propOnSlidingStart(value);
 			}
 		},
@@ -55,9 +55,9 @@ const DVRSliderBase = ({
 	const handleSlidingComplete = useCallback(
 		(value: number) => {
 			isDraggingRef.current = false;
-			setThumbTintColor(Platform.OS === 'android' ? COLOR.theme.main : 'transparent');
+			setThumbTintColor(Platform.OS === "android" ? COLOR.theme.main : "transparent");
 
-			if (typeof propOnSlidingComplete === 'function') {
+			if (typeof propOnSlidingComplete === "function") {
 				propOnSlidingComplete(value);
 			}
 		},
@@ -74,21 +74,21 @@ const DVRSliderBase = ({
 	// Memoización de valores calculados
 	const formatOffsetTime = useCallback(() => {
 		if (
-			typeof liveEdge === 'number' &&
-			typeof progress === 'number' &&
+			typeof liveEdge === "number" &&
+			typeof progress === "number" &&
 			Math.abs(liveEdge - progress) > 30
 		) {
 			return `- ${parseToCounter(Math.abs(liveEdge - progress))}`;
 		}
-		return '';
+		return "";
 	}, [liveEdge, progress]);
 
 	// Determinar si debemos renderizar el slider
 	const shouldRenderSlider = useMemo(
 		() =>
-			typeof maximumValue === 'number' &&
+			typeof maximumValue === "number" &&
 			maximumValue > 0 &&
-			typeof progress === 'number' &&
+			typeof progress === "number" &&
 			isFinite(maximumValue),
 		[maximumValue, progress]
 	);
@@ -117,7 +117,7 @@ const DVRSliderBase = ({
 				minimumValue={minimumValue}
 				maximumValue={maximumValue}
 				minimumTrackTintColor={COLOR.theme.main}
-				maximumTrackTintColor={'white'}
+				maximumTrackTintColor={"white"}
 				value={progress}
 				step={sliderStep}
 				tapToSeek={true}

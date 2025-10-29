@@ -3,7 +3,7 @@
  *
  */
 
-import { type ComponentLogger, type ILogger, LogLevel } from './types';
+import { type ComponentLogger, type ILogger, LogLevel } from "./types";
 
 export class DefaultComponentLogger implements ComponentLogger {
 	constructor(

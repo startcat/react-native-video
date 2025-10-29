@@ -1,2 +1,2 @@
-export { CastFlavour } from './index.tsx';
-export { default } from './index.tsx';
+export { CastFlavour } from "./index.tsx";
+export { default } from "./index.tsx";

@@ -1,9 +1,9 @@
-import React, { useCallback, useMemo } from 'react';
-import { View } from 'react-native';
-import { Button } from '../buttons';
+import React, { useCallback, useMemo } from "react";
+import { View } from "react-native";
+import { Button } from "../buttons";
 import { CONTROL_ACTION, BUTTON_SIZE, type ControlsBarProps } from "../../../../types";
-import { i18n } from '../../../../locales';
-import { styles } from './styles';
+import { i18n } from "../../../../locales";
+import { styles } from "./styles";
 
 const ControlsMiddleBarBase = ({
 	playerProgress,
@@ -22,7 +22,7 @@ const ControlsMiddleBarBase = ({
 	// Manejo seguro de la función onPress
 	const handlePress = useCallback(
 		(id: CONTROL_ACTION, value?: any) => {
-			if (typeof onPress === 'function') {
+			if (typeof onPress === "function") {
 				onPress(id, value);
 			}
 		},
@@ -32,10 +32,10 @@ const ControlsMiddleBarBase = ({
 	// Memoiza los textos de accesibilidad para evitar cálculos repetidos
 	const accessibilityLabels = useMemo(
 		() => ({
-			play: i18n.t('accesibilidad_player_play'),
-			pause: i18n.t('accesibilidad_player_pause'),
-			backward: i18n.t('accesibilidad_player_backward'),
-			forward: i18n.t('accesibilidad_player_forward'),
+			play: i18n.t("accesibilidad_player_play"),
+			pause: i18n.t("accesibilidad_player_pause"),
+			backward: i18n.t("accesibilidad_player_backward"),
+			forward: i18n.t("accesibilidad_player_forward"),
 		}),
 		[]
 	);
@@ -46,7 +46,7 @@ const ControlsMiddleBarBase = ({
 			<Button
 				id={CONTROL_ACTION.PAUSE}
 				size={BUTTON_SIZE.BIG}
-				iconName={paused ? 'play-circle-outline' : 'pause-circle-outline'}
+				iconName={paused ? "play-circle-outline" : "pause-circle-outline"}
 				value={!paused}
 				disabled={!contentLoaded}
 				accessibilityLabel={paused ? accessibilityLabels.play : accessibilityLabels.pause}

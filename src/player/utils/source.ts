@@ -1,11 +1,11 @@
-import { Platform } from 'react-native';
-import { DRM_TYPE, IManifest, STREAM_FORMAT_TYPE } from '../types';
-import { getAbsoluteUri } from './siteUrl';
+import { Platform } from "react-native";
+import { DRM_TYPE, IManifest, STREAM_FORMAT_TYPE } from "../types";
+import { getAbsoluteUri } from "./siteUrl";
 
-import qs from 'qs';
+import qs from "qs";
 
 const LOG_ENABLED = false;
-const LOG_KEY = '[Video Player Source]';
+const LOG_KEY = "[Video Player Source]";
 
 function log(message: string) {
 	if (__DEV__ && LOG_ENABLED) {
@@ -45,10 +45,10 @@ const addLiveTimestamp = (
 	liveStartProgramTimestamp?: number
 ): string => {
 	const isLiveProgramStartingPoint =
-		typeof liveStartProgramTimestamp === 'number' && liveStartProgramTimestamp > 0;
+		typeof liveStartProgramTimestamp === "number" && liveStartProgramTimestamp > 0;
 	let fromDate = new Date();
 
-	if (!uri || typeof uri !== 'string') {
+	if (!uri || typeof uri !== "string") {
 		return uri;
 	}
 
@@ -66,8 +66,8 @@ const addLiveTimestamp = (
 
 	const timestamp = Math.floor(fromDate.getTime() / 1000);
 
-	if (uri.indexOf('?') > -1) {
-		uri = `${uri.substring(0, uri.indexOf('?'))}?start=${timestamp}`;
+	if (uri.indexOf("?") > -1) {
+		uri = `${uri.substring(0, uri.indexOf("?"))}?start=${timestamp}`;
 	} else {
 		uri = `${uri}?start=${timestamp}`;
 	}
@@ -88,19 +88,19 @@ export const getBestManifest = (
 
 	if (Array.isArray(manifests) && manifests?.length > 0) {
 		manifest = manifests?.find(item => {
-			if (Platform.OS === 'ios' && !!item.drmConfig && !isCasting) {
+			if (Platform.OS === "ios" && !!item.drmConfig && !isCasting) {
 				return (
 					item.type === STREAM_FORMAT_TYPE.HLS &&
 					item.drmConfig.type === DRM_TYPE.FAIRPLAY
 				);
-			} else if (Platform.OS === 'ios' && !isCasting) {
+			} else if (Platform.OS === "ios" && !isCasting) {
 				return item.type === STREAM_FORMAT_TYPE.HLS;
-			} else if ((Platform.OS === 'android' || isCasting) && !!item.drmConfig) {
+			} else if ((Platform.OS === "android" || isCasting) && !!item.drmConfig) {
 				return (
 					item.type === STREAM_FORMAT_TYPE.DASH &&
 					item.drmConfig.type === DRM_TYPE.WIDEVINE
 				);
-			} else if (Platform.OS === 'android' || isCasting) {
+			} else if (Platform.OS === "android" || isCasting) {
 				return item.type === STREAM_FORMAT_TYPE.DASH;
 			}
 
@@ -120,16 +120,16 @@ export const getBestManifest = (
 export const getManifestSourceType = (manifest: IManifest): string | undefined => {
 	let type: string | undefined;
 
-	if (manifest?.manifestURL?.includes('.mpd')) {
-		type = 'mpd';
-	} else if (manifest?.manifestURL?.includes('.m3u8')) {
-		type = 'm3u8';
+	if (manifest?.manifestURL?.includes(".mpd")) {
+		type = "mpd";
+	} else if (manifest?.manifestURL?.includes(".m3u8")) {
+		type = "m3u8";
 	} else if (manifest?.manifestURL?.includes(".mp3")) {
-		type = 'mp3';
-	} else if (manifest?.manifestURL?.includes('.mp4')) {
-		type = 'mp4';
+		type = "mp3";
+	} else if (manifest?.manifestURL?.includes(".mp4")) {
+		type = "mp4";
 	} else {
-		type = Platform.OS === 'ios' ? 'm3u8' : 'mpd';
+		type = Platform.OS === "ios" ? "m3u8" : "mpd";
 	}
 
 	log(`type: ${type}`);
@@ -147,8 +147,8 @@ export const getVideoSourceUri = (
 		hasEndParam = false,
 		tempLiveStartProgramTimestamp;
 
-	if (typeof uri === 'string' && uri?.indexOf('?') > 0) {
-		const queryString = uri.substring(uri.indexOf('?') + 1);
+	if (typeof uri === "string" && uri?.indexOf("?") > 0) {
+		const queryString = uri.substring(uri.indexOf("?") + 1);
 		const params = qs.parse(queryString);
 
 		hasStartParam = !!params.start;
@@ -167,8 +167,8 @@ export const getVideoSourceUri = (
 		}
 	}
 
-	if (typeof dvrWindowMinutes === 'number' && dvrWindowMinutes > 0 && !hasStartParam) {
-		if (typeof liveStartProgramTimestamp === 'number' && liveStartProgramTimestamp > 0) {
+	if (typeof dvrWindowMinutes === "number" && dvrWindowMinutes > 0 && !hasStartParam) {
+		if (typeof liveStartProgramTimestamp === "number" && liveStartProgramTimestamp > 0) {
 			const minutes = getMinutesFromTimestamp(liveStartProgramTimestamp);
 
 			// Revisamos que la ventana de DVR no sea inferior que el timestamp de inicio del programa
@@ -186,7 +186,7 @@ export const getVideoSourceUri = (
 };
 
 export const getMinutesSinceStart = (uri: string): number => {
-	const queryString = uri.substring(uri.indexOf('?') + 1);
+	const queryString = uri.substring(uri.indexOf("?") + 1);
 	const params = qs.parse(queryString);
 
 	const hasStartParam = !!params.start;
@@ -195,7 +195,7 @@ export const getMinutesSinceStart = (uri: string): number => {
 		return 0;
 	}
 
-	const startTimestamp = typeof params.start === 'string' && parseInt(params.start, 10);
+	const startTimestamp = typeof params.start === "string" && parseInt(params.start, 10);
 
 	if (!startTimestamp || isNaN(startTimestamp)) {
 		return 0;

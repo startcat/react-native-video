@@ -1,5 +1,5 @@
-import type { MediaFlowConfig, MediaFlowState } from './types';
-import { MediaFlowStateType, MediaType } from './types';
+import type { MediaFlowConfig, MediaFlowState } from "./types";
+import { MediaFlowStateType, MediaType } from "./types";
 
 export interface DecisionContext {
 	currentState: MediaFlowState;
@@ -12,7 +12,7 @@ export interface DecisionContext {
 }
 
 export interface DecisionResult {
-	action: 'PLAY_TUDUM' | 'PLAY_CONTENT' | 'SKIP_TUDUM' | 'WAIT' | 'ERROR';
+	action: "PLAY_TUDUM" | "PLAY_CONTENT" | "SKIP_TUDUM" | "WAIT" | "ERROR";
 	reason: string;
 	metadata?: {
 		skipReasons?: string[];
@@ -59,7 +59,7 @@ export class MediaFlowDecisionEngine {
 
 			default:
 				return {
-					action: 'ERROR',
+					action: "ERROR",
 					reason: `Unknown state: ${currentState.type}`,
 				};
 		}
@@ -83,31 +83,31 @@ export class MediaFlowDecisionEngine {
 
 		// Condiciones que previenen la reproducción del tudum
 		if (!props.showExternalTudum) {
-			reasons.push('tudum_disabled');
+			reasons.push("tudum_disabled");
 		}
 
 		if (props.isAutoNext) {
-			reasons.push('auto_next_skip');
+			reasons.push("auto_next_skip");
 		}
 
 		if (props.hasStartPosition) {
-			reasons.push('has_start_position');
+			reasons.push("has_start_position");
 		}
 
 		if (!props.tudumAvailable) {
-			reasons.push('tudum_not_available');
+			reasons.push("tudum_not_available");
 		}
 
 		if (props.hasPlayedTudum) {
-			reasons.push('tudum_already_played');
+			reasons.push("tudum_already_played");
 		}
 
 		if (props.isLive) {
-			reasons.push('live_content');
+			reasons.push("live_content");
 		}
 
 		if (props.hasAds) {
-			reasons.push('has_advertisements');
+			reasons.push("has_advertisements");
 		}
 
 		return {
@@ -122,7 +122,7 @@ export class MediaFlowDecisionEngine {
 	 */
 
 	private isValidSource(source: any): boolean {
-		return source && source.uri && typeof source.uri === 'string' && source.uri.length > 0;
+		return source && source.uri && typeof source.uri === "string" && source.uri.length > 0;
 	}
 
 	/*
@@ -148,23 +148,23 @@ export class MediaFlowDecisionEngine {
 			// Si tenemos el source, validarlo
 			if (context.tudumSource && !this.isValidSource(context.tudumSource)) {
 				return {
-					action: 'SKIP_TUDUM',
-					reason: 'invalid_tudum_source',
+					action: "SKIP_TUDUM",
+					reason: "invalid_tudum_source",
 					metadata: {
-						skipReasons: ['invalid_source'],
+						skipReasons: ["invalid_source"],
 					},
 				};
 			}
 
 			return {
-				action: 'PLAY_TUDUM',
-				reason: 'initial_tudum_playback',
+				action: "PLAY_TUDUM",
+				reason: "initial_tudum_playback",
 			};
 		}
 
 		return {
-			action: 'PLAY_CONTENT',
-			reason: 'direct_content_playback',
+			action: "PLAY_CONTENT",
+			reason: "direct_content_playback",
 			metadata: {
 				skipReasons: tudumDecision.reasons,
 			},
@@ -174,30 +174,30 @@ export class MediaFlowDecisionEngine {
 	private decideFromPreparingTudum(context: DecisionContext): DecisionResult {
 		if (!context.tudumAvailable) {
 			return {
-				action: 'SKIP_TUDUM',
-				reason: 'tudum_preparation_failed',
+				action: "SKIP_TUDUM",
+				reason: "tudum_preparation_failed",
 			};
 		}
 
 		// Validar source si está disponible
 		if (context.tudumSource && !this.isValidSource(context.tudumSource)) {
 			return {
-				action: 'SKIP_TUDUM',
-				reason: 'invalid_tudum_source_during_preparation',
+				action: "SKIP_TUDUM",
+				reason: "invalid_tudum_source_during_preparation",
 			};
 		}
 
 		return {
-			action: 'WAIT',
-			reason: 'waiting_tudum_ready',
+			action: "WAIT",
+			reason: "waiting_tudum_ready",
 		};
 	}
 
 	private decideFromPlayingTudum(context: DecisionContext): DecisionResult {
 		// Durante la reproducción del tudum, solo esperar
 		return {
-			action: 'WAIT',
-			reason: 'tudum_playing',
+			action: "WAIT",
+			reason: "tudum_playing",
 		};
 	}
 
@@ -206,20 +206,20 @@ export class MediaFlowDecisionEngine {
 			// Validar source del contenido antes de reproducir
 			if (context.contentSource && !this.isValidSource(context.contentSource)) {
 				return {
-					action: 'ERROR',
-					reason: 'invalid_content_source',
+					action: "ERROR",
+					reason: "invalid_content_source",
 				};
 			}
 
 			return {
-				action: 'PLAY_CONTENT',
-				reason: 'content_ready_after_transition',
+				action: "PLAY_CONTENT",
+				reason: "content_ready_after_transition",
 			};
 		}
 
 		return {
-			action: 'WAIT',
-			reason: 'waiting_content_ready',
+			action: "WAIT",
+			reason: "waiting_content_ready",
 			metadata: {
 				waitTime: 100, // ms
 			},
@@ -229,61 +229,61 @@ export class MediaFlowDecisionEngine {
 	private decideFromPreparingContent(context: DecisionContext): DecisionResult {
 		if (!context.contentReady) {
 			return {
-				action: 'WAIT',
-				reason: 'waiting_content_preparation',
+				action: "WAIT",
+				reason: "waiting_content_preparation",
 			};
 		}
 
 		// Validar source del contenido
 		if (context.contentSource && !this.isValidSource(context.contentSource)) {
 			return {
-				action: 'ERROR',
-				reason: 'invalid_content_source_during_preparation',
+				action: "ERROR",
+				reason: "invalid_content_source_during_preparation",
 			};
 		}
 
 		return {
-			action: 'WAIT',
-			reason: 'content_preparation_in_progress',
+			action: "WAIT",
+			reason: "content_preparation_in_progress",
 		};
 	}
 
 	private decideFromPlayingContent(context: DecisionContext): DecisionResult {
 		// Durante la reproducción del contenido, solo esperar
 		return {
-			action: 'WAIT',
-			reason: 'content_playing',
+			action: "WAIT",
+			reason: "content_playing",
 		};
 	}
 
 	private decideFromError(context: DecisionContext): DecisionResult {
 		if (context.errorCount >= this.errorThreshold) {
 			return {
-				action: 'ERROR',
-				reason: 'max_errors_reached',
+				action: "ERROR",
+				reason: "max_errors_reached",
 			};
 		}
 
 		// Si el error fue con el tudum, intentar con el contenido
 		if (context.currentState.mediaType === MediaType.TUDUM) {
 			return {
-				action: 'SKIP_TUDUM',
-				reason: 'tudum_error_fallback',
+				action: "SKIP_TUDUM",
+				reason: "tudum_error_fallback",
 			};
 		}
 
 		// Reintentar contenido
 		return {
-			action: 'PLAY_CONTENT',
-			reason: 'content_error_retry',
+			action: "PLAY_CONTENT",
+			reason: "content_error_retry",
 		};
 	}
 
 	private decideFromEnded(context: DecisionContext): DecisionResult {
 		// El componente padre debe manejar qué hacer cuando termina
 		return {
-			action: 'WAIT',
-			reason: 'playback_ended',
+			action: "WAIT",
+			reason: "playback_ended",
 		};
 	}
 
@@ -296,15 +296,15 @@ export class MediaFlowDecisionEngine {
 		const errors: string[] = [];
 
 		if (!config.manifests || config.manifests.length === 0) {
-			errors.push('No manifests provided');
+			errors.push("No manifests provided");
 		}
 
 		if (config.showExternalTudum && !config.hooks?.getTudumSource) {
-			errors.push('Tudum enabled but no getTudumSource hook provided');
+			errors.push("Tudum enabled but no getTudumSource hook provided");
 		}
 
 		if (config.startPosition && config.startPosition < 0) {
-			errors.push('Invalid start position');
+			errors.push("Invalid start position");
 		}
 
 		return {

@@ -1,12 +1,12 @@
-import { Button, Text } from '@ui-kitten/components';
-import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
-import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type MenuProps, CONTROL_ACTION } from '../../../../types';
-import { i18n } from '../../../locales';
-import { SettingsMenuItem } from './item';
-import { styles } from './styles';
+import { Button, Text } from "@ui-kitten/components";
+import React, { useCallback, useMemo, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { type MenuProps, CONTROL_ACTION } from "../../../../types";
+import { i18n } from "../../../locales";
+import { SettingsMenuItem } from "./item";
+import { styles } from "./styles";
 
 const ANIMATION_SPEED = 150;
 
@@ -37,18 +37,18 @@ const SettingsMenuBase = ({
 	}, []);
 
 	const handleClose = useCallback(() => {
-		if (typeof propOnPress === 'function') {
+		if (typeof propOnPress === "function") {
 			propOnPress(CONTROL_ACTION.MENU_CLOSE);
 		}
 	}, [propOnPress]);
 
 	const handleAccept = useCallback(() => {
-		if (typeof propOnPress === 'function') {
-			if (selectedVideoIndex !== videoIndex && typeof selectedVideoIndex === 'number') {
+		if (typeof propOnPress === "function") {
+			if (selectedVideoIndex !== videoIndex && typeof selectedVideoIndex === "number") {
 				propOnPress(CONTROL_ACTION.VIDEO_INDEX, selectedVideoIndex);
 			}
 
-			if (selectedSpeedRate !== speedRate && typeof selectedVideoIndex === 'number') {
+			if (selectedSpeedRate !== speedRate && typeof selectedVideoIndex === "number") {
 				propOnPress(CONTROL_ACTION.SPEED_RATE, selectedSpeedRate);
 			}
 		}
@@ -67,17 +67,17 @@ const SettingsMenuBase = ({
 	);
 
 	const videoItems = useMemo(
-		() => menuData?.filter(item => item.type === 'video') || [],
+		() => menuData?.filter(item => item.type === "video") || [],
 		[menuData]
 	);
 
 	const rateItems = useMemo(
-		() => menuData?.filter(item => item.type === 'rate') || [],
+		() => menuData?.filter(item => item.type === "rate") || [],
 		[menuData]
 	);
 
 	const handleCloseWrapper = useCallback(() => {
-		if (typeof propOnClose === 'function') {
+		if (typeof propOnClose === "function") {
 			propOnClose();
 		} else {
 			handleClose();
@@ -99,7 +99,7 @@ const SettingsMenuBase = ({
 						showsVerticalScrollIndicator={false}
 						stickyHeaderIndices={[0]}
 					>
-						<Header title={i18n.t('player_quality')} />
+						<Header title={i18n.t("player_quality")} />
 						{videoItems.map((item, index) => (
 							<SettingsMenuItem
 								key={`set_${item.type}_${index}`}
@@ -119,7 +119,7 @@ const SettingsMenuBase = ({
 						showsVerticalScrollIndicator={false}
 						stickyHeaderIndices={[0]}
 					>
-						<Header title={i18n.t('player_speed')} />
+						<Header title={i18n.t("player_speed")} />
 						{rateItems.map((item, index) => (
 							<SettingsMenuItem
 								key={`set_${item.type}_${index}_${item.id}`}
@@ -138,7 +138,7 @@ const SettingsMenuBase = ({
 						onPress={handleClose}
 						accessibilityRole="button"
 					>
-						{i18n.t('cancel')}
+						{i18n.t("cancel")}
 					</Button>
 					<Button
 						style={styles.mainButton}
@@ -146,7 +146,7 @@ const SettingsMenuBase = ({
 						onPress={handleAccept}
 						accessibilityRole="button"
 					>
-						{i18n.t('accept')}
+						{i18n.t("accept")}
 					</Button>
 				</View>
 			</Pressable>

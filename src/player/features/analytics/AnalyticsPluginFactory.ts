@@ -26,7 +26,7 @@ export abstract class BaseAnalyticsPluginFactory {
 	protected static defaultConfig: AnalyticsFactoryConfig = {
 		plugins: {},
 		debug: false,
-		environment: 'prod',
+		environment: "prod",
 	};
 
 	// Registrar creadores de plugins
@@ -97,7 +97,7 @@ export abstract class BaseAnalyticsPluginFactory {
 			}
 		} catch (error) {
 			console.error(`[Analytics Factory] Error creating plugin ${pluginName}:`, error);
-			throw new PlayerError('PLAYER_ANALYTICS_PLUGIN_CREATION_FAILED', {
+			throw new PlayerError("PLAYER_ANALYTICS_PLUGIN_CREATION_FAILED", {
 				pluginName,
 				originalError: error,
 			});
@@ -108,27 +108,27 @@ export abstract class BaseAnalyticsPluginFactory {
 	protected static mapMediaDataToComscoreMetadata(mediaData: any): any {
 		// SOBRESCRIBIR en cada proyecto con su mapeo específico
 		throw new Error(
-			'mapMediaDataToComscoreMetadata must be implemented in project-specific factory'
+			"mapMediaDataToComscoreMetadata must be implemented in project-specific factory"
 		);
 	}
 
 	protected static mapMediaDataToAdobeMetadata(mediaData: any): any {
 		// SOBRESCRIBIR en cada proyecto con su mapeo específico
 		throw new Error(
-			'mapMediaDataToAdobeMetadata must be implemented in project-specific factory'
+			"mapMediaDataToAdobeMetadata must be implemented in project-specific factory"
 		);
 	}
 
 	// Método helper para validar datos de media
 	protected static validateMediaData(mediaData: any): boolean {
 		if (!mediaData) {
-			console.warn('[Analytics Factory] Media data is null or undefined');
+			console.warn("[Analytics Factory] Media data is null or undefined");
 			return false;
 		}
 
 		// Validaciones básicas - personalizar en cada proyecto
 		if (!mediaData.id && !mediaData.contentId) {
-			console.warn('[Analytics Factory] Media data missing ID field');
+			console.warn("[Analytics Factory] Media data missing ID field");
 			return false;
 		}
 
@@ -136,7 +136,7 @@ export abstract class BaseAnalyticsPluginFactory {
 	}
 
 	// Configuraciones predefinidas por entorno
-	static getConfigForEnvironment(env: 'dev' | 'staging' | 'prod'): AnalyticsFactoryConfig {
+	static getConfigForEnvironment(env: "dev" | "staging" | "prod"): AnalyticsFactoryConfig {
 		const base = {
 			plugins: {
 				comscore: { enabled: true },
@@ -145,7 +145,7 @@ export abstract class BaseAnalyticsPluginFactory {
 		};
 
 		switch (env) {
-			case 'dev':
+			case "dev":
 				return {
 					...base,
 					plugins: {
@@ -153,25 +153,25 @@ export abstract class BaseAnalyticsPluginFactory {
 						adobe: { enabled: false }, // Solo ComScore en dev
 					},
 					debug: true,
-					environment: 'dev',
+					environment: "dev",
 				};
 
-			case 'staging':
+			case "staging":
 				return {
 					...base,
 					debug: false,
-					environment: 'staging',
+					environment: "staging",
 				};
 
-			case 'prod':
+			case "prod":
 				return {
 					...base,
 					debug: false,
-					environment: 'prod',
+					environment: "prod",
 				};
 
 			default:
-				return { ...base, environment: 'prod' };
+				return { ...base, environment: "prod" };
 		}
 	}
 }

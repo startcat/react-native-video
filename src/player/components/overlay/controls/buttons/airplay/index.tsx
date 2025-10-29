@@ -1,11 +1,11 @@
-import React, { useCallback, useMemo } from 'react';
-import { Button } from '../button';
-import { AirplayButton as NativeAirplayButton, showRoutePicker } from 'react-airplay';
-import { COLOR } from '../../../../../theme';
+import React, { useCallback, useMemo } from "react";
+import { Button } from "../button";
+import { AirplayButton as NativeAirplayButton, showRoutePicker } from "react-airplay";
+import { COLOR } from "../../../../../theme";
 import { type AirplayCastButtonProps, BUTTON_SIZE, CONTROL_ACTION } from "../../../../../types";
 
 const AirplayButton = ({
-	accessibilityLabel = 'Airplay',
+	accessibilityLabel = "Airplay",
 	disabled = false,
 }: AirplayCastButtonProps): React.ReactElement => {
 	const id = useMemo(() => CONTROL_ACTION.AIRPLAY, []);
@@ -17,9 +17,9 @@ const AirplayButton = ({
 	const airplayButtonProps = useMemo(
 		() => ({
 			prioritizesVideoDevices: true,
-			tintColor: 'white',
+			tintColor: "white",
 			activeTintColor: COLOR.theme.main,
-			accessibilityRole: 'button' as const,
+			accessibilityRole: "button" as const,
 		}),
 		[]
 	);

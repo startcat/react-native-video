@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { LayoutChangeEvent } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { type ThumbnailsContainerProps } from '../../../../../../../types';
-import { ThumbnailCell } from '../cell';
-import { styles } from './styles';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { LayoutChangeEvent } from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { type ThumbnailsContainerProps } from "../../../../../../../types";
+import { ThumbnailCell } from "../cell";
+import { styles } from "./styles";
 
 type InnerViewProps = {
 	sideNumberOfCells: number;
@@ -29,7 +29,7 @@ const ThumbnailsContainerBase = ({
 			viewProps?.sideNumberOfCells &&
 			viewProps.sideNumberOfCells > 0 &&
 			metadata?.thumbnailDuration &&
-			typeof seconds === 'number'
+			typeof seconds === "number"
 		) {
 			const secondsArr: Array<number> = [];
 

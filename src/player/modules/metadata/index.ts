@@ -1,1 +1,1 @@
-export * from './metadataClass';
+export * from "./metadataClass";

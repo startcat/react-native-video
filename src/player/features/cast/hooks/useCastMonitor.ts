@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
-import { PlayerError } from '../../../core/errors';
-import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from '../../logger';
-import { LOGGER_CONFIG } from '../constants';
-import { CastConnectionInfo, CastTrackInfo } from '../types/types';
-import { useCastState } from './useCastState';
+import { useEffect, useRef } from "react";
+import { PlayerError } from "../../../core/errors";
+import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from "../../logger";
+import { LOGGER_CONFIG } from "../constants";
+import { CastConnectionInfo, CastTrackInfo } from "../types/types";
+import { useCastState } from "./useCastState";
 
 // Hook para monitorear cambios específicos
 export function useCastMonitor(
@@ -42,13 +42,13 @@ export function useCastMonitor(
 		);
 
 		currentLogger.current = playerLogger.current?.forComponent(
-			'Cast Monitor',
+			"Cast Monitor",
 			castLoggerConfig.enabled,
 			castLoggerConfig.level
 		);
 	}
 
-	const prevConnectionRef = useRef<CastConnectionInfo['status']>('notConnected');
+	const prevConnectionRef = useRef<CastConnectionInfo["status"]>("notConnected");
 	const prevPlayingRef = useRef(false);
 	const prevAudioTrackRef = useRef<number | null>(null);
 	const prevTextTrackRef = useRef<number | null>(null);
@@ -60,11 +60,11 @@ export function useCastMonitor(
 
 		// Monitor conexión
 		if (connection.status !== prevConnectionRef.current) {
-			if (connection.status === 'connected' && callbacks.onConnect) {
-				currentLogger.current?.info('Connection status: connected');
+			if (connection.status === "connected" && callbacks.onConnect) {
+				currentLogger.current?.info("Connection status: connected");
 				callbacks.onConnect();
-			} else if (connection.status === 'notConnected' && callbacks.onDisconnect) {
-				currentLogger.current?.info('Connection status: notConnected');
+			} else if (connection.status === "notConnected" && callbacks.onDisconnect) {
+				currentLogger.current?.info("Connection status: notConnected");
 				callbacks.onDisconnect();
 			}
 			prevConnectionRef.current = connection.status;
@@ -73,10 +73,10 @@ export function useCastMonitor(
 		// Monitor reproducción
 		if (media.isPlaying !== prevPlayingRef.current) {
 			if (media.isPlaying && callbacks.onPlay) {
-				currentLogger.current?.info('Media status: playing');
+				currentLogger.current?.info("Media status: playing");
 				callbacks.onPlay();
 			} else if (!media.isPlaying && media.isPaused && callbacks.onPause) {
-				currentLogger.current?.info('Media status: paused');
+				currentLogger.current?.info("Media status: paused");
 				callbacks.onPause();
 			}
 			prevPlayingRef.current = media.isPlaying;

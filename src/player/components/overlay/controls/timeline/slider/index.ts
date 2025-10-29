@@ -1,2 +1,2 @@
-export * from './vodSlider';
-export * from './dvrSlider';
+export * from "./vodSlider";
+export * from "./dvrSlider";

@@ -1158,7 +1158,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						ref={refVideoPlayer}
 						style={[
 							styles.player,
-							isLandscapePlayer ? { height: "100%" } : { width: "100%" },
+							isLandscapePlayer ? styles.playerFullHeight : styles.playerFullWidth,
 						]}
 						// @ts-ignore
 						source={videoSource}

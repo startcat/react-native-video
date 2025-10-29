@@ -1,9 +1,9 @@
-import type { ISO639_1 } from './language';
-import type { ReactVideoEvents } from './events';
-import type { StyleProp, ViewProps, ViewStyle, ImageSourcePropType } from 'react-native';
-import type VideoResizeMode from './ResizeMode';
-import type FilterType from './FilterType';
-import type { Headers } from '../player/types';
+import type { ISO639_1 } from "./language";
+import type { ReactVideoEvents } from "./events";
+import type { StyleProp, ViewProps, ViewStyle, ImageSourcePropType } from "react-native";
+import type VideoResizeMode from "./ResizeMode";
+import type FilterType from "./FilterType";
+import type { Headers } from "../player/types";
 
 export type EnumValues<T extends string | number> = T extends string ? `${T}` | T : T;
 
@@ -26,7 +26,7 @@ export type ReactVideoSourceProperties = {
 };
 
 export type ReactVideoSource = Readonly<
-	Omit<ReactVideoSourceProperties, 'uri'> & {
+	Omit<ReactVideoSourceProperties, "uri"> & {
 		uri?: string | NodeRequire;
 	}
 >;
@@ -45,10 +45,10 @@ export type DebugConfig = Readonly<{
 }>;
 
 export enum DRMType {
-	WIDEVINE = 'widevine',
-	PLAYREADY = 'playready',
-	CLEARKEY = 'clearkey',
-	FAIRPLAY = 'fairplay',
+	WIDEVINE = "widevine",
+	PLAYREADY = "playready",
+	CLEARKEY = "clearkey",
+	FAIRPLAY = "fairplay",
 }
 
 export type Drm = Readonly<{
@@ -97,9 +97,9 @@ export type Youbora = Readonly<{
 }>;
 
 export enum BufferingStrategyType {
-	DEFAULT = 'Default',
-	DISABLE_BUFFERING = 'DisableBuffering',
-	DEPENDING_ON_MEMORY = 'DependingOnMemory',
+	DEFAULT = "Default",
+	DISABLE_BUFFERING = "DisableBuffering",
+	DEPENDING_ON_MEMORY = "DependingOnMemory",
 }
 
 export type BufferConfigLive = {
@@ -124,11 +124,11 @@ export type BufferConfig = {
 };
 
 export enum SelectedTrackType {
-	SYSTEM = 'system',
-	DISABLED = 'disabled',
-	TITLE = 'title',
-	LANGUAGE = 'language',
-	INDEX = 'index',
+	SYSTEM = "system",
+	DISABLED = "disabled",
+	TITLE = "title",
+	LANGUAGE = "language",
+	INDEX = "index",
 }
 
 export type SelectedTrack = {
@@ -137,10 +137,10 @@ export type SelectedTrack = {
 };
 
 export enum SelectedVideoTrackType {
-	AUTO = 'auto',
-	DISABLED = 'disabled',
-	RESOLUTION = 'resolution',
-	INDEX = 'index',
+	AUTO = "auto",
+	DISABLED = "disabled",
+	RESOLUTION = "resolution",
+	INDEX = "index",
 }
 
 export type SelectedVideoTrack = {
@@ -156,13 +156,13 @@ export type SubtitleStyle = {
 	paddingRight?: number;
 	opacity?: number;
 	backgroundColor?: string; // Android only - hex color or named color
-	verticalAlignment?: 'top' | 'middle' | 'center' | 'bottom'; // Android only
+	verticalAlignment?: "top" | "middle" | "center" | "bottom"; // Android only
 };
 
 export enum TextTrackType {
-	SUBRIP = 'application/x-subrip',
-	TTML = 'application/ttml+xml',
-	VTT = 'text/vtt',
+	SUBRIP = "application/x-subrip",
+	TTML = "application/ttml+xml",
+	VTT = "text/vtt",
 }
 
 export type TextTracks = {
@@ -172,14 +172,14 @@ export type TextTracks = {
 	uri: string;
 }[];
 
-export type TextTrackSelectionType = 'system' | 'disabled' | 'title' | 'language' | 'index';
+export type TextTrackSelectionType = "system" | "disabled" | "title" | "language" | "index";
 
 export type SelectedTextTrack = Readonly<{
 	type: TextTrackSelectionType;
 	value?: string | number;
 }>;
 
-export type AudioTrackSelectionType = 'system' | 'disabled' | 'title' | 'language' | 'index';
+export type AudioTrackSelectionType = "system" | "disabled" | "title" | "language" | "index";
 
 export type SelectedAudioTrack = Readonly<{
 	type: AudioTrackSelectionType;
@@ -194,33 +194,33 @@ export type Chapters = {
 };
 
 export enum FullscreenOrientationType {
-	ALL = 'all',
-	LANDSCAPE = 'landscape',
-	PORTRAIT = 'portrait',
+	ALL = "all",
+	LANDSCAPE = "landscape",
+	PORTRAIT = "portrait",
 }
 
 export enum IgnoreSilentSwitchType {
-	INHERIT = 'inherit',
-	IGNORE = 'ignore',
-	OBEY = 'obey',
+	INHERIT = "inherit",
+	IGNORE = "ignore",
+	OBEY = "obey",
 }
 
 export enum MixWithOthersType {
-	INHERIT = 'inherit',
-	MIX = 'mix',
-	DUCK = 'duck',
+	INHERIT = "inherit",
+	MIX = "mix",
+	DUCK = "duck",
 }
 
 export enum PosterResizeModeType {
-	CONTAIN = 'contain',
-	CENTER = 'center',
-	COVER = 'cover',
-	NONE = 'none',
-	REPEAT = 'repeat',
-	STRETCH = 'stretch',
+	CONTAIN = "contain",
+	CENTER = "center",
+	COVER = "cover",
+	NONE = "none",
+	REPEAT = "repeat",
+	STRETCH = "stretch",
 }
 
-export type AudioOutput = 'speaker' | 'earpiece';
+export type AudioOutput = "speaker" | "earpiece";
 
 export type ControlsStyles = {
 	hideSeekBar?: boolean;

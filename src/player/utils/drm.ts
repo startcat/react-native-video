@@ -1,8 +1,8 @@
-import { IManifest, IDrm, DRM_TYPE } from '../types';
-import { getAbsoluteUri } from './siteUrl';
+import { IManifest, IDrm, DRM_TYPE } from "../types";
+import { getAbsoluteUri } from "./siteUrl";
 
 const LOG_ENABLED = true;
-const LOG_KEY = '[Video Player DRM]';
+const LOG_KEY = "[Video Player DRM]";
 
 function log(message: string) {
 	if (__DEV__ && LOG_ENABLED) {
@@ -50,9 +50,9 @@ export const setOfflineExpirationDate = (drm: IDrm | undefined): IDrm | undefine
 		licenseServer: string = "";
 
 	if (drm) {
-		if (drm?.licenseServer && drm?.licenseServer?.includes('?')) {
+		if (drm?.licenseServer && drm?.licenseServer?.includes("?")) {
 			licenseServer = `${drm?.licenseServer}&offline=true`;
-		} else if (drm?.licenseServer && !drm?.licenseServer?.includes('?')) {
+		} else if (drm?.licenseServer && !drm?.licenseServer?.includes("?")) {
 			licenseServer += `${drm?.licenseServer}?offline=true`;
 		}
 

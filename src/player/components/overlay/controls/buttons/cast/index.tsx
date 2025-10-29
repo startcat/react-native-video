@@ -1,16 +1,16 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from "react";
 import {
 	CastContext,
 	CastButton as NativeCastButton,
 	CastState as NativeCastState,
 	useCastState as useNativeCastState,
-} from 'react-native-google-cast';
-import { type AirplayCastButtonProps, BUTTON_SIZE, CONTROL_ACTION } from '../../../../../types';
-import { Button } from '../button';
+} from "react-native-google-cast";
+import { type AirplayCastButtonProps, BUTTON_SIZE, CONTROL_ACTION } from "../../../../../types";
+import { Button } from "../button";
 
 const CastButton = ({
 	onPress: propOnPress,
-	accessibilityLabel = 'Chromecast',
+	accessibilityLabel = "Chromecast",
 	disabled = false,
 }: AirplayCastButtonProps): React.ReactElement | null => {
 	const id = useMemo(() => CONTROL_ACTION.CAST, []);
@@ -18,7 +18,7 @@ const CastButton = ({
 
 	const handlePress = useCallback(() => {
 		// Enfoque más seguro para manejar la función de la prop
-		if (typeof propOnPress === 'function') {
+		if (typeof propOnPress === "function") {
 			propOnPress(id);
 		}
 
@@ -38,7 +38,7 @@ const CastButton = ({
 		() => ({
 			width: 22,
 			height: 22,
-			tintColor: 'white',
+			tintColor: "white",
 		}),
 		[]
 	);

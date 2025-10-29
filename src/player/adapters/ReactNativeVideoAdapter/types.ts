@@ -5,7 +5,7 @@ import {
 	type PlayerLoadData,
 	type PlayerProgressData,
 	type TrackInfo,
-} from '../types';
+} from "../types";
 
 export interface ReactNativeVideoAdapterProps {
 	contentInfo?: PlayerContentInfo;
@@ -14,7 +14,7 @@ export interface ReactNativeVideoAdapterProps {
 	volume?: number;
 	rate?: number;
 	maxBitrate?: number;
-	resizeMode?: 'contain' | 'cover' | 'stretch' | 'center';
+	resizeMode?: "contain" | "cover" | "stretch" | "center";
 	playOffline?: boolean;
 	multiSession?: boolean;
 	allowsExternalPlayback?: boolean;

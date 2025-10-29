@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
-import { LoggerConfigBasic } from '../../logger/types';
-import { CastVolumeInfo } from '../types/types';
-import { useCastState } from './useCastState';
+import { useMemo } from "react";
+import { LoggerConfigBasic } from "../../logger/types";
+import { CastVolumeInfo } from "../types/types";
+import { useCastState } from "./useCastState";
 
 export function useCastVolume(config: LoggerConfigBasic = {}): CastVolumeInfo {
 	const castState = useCastState(config);

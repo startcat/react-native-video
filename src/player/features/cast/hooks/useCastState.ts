@@ -1,24 +1,24 @@
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer, useRef } from "react";
 import {
 	useCastSession,
 	useMediaStatus,
 	useCastState as useNativeCastState,
 	useRemoteMediaClient,
 	useStreamPosition,
-} from 'react-native-google-cast';
+} from "react-native-google-cast";
 
-import { PlayerError } from '../../../core/errors';
-import { CastConnectionInfo, CastMediaInfo, CastStateCustom, CastTrackInfo } from '../types/types';
-import { castReducer, createInitialCastState, getVolume } from '../utils/castUtils';
+import { PlayerError } from "../../../core/errors";
+import { CastConnectionInfo, CastMediaInfo, CastStateCustom, CastTrackInfo } from "../types/types";
+import { castReducer, createInitialCastState, getVolume } from "../utils/castUtils";
 
-import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from '../../logger';
-import { DEFAULT_CAST_CONFIG, LOGGER_CONFIG } from '../constants';
+import { ComponentLogger, Logger, LoggerConfigBasic, LogLevel } from "../../logger";
+import { DEFAULT_CAST_CONFIG, LOGGER_CONFIG } from "../constants";
 
 // Hook principal que maneja toda la sincronización
 export function useCastState(
 	config: LoggerConfigBasic = {},
 	callbacks: {
-		onConnectionChange?: (status: CastConnectionInfo['status']) => void;
+		onConnectionChange?: (status: CastConnectionInfo["status"]) => void;
 		onMediaChange?: (media: CastMediaInfo) => void;
 		onError?: (error: PlayerError) => void;
 		onAudioTrackChange?: (track: CastTrackInfo | null) => void;
@@ -52,7 +52,7 @@ export function useCastState(
 		);
 
 		currentLogger.current = playerLogger.current?.forComponent(
-			'Cast State with Reducer',
+			"Cast State with Reducer",
 			castLoggerConfig.enabled,
 			castLoggerConfig.level
 		);
@@ -77,7 +77,7 @@ export function useCastState(
 	useEffect(() => {
 		if (currentLogger.current && !state.logger) {
 			dispatch({
-				type: 'UPDATE_LOGGER',
+				type: "UPDATE_LOGGER",
 				payload: { logger: currentLogger.current },
 			});
 		}
@@ -109,7 +109,7 @@ export function useCastState(
 		}
 
 		dispatch({
-			type: 'SYNC_UPDATE',
+			type: "SYNC_UPDATE",
 			payload: {
 				nativeCastState,
 				nativeSession,
@@ -123,7 +123,7 @@ export function useCastState(
 	useEffect(() => {
 		const updateVolume = async () => {
 			const volume = await getVolume(nativeSession);
-			dispatch({ type: 'UPDATE_VOLUME', payload: volume });
+			dispatch({ type: "UPDATE_VOLUME", payload: volume });
 		};
 		updateVolume();
 	}, [nativeSession]);

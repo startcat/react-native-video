@@ -28,7 +28,7 @@ const TEXTS = {
 	live: "DIRECTO",
 	goToLive: "Volver al directo",
 	video_live: "En directo",
-	language_none: 'Ninguno',
+	language_none: "Ninguno",
 };
 
 const i18n = {

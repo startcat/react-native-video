@@ -3,8 +3,8 @@
  *
  */
 
-import { Logger } from './Logger';
-import { LogLevel } from './types';
+import { Logger } from "./Logger";
+import { LogLevel } from "./types";
 
 export class LoggerFactory {
 	/*

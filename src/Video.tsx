@@ -6,7 +6,7 @@ import React, {
 	forwardRef,
 	useImperativeHandle,
 	type ComponentRef,
-} from 'react';
+} from "react";
 import {
 	View,
 	StyleSheet,
@@ -15,7 +15,7 @@ import {
 	type StyleProp,
 	type ImageStyle,
 	type NativeSyntheticEvent,
-} from 'react-native';
+} from "react-native";
 
 import NativeVideoComponent, {
 	type OnAudioFocusChangedData,
@@ -36,10 +36,10 @@ import NativeVideoComponent, {
 	type OnVideoTracksData,
 	type VideoComponentType,
 	type VideoSrc,
-} from './specs/VideoNativeComponent';
-import { generateHeaderForNative, getReactTag, resolveAssetSourceForVideo } from './utils';
-import { VideoManager } from './specs/VideoNativeComponent';
-import type { OnLoadData, OnTextTracksData, OnReceiveAdEventData, ReactVideoProps } from './types';
+} from "./specs/VideoNativeComponent";
+import { generateHeaderForNative, getReactTag, resolveAssetSourceForVideo } from "./utils";
+import { VideoManager } from "./specs/VideoNativeComponent";
+import type { OnLoadData, OnTextTracksData, OnReceiveAdEventData, ReactVideoProps } from "./types";
 
 export type VideoSaveData = {
 	uri: string;
@@ -121,7 +121,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 			() => ({
 				...StyleSheet.absoluteFillObject,
 				resizeMode:
-					posterResizeMode && posterResizeMode !== 'none' ? posterResizeMode : 'contain',
+					posterResizeMode && posterResizeMode !== "none" ? posterResizeMode : "contain",
 			}),
 			[posterResizeMode]
 		);
@@ -131,12 +131,12 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 				return undefined;
 			}
 			const resolvedSource = resolveAssetSourceForVideo(source);
-			let uri = resolvedSource.uri || '';
+			let uri = resolvedSource.uri || "";
 			if (uri && uri.match(/^\//)) {
 				uri = `file://${uri}`;
 			}
 			if (!uri) {
-				console.log('Trying to load empty source');
+				console.log("Trying to load empty source");
 			}
 			const isNetwork = !!(uri && uri.match(/^(rtp|rtsp|http|https):/));
 			const isAsset = !!(
@@ -144,8 +144,8 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 			);
 
 			// DANI - Añadimos el ID y el TITLE
-			const id = resolvedSource?.id?.toString() || '';
-			const title = resolvedSource?.title || '';
+			const id = resolvedSource?.id?.toString() || "";
+			const title = resolvedSource?.title || "";
 
 			return {
 				uri,
@@ -154,7 +154,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 				isNetwork,
 				isAsset,
 				shouldCache: resolvedSource.shouldCache || false,
-				type: resolvedSource.type || '',
+				type: resolvedSource.type || "",
 				mainVer: resolvedSource.mainVer || 0,
 				patchVer: resolvedSource.patchVer || 0,
 				requestHeaders: generateHeaderForNative(resolvedSource.headers),
@@ -233,8 +233,8 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 				return;
 			}
 			const type = typeof selectedTextTrack.value;
-			if (type !== 'number' && type !== 'string') {
-				console.log('invalid type provided to selectedTextTrack');
+			if (type !== "number" && type !== "string") {
+				console.log("invalid type provided to selectedTextTrack");
 				return;
 			}
 			return {
@@ -248,8 +248,8 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 				return;
 			}
 			const type = typeof selectedAudioTrack.value;
-			if (type !== 'number' && type !== 'string') {
-				console.log('invalid type provided to selectedAudioTrack');
+			if (type !== "number" && type !== "string") {
+				console.log("invalid type provided to selectedAudioTrack");
 				return;
 			}
 
@@ -264,8 +264,8 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 				return;
 			}
 			const type = typeof selectedVideoTrack.value;
-			if (type !== 'number' && type !== 'string') {
-				console.log('invalid type provided to selectedVideoTrack');
+			if (type !== "number" && type !== "string") {
+				console.log("invalid type provided to selectedVideoTrack");
 				return;
 			}
 			return {
@@ -280,7 +280,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 			}
 
 			if (!nativeRef.current) {
-				console.warn('Video Component is not mounted');
+				console.warn("Video Component is not mounted");
 				return;
 			}
 
@@ -350,7 +350,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 
 		const onVideoLoad = useCallback(
 			(e: NativeSyntheticEvent<OnLoadData>) => {
-				if (Platform.OS === 'windows') {
+				if (Platform.OS === "windows") {
 					hasPoster && setShowPoster(false);
 				}
 				onLoad?.(e.nativeEvent);
@@ -518,7 +518,7 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 								} else {
 									nativeRef.current &&
 										VideoManager.setLicenseResultError(
-											'Empty license result',
+											"Empty license result",
 											data.loadedLicenseUrl,
 											getReactTag(nativeRef)
 										);
@@ -527,14 +527,14 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 							.catch(() => {
 								nativeRef.current &&
 									VideoManager.setLicenseResultError(
-										'fetch error',
+										"fetch error",
 										data.loadedLicenseUrl,
 										getReactTag(nativeRef)
 									);
 							});
 					} else {
 						VideoManager.setLicenseResultError(
-							'No spc received',
+							"No spc received",
 							data.loadedLicenseUrl,
 							getReactTag(nativeRef)
 						);
@@ -651,5 +651,5 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 	}
 );
 
-Video.displayName = 'Video';
+Video.displayName = "Video";
 export default Video;

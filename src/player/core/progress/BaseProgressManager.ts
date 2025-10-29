@@ -1,11 +1,11 @@
-import { ComponentLogger } from '../../features/logger';
-import { type SliderValues } from '../../types/types';
-import { formatTimestamp } from '../../utils/time';
+import { ComponentLogger } from "../../features/logger";
+import { type SliderValues } from "../../types/types";
+import { formatTimestamp } from "../../utils/time";
 import {
 	type BaseProgressManagerOptions,
 	type BaseUpdatePlayerData,
 	type SeekableRange,
-} from './types/base';
+} from "./types/base";
 
 export abstract class BaseProgressManager {
 	// Estado común del reproductor
@@ -53,7 +53,7 @@ export abstract class BaseProgressManager {
 	abstract getSliderValues(): SliderValues;
 
 	reset(): void {
-		this._currentLogger?.info('Resetting base progress manager');
+		this._currentLogger?.info("Resetting base progress manager");
 
 		// Reset del estado base
 		this._currentTime = 0;
@@ -86,13 +86,13 @@ export abstract class BaseProgressManager {
 		onSeekRequest?: ((playerTime: number) => void) | null;
 		onValidationError?: ((error: string) => void) | null;
 	}): void {
-		if ('onProgressUpdate' in callbacks) {
+		if ("onProgressUpdate" in callbacks) {
 			this._options.onProgressUpdate = callbacks.onProgressUpdate;
 		}
-		if ('onSeekRequest' in callbacks) {
+		if ("onSeekRequest" in callbacks) {
 			this._options.onSeekRequest = callbacks.onSeekRequest;
 		}
-		if ('onValidationError' in callbacks) {
+		if ("onValidationError" in callbacks) {
 			this._options.onValidationError = callbacks.onValidationError;
 		}
 
@@ -105,7 +105,7 @@ export abstract class BaseProgressManager {
 	// Métodos de seeking comunes
 	skipForward(seconds: number): void {
 		if (!this._isValidState()) {
-			this._currentLogger?.debug('skipForward: Invalid state - operation queued until ready');
+			this._currentLogger?.debug("skipForward: Invalid state - operation queued until ready");
 			return;
 		}
 
@@ -116,7 +116,7 @@ export abstract class BaseProgressManager {
 	skipBackward(seconds: number): void {
 		if (!this._isValidState()) {
 			this._currentLogger?.debug(
-				'skipBackward: Invalid state - operation queued until ready'
+				"skipBackward: Invalid state - operation queued until ready"
 			);
 			return;
 		}
@@ -128,7 +128,7 @@ export abstract class BaseProgressManager {
 	seekToProgress(progress: number): void {
 		if (!this._isValidState()) {
 			this._currentLogger?.debug(
-				'seekToProgress: Invalid state - operation queued until ready'
+				"seekToProgress: Invalid state - operation queued until ready"
 			);
 			return;
 		}
@@ -142,7 +142,7 @@ export abstract class BaseProgressManager {
 
 	seekToTime(time: number): void {
 		if (!this._isValidState()) {
-			this._currentLogger?.debug('seekToTime: Invalid state - operation queued until ready');
+			this._currentLogger?.debug("seekToTime: Invalid state - operation queued until ready");
 			return;
 		}
 
@@ -215,14 +215,14 @@ export abstract class BaseProgressManager {
 	protected _markAsInitialized(): void {
 		if (!this._isInitialized) {
 			this._isInitialized = true;
-			this._currentLogger?.info('Manager fully initialized and ready');
+			this._currentLogger?.info("Manager fully initialized and ready");
 		}
 	}
 
 	protected _validatePlayerData(data: BaseUpdatePlayerData): BaseUpdatePlayerData {
 		// Validación básica con corrección automática
-		if (typeof data.currentTime !== 'number' || data.currentTime < 0) {
-			this._currentLogger?.debug('Invalid currentTime, correcting to 0');
+		if (typeof data.currentTime !== "number" || data.currentTime < 0) {
+			this._currentLogger?.debug("Invalid currentTime, correcting to 0");
 			data.currentTime = 0;
 		}
 
@@ -230,8 +230,8 @@ export abstract class BaseProgressManager {
 
 		if (
 			!data.seekableRange ||
-			typeof data.seekableRange.start !== 'number' ||
-			typeof data.seekableRange.end !== 'number' ||
+			typeof data.seekableRange.start !== "number" ||
+			typeof data.seekableRange.end !== "number" ||
 			data.seekableRange.start > data.seekableRange.end
 		) {
 			this._currentLogger?.debug("Invalid seekableRange, correcting");
@@ -243,7 +243,7 @@ export abstract class BaseProgressManager {
 			Math.abs(data.seekableRange.end - this._seekableRange.end) < 10 &&
 			currentTimeVariation < 2
 		) {
-			this._currentLogger?.debug('Normalizing seekableRange, correcting');
+			this._currentLogger?.debug("Normalizing seekableRange, correcting");
 			data.seekableRange = {
 				start: this._seekableRange.start,
 				end: this._seekableRange.end + currentTimeVariation,
@@ -252,9 +252,9 @@ export abstract class BaseProgressManager {
 
 		if (
 			data.duration !== undefined &&
-			(typeof data.duration !== 'number' || data.duration < 0)
+			(typeof data.duration !== "number" || data.duration < 0)
 		) {
-			this._currentLogger?.debug('Invalid duration, correcting');
+			this._currentLogger?.debug("Invalid duration, correcting");
 			data.duration = undefined;
 		}
 
@@ -274,13 +274,13 @@ export abstract class BaseProgressManager {
 		// Marcar que hemos recibido datos del reproductor
 		if (!this._hasReceivedPlayerData) {
 			this._hasReceivedPlayerData = true;
-			this._currentLogger?.info('Received first player data');
+			this._currentLogger?.info("Received first player data");
 		}
 
 		// Verificar si el estado se volvió válido
 		const isValidNow = this._isValidState();
 		if (!wasValidBefore && isValidNow) {
-			this._currentLogger?.info('State became valid - manager ready for operations');
+			this._currentLogger?.info("State became valid - manager ready for operations");
 		}
 	}
 
@@ -309,14 +309,14 @@ export abstract class BaseProgressManager {
 	protected _emitProgressUpdate(): void {
 		if (!this._hasReceivedPlayerData) {
 			this._currentLogger?.debug(
-				'_emitProgressUpdate: No player data received yet, skipping'
+				"_emitProgressUpdate: No player data received yet, skipping"
 			);
 			return;
 		}
 
 		if (!this._isValidState()) {
 			this._currentLogger?.debug(
-				'_emitProgressUpdate: Invalid state, emitting fallback data'
+				"_emitProgressUpdate: Invalid state, emitting fallback data"
 			);
 			// Emitir datos básicos para mantener la UI funcionando
 			this._emitFallbackProgressUpdate();
@@ -327,7 +327,7 @@ export abstract class BaseProgressManager {
 			const progressData = this._buildProgressData();
 
 			this._currentLogger?.debug(
-				'_emitProgressUpdate :: ' +
+				"_emitProgressUpdate :: " +
 					`${formatTimestamp(progressData.progress)} / ${formatTimestamp(progressData.maximumValue)} ` +
 					`(${((progressData.percentProgress || 0) * 100).toFixed(1)}%)`
 			);
@@ -353,7 +353,7 @@ export abstract class BaseProgressManager {
 				this._options.onProgressUpdate(progressData);
 			}
 		} catch (error) {
-			this._currentLogger?.error('_emitProgressUpdate error', error);
+			this._currentLogger?.error("_emitProgressUpdate error", error);
 			this._emitFallbackProgressUpdate();
 		}
 	}
@@ -401,6 +401,6 @@ export abstract class BaseProgressManager {
 	 */
 
 	destroy(): void {
-		this._currentLogger?.info('Destroying manager');
+		this._currentLogger?.info("Destroying manager");
 	}
 }

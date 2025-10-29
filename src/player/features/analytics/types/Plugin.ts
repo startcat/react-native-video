@@ -18,7 +18,7 @@ export interface DurationChangeParams {
 }
 
 export interface StopParams {
-	reason?: 'user' | 'error' | 'completion' | 'navigation'; // Razón de la parada (opcional)
+	reason?: "user" | "error" | "completion" | "navigation"; // Razón de la parada (opcional)
 }
 
 export interface SeekEndParams extends PositionParams {
@@ -46,7 +46,7 @@ export interface AdBeginParams {
 	adId?: string; // ID del anuncio (opcional)
 	adDuration?: number; // Duración del anuncio en milisegundos (opcional)
 	adPosition?: number; // Posición del anuncio en el contenido (opcional)
-	adType?: 'preroll' | 'midroll' | 'postroll'; // Tipo de anuncio (opcional)
+	adType?: "preroll" | "midroll" | "postroll"; // Tipo de anuncio (opcional)
 }
 
 export interface AdEndParams {
@@ -80,7 +80,7 @@ export interface AdBreakEndParams {
 export interface ErrorParams {
 	errorCode?: string | number; // Código de error (opcional)
 	errorMessage?: string; // Mensaje de error (opcional)
-	errorType?: 'playback' | 'network' | 'drm' | 'other'; // Tipo de error (opcional)
+	errorType?: "playback" | "network" | "drm" | "other"; // Tipo de error (opcional)
 	isFatal?: boolean; // Si el error es fatal (opcional)
 }
 

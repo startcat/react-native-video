@@ -4,7 +4,7 @@
  *
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
 
 interface useIsBufferingProps {
 	buffering?: boolean;

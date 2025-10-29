@@ -1,11 +1,11 @@
-import type { IDrm } from '../../types';
+import type { IDrm } from "../../types";
 import {
 	MediaFlowStateType,
 	MediaType,
 	StateChangeReason,
 	type ExtendedVideoSource,
 	type MediaFlowState,
-} from './types';
+} from "./types";
 
 export class MediaFlowStateManager {
 	private currentState: MediaFlowState;

@@ -1,7 +1,7 @@
-const blacklist = require('metro').createBlacklist;
+const blacklist = require("metro").createBlacklist;
 
 module.exports = {
-  getBlacklistRE: function() {
-    return blacklist([/node_modules\/react-native-video\/examples\/.*/]);
-  }
+	getBlacklistRE: function () {
+		return blacklist([/node_modules\/react-native-video\/examples\/.*/]);
+	},
 };

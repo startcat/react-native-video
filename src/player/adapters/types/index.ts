@@ -3,13 +3,13 @@
  *
  */
 
-import type { PlayerError } from '../../core/errors';
+import type { PlayerError } from "../../core/errors";
 
 export interface TrackInfo {
 	id: number;
 	name: string | null;
 	language: string | null;
-	type: 'AUDIO' | 'TEXT' | 'VIDEO';
+	type: "AUDIO" | "TEXT" | "VIDEO";
 	bitrate?: number;
 	width?: number;
 	height?: number;
@@ -47,7 +47,7 @@ export interface PlayerAdapter {
 	maxBitrate: number | null;
 	currentBitrate: number | null;
 	isFullscreen: boolean;
-	resizeMode: 'contain' | 'cover' | 'stretch' | 'center';
+	resizeMode: "contain" | "cover" | "stretch" | "center";
 
 	// ========================
 	// Métodos de control básico
@@ -74,7 +74,7 @@ export interface PlayerAdapter {
 	// ========================
 	setSpeedRate(rate: number): Promise<boolean>;
 	setMaxBitrate(bitrate: number | null): Promise<boolean>;
-	setResizeMode(mode: 'contain' | 'cover' | 'stretch' | 'center'): Promise<boolean>;
+	setResizeMode(mode: "contain" | "cover" | "stretch" | "center"): Promise<boolean>;
 	toggleFullscreen(): Promise<boolean>;
 
 	// ========================
@@ -143,7 +143,7 @@ export interface PlayerContentInfo {
 	config?: {
 		enableAutoBitrate?: boolean;
 		maxBitrate?: number;
-		preferredVideoQuality?: 'auto' | 'low' | 'medium' | 'high' | 'ultra';
+		preferredVideoQuality?: "auto" | "low" | "medium" | "high" | "ultra";
 		bufferConfig?: any;
 		allowBackground?: boolean;
 		allowPictureInPicture?: boolean;

@@ -1,1 +1,1 @@
-export const LOG_KEY = 'ReactNativeVideoAdapter';
+export const LOG_KEY = "ReactNativeVideoAdapter";

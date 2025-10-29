@@ -1,4 +1,4 @@
-import { type PlayerAnalyticsPlugin } from './Plugin';
+import { type PlayerAnalyticsPlugin } from "./Plugin";
 
 // Interfaz base para configuración de plugins
 export interface PluginConfig {
@@ -19,5 +19,5 @@ export type PluginCreator = (mediaData: any, config?: any) => PlayerAnalyticsPlu
 export interface AnalyticsFactoryConfig {
 	plugins: { [pluginName: string]: PluginConfig };
 	debug?: boolean;
-	environment?: 'dev' | 'staging' | 'prod';
+	environment?: "dev" | "staging" | "prod";
 }

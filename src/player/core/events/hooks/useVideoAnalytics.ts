@@ -3,15 +3,15 @@
  *
  */
 
-import { useCallback, useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
+import { useCallback, useEffect, useRef } from "react";
+import { AppState } from "react-native";
 
-import type { ReactVideoEvents } from '../../../../types';
-import { PlayerError } from '../../errors';
+import type { ReactVideoEvents } from "../../../../types";
+import { PlayerError } from "../../errors";
 
-import { PlayerAnalyticsEvents, type PlayerAnalyticsPlugin } from '../../../features/analytics';
+import { PlayerAnalyticsEvents, type PlayerAnalyticsPlugin } from "../../../features/analytics";
 
-import { VideoEventsAdapter } from '../VideoEventsAdapter';
+import { VideoEventsAdapter } from "../VideoEventsAdapter";
 
 import type {
 	OnAudioTracksData,
@@ -28,11 +28,11 @@ import type {
 	OnVideoErrorData,
 	OnVideoTracksData,
 	OnVolumeChangeData,
-} from '../../../../specs/VideoNativeComponent';
+} from "../../../../specs/VideoNativeComponent";
 
-import type { OnLoadData, OnReceiveAdEventData, OnTextTracksData } from '../../../../types/events';
+import type { OnLoadData, OnReceiveAdEventData, OnTextTracksData } from "../../../../types/events";
 
-import { type UseVideoAnalyticsProps, type UseVideoAnalyticsReturn } from '../types';
+import { type UseVideoAnalyticsProps, type UseVideoAnalyticsReturn } from "../types";
 
 export const useVideoAnalytics = ({
 	plugins = [],
@@ -53,7 +53,7 @@ export const useVideoAnalytics = ({
 			adapterRef.current = new VideoEventsAdapter(analyticsEventsRef.current);
 		} catch (error) {
 			onInternalError?.(
-				new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED', {
+				new PlayerError("PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED", {
 					originalError: error,
 				})
 			);
@@ -92,11 +92,11 @@ export const useVideoAnalytics = ({
 		}
 
 		const handleAppStateChange = (nextAppState: string) => {
-			if (appStateRef.current.match(/inactive|background/) && nextAppState === 'active') {
+			if (appStateRef.current.match(/inactive|background/) && nextAppState === "active") {
 				adapterRef.current!.onApplicationForeground();
 				adapterRef.current!.onApplicationActive();
 			} else if (
-				appStateRef.current === 'active' &&
+				appStateRef.current === "active" &&
 				nextAppState.match(/inactive|background/)
 			) {
 				adapterRef.current!.onApplicationInactive();
@@ -105,7 +105,7 @@ export const useVideoAnalytics = ({
 			appStateRef.current = nextAppState;
 		};
 
-		const subscription = AppState.addEventListener('change', handleAppStateChange);
+		const subscription = AppState.addEventListener("change", handleAppStateChange);
 
 		return () => {
 			subscription?.remove();
@@ -120,7 +120,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onLoadStart(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_LOAD_START_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_LOAD_START_FAILED", {
 							originalError: error,
 						})
 					);
@@ -134,7 +134,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onLoad(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_LOAD_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_LOAD_FAILED", {
 							originalError: error,
 						})
 					);
@@ -148,7 +148,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onProgress(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_PROGRESS_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_PROGRESS_FAILED", {
 							originalError: error,
 						})
 					);
@@ -162,7 +162,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onPlaybackStateChanged(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_PLAYBACK_STATE_CHANGED_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_PLAYBACK_STATE_CHANGED_FAILED", {
 							originalError: error,
 						})
 					);
@@ -176,7 +176,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onBuffer(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_BUFFER_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_BUFFER_FAILED", {
 							originalError: error,
 						})
 					);
@@ -190,7 +190,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onSeek(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_SEEK_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_SEEK_FAILED", {
 							originalError: error,
 						})
 					);
@@ -204,7 +204,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onPlaybackRateChange(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_PLAYBACK_RATE_CHANGE_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_PLAYBACK_RATE_CHANGE_FAILED", {
 							originalError: error,
 						})
 					);
@@ -218,7 +218,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onVolumeChange(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_VOLUME_CHANGE_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_VOLUME_CHANGE_FAILED", {
 							originalError: error,
 						})
 					);
@@ -232,7 +232,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onEnd();
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_END_FAILED', { originalError: error })
+						new PlayerError("PLAYER_EVENT_HANDLER_END_FAILED", { originalError: error })
 					);
 				}
 			}
@@ -244,7 +244,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onError(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_ERROR_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_ERROR_FAILED", {
 							originalError: error,
 						})
 					);
@@ -258,7 +258,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onReceiveAdEvent(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED", {
 							originalError: error,
 						})
 					);
@@ -272,7 +272,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onAudioTracks(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_AUDIO_TRACKS_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_AUDIO_TRACKS_FAILED", {
 							originalError: error,
 						})
 					);
@@ -286,7 +286,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onTextTracks(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_TEXT_TRACKS_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_TEXT_TRACKS_FAILED", {
 							originalError: error,
 						})
 					);
@@ -300,7 +300,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onVideoTracks(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_VIDEO_TRACKS_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_VIDEO_TRACKS_FAILED", {
 							originalError: error,
 						})
 					);
@@ -314,7 +314,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onBandwidthUpdate(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_BANDWIDTH_UPDATE_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_BANDWIDTH_UPDATE_FAILED", {
 							originalError: error,
 						})
 					);
@@ -328,7 +328,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onAspectRatio(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_ASPECT_RATIO_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_ASPECT_RATIO_FAILED", {
 							originalError: error,
 						})
 					);
@@ -342,7 +342,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onTimedMetadata(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_TIMED_METADATA_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_TIMED_METADATA_FAILED", {
 							originalError: error,
 						})
 					);
@@ -356,7 +356,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onReadyForDisplay();
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_READY_FOR_DISPLAY_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_READY_FOR_DISPLAY_FAILED", {
 							originalError: error,
 						})
 					);
@@ -371,7 +371,7 @@ export const useVideoAnalytics = ({
 					analyticsEventsRef.current.onPause();
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_AUDIO_BECOMING_NOISY_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_AUDIO_BECOMING_NOISY_FAILED", {
 							originalError: error,
 						})
 					);
@@ -385,7 +385,7 @@ export const useVideoAnalytics = ({
 					analyticsEventsRef.current.onPause();
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError('PLAYER_EVENT_HANDLER_IDLE_FAILED', {
+						new PlayerError("PLAYER_EVENT_HANDLER_IDLE_FAILED", {
 							originalError: error,
 						})
 					);
@@ -395,23 +395,23 @@ export const useVideoAnalytics = ({
 
 		onExternalPlaybackChange: useCallback((e: OnExternalPlaybackChangeData) => {
 			// Manejar cambios en la reproducción externa (AirPlay, Chromecast, etc.)
-			console.log('[useVideoAnalytics] External playback change:', e);
+			console.log("[useVideoAnalytics] External playback change:", e);
 		}, []),
 
 		onFullscreenPlayerWillPresent: useCallback(() => {
-			console.log('[useVideoAnalytics] Fullscreen will present');
+			console.log("[useVideoAnalytics] Fullscreen will present");
 		}, []),
 
 		onFullscreenPlayerDidPresent: useCallback(() => {
-			console.log('[useVideoAnalytics] Fullscreen did present');
+			console.log("[useVideoAnalytics] Fullscreen did present");
 		}, []),
 
 		onFullscreenPlayerWillDismiss: useCallback(() => {
-			console.log('[useVideoAnalytics] Fullscreen will dismiss');
+			console.log("[useVideoAnalytics] Fullscreen will dismiss");
 		}, []),
 
 		onFullscreenPlayerDidDismiss: useCallback(() => {
-			console.log('[useVideoAnalytics] Fullscreen did dismiss');
+			console.log("[useVideoAnalytics] Fullscreen did dismiss");
 		}, []),
 	};
 

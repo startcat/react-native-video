@@ -11,7 +11,7 @@ export const LIVE_EDGE_TOLERANCE = 15; // segundos para considerar "en vivo"
  */
 
 export const LOGGER_CONFIG = {
-	prefix: 'Progress Manager',
+	prefix: "Progress Manager",
 	enabled: true,
 	level: LogLevel.INFO,
 };

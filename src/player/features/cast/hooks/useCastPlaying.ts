@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
-import { LoggerConfigBasic } from '../../logger/types';
-import { useCastMedia } from './useCastMedia';
+import { useMemo } from "react";
+import { LoggerConfigBasic } from "../../logger/types";
+import { useCastMedia } from "./useCastMedia";
 
 export function useCastPlaying(config: LoggerConfigBasic = {}): boolean {
 	const media = useCastMedia(config);

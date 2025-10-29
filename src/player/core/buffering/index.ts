@@ -1,1 +1,1 @@
-export * from './hooks/useIsBuffering';
+export * from "./hooks/useIsBuffering";

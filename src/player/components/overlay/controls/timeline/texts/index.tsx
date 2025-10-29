@@ -1,13 +1,13 @@
-import { Text } from '@ui-kitten/components';
-import React, { useMemo } from 'react';
-import { View } from 'react-native';
-import { type TimelineTextProps } from '../../../../../../types';
-import { parseToCounter } from '../../../../../utils/time';
-import { styles } from './styles';
+import { Text } from "@ui-kitten/components";
+import React, { useMemo } from "react";
+import { View } from "react-native";
+import { type TimelineTextProps } from "../../../../../../types";
+import { parseToCounter } from "../../../../../utils/time";
+import { styles } from "./styles";
 
 const TimelineTextBase = ({
 	value,
-	category = 'h5',
+	category = "h5",
 	containerStyle,
 	textStyle,
 }: TimelineTextProps): React.ReactElement | null => {
@@ -17,11 +17,11 @@ const TimelineTextBase = ({
 			return null;
 		}
 
-		if (typeof value === 'string') {
+		if (typeof value === "string") {
 			return value;
 		}
 
-		if (typeof value === 'number') {
+		if (typeof value === "number") {
 			return parseToCounter(value);
 		}
 

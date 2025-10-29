@@ -3,9 +3,9 @@
  *
  */
 
-import { PlayerError } from '../core/errors';
-import * as Enums from './enums';
-import { type ICommonData, type IPreferencesCommonData } from './types';
+import { PlayerError } from "../core/errors";
+import * as Enums from "./enums";
+import { type ICommonData, type IPreferencesCommonData } from "./types";
 
 export interface IPlayerEvents {
 	onStart?: () => void;
