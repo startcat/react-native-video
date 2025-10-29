@@ -23,7 +23,7 @@ const sortByIndex = (a: IPlayerMenuData, b: IPlayerMenuData) => {
 };
 
 export const getTrackId = (type: string, index: number, menuData?: Array<IPlayerMenuData>) => {
-	const item = menuData?.find(item => item.type === type && item.index === index);
+	const item = menuData?.find(menuItem => menuItem.type === type && menuItem.index === index);
 
 	return item?.id;
 };
