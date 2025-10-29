@@ -122,7 +122,7 @@ export const DEFAULT_CONFIG_STREAM_DOWNLOAD: StreamDownloadServiceConfig = {
 	allowCellular: false,
 	requiresWifi: true,
 	enableNotifications: true,
-	defaultQuality: "low",
+	defaultQuality: "medium",
 };
 
 export const DEFAULT_CONFIG_DOWNLOAD_SERVICE: DownloadServiceConfig = {

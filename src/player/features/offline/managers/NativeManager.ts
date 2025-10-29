@@ -223,7 +223,7 @@ export class NativeManager {
 				await this.nativeModule.setDownloadDirectories(downloadDirs);
 				this.currentLogger.info(TAG, "Download directories configured", {
 					...downloadDirs,
-					note: "Native module will construct absolute paths"
+					note: "Native module will construct absolute paths",
 				});
 			} catch (error) {
 				this.currentLogger.error(TAG, "Failed to configure download directories", error);
@@ -519,7 +519,7 @@ export class NativeManager {
 		try {
 			await this.nativeModule.removeDownload(downloadId);
 			this.currentLogger.debug(TAG, `Download removed: ${downloadId}`);
-			
+
 			// Invalidar cache de download space en iOS
 			if (Platform.OS === "ios") {
 				const { storageService } = require("../services/storage/StorageService");
@@ -677,7 +677,7 @@ export class NativeManager {
 
 		try {
 			const result = await this.nativeModule.getDownloads();
-			this.currentLogger.debug(TAG, `getDownloads raw result:`, result);
+			this.currentLogger.debug(TAG, "getDownloads raw result:", result);
 
 			// El módulo Android devuelve { downloads: [...] } en lugar de [...]
 			const downloads = result?.downloads || result || [];
@@ -926,7 +926,7 @@ export class NativeManager {
 			// Primero intentar obtener info de la descarga
 			const downloadInfo = await this.getDownload(downloadId);
 			if (downloadInfo) {
-				this.currentLogger.info(TAG, `Download info before cleanup:`, downloadInfo);
+				this.currentLogger.info(TAG, "Download info before cleanup:", downloadInfo);
 
 				// Si está al 100%, intentar removerla del módulo nativo
 				if (downloadInfo.stats?.progressPercent >= 100) {

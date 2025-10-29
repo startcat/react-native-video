@@ -4,7 +4,7 @@ import { CastTrackInfo } from '../types/types';
 import { useCastMedia } from './useCastMedia';
 
 export function useCastAudioTrack(config: LoggerConfigBasic = {}): CastTrackInfo | null {
-    const media = useCastMedia(config);
-    
-    return useMemo(() => media.audioTrack, [media.audioTrack?.id]);
+	const media = useCastMedia(config);
+
+	return useMemo(() => media.audioTrack, [media.audioTrack?.id]);
 }

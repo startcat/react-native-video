@@ -1,9 +1,3 @@
 export class TimeMarkersClass {
-
-
-
-    constructor() {
-        
-    }
-
+	constructor() {}
 }

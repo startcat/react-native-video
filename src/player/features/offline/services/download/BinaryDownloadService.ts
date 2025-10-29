@@ -193,7 +193,7 @@ export class BinaryDownloadService {
 
 			this.currentLogger.info(
 				TAG,
-				`Recovered 0 pending downloads (binary downloads temporarily disabled)`
+				"Recovered 0 pending downloads (binary downloads temporarily disabled)"
 			);
 		} catch (error) {
 			this.currentLogger.warn(TAG, `Failed to recover pending downloads: ${error}`);
@@ -571,7 +571,9 @@ export class BinaryDownloadService {
 
 	private async handleDownloadSuccess(taskId: string): Promise<void> {
 		const download = this.activeDownloads.get(taskId);
-		if (!download) return;
+		if (!download) {
+			return;
+		}
 
 		try {
 			// Validar archivo descargado
@@ -628,7 +630,9 @@ export class BinaryDownloadService {
 
 	private async handleDownloadError(taskId: string, error: any): Promise<void> {
 		const download = this.activeDownloads.get(taskId);
-		if (!download) return;
+		if (!download) {
+			return;
+		}
 
 		const downloadError: DownloadError = {
 			code: this.mapErrorToCode(error),
@@ -704,7 +708,9 @@ export class BinaryDownloadService {
 	 */
 
 	private startQueueProcessing(): void {
-		if (this.isProcessingQueue) return;
+		if (this.isProcessingQueue) {
+			return;
+		}
 
 		this.isProcessingQueue = true;
 		setInterval(() => {
@@ -788,7 +794,9 @@ export class BinaryDownloadService {
 	 */
 
 	private mapErrorToCode(error: any): DownloadErrorCode {
-		if (!error) return DownloadErrorCode.UNKNOWN;
+		if (!error) {
+			return DownloadErrorCode.UNKNOWN;
+		}
 
 		const message = error.message?.toLowerCase() || "";
 
@@ -822,7 +830,9 @@ export class BinaryDownloadService {
 
 	private calculateAverageSpeed(downloads: ActiveBinaryDownload[]): number {
 		const activeDownloads = downloads.filter(d => d.state === DownloadStates.DOWNLOADING);
-		if (activeDownloads.length === 0) return 0;
+		if (activeDownloads.length === 0) {
+			return 0;
+		}
 
 		const totalSpeed = activeDownloads.reduce((sum, download) => {
 			const elapsedTime = (Date.now() - download.startTime) / 1000; // segundos

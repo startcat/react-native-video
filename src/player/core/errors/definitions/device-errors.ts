@@ -1,7 +1,7 @@
 /*
  * Categoría: DEVICE_*
  * Errores relacionados con limitaciones y estado del dispositivo
- * 
+ *
  */
 
 export const DEVICE_ERROR_DEFINITIONS = {

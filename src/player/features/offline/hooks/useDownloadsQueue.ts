@@ -6,178 +6,177 @@ import { QueueStats } from '../types/queue';
 /*
  * Hook para gestión de la cola de descargas según la interfaz del contexto
  * Proporciona estado de la cola, estadísticas y control completo
- * 
+ *
  */
 
 export interface UseDownloadsQueueReturn {
-    // Estado de la cola
-    queue: DownloadItem[];                    // DownloadItem[]
-    queuePosition: Map<string, number>;       // Map<id, number>
-    isProcessing: boolean;                    // boolean
-    isPaused: boolean;                        // boolean
-  
-    // Estadísticas
-    stats: QueueStats;                        // QueueStats
-    maxConcurrent: number;                    // number
-    currentActive: number;                    // number
-  
-    // Control de cola
-    pauseQueue: () => Promise<void>;          // () => Promise<void>
-    resumeQueue: () => Promise<void>;         // () => Promise<void>
-    clearQueue: () => Promise<void>;          // () => Promise<void>
-    reorderQueue: (newOrder: string[]) => Promise<void>; // (newOrder: string[]) => Promise<void>
-  
-    // Configuración
-    setMaxConcurrent: (count: number) => void; // (count: number) => void
-  
-    // Filtros
-    filterByState: (states: DownloadStates[]) => DownloadItem[]; // (states: DownloadStates[]) => DownloadItem[]
-    filterByType: (type: string) => DownloadItem[];             // (type: string) => DownloadItem[]
-  
-    // Eventos
-    onQueueChanged: (callback: (stats: QueueStats) => void) => () => void; // (callback: (stats: QueueStats) => void) => () => void
+	// Estado de la cola
+	queue: DownloadItem[]; // DownloadItem[]
+	queuePosition: Map<string, number>; // Map<id, number>
+	isProcessing: boolean; // boolean
+	isPaused: boolean; // boolean
+
+	// Estadísticas
+	stats: QueueStats; // QueueStats
+	maxConcurrent: number; // number
+	currentActive: number; // number
+
+	// Control de cola
+	pauseQueue: () => Promise<void>; // () => Promise<void>
+	resumeQueue: () => Promise<void>; // () => Promise<void>
+	clearQueue: () => Promise<void>; // () => Promise<void>
+	reorderQueue: (newOrder: string[]) => Promise<void>; // (newOrder: string[]) => Promise<void>
+
+	// Configuración
+	setMaxConcurrent: (count: number) => void; // (count: number) => void
+
+	// Filtros
+	filterByState: (states: DownloadStates[]) => DownloadItem[]; // (states: DownloadStates[]) => DownloadItem[]
+	filterByType: (type: string) => DownloadItem[]; // (type: string) => DownloadItem[]
+
+	// Eventos
+	onQueueChanged: (callback: (stats: QueueStats) => void) => () => void; // (callback: (stats: QueueStats) => void) => () => void
 }
 
 export function useDownloadsQueue(): UseDownloadsQueueReturn {
-    // Estados del hook
-    const [queue, setQueue] = useState<DownloadItem[]>([]);
-    const [queuePosition, setQueuePosition] = useState<Map<string, number>>(new Map());
-    const [stats, setStats] = useState<QueueStats>({
-        total: 0,
-        pending: 0,
-        downloading: 0,
-        paused: 0,
-        completed: 0,
-        failed: 0,
-        isPaused: false,
-        isProcessing: false,
-    });
-    const [maxConcurrent, setMaxConcurrentState] = useState<number>(3);
-    const [currentActive, setCurrentActive] = useState<number>(0);
+	// Estados del hook
+	const [queue, setQueue] = useState<DownloadItem[]>([]);
+	const [queuePosition, setQueuePosition] = useState<Map<string, number>>(new Map());
+	const [stats, setStats] = useState<QueueStats>({
+		total: 0,
+		pending: 0,
+		downloading: 0,
+		paused: 0,
+		completed: 0,
+		failed: 0,
+		isPaused: false,
+		isProcessing: false,
+	});
+	const [maxConcurrent, setMaxConcurrentState] = useState<number>(3);
+	const [currentActive, setCurrentActive] = useState<number>(0);
 
-    // Función para actualizar todos los estados
-    const updateQueueStates = useCallback(() => {
-        try {
-            const currentQueue = queueManager.getAllDownloads();
-            const currentPositions = queueManager.getQueuePositions();
-            const currentStats = queueManager.getQueueStats();
-            
-            setQueue(currentQueue);
-            setQueuePosition(currentPositions);
-            setStats(currentStats);
-            setCurrentActive(currentStats.downloading);
-            
-        } catch (error) {
-            console.error('Error updating queue states:', error);
-        }
-    }, []);
+	// Función para actualizar todos los estados
+	const updateQueueStates = useCallback(() => {
+		try {
+			const currentQueue = queueManager.getAllDownloads();
+			const currentPositions = queueManager.getQueuePositions();
+			const currentStats = queueManager.getQueueStats();
 
-    // Inicialización y suscripciones
-    useEffect(() => {
-        const initializeQueue = async () => {
-            // Inicializar QueueManager
-            await queueManager.initialize();
-            
-            // Obtener estados iniciales
-            updateQueueStates();
-        };
+			setQueue(currentQueue);
+			setQueuePosition(currentPositions);
+			setStats(currentStats);
+			setCurrentActive(currentStats.downloading);
+		} catch (error) {
+			console.error('Error updating queue states:', error);
+		}
+	}, []);
 
-        initializeQueue();
+	// Inicialización y suscripciones
+	useEffect(() => {
+		const initializeQueue = async () => {
+			// Inicializar QueueManager
+			await queueManager.initialize();
 
-        // Suscribirse a todos los eventos de la cola
-        const unsubscribeAll = queueManager.subscribe('all', () => {
-            updateQueueStates();
-        });
-        
-        // Suscribirse a eventos específicos del manager interno
-        const eventEmitter = (queueManager as any).eventEmitter;
-        
-        const handleMaxConcurrentChange = (data: { maxConcurrent: number }) => {
-            setMaxConcurrentState(data.maxConcurrent);
-        };
-        
-        eventEmitter.on('max_concurrent_changed', handleMaxConcurrentChange);
-        
-        return () => {
-            unsubscribeAll();
-            eventEmitter.off('max_concurrent_changed', handleMaxConcurrentChange);
-        };
-    }, [updateQueueStates]);
+			// Obtener estados iniciales
+			updateQueueStates();
+		};
 
-    // Control de cola
-    const pauseQueue = useCallback(async (): Promise<void> => {
-        queueManager.pauseAll();
-        updateQueueStates();
-    }, [updateQueueStates]);
+		initializeQueue();
 
-    const resumeQueue = useCallback(async (): Promise<void> => {
-        queueManager.resumeAll();
-        updateQueueStates();
-    }, [updateQueueStates]);
+		// Suscribirse a todos los eventos de la cola
+		const unsubscribeAll = queueManager.subscribe('all', () => {
+			updateQueueStates();
+		});
 
-    const clearQueue = useCallback(async (): Promise<void> => {
-        await queueManager.clearQueue();
-        // El estado se actualizará automáticamente via evento
-    }, []);
+		// Suscribirse a eventos específicos del manager interno
+		const eventEmitter = (queueManager as any).eventEmitter;
 
-    const reorderQueue = useCallback(async (newOrder: string[]): Promise<void> => {
-        await queueManager.reorderQueue(newOrder);
-        // El estado se actualizará automáticamente via evento
-    }, []);
+		const handleMaxConcurrentChange = (data: { maxConcurrent: number }) => {
+			setMaxConcurrentState(data.maxConcurrent);
+		};
 
-    // Configuración
-    const setMaxConcurrent = useCallback((count: number): void => {
-        queueManager.setMaxConcurrent(count);
-        // El estado se actualizará automáticamente via evento
-    }, []);
+		eventEmitter.on('max_concurrent_changed', handleMaxConcurrentChange);
 
-    // Filtros
-    const filterByState = useCallback((states: DownloadStates[]): DownloadItem[] => {
-        return queueManager.filterByState(states);
-    }, []);
+		return () => {
+			unsubscribeAll();
+			eventEmitter.off('max_concurrent_changed', handleMaxConcurrentChange);
+		};
+	}, [updateQueueStates]);
 
-    const filterByType = useCallback((type: string): DownloadItem[] => {
-        return queueManager.filterByType(type);
-    }, []);
+	// Control de cola
+	const pauseQueue = useCallback(async (): Promise<void> => {
+		queueManager.pauseAll();
+		updateQueueStates();
+	}, [updateQueueStates]);
 
-    // Eventos
-    const onQueueChanged = useCallback((callback: (stats: QueueStats) => void) => {
-        return queueManager.subscribe('all', () => {
-            const currentStats = queueManager.getQueueStats();
-            callback(currentStats);
-        });
-    }, []);
+	const resumeQueue = useCallback(async (): Promise<void> => {
+		queueManager.resumeAll();
+		updateQueueStates();
+	}, [updateQueueStates]);
 
-    // Valores derivados del stats (ahora disponibles en QueueStats de types/queue.ts)
-    const isProcessing = stats.isProcessing;
-    const isPaused = stats.isPaused;
+	const clearQueue = useCallback(async (): Promise<void> => {
+		await queueManager.clearQueue();
+		// El estado se actualizará automáticamente via evento
+	}, []);
 
-    return {
-        // Estado de la cola
-        queue,
-        queuePosition,
-        isProcessing,
-        isPaused,
-        
-        // Estadísticas
-        stats,
-        maxConcurrent,
-        currentActive,
-        
-        // Control de cola
-        pauseQueue,
-        resumeQueue,
-        clearQueue,
-        reorderQueue,
-        
-        // Configuración
-        setMaxConcurrent,
-        
-        // Filtros
-        filterByState,
-        filterByType,
-        
-        // Eventos
-        onQueueChanged,
-    };
+	const reorderQueue = useCallback(async (newOrder: string[]): Promise<void> => {
+		await queueManager.reorderQueue(newOrder);
+		// El estado se actualizará automáticamente via evento
+	}, []);
+
+	// Configuración
+	const setMaxConcurrent = useCallback((count: number): void => {
+		queueManager.setMaxConcurrent(count);
+		// El estado se actualizará automáticamente via evento
+	}, []);
+
+	// Filtros
+	const filterByState = useCallback((states: DownloadStates[]): DownloadItem[] => {
+		return queueManager.filterByState(states);
+	}, []);
+
+	const filterByType = useCallback((type: string): DownloadItem[] => {
+		return queueManager.filterByType(type);
+	}, []);
+
+	// Eventos
+	const onQueueChanged = useCallback((callback: (stats: QueueStats) => void) => {
+		return queueManager.subscribe('all', () => {
+			const currentStats = queueManager.getQueueStats();
+			callback(currentStats);
+		});
+	}, []);
+
+	// Valores derivados del stats (ahora disponibles en QueueStats de types/queue.ts)
+	const isProcessing = stats.isProcessing;
+	const isPaused = stats.isPaused;
+
+	return {
+		// Estado de la cola
+		queue,
+		queuePosition,
+		isProcessing,
+		isPaused,
+
+		// Estadísticas
+		stats,
+		maxConcurrent,
+		currentActive,
+
+		// Control de cola
+		pauseQueue,
+		resumeQueue,
+		clearQueue,
+		reorderQueue,
+
+		// Configuración
+		setMaxConcurrent,
+
+		// Filtros
+		filterByState,
+		filterByType,
+
+		// Eventos
+		onQueueChanged,
+	};
 }

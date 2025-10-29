@@ -106,6 +106,7 @@ export interface StreamDownloadTask {
 	title: string;
 	config: StreamDownloadConfig;
 	estimatedSize?: number;
+	headers?: Record<string, string>; // HTTP headers para autenticación
 	subtitles?: Array<{
 		id: string;
 		uri: string;
@@ -298,6 +299,9 @@ export interface UsableDownloadItem {
 	// Configuración DRM
 	drm?: IDrm; // Configuración DRM completa
 	drmScheme?: string; // Esquema DRM específico
+
+	// Headers HTTP para autenticación
+	headers?: Record<string, string>;
 
 	// Subtítulos
 	subtitles?: DownloadedSubtitleItem[];

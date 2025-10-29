@@ -1031,7 +1031,9 @@ export class PersistenceService {
 	 */
 
 	private verifyChecksum(data: PersistedData): boolean {
-		if (!data.checksum) return true;
+		if (!data.checksum) {
+			return true;
+		}
 
 		const originalChecksum = data.checksum;
 		const dataWithoutChecksum = { ...data };

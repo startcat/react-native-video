@@ -15,8 +15,8 @@ import { ComponentLogger, Logger, LoggerFactory } from "./player/features/logger
 import { type IPlayerProgress, type IPreferencesCommonData } from "./player/types";
 
 // Declaraciones globales para TypeScript
-declare var __DEV__: boolean;
-declare var require: any;
+declare let __DEV__: boolean;
+declare let require: any;
 
 // Imports condicionales: lazy loading solo en producción
 let NormalFlavour: React.ComponentType<any>;
@@ -186,7 +186,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	 */
 
 	const handleChangeCommonData = (data: ICommonData) => {
-		let preferencesData: IPreferencesCommonData = {};
+		const preferencesData: IPreferencesCommonData = {};
 
 		currentLogger.current?.debug(`handleChangeCommonData ${JSON.stringify(data)}`);
 
@@ -278,7 +278,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		(nativeCastState === NativeCastState.CONNECTING ||
 			nativeCastState === NativeCastState.CONNECTED)
 	) {
-		currentLogger.current?.debug(`Mounting CastFlavour...`);
+		currentLogger.current?.debug("Mounting CastFlavour...");
 		isCasting.current = true;
 		return (
 			<Suspense fallback={props.components?.suspenseLoader}>
@@ -321,7 +321,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		nativeCastState !== NativeCastState.CONNECTING &&
 		nativeCastState !== NativeCastState.CONNECTED
 	) {
-		currentLogger.current?.debug(`Mounting NormalFlavour...`);
+		currentLogger.current?.debug("Mounting NormalFlavour...");
 		isCasting.current = false;
 		return (
 			<Suspense fallback={props.components?.suspenseLoader}>

@@ -6,10 +6,6 @@
 
 // }
 
-export const getOcasionalLiveDVRWindow = () => {
+export const getOcasionalLiveDVRWindow = () => {};
 
-}
-
-export const getOcasionalLiveDVRTimeValue = () => {
-
-}
+export const getOcasionalLiveDVRTimeValue = () => {};

@@ -118,7 +118,7 @@ export const PLAYER_ERROR_DEFINITIONS = {
 		message: "Content type not supported by AirPlay.",
 	},
 
-    // === ERRORES DE ANALYTICS ===
+	// === ERRORES DE ANALYTICS ===
 	PLAYER_ANALYTICS_PLUGIN_CREATION_FAILED: {
 		message: "Failed to create analytics plugin.",
 	},
@@ -214,234 +214,234 @@ export const PLAYER_ERROR_DEFINITIONS = {
 		message: "Invalid tudum configuration provided.",
 	},
 
-    // === ERRORES DE GESTIÓN DE EVENTOS ===
-    PLAYER_EVENT_ANALYTICS_DISPATCH_FAILED: {
-        message: "Failed to dispatch analytics event.",
-    },
-    PLAYER_EVENT_CALLBACK_EXECUTION_ERROR: {
-        message: "Error executing event callback.",
-    },
-    PLAYER_EVENT_STATE_SYNCHRONIZATION_ERROR: {
-        message: "Event state synchronization failed.",
-    },
-    PLAYER_ERROR_PROCESSING_ERROR: {
-        message: "Error processing error event.",
-    },
+	// === ERRORES DE GESTIÓN DE EVENTOS ===
+	PLAYER_EVENT_ANALYTICS_DISPATCH_FAILED: {
+		message: "Failed to dispatch analytics event.",
+	},
+	PLAYER_EVENT_CALLBACK_EXECUTION_ERROR: {
+		message: "Error executing event callback.",
+	},
+	PLAYER_EVENT_STATE_SYNCHRONIZATION_ERROR: {
+		message: "Event state synchronization failed.",
+	},
+	PLAYER_ERROR_PROCESSING_ERROR: {
+		message: "Error processing error event.",
+	},
 
-    // === ERRORES DE EVENT HANDLERS ===
-    PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED: {
-        message: "Failed to initialize video event handler.",
-    },
-    PLAYER_EVENT_HANDLER_LOAD_START_FAILED: {
-        message: "Error handling load start event.",
-    },
-    PLAYER_EVENT_HANDLER_LOAD_FAILED: {
-        message: "Error handling load event.",
-    },
-    PLAYER_EVENT_HANDLER_PROGRESS_FAILED: {
-        message: "Error handling progress event.",
-    },
-    PLAYER_EVENT_HANDLER_PLAYBACK_STATE_CHANGED_FAILED: {
-        message: "Error handling playback state change event.",
-    },
-    PLAYER_EVENT_HANDLER_BUFFER_FAILED: {
-        message: "Error handling buffer event.",
-    },
-    PLAYER_EVENT_HANDLER_SEEK_FAILED: {
-        message: "Error handling seek event.",
-    },
-    PLAYER_EVENT_HANDLER_PLAYBACK_RATE_CHANGE_FAILED: {
-        message: "Error handling playback rate change event.",
-    },
-    PLAYER_EVENT_HANDLER_VOLUME_CHANGE_FAILED: {
-        message: "Error handling volume change event.",
-    },
-    PLAYER_EVENT_HANDLER_END_FAILED: {
-        message: "Error handling end event.",
-    },
-    PLAYER_EVENT_HANDLER_ERROR_FAILED: {
-        message: "Error handling error event.",
-    },
-    PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED: {
-        message: "Error handling ad event.",
-    },
-    PLAYER_EVENT_HANDLER_AUDIO_TRACKS_FAILED: {
-        message: "Error handling audio tracks event.",
-    },
-    PLAYER_EVENT_HANDLER_TEXT_TRACKS_FAILED: {
-        message: "Error handling text tracks event.",
-    },
-    PLAYER_EVENT_HANDLER_VIDEO_TRACKS_FAILED: {
-        message: "Error handling video tracks event.",
-    },
-    PLAYER_EVENT_HANDLER_BANDWIDTH_UPDATE_FAILED: {
-        message: "Error handling bandwidth update event.",
-    },
-    PLAYER_EVENT_HANDLER_ASPECT_RATIO_FAILED: {
-        message: "Error handling aspect ratio event.",
-    },
-    PLAYER_EVENT_HANDLER_TIMED_METADATA_FAILED: {
-        message: "Error handling timed metadata event.",
-    },
-    PLAYER_EVENT_HANDLER_READY_FOR_DISPLAY_FAILED: {
-        message: "Error handling ready for display event.",
-    },
-    PLAYER_EVENT_HANDLER_AUDIO_BECOMING_NOISY_FAILED: {
-        message: "Error handling audio becoming noisy event.",
-    },
-    PLAYER_EVENT_HANDLER_IDLE_FAILED: {
-        message: "Error handling idle event.",
-    },
+	// === ERRORES DE EVENT HANDLERS ===
+	PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED: {
+		message: "Failed to initialize video event handler.",
+	},
+	PLAYER_EVENT_HANDLER_LOAD_START_FAILED: {
+		message: "Error handling load start event.",
+	},
+	PLAYER_EVENT_HANDLER_LOAD_FAILED: {
+		message: "Error handling load event.",
+	},
+	PLAYER_EVENT_HANDLER_PROGRESS_FAILED: {
+		message: "Error handling progress event.",
+	},
+	PLAYER_EVENT_HANDLER_PLAYBACK_STATE_CHANGED_FAILED: {
+		message: "Error handling playback state change event.",
+	},
+	PLAYER_EVENT_HANDLER_BUFFER_FAILED: {
+		message: "Error handling buffer event.",
+	},
+	PLAYER_EVENT_HANDLER_SEEK_FAILED: {
+		message: "Error handling seek event.",
+	},
+	PLAYER_EVENT_HANDLER_PLAYBACK_RATE_CHANGE_FAILED: {
+		message: "Error handling playback rate change event.",
+	},
+	PLAYER_EVENT_HANDLER_VOLUME_CHANGE_FAILED: {
+		message: "Error handling volume change event.",
+	},
+	PLAYER_EVENT_HANDLER_END_FAILED: {
+		message: "Error handling end event.",
+	},
+	PLAYER_EVENT_HANDLER_ERROR_FAILED: {
+		message: "Error handling error event.",
+	},
+	PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED: {
+		message: "Error handling ad event.",
+	},
+	PLAYER_EVENT_HANDLER_AUDIO_TRACKS_FAILED: {
+		message: "Error handling audio tracks event.",
+	},
+	PLAYER_EVENT_HANDLER_TEXT_TRACKS_FAILED: {
+		message: "Error handling text tracks event.",
+	},
+	PLAYER_EVENT_HANDLER_VIDEO_TRACKS_FAILED: {
+		message: "Error handling video tracks event.",
+	},
+	PLAYER_EVENT_HANDLER_BANDWIDTH_UPDATE_FAILED: {
+		message: "Error handling bandwidth update event.",
+	},
+	PLAYER_EVENT_HANDLER_ASPECT_RATIO_FAILED: {
+		message: "Error handling aspect ratio event.",
+	},
+	PLAYER_EVENT_HANDLER_TIMED_METADATA_FAILED: {
+		message: "Error handling timed metadata event.",
+	},
+	PLAYER_EVENT_HANDLER_READY_FOR_DISPLAY_FAILED: {
+		message: "Error handling ready for display event.",
+	},
+	PLAYER_EVENT_HANDLER_AUDIO_BECOMING_NOISY_FAILED: {
+		message: "Error handling audio becoming noisy event.",
+	},
+	PLAYER_EVENT_HANDLER_IDLE_FAILED: {
+		message: "Error handling idle event.",
+	},
 
-    // === ERRORES DE TRACKING DE PROGRESO ===
-    PLAYER_PROGRESS_TRACKING_FAILED: {
-        message: "Failed to track playback progress.",
-    },
-    PLAYER_SEEK_TRACKING_ERROR: {
-        message: "Error tracking seek operation.",
-    },
-    PLAYER_SEEK_TRACKING_TIMEOUT: {
-        message: "Seek operation tracking timeout.",
-    },
-    PLAYER_POSITION_CALCULATION_ERROR: {
-        message: "Error calculating playback position.",
-    },
+	// === ERRORES DE TRACKING DE PROGRESO ===
+	PLAYER_PROGRESS_TRACKING_FAILED: {
+		message: "Failed to track playback progress.",
+	},
+	PLAYER_SEEK_TRACKING_ERROR: {
+		message: "Error tracking seek operation.",
+	},
+	PLAYER_SEEK_TRACKING_TIMEOUT: {
+		message: "Seek operation tracking timeout.",
+	},
+	PLAYER_POSITION_CALCULATION_ERROR: {
+		message: "Error calculating playback position.",
+	},
 
-    // === ERRORES DE METADATA Y PISTAS ===
-    PLAYER_TRACK_ENUMERATION_FAILED: {
-        message: "Failed to enumerate available tracks.",
-    },
-    PLAYER_TRACK_METADATA_EXTRACTION_ERROR: {
-        message: "Error extracting track metadata.",
-    },
-    PLAYER_TIMED_METADATA_PARSE_ERROR: {
-        message: "Failed to parse timed metadata.",
-    },
+	// === ERRORES DE METADATA Y PISTAS ===
+	PLAYER_TRACK_ENUMERATION_FAILED: {
+		message: "Failed to enumerate available tracks.",
+	},
+	PLAYER_TRACK_METADATA_EXTRACTION_ERROR: {
+		message: "Error extracting track metadata.",
+	},
+	PLAYER_TIMED_METADATA_PARSE_ERROR: {
+		message: "Failed to parse timed metadata.",
+	},
 
-    // === ERRORES DE ANUNCIOS (ADS) ===
-    PLAYER_AD_EVENT_PROCESSING_ERROR: {
-        message: "Error processing ad event.",
-    },
-    PLAYER_AD_BREAK_TRACKING_FAILED: {
-        message: "Failed to track ad break progression.",
-    },
-    PLAYER_AD_METADATA_INVALID: {
-        message: "Invalid or missing ad metadata.",
-    },
+	// === ERRORES DE ANUNCIOS (ADS) ===
+	PLAYER_AD_EVENT_PROCESSING_ERROR: {
+		message: "Error processing ad event.",
+	},
+	PLAYER_AD_BREAK_TRACKING_FAILED: {
+		message: "Failed to track ad break progression.",
+	},
+	PLAYER_AD_METADATA_INVALID: {
+		message: "Invalid or missing ad metadata.",
+	},
 
-    // === ERRORES DE CALIDAD Y BITRATE ===
-    PLAYER_QUALITY_DETECTION_FAILED: {
-        message: "Failed to detect video quality changes.",
-    },
-    PLAYER_BITRATE_CALCULATION_ERROR: {
-        message: "Error calculating current bitrate.",
-    },
-    PLAYER_ADAPTIVE_STREAMING_ERROR: {
-        message: "Adaptive streaming quality adjustment failed.",
-    },
+	// === ERRORES DE CALIDAD Y BITRATE ===
+	PLAYER_QUALITY_DETECTION_FAILED: {
+		message: "Failed to detect video quality changes.",
+	},
+	PLAYER_BITRATE_CALCULATION_ERROR: {
+		message: "Error calculating current bitrate.",
+	},
+	PLAYER_ADAPTIVE_STREAMING_ERROR: {
+		message: "Adaptive streaming quality adjustment failed.",
+	},
 
-    // === ERRORES DEL SISTEMA NATIVO DE DESCARGAS ===
-    NATIVE_MANAGER_INITIALIZATION_FAILED: {
-        message: "Failed to initialize native downloads manager.",
-    },
-    NATIVE_MODULE_SETUP_FAILED: {
-        message: "Failed to setup native downloads module.",
-    },
-    NATIVE_MODULE_INIT_FAILED: {
-        message: "Failed to initialize native downloads module.",
-    },
-    NATIVE_MANAGER_NOT_INITIALIZED: {
-        message: "Native manager is not initialized.",
-    },
+	// === ERRORES DEL SISTEMA NATIVO DE DESCARGAS ===
+	NATIVE_MANAGER_INITIALIZATION_FAILED: {
+		message: "Failed to initialize native downloads manager.",
+	},
+	NATIVE_MODULE_SETUP_FAILED: {
+		message: "Failed to setup native downloads module.",
+	},
+	NATIVE_MODULE_INIT_FAILED: {
+		message: "Failed to initialize native downloads module.",
+	},
+	NATIVE_MANAGER_NOT_INITIALIZED: {
+		message: "Native manager is not initialized.",
+	},
 
-    // === ERRORES DE GESTIÓN DE DESCARGAS NATIVAS ===
-    NATIVE_ADD_DOWNLOAD_FAILED: {
-        message: "Failed to add download to native module.",
-    },
-    NATIVE_REMOVE_DOWNLOAD_FAILED: {
-        message: "Failed to remove download from native module.",
-    },
-    NATIVE_PAUSE_DOWNLOAD_FAILED: {
-        message: "Failed to pause download in native module.",
-    },
-    NATIVE_RESUME_DOWNLOAD_FAILED: {
-        message: "Failed to resume download in native module.",
-    },
-    NATIVE_CANCEL_DOWNLOAD_FAILED: {
-        message: "Failed to cancel download in native module.",
-    },
+	// === ERRORES DE GESTIÓN DE DESCARGAS NATIVAS ===
+	NATIVE_ADD_DOWNLOAD_FAILED: {
+		message: "Failed to add download to native module.",
+	},
+	NATIVE_REMOVE_DOWNLOAD_FAILED: {
+		message: "Failed to remove download from native module.",
+	},
+	NATIVE_PAUSE_DOWNLOAD_FAILED: {
+		message: "Failed to pause download in native module.",
+	},
+	NATIVE_RESUME_DOWNLOAD_FAILED: {
+		message: "Failed to resume download in native module.",
+	},
+	NATIVE_CANCEL_DOWNLOAD_FAILED: {
+		message: "Failed to cancel download in native module.",
+	},
 
-    // === ERRORES DE CONTROL MASIVO NATIVO ===
-    NATIVE_PAUSE_ALL_FAILED: {
-        message: "Failed to pause all downloads in native module.",
-    },
-    NATIVE_RESUME_ALL_FAILED: {
-        message: "Failed to resume all downloads in native module.",
-    },
-    NATIVE_CANCEL_ALL_FAILED: {
-        message: "Failed to cancel all downloads in native module.",
-    },
-    NATIVE_START_PROCESSING_FAILED: {
-        message: "Failed to start download processing in native module.",
-    },
-    NATIVE_STOP_PROCESSING_FAILED: {
-        message: "Failed to stop download processing in native module.",
-    },
-    NATIVE_EVENT_HANDLING_FAILED: {
-        message: "Failed to handle native event.",
-    },
+	// === ERRORES DE CONTROL MASIVO NATIVO ===
+	NATIVE_PAUSE_ALL_FAILED: {
+		message: "Failed to pause all downloads in native module.",
+	},
+	NATIVE_RESUME_ALL_FAILED: {
+		message: "Failed to resume all downloads in native module.",
+	},
+	NATIVE_CANCEL_ALL_FAILED: {
+		message: "Failed to cancel all downloads in native module.",
+	},
+	NATIVE_START_PROCESSING_FAILED: {
+		message: "Failed to start download processing in native module.",
+	},
+	NATIVE_STOP_PROCESSING_FAILED: {
+		message: "Failed to stop download processing in native module.",
+	},
+	NATIVE_EVENT_HANDLING_FAILED: {
+		message: "Failed to handle native event.",
+	},
 
-    // === ERRORES DE CONSULTAS NATIVAS ===
-    NATIVE_GET_DOWNLOADS_FAILED: {
-        message: "Failed to get downloads list from native module.",
-    },
-    NATIVE_GET_DOWNLOAD_FAILED: {
-        message: "Failed to get download info from native module.",
-    },
-    NATIVE_GET_STATS_FAILED: {
-        message: "Failed to get download statistics from native module.",
-    },
+	// === ERRORES DE CONSULTAS NATIVAS ===
+	NATIVE_GET_DOWNLOADS_FAILED: {
+		message: "Failed to get downloads list from native module.",
+	},
+	NATIVE_GET_DOWNLOAD_FAILED: {
+		message: "Failed to get download info from native module.",
+	},
+	NATIVE_GET_STATS_FAILED: {
+		message: "Failed to get download statistics from native module.",
+	},
 
-    // === ERRORES DE CONFIGURACIÓN NATIVA ===
-    NATIVE_SET_QUALITY_FAILED: {
-        message: "Failed to set stream quality in native module.",
-    },
-    NATIVE_SET_NETWORK_POLICY_FAILED: {
-        message: "Failed to set network policy in native module.",
-    },
-    NATIVE_SET_LIMITS_FAILED: {
-        message: "Failed to set download limits in native module.",
-    },
-    NATIVE_SET_DIRECTORIES_FAILED: {
-        message: "Failed to set download directories in native module.",
-    },
+	// === ERRORES DE CONFIGURACIÓN NATIVA ===
+	NATIVE_SET_QUALITY_FAILED: {
+		message: "Failed to set stream quality in native module.",
+	},
+	NATIVE_SET_NETWORK_POLICY_FAILED: {
+		message: "Failed to set network policy in native module.",
+	},
+	NATIVE_SET_LIMITS_FAILED: {
+		message: "Failed to set download limits in native module.",
+	},
+	NATIVE_SET_DIRECTORIES_FAILED: {
+		message: "Failed to set download directories in native module.",
+	},
 
-    // === ERRORES DE DRM NATIVO ===
-    NATIVE_DOWNLOAD_LICENSE_FAILED: {
-        message: "Failed to download DRM license in native module.",
-    },
-    NATIVE_CHECK_LICENSE_FAILED: {
-        message: "Failed to check DRM license status in native module.",
-    },
-    NATIVE_RENEW_LICENSE_FAILED: {
-        message: "Failed to renew DRM license in native module.",
-    },
-    NATIVE_RELEASE_LICENSE_FAILED: {
-        message: "Failed to release DRM license in native module.",
-    },
-    NATIVE_RELEASE_ALL_LICENSES_FAILED: {
-        message: "Failed to release all DRM licenses in native module.",
-    },
+	// === ERRORES DE DRM NATIVO ===
+	NATIVE_DOWNLOAD_LICENSE_FAILED: {
+		message: "Failed to download DRM license in native module.",
+	},
+	NATIVE_CHECK_LICENSE_FAILED: {
+		message: "Failed to check DRM license status in native module.",
+	},
+	NATIVE_RENEW_LICENSE_FAILED: {
+		message: "Failed to renew DRM license in native module.",
+	},
+	NATIVE_RELEASE_LICENSE_FAILED: {
+		message: "Failed to release DRM license in native module.",
+	},
+	NATIVE_RELEASE_ALL_LICENSES_FAILED: {
+		message: "Failed to release all DRM licenses in native module.",
+	},
 
-    // === ERRORES DE UTILIDADES NATIVAS ===
-    NATIVE_GENERATE_ID_FAILED: {
-        message: "Failed to generate download ID in native module.",
-    },
-    NATIVE_REFRESH_SYSTEM_INFO_FAILED: {
-        message: "Failed to refresh system info from native module.",
-    },
+	// === ERRORES DE UTILIDADES NATIVAS ===
+	NATIVE_GENERATE_ID_FAILED: {
+		message: "Failed to generate download ID in native module.",
+	},
+	NATIVE_REFRESH_SYSTEM_INFO_FAILED: {
+		message: "Failed to refresh system info from native module.",
+	},
 
-    // === ERROR DESCONOCIDO ===
+	// === ERROR DESCONOCIDO ===
 	PLAYER_UNKNOWN_999: {
 		message: "Unknown player error occurred.",
 	},

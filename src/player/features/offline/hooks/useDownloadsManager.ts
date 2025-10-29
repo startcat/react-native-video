@@ -154,7 +154,9 @@ export function useDownloadsManager(
 
 	// Suscripción a eventos del sistema
 	useEffect(() => {
-		if (!downloadsManager.isInitialized()) return;
+		if (!downloadsManager.isInitialized()) {
+			return;
+		}
 
 		const unsubscribers: (() => void)[] = [];
 
@@ -364,6 +366,7 @@ export function useDownloadsManager(
 						id: itemWithId.id,
 						manifestUrl: itemWithId.uri,
 						title: itemWithId.title,
+						headers: itemWithId.headers, // Pasar headers para autenticación
 						config: {
 							type: itemWithId.uri.includes(".m3u8") ? "HLS" : "DASH",
 							quality: "auto",

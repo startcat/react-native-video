@@ -19,11 +19,11 @@ import {
 	DownloadStates,
 	StreamDownloadServiceConfig,
 	StreamDownloadTask,
+	SubtitleDownloadTask,
 	ValidationResult,
 } from "../../types";
 import { networkService } from "../network/NetworkService";
 import { subtitleDownloadService } from "./SubtitleDownloadService";
-import { SubtitleDownloadTask } from "../../types";
 
 const TAG = LOG_TAGS.STREAM_DOWNLOADER;
 
@@ -90,21 +90,26 @@ export class StreamDownloadService {
 
 				// Verificar si el módulo nativo está disponible
 				if (!nativeManager.isNativeModuleAvailable()) {
-					console.warn(`[StreamDownloadService] Native module DownloadsModule2 not available. Stream downloads will not work.`);
+					console.warn(
+						"[StreamDownloadService] Native module DownloadsModule2 not available. Stream downloads will not work."
+					);
 					throw new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", {
 						originalError: new Error("DownloadsModule2 native module not found"),
-						message: "Stream downloads require native module support"
+						message: "Stream downloads require native module support",
 					});
 				}
-				
+
 				// Inicializar el manager si no está inicializado
 				try {
 					await nativeManager.initialize();
 				} catch (error) {
-					console.error(`[StreamDownloadService] Failed to initialize NativeManager:`, error);
+					console.error(
+						"[StreamDownloadService] Failed to initialize NativeManager:",
+						error
+					);
 					throw new PlayerError("DOWNLOAD_FAILED", {
 						originalError: error,
-						message: "Failed to initialize native download manager"
+						message: "Failed to initialize native download manager",
 					});
 				}
 
@@ -118,7 +123,10 @@ export class StreamDownloadService {
 				await this.recoverPendingDownloads();
 
 				this.isInitialized = true;
-				this.currentLogger.info(TAG, "StreamDownloadService initialized with NativeManager");
+				this.currentLogger.info(
+					TAG,
+					"StreamDownloadService initialized with NativeManager"
+				);
 
 				// Iniciar procesamiento de cola
 				this.startQueueProcessing();
@@ -193,10 +201,10 @@ export class StreamDownloadService {
 
 	private handleProgressEvent(data: any): void {
 		const { downloadId, percent, bytesDownloaded, totalBytes, speed, remainingTime } = data;
-		
+
 		if (this.activeDownloads.has(downloadId)) {
 			const activeDownload = this.activeDownloads.get(downloadId)!;
-			
+
 			// Actualizar progreso interno
 			activeDownload.progress = {
 				downloadId,
@@ -204,7 +212,7 @@ export class StreamDownloadService {
 				bytesDownloaded: bytesDownloaded || 0,
 				totalBytes: totalBytes || 0,
 			};
-			
+
 			// Re-emitir evento con formato correcto para QueueManager
 			this.eventEmitter.emit(DownloadEventType.PROGRESS, {
 				taskId: downloadId,
@@ -219,12 +227,12 @@ export class StreamDownloadService {
 
 	private handleStateChangeEvent(data: any): void {
 		const { downloadId, state } = data;
-		
+
 		if (this.activeDownloads.has(downloadId)) {
 			const activeDownload = this.activeDownloads.get(downloadId)!;
 			const mappedState = this.mapNativeStateToInternal(state);
 			activeDownload.state = mappedState;
-			
+
 			// Emitir eventos específicos según el estado
 			switch (mappedState) {
 				case DownloadStates.COMPLETED:
@@ -251,45 +259,54 @@ export class StreamDownloadService {
 
 	private async handleCompletedEvent(data: any): Promise<void> {
 		const { downloadId } = data;
-		
+
 		if (this.activeDownloads.has(downloadId)) {
 			const activeDownload = this.activeDownloads.get(downloadId);
-			
+
 			// Descargar subtítulos si existen
 			if (activeDownload?.task.subtitles && activeDownload.task.subtitles.length > 0) {
 				this.currentLogger.info(
 					TAG,
 					`Starting subtitle downloads for ${downloadId} (${activeDownload.task.subtitles.length} subtitles)`
 				);
-				
+
 				try {
 					// Convertir a formato de SubtitleDownloadTask
-					const subtitleTasks: SubtitleDownloadTask[] = activeDownload.task.subtitles.map((sub) => ({
-						id: sub.id,
-						downloadId: downloadId,
-						uri: sub.uri,
-						language: sub.language,
-						label: sub.label,
-						format: sub.format,
-						isDefault: sub.isDefault,
-						encoding: sub.encoding,
-					}));
-					
+					const subtitleTasks: SubtitleDownloadTask[] = activeDownload.task.subtitles.map(
+						sub => ({
+							id: sub.id,
+							downloadId: downloadId,
+							uri: sub.uri,
+							language: sub.language,
+							label: sub.label,
+							format: sub.format,
+							isDefault: sub.isDefault,
+							encoding: sub.encoding,
+						})
+					);
+
 					// Descargar subtítulos (en paralelo, sin cola)
 					await subtitleDownloadService.downloadSubtitles(downloadId, subtitleTasks);
-					
-					this.currentLogger.info(TAG, `Subtitles downloaded successfully for ${downloadId}`);
+
+					this.currentLogger.info(
+						TAG,
+						`Subtitles downloaded successfully for ${downloadId}`
+					);
 				} catch (error) {
-					this.currentLogger.error(TAG, `Failed to download subtitles for ${downloadId}`, error);
+					this.currentLogger.error(
+						TAG,
+						`Failed to download subtitles for ${downloadId}`,
+						error
+					);
 					// No fallar la descarga principal por subtítulos fallidos
 				}
 			}
-			
+
 			this.eventEmitter.emit(DownloadEventType.COMPLETED, {
 				taskId: downloadId,
 				fileUri: data.fileUri || data.localPath,
 			});
-			
+
 			// Remover de descargas activas cuando se complete
 			this.activeDownloads.delete(downloadId);
 		}
@@ -297,7 +314,7 @@ export class StreamDownloadService {
 
 	private handleErrorEvent(data: any): void {
 		const { downloadId, error } = data;
-		
+
 		if (this.activeDownloads.has(downloadId)) {
 			this.eventEmitter.emit(DownloadEventType.FAILED, {
 				taskId: downloadId,
@@ -333,16 +350,21 @@ export class StreamDownloadService {
 
 	private async recoverPendingDownloads(): Promise<void> {
 		try {
-			console.log(`[StreamDownloadService] Attempting to recover pending downloads...`);
+			console.log("[StreamDownloadService] Attempting to recover pending downloads...");
 			const downloads = await nativeManager.getDownloads();
-			
-			console.log(`[StreamDownloadService] getDownloads() returned:`, downloads);
-			console.log(`[StreamDownloadService] getDownloads() type:`, typeof downloads);
-			console.log(`[StreamDownloadService] getDownloads() is array:`, Array.isArray(downloads));
+
+			console.log("[StreamDownloadService] getDownloads() returned:", downloads);
+			console.log("[StreamDownloadService] getDownloads() type:", typeof downloads);
+			console.log(
+				"[StreamDownloadService] getDownloads() is array:",
+				Array.isArray(downloads)
+			);
 
 			// Validar que downloads es un array válido
 			if (!downloads || !Array.isArray(downloads)) {
-				console.warn(`[StreamDownloadService] Invalid downloads response, skipping recovery`);
+				console.warn(
+					"[StreamDownloadService] Invalid downloads response, skipping recovery"
+				);
 				return;
 			}
 
@@ -446,7 +468,9 @@ export class StreamDownloadService {
 	 */
 
 	private startQueueProcessing(): void {
-		if (this.isProcessingQueue) return;
+		if (this.isProcessingQueue) {
+			return;
+		}
 
 		this.isProcessingQueue = true;
 		setInterval(() => {
@@ -634,7 +658,7 @@ export class StreamDownloadService {
 		const activeDownload: ActiveStreamDownload = {
 			task,
 			startTime: Date.now(),
-			retryCount: currentRetryCount,  // Preservar contador existente
+			retryCount: currentRetryCount, // Preservar contador existente
 			state: DownloadStates.PREPARING,
 			progress: {
 				downloadId: task.id,
@@ -644,7 +668,9 @@ export class StreamDownloadService {
 			},
 		};
 
-		console.log(`[StreamDownloadService] ExecuteStreamDownload - Preserving retryCount: ${currentRetryCount} for ${task.id}`);
+		console.log(
+			`[StreamDownloadService] ExecuteStreamDownload - Preserving retryCount: ${currentRetryCount} for ${task.id}`
+		);
 		this.activeDownloads.set(task.id, activeDownload);
 
 		try {
@@ -652,12 +678,14 @@ export class StreamDownloadService {
 			let effectiveQuality = task.config.quality;
 			if (!effectiveQuality || effectiveQuality === "auto") {
 				effectiveQuality = this.config.defaultQuality;
-				console.log(`[StreamDownloadService] Quality normalized from "${task.config.quality}" to "${effectiveQuality}" (using service default)`);
-				
+				console.log(
+					`[StreamDownloadService] Quality normalized from "${task.config.quality}" to "${effectiveQuality}" (using service default)`
+				);
+
 				// Actualizar el task para que refleje la calidad efectiva
 				task.config.quality = effectiveQuality;
 			}
-			
+
 			// Configurar descarga nativa
 			const nativeConfig: any = {
 				id: task.id,
@@ -665,32 +693,54 @@ export class StreamDownloadService {
 				title: task.title,
 				quality: effectiveQuality,
 				allowCellular: this.config.allowCellular,
-				subtitles: task.subtitles ? task.subtitles.map(subtitle => ({
-					id: subtitle.id,
-					uri: subtitle.uri,
-					language: subtitle.language,
-					label: subtitle.label,
-					format: subtitle.format,
-					isDefault: subtitle.isDefault,
-					encoding: subtitle.encoding,
-				})) : [],
+				subtitles: task.subtitles
+					? task.subtitles.map(subtitle => ({
+							id: subtitle.id,
+							uri: subtitle.uri,
+							language: subtitle.language,
+							label: subtitle.label,
+							format: subtitle.format,
+							isDefault: subtitle.isDefault,
+							encoding: subtitle.encoding,
+						}))
+					: [],
 			};
+
+			// Agregar headers HTTP si están disponibles (necesario para autenticación)
+			if (task.headers && Object.keys(task.headers).length > 0) {
+				nativeConfig.headers = task.headers;
+				this.currentLogger.debug(
+					TAG,
+					`Adding HTTP headers for ${task.id}:`,
+					Object.keys(task.headers)
+				);
+			}
 
 			// Solo agregar DRM si existe configuración
 			if (task.config.drm) {
 				nativeConfig.drm = task.config.drm;
 			}
 
-			console.log(`[StreamDownloadService] Creating native config for ${task.id}:`, JSON.stringify(nativeConfig, null, 2));
-			console.log(`[StreamDownloadService] Task config details:`, JSON.stringify(task.config, null, 2));
+			console.log(
+				`[StreamDownloadService] Creating native config for ${task.id}:`,
+				JSON.stringify(nativeConfig, null, 2)
+			);
+			console.log(
+				"[StreamDownloadService] Task config details:",
+				JSON.stringify(task.config, null, 2)
+			);
 
 			// Pequeño delay para evitar problemas de concurrencia
 			await new Promise(resolve => setTimeout(resolve, 100));
-			
+
 			// Iniciar descarga nativa
-			console.log(`[StreamDownloadService] About to call nativeManager.addDownload for ${task.id}`);
+			console.log(
+				`[StreamDownloadService] About to call nativeManager.addDownload for ${task.id}`
+			);
 			await nativeManager.addDownload(nativeConfig);
-			console.log(`[StreamDownloadService] nativeManager.addDownload completed for ${task.id}`);
+			console.log(
+				`[StreamDownloadService] nativeManager.addDownload completed for ${task.id}`
+			);
 
 			// Actualizar estado
 			activeDownload.state = DownloadStates.DOWNLOADING;
@@ -721,7 +771,9 @@ export class StreamDownloadService {
 
 	private async handleStreamDownloadError(downloadId: string, error: any): Promise<void> {
 		const download = this.activeDownloads.get(downloadId);
-		if (!download) return;
+		if (!download) {
+			return;
+		}
 
 		const downloadError: DownloadError = {
 			code: this.mapErrorToCode(error),
@@ -803,10 +855,10 @@ export class StreamDownloadService {
 		// Usar regex para evitar bug de React Native con new URL()
 		const isHttps = /^https?:\/\//.test(url.trim());
 		const isManifest = url.includes(".m3u8") || url.includes(".mpd");
-		
+
 		console.log(`[StreamDownloadService] Validating manifest URL: ${url}`);
 		console.log(`[StreamDownloadService] isHttps: ${isHttps}, isManifest: ${isManifest}`);
-		
+
 		return isHttps && isManifest;
 	}
 
@@ -816,7 +868,9 @@ export class StreamDownloadService {
 	 */
 
 	private mapErrorToCode(error: any): DownloadErrorCode {
-		if (!error) return DownloadErrorCode.UNKNOWN;
+		if (!error) {
+			return DownloadErrorCode.UNKNOWN;
+		}
 
 		const message = error.message?.toLowerCase() || "";
 
@@ -943,7 +997,6 @@ export class StreamDownloadService {
 	 *
 	 */
 
-
 	/*
 	 * Utilidades privadas
 	 *
@@ -951,7 +1004,9 @@ export class StreamDownloadService {
 
 	private calculateAverageSpeed(downloads: ActiveStreamDownload[]): number {
 		const activeDownloads = downloads.filter(d => d.state === DownloadStates.DOWNLOADING);
-		if (activeDownloads.length === 0) return 0;
+		if (activeDownloads.length === 0) {
+			return 0;
+		}
 
 		const totalSpeed = activeDownloads.reduce((sum, download) => {
 			const elapsedTime = (Date.now() - download.startTime) / 1000; // segundos

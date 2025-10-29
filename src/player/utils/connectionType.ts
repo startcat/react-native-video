@@ -6,10 +6,11 @@
 
 import { NetInfoStateType } from "@react-native-community/netinfo";
 
-export const getCanPlayOnline = (connectionType?: NetInfoStateType, isConnected?: boolean ): boolean => {
+export const getCanPlayOnline = (
+	connectionType?: NetInfoStateType,
+	isConnected?: boolean
+): boolean => {
+	console.log(`[Connection Type] ${connectionType} - isConnected ${!!isConnected}`);
 
-    console.log(`[Connection Type] ${connectionType} - isConnected ${!!isConnected}`);
-
-    return !!isConnected;
-
-}
+	return !!isConnected;
+};

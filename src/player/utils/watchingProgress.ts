@@ -1,3 +1,1 @@
-export const getProgressSettingsForCast = () => {
-    
-}
+export const getProgressSettingsForCast = () => {};

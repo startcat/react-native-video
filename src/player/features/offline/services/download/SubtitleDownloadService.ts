@@ -130,7 +130,9 @@ export class SubtitleDownloadService {
 			const result = settled[i];
 			const subtitle = subtitles[i];
 
-			if (!result || !subtitle) continue;
+			if (!result || !subtitle) {
+				continue;
+			}
 
 			if (result.status === "fulfilled") {
 				results.push(result.value);

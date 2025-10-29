@@ -119,7 +119,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// CALLBACKS DEL CAST MANAGER
 	const onContentLoadedCallback = useCallback(
 		(content: CastContentInfo) => {
-			currentLogger.current?.info(`Cast Manager - Content loaded:`, content.source.uri);
+			currentLogger.current?.info("Cast Manager - Content loaded:", content.source.uri);
 			setIsLoadingContent(false);
 			isChangingSource.current = false;
 			setIsContentLoaded(true);
@@ -163,7 +163,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, [isContentLoaded]);
 
 	const onPlaybackEndedCallback = useCallback(() => {
-		currentLogger.current?.info(`Cast Manager - Playback ended`);
+		currentLogger.current?.info("Cast Manager - Playback ended");
 		onEndRef.current?.();
 	}, []);
 
@@ -233,21 +233,21 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// MONITOR DE CAST como en AudioCastFlavour
 	useCastMonitor(castLoggerConfig, {
 		onConnect: () => {
-			currentLogger.current?.info(`Cast Monitor onConnect`);
+			currentLogger.current?.info("Cast Monitor onConnect");
 		},
 		onDisconnect: () => {
-			currentLogger.current?.info(`Cast Monitor onDisconnect`);
+			currentLogger.current?.info("Cast Monitor onDisconnect");
 			setIsContentLoaded(false);
 			setIsLoadingContent(false);
 			setHasTriedLoading(false);
 		},
 		onPlay: () => {
-			currentLogger.current?.info(`Cast Monitor onPlay`);
+			currentLogger.current?.info("Cast Monitor onPlay");
 			setPaused(false);
 			setBuffering(false);
 		},
 		onPause: () => {
-			currentLogger.current?.info(`Cast Monitor onPause`);
+			currentLogger.current?.info("Cast Monitor onPause");
 			setPaused(true);
 		},
 		onError: (error: PlayerError) => {
@@ -275,7 +275,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	useEffect(() => {
 		// Initialize VOD Progress Manager only once
 		if (!vodProgressManagerRef.current) {
-			currentLogger.current?.debug(`Initializing VOD Progress Manager`);
+			currentLogger.current?.debug("Initializing VOD Progress Manager");
 			vodProgressManagerRef.current = new VODProgressManagerClass({
 				logger: props.playerContext?.logger,
 				loggerEnabled: props.logger?.progressManager?.enabled,
@@ -287,7 +287,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 		// Initialize DVR Progress Manager only once
 		if (!dvrProgressManagerRef.current) {
-			currentLogger.current?.debug(`Initializing DVR Progress Manager`);
+			currentLogger.current?.debug("Initializing DVR Progress Manager");
 			dvrProgressManagerRef.current = new DVRProgressManagerClass({
 				logger: props.playerContext?.logger,
 				loggerEnabled: props.logger?.progressManager?.enabled,
@@ -350,7 +350,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// Detectar cuando el contenido termina
 	useEffect(() => {
 		if (castMedia.isIdle && isContentLoaded && currentSourceType.current) {
-			currentLogger.current?.debug(`Cast content ended from idle state`);
+			currentLogger.current?.debug("Cast content ended from idle state");
 			handleOnEnd();
 		}
 	}, [castMedia.isIdle, isContentLoaded]);
@@ -397,7 +397,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			!hasTriedLoading &&
 			castManager?.state?.canControl
 		) {
-			currentLogger.current?.debug(`Cast ready - Loading content automatically`);
+			currentLogger.current?.debug("Cast ready - Loading content automatically");
 			setHasTriedLoading(true);
 
 			const sourceData: onSourceChangedProps = {
@@ -452,7 +452,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, [props.manifests, props.isAutoNext, props.playerMetadata?.id]);
 
 	const handleLiveContent = () => {
-		currentLogger.current?.debug(`handleLiveContent`);
+		currentLogger.current?.debug("handleLiveContent");
 
 		if (!tudumRef.current) {
 			tudumRef.current = new TudumClass({
@@ -505,7 +505,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	};
 
 	const handleVODContent = () => {
-		currentLogger.current?.debug(`handleVODContent`);
+		currentLogger.current?.debug("handleVODContent");
 
 		// Reset completo solo para VOD
 		currentSourceType.current = null;
@@ -553,11 +553,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		}
 
 		if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
-			currentLogger.current?.debug(`Will play tudum first, then content`);
+			currentLogger.current?.debug("Will play tudum first, then content");
 			currentSourceType.current = "tudum";
 			loadTudumSource();
 		} else {
-			currentLogger.current?.debug(`Skipping tudum - loading content directly`);
+			currentLogger.current?.debug("Skipping tudum - loading content directly");
 			currentSourceType.current = "content";
 			loadContentSource();
 		}
@@ -565,10 +565,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// LOAD TUDUM SOURCE
 	const loadTudumSource = useCallback(async () => {
-		currentLogger.current?.debug(`loadTudumSource`);
+		currentLogger.current?.debug("loadTudumSource");
 
 		if (!tudumRef.current?.source || !castConnected) {
-			currentLogger.current?.debug(`loadTudumSource - Not ready:`, {
+			currentLogger.current?.debug("loadTudumSource - Not ready:", {
 				hasSource: !!tudumRef.current?.source,
 				castConnected,
 			});
@@ -581,7 +581,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			drm.current = tudumRef.current?.drm;
 			setIsLoadingContent(true);
 
-			currentLogger.current?.info(`Loading tudum to Cast:`, tudumRef.current.source);
+			currentLogger.current?.info("Loading tudum to Cast:", tudumRef.current.source);
 
 			const success = await castManagerRef.current?.loadContent({
 				source: tudumRef.current.source,
@@ -613,7 +613,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
 			handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
 
-			currentLogger.current?.debug(`Tudum failed, loading content directly`);
+			currentLogger.current?.debug("Tudum failed, loading content directly");
 			currentSourceType.current = "content";
 			loadContentSource();
 		}
@@ -621,7 +621,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// LOAD CONTENT SOURCE
 	const loadContentSource = useCallback(() => {
-		currentLogger.current?.debug(`loadContentSource`);
+		currentLogger.current?.debug("loadContentSource");
 
 		isChangingSource.current = true;
 		currentSourceType.current = "content";
@@ -650,7 +650,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// SWITCH FROM TUDUM TO CONTENT
 	const switchFromTudumToContent = useCallback(async () => {
-		currentLogger.current?.debug(`switchFromTudumToContent`);
+		currentLogger.current?.debug("switchFromTudumToContent");
 
 		currentSourceType.current = null;
 		if (tudumRef.current) {
@@ -666,13 +666,13 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		setTimeout(async () => {
 			// Si hay un source de contenido pendiente, usarlo directamente
 			if (pendingContentSource.current && pendingContentSource.current.isReady) {
-				currentLogger.current?.debug(`Loading pending content source directly`);
+				currentLogger.current?.debug("Loading pending content source directly");
 				currentSourceType.current = "content";
 				await loadContentWithCastManager(pendingContentSource.current);
 				pendingContentSource.current = null;
 			} else {
 				// Cargar el contenido principal
-				currentLogger.current?.debug(`Loading main content source`);
+				currentLogger.current?.debug("Loading main content source");
 				currentSourceType.current = "content";
 				loadContentSource();
 			}
@@ -683,13 +683,13 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const loadContentWithCastManager = useCallback(
 		async (data: onSourceChangedProps) => {
 			if (data && data.isReady && data.source && castManager?.state?.canControl) {
-				currentLogger.current?.debug(`loadContentWithCastManager`);
+				currentLogger.current?.debug("loadContentWithCastManager");
 				setIsLoadingContent(true);
 				drm.current = data.drm;
 
 				// Verificar si ya estamos reproduciendo el mismo contenido
 				if (castMedia.url === data.source.uri && !castMedia.isIdle) {
-					currentLogger.current?.info(`Content already loaded in Cast, skipping`);
+					currentLogger.current?.info("Content already loaded in Cast, skipping");
 					setIsLoadingContent(false);
 					isChangingSource.current = false;
 					setIsContentLoaded(true);
@@ -776,10 +776,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				currentSourceType.current === "tudum"
 			) {
 				// Si estamos reproduciendo tudum, guardar el source del contenido para después
-				currentLogger.current?.debug(`Saving content source for later (tudum is playing)`);
+				currentLogger.current?.debug("Saving content source for later (tudum is playing)");
 				pendingContentSource.current = data;
 			} else if (currentSourceType.current === "content") {
-				currentLogger.current?.debug(`Processing content source normally`);
+				currentLogger.current?.debug("Processing content source normally");
 
 				if (data.isDVR && dvrProgressManagerRef.current) {
 					dvrProgressManagerRef.current.setDVRWindowSeconds(
@@ -790,7 +790,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				updatePlayerProgressRef();
 				loadContentWithCastManager(data);
 			} else {
-				currentLogger.current?.debug(`Initial state, processing source`);
+				currentLogger.current?.debug("Initial state, processing source");
 
 				if (!currentSourceType.current) {
 					currentSourceType.current = "content";
@@ -809,8 +809,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// HANDLE TRACK CHANGES
 	const handleTrackChanges = () => {
-		currentLogger.current?.debug(`handleTrackChanges...`);
-		let activeTracks: Array<number> = [];
+		currentLogger.current?.debug("handleTrackChanges...");
+		const activeTracks: Array<number> = [];
 		if (castConnected && menuData) {
 			currentLogger.current?.debug(
 				`handleTrackChanges - audio: ${audioIndex}, subtitle: ${subtitleIndex}`
@@ -845,10 +845,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// HANDLE MENU DATA READY
 	const handleMenuDataReady = () => {
-		currentLogger.current?.debug(`handleMenuDataReady...`);
+		currentLogger.current?.debug("handleMenuDataReady...");
 
 		if (menuData && props.events?.onChangeCommonData) {
-			let data: ICommonData = {};
+			const data: ICommonData = {};
 			let audioDefaultIndex = 0;
 			let textDefaultIndex = -1;
 
@@ -933,7 +933,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, []);
 
 	const onSeekRequest = useCallback((playerTime: number) => {
-		if (!!castManagerRef.current) {
+		if (castManagerRef.current) {
 			try {
 				currentLogger.current?.debug(`onSeekRequest: ${playerTime}`);
 				castManagerRef.current.seek(playerTime);
@@ -942,7 +942,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
 			}
 		} else {
-			currentLogger.current?.warn(`onSeekRequest - castManager is not initialized`);
+			currentLogger.current?.warn("onSeekRequest - castManager is not initialized");
 			handleOnError(new PlayerError("PLAYER_CAST_NOT_READY"));
 		}
 	}, []);
@@ -981,7 +981,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			);
 
 			if (currentSourceType.current === "content" && e.duration > 0) {
-				currentLogger.current?.debug(`onLoad - Processing content load`);
+				currentLogger.current?.debug("onLoad - Processing content load");
 
 				if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
 					currentLogger.current?.debug(
@@ -1055,12 +1055,12 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		);
 
 		if (currentSourceType.current === "tudum") {
-			currentLogger.current?.debug(`handleOnEnd: Tudum finished, switching to main content`);
+			currentLogger.current?.debug("handleOnEnd: Tudum finished, switching to main content");
 			isChangingSource.current = true;
 			switchFromTudumToContent();
 		} else if (currentSourceType.current === "content" && props.events?.onEnd) {
 			currentLogger.current?.debug(
-				`handleOnEnd: Content finished, preparing for possible auto next`
+				"handleOnEnd: Content finished, preparing for possible auto next"
 			);
 
 			if (tudumRef.current) {
@@ -1087,7 +1087,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	// PROGRESS SIMULATION usando castProgress
 	useEffect(() => {
-		if (!castConnected) return;
+		if (!castConnected) {
+			return;
+		}
 
 		const e = {
 			currentTime: castProgress.currentTime,
@@ -1301,7 +1303,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 			// Actions to be saved between flavours
 			if (COMMON_DATA_FIELDS.includes(id) && props?.events?.onChangeCommonData) {
-				let data: ICommonData = {};
+				const data: ICommonData = {};
 
 				if (id === CONTROL_ACTION.MUTE) {
 					data.muted = !!value;

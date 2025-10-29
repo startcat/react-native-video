@@ -3,19 +3,13 @@ import { ComponentLogger, Logger } from '../../features/logger';
 import { getSourceMessageForCast } from '../../utils';
 import { LoggerConfigBasic } from '../logger/types';
 import {
-    DEFAULT_MESSAGE_CONFIG,
-    LOGGER_CONFIG,
-    METADATA_CONFIG,
-    SUPPORTED_MIME_TYPES
+	DEFAULT_MESSAGE_CONFIG,
+	LOGGER_CONFIG,
+	METADATA_CONFIG,
+	SUPPORTED_MIME_TYPES,
 } from './constants';
-import {
-    CastContentType,
-} from './types/enums';
-import {
-    CastContentMetadata,
-    CastMessageConfig,
-    MessageBuilderConfig,
-} from './types/types';
+import { CastContentType } from './types/enums';
+import { CastContentMetadata, CastMessageConfig, MessageBuilderConfig } from './types/types';
 
 const LOG_KEY = 'CastMessageBuilder';
 
@@ -25,300 +19,316 @@ const LOG_KEY = 'CastMessageBuilder';
  */
 
 export class CastMessageBuilder {
+	private static instanceCounter = 0;
 
-    private static instanceCounter = 0;
+	private config: MessageBuilderConfig & LoggerConfigBasic;
+	private instanceId?: number;
 
-    private config: MessageBuilderConfig & LoggerConfigBasic;
-    private instanceId?: number;
+	private playerLogger: Logger;
+	private currentLogger: ComponentLogger;
 
-    private playerLogger: Logger;
-    private currentLogger: ComponentLogger;
+	constructor(config: Partial<MessageBuilderConfig & LoggerConfigBasic> = {}) {
+		this.instanceId = ++CastMessageBuilder.instanceCounter;
+		this.config = { ...DEFAULT_MESSAGE_CONFIG, ...config };
 
-    constructor(config: Partial<MessageBuilderConfig & LoggerConfigBasic> = {}) {
-        this.instanceId = ++CastMessageBuilder.instanceCounter;
-        this.config = { ...DEFAULT_MESSAGE_CONFIG, ...config };
+		this.playerLogger = new Logger(
+			{
+				enabled: config.enabled ?? LOGGER_CONFIG.enabled,
+				prefix: LOGGER_CONFIG.prefix,
+				level: config.level ?? LOGGER_CONFIG.level,
+				useColors: true,
+				includeLevelName: false,
+				includeTimestamp: true,
+				includeInstanceId: true,
+			},
+			this.instanceId
+		);
 
-        this.playerLogger = new Logger({
-            enabled: config.enabled ?? LOGGER_CONFIG.enabled,
-            prefix: LOGGER_CONFIG.prefix,
-            level: config.level ?? LOGGER_CONFIG.level,
-            useColors: true,
-            includeLevelName: false,
-            includeTimestamp: true,
-            includeInstanceId: true,
-        }, this.instanceId);
+		this.currentLogger = this.playerLogger.forComponent(
+			LOG_KEY,
+			config.enabled ?? LOGGER_CONFIG.enabled,
+			config.level ?? LOGGER_CONFIG.level
+		);
 
-        this.currentLogger = this.playerLogger.forComponent(LOG_KEY, config.enabled ?? LOGGER_CONFIG.enabled, config.level ?? LOGGER_CONFIG.level);
-        
-        this.currentLogger.info(`Initialized: ${JSON.stringify(this.config)}`);
-    }
+		this.currentLogger.info(`Initialized: ${JSON.stringify(this.config)}`);
+	}
 
-    /*
-     *  Construye un mensaje Cast completo
-     *
-     */
-    
-    buildCastMessage(config: CastMessageConfig): any {
-        this.currentLogger?.debug(`Building cast message ${JSON.stringify({ 
-            sourceUri: config.source.uri,
-            contentId: config.metadata.id,
-            isLive: config.metadata.isLive 
-        })}`);
+	/*
+	 *  Construye un mensaje Cast completo
+	 *
+	 */
 
-        try {
-            // Validar configuración
-            this.validateConfig(config);
+	buildCastMessage(config: CastMessageConfig): any {
+		this.currentLogger?.debug(
+			`Building cast message ${JSON.stringify({
+				sourceUri: config.source.uri,
+				contentId: config.metadata.id,
+				isLive: config.metadata.isLive,
+			})}`
+		);
 
-            // Generar ID único para el contenido
-            const contentId = this.generateContentId(config);
+		try {
+			// Validar configuración
+			this.validateConfig(config);
 
-            // Preparar metadata
-            const metadata = this.buildMetadata(config.metadata);
+			// Generar ID único para el contenido
+			const contentId = this.generateContentId(config);
 
-            // Calcular posición de inicio
-            const startPosition = this.calculateStartPosition(config);
+			// Preparar metadata
+			const metadata = this.buildMetadata(config.metadata);
 
-            const streamType = metadata.isLive ? 'live' : 'buffered';
+			// Calcular posición de inicio
+			const startPosition = this.calculateStartPosition(config);
 
-            // Construir mensaje usando función existente
-            const message = getSourceMessageForCast(
-                config.source.uri,
-                config.manifest,
-                config.drm,
-                this.config.enableYoubora ? config.youbora : undefined,
-                {
-                    ...metadata,
-                    startPosition,
-                    adTagUrl: this.config.enableAds ? config.metadata.adTagUrl : ''
-                }
-            );
+			const streamType = metadata.isLive ? 'live' : 'buffered';
 
-            // Agregar información adicional
-            if (message && message.mediaInfo) {
-                message.mediaInfo.contentId = contentId;
-                message.mediaInfo.contentType = this.getMimeType(config.source.uri);
-                message.mediaInfo.streamType = streamType;
-                
-                // Agregar metadata personalizada
-                message.mediaInfo.customData = {
-                    ...message.mediaInfo.customData,
-                    sourceDescription: {
-                        metadata: metadata
-                    },
-                    streamType: streamType,
-                    contentType: this.getMimeType(config.source.uri),
-                    type: this.getContentType(config.metadata),
-                    buildTimestamp: Date.now(),
-                    builderVersion: '1.0.0'
-                };
-            }
+			// Construir mensaje usando función existente
+			const message = getSourceMessageForCast(
+				config.source.uri,
+				config.manifest,
+				config.drm,
+				this.config.enableYoubora ? config.youbora : undefined,
+				{
+					...metadata,
+					startPosition,
+					adTagUrl: this.config.enableAds ? config.metadata.adTagUrl : '',
+				}
+			);
 
-            this.currentLogger?.debug(`Cast message built successfully ${JSON.stringify(message)}`);
+			// Agregar información adicional
+			if (message && message.mediaInfo) {
+				message.mediaInfo.contentId = contentId;
+				message.mediaInfo.contentType = this.getMimeType(config.source.uri);
+				message.mediaInfo.streamType = streamType;
 
-            return message;
+				// Agregar metadata personalizada
+				message.mediaInfo.customData = {
+					...message.mediaInfo.customData,
+					sourceDescription: {
+						metadata: metadata,
+					},
+					streamType: streamType,
+					contentType: this.getMimeType(config.source.uri),
+					type: this.getContentType(config.metadata),
+					buildTimestamp: Date.now(),
+					builderVersion: '1.0.0',
+				};
+			}
 
-        } catch (error) {
-            this.currentLogger?.error(`Error building cast message: ${JSON.stringify(error)}`);
+			this.currentLogger?.debug(`Cast message built successfully ${JSON.stringify(message)}`);
 
-            if (error instanceof PlayerError) {
-                throw error;
-            } else {
-                throw new PlayerError("PLAYER_CAST_MESSAGE_BUILD_FAILED");
-            }
-        }
-    }
+			return message;
+		} catch (error) {
+			this.currentLogger?.error(`Error building cast message: ${JSON.stringify(error)}`);
 
-    /*
-     *  Actualiza la configuración del builder
-     *
-     */
+			if (error instanceof PlayerError) {
+				throw error;
+			} else {
+				throw new PlayerError("PLAYER_CAST_MESSAGE_BUILD_FAILED");
+			}
+		}
+	}
 
-    updateConfig(newConfig: Partial<MessageBuilderConfig>): void {
-        this.config = { ...this.config, ...newConfig };
-        this.playerLogger?.updateConfig({
-            enabled: this.config.enabled ?? LOGGER_CONFIG.enabled,
-            level: this.config.level ?? LOGGER_CONFIG.level,
-        });
-        this.currentLogger?.debug(`Configuration updated ${JSON.stringify(this.config)}`);
-    }
+	/*
+	 *  Actualiza la configuración del builder
+	 *
+	 */
 
-    /*
-     *  Valida la configuración del mensaje
-     *
-     */
+	updateConfig(newConfig: Partial<MessageBuilderConfig>): void {
+		this.config = { ...this.config, ...newConfig };
+		this.playerLogger?.updateConfig({
+			enabled: this.config.enabled ?? LOGGER_CONFIG.enabled,
+			level: this.config.level ?? LOGGER_CONFIG.level,
+		});
+		this.currentLogger?.debug(`Configuration updated ${JSON.stringify(this.config)}`);
+	}
 
-    private validateConfig(config: CastMessageConfig): void {
-        if (!config.source || !config.source.uri) {
-            throw new PlayerError("PLAYER_CAST_INVALID_SOURCE", { url: config.source?.uri });
-        }
+	/*
+	 *  Valida la configuración del mensaje
+	 *
+	 */
 
-        if (!config.manifest) {
-            throw new PlayerError("PLAYER_CAST_INVALID_MANIFEST");
-        }
+	private validateConfig(config: CastMessageConfig): void {
+		if (!config.source || !config.source.uri) {
+			throw new PlayerError("PLAYER_CAST_INVALID_SOURCE", { url: config.source?.uri });
+		}
 
-        if (!config.metadata) {
-            throw new PlayerError("PLAYER_CAST_INVALID_METADATA");
-        }
+		if (!config.manifest) {
+			throw new PlayerError("PLAYER_CAST_INVALID_MANIFEST");
+		}
 
-        // Validar URL
-        if (!this.isValidUrl(config.source.uri)) {
-            throw new PlayerError("PLAYER_CAST_INVALID_SOURCE", { url: config.source.uri });
-        }
-    }
+		if (!config.metadata) {
+			throw new PlayerError("PLAYER_CAST_INVALID_METADATA");
+		}
 
-    /*
-     *  Genera el contentId
-     *
-     */
+		// Validar URL
+		if (!this.isValidUrl(config.source.uri)) {
+			throw new PlayerError("PLAYER_CAST_INVALID_SOURCE", { url: config.source.uri });
+		}
+	}
 
-    private generateContentId(config: CastMessageConfig): string {
-        const { source } = config;
-    
-        return source.uri;
-    }
+	/*
+	 *  Genera el contentId
+	 *
+	 */
 
-    /*
-     *  Construye metadata para Cast
-     *
-     */
-    
-    private buildMetadata(metadata: CastContentMetadata): CastContentMetadata {
-        return {
-            id: metadata.id,
-            title: this.truncateString(metadata.title || 'Sin título', METADATA_CONFIG.MAX_TITLE_LENGTH),
-            subtitle: this.truncateString(metadata.subtitle || '', METADATA_CONFIG.MAX_TITLE_LENGTH),
-            description: this.truncateString(metadata.description || '', METADATA_CONFIG.MAX_DESCRIPTION_LENGTH),
-            poster: metadata.squaredPoster || metadata.poster || METADATA_CONFIG.DEFAULT_POSTER,
-            liveStartDate: metadata.liveStartDate,
-            adTagUrl: metadata.adTagUrl,
-            hasNext: metadata.hasNext || false,
-            isLive: metadata.isLive || false,
-            isDVR: metadata.isDVR || false,
-            startPosition: metadata.startPosition || this.config.defaultStartPosition || 0
-        };
-    }
+	private generateContentId(config: CastMessageConfig): string {
+		const { source } = config;
 
-    /*
-     *  Calcula la posición de inicio para el contenido
-     *
-     */
-    
-    private calculateStartPosition(config: CastMessageConfig): number {
-        const { metadata } = config;
+		return source.uri;
+	}
 
-        /*
-         *  Esto es estándar en el protocolo de Cast:
-         * 
-         *  startTime: -1 → empieza a reproducir desde el final del buffer, es decir, el live edge del stream.
-         *
-         */
-        
-        // Para contenido live/DVR, usar lógica específica
-        if (metadata.isLive) {
-            if (metadata.isDVR) {
-                // Para DVR, usar startPosition del metadata o -1
-                return metadata.startPosition || -1;
-            } else {
-                // Para live, siempre empezar en el liveEdge (-1)
-                return -1;
-            }
-        }
+	/*
+	 *  Construye metadata para Cast
+	 *
+	 */
 
-        // Para VOD, usar startPosition del metadata
-        return metadata.startPosition || this.config.defaultStartPosition || 0;
-    }
+	private buildMetadata(metadata: CastContentMetadata): CastContentMetadata {
+		return {
+			id: metadata.id,
+			title: this.truncateString(
+				metadata.title || 'Sin título',
+				METADATA_CONFIG.MAX_TITLE_LENGTH
+			),
+			subtitle: this.truncateString(
+				metadata.subtitle || '',
+				METADATA_CONFIG.MAX_TITLE_LENGTH
+			),
+			description: this.truncateString(
+				metadata.description || '',
+				METADATA_CONFIG.MAX_DESCRIPTION_LENGTH
+			),
+			poster: metadata.squaredPoster || metadata.poster || METADATA_CONFIG.DEFAULT_POSTER,
+			liveStartDate: metadata.liveStartDate,
+			adTagUrl: metadata.adTagUrl,
+			hasNext: metadata.hasNext || false,
+			isLive: metadata.isLive || false,
+			isDVR: metadata.isDVR || false,
+			startPosition: metadata.startPosition || this.config.defaultStartPosition || 0,
+		};
+	}
 
-    /*
-     *  Obtiene el tipo MIME basado en la URL
-     *
-     */
+	/*
+	 *  Calcula la posición de inicio para el contenido
+	 *
+	 */
 
-    private getMimeType(uri: string): string {
-        const url = uri.toLowerCase();
-        
-        if (url.includes('.m3u8') || url.includes('hls')) {
-            return SUPPORTED_MIME_TYPES.HLS;
-        }
-        
-        if (url.includes('.mpd') || url.includes('dash')) {
-            return SUPPORTED_MIME_TYPES.DASH;
-        }
+	private calculateStartPosition(config: CastMessageConfig): number {
+		const { metadata } = config;
 
-        if (url.includes('.mp3')) {
-            return SUPPORTED_MIME_TYPES.MP3;
-        }
-        
-        if (url.includes('.mp4')) {
-            return SUPPORTED_MIME_TYPES.MP4;
-        }
-        
-        if (url.includes('.webm')) {
-            return SUPPORTED_MIME_TYPES.WEBM;
-        }
-        
-        // Default para streaming
-        return SUPPORTED_MIME_TYPES.DASH;
-    }
+		/*
+		 *  Esto es estándar en el protocolo de Cast:
+		 *
+		 *  startTime: -1 → empieza a reproducir desde el final del buffer, es decir, el live edge del stream.
+		 *
+		 */
 
-    /*
-     *  Determina el tipo de contenido
-     *
-     */
+		// Para contenido live/DVR, usar lógica específica
+		if (metadata.isLive) {
+			if (metadata.isDVR) {
+				// Para DVR, usar startPosition del metadata o -1
+				return metadata.startPosition || -1;
+			} else {
+				// Para live, siempre empezar en el liveEdge (-1)
+				return -1;
+			}
+		}
 
-    private getContentType(metadata: CastContentMetadata): CastContentType {
-        if (metadata.isLive) {
-            return metadata.isDVR ? CastContentType.DVR : CastContentType.LIVE;
-        }
-        
-        return CastContentType.VOD;
-    }
+		// Para VOD, usar startPosition del metadata
+		return metadata.startPosition || this.config.defaultStartPosition || 0;
+	}
 
-    /*
-     *  Valida si una URL es válida
-     *
-     */
-    
-    private isValidUrl(url: string): boolean {
-        try {
-            new URL(url);
-            return url.startsWith('http://') || url.startsWith('https://');
-        } catch {
-            return false;
-        }
-    }
+	/*
+	 *  Obtiene el tipo MIME basado en la URL
+	 *
+	 */
 
-    /*
-     *  Trunca un string a la longitud especificada
-     *
-     */
-    
-    private truncateString(str: string, maxLength: number): string {
-        if (str.length <= maxLength) {
-            return str;
-        }
-        return str.substring(0, maxLength - 3) + '...';
-    }
+	private getMimeType(uri: string): string {
+		const url = uri.toLowerCase();
 
-    /*
-     *  Obtiene la configuración actual
-     *
-     */
-    
-    getConfig(): MessageBuilderConfig {
-        return { ...this.config };
-    }
+		if (url.includes('.m3u8') || url.includes('hls')) {
+			return SUPPORTED_MIME_TYPES.HLS;
+		}
 
-    /*
-     *  Resetea la configuración a valores por defecto
-     *
-     */
+		if (url.includes('.mpd') || url.includes('dash')) {
+			return SUPPORTED_MIME_TYPES.DASH;
+		}
 
-    resetConfig(): void {
-        this.config = { ...DEFAULT_MESSAGE_CONFIG };
-        this.playerLogger?.updateConfig({
-            enabled: this.config.enabled ?? LOGGER_CONFIG.enabled,
-            level: this.config.level ?? LOGGER_CONFIG.level,
-        });
-        this.currentLogger?.debug('Configuration reset to defaults');
-    }
+		if (url.includes('.mp3')) {
+			return SUPPORTED_MIME_TYPES.MP3;
+		}
+
+		if (url.includes('.mp4')) {
+			return SUPPORTED_MIME_TYPES.MP4;
+		}
+
+		if (url.includes('.webm')) {
+			return SUPPORTED_MIME_TYPES.WEBM;
+		}
+
+		// Default para streaming
+		return SUPPORTED_MIME_TYPES.DASH;
+	}
+
+	/*
+	 *  Determina el tipo de contenido
+	 *
+	 */
+
+	private getContentType(metadata: CastContentMetadata): CastContentType {
+		if (metadata.isLive) {
+			return metadata.isDVR ? CastContentType.DVR : CastContentType.LIVE;
+		}
+
+		return CastContentType.VOD;
+	}
+
+	/*
+	 *  Valida si una URL es válida
+	 *
+	 */
+
+	private isValidUrl(url: string): boolean {
+		try {
+			new URL(url);
+			return url.startsWith('http://') || url.startsWith('https://');
+		} catch {
+			return false;
+		}
+	}
+
+	/*
+	 *  Trunca un string a la longitud especificada
+	 *
+	 */
+
+	private truncateString(str: string, maxLength: number): string {
+		if (str.length <= maxLength) {
+			return str;
+		}
+		return str.substring(0, maxLength - 3) + '...';
+	}
+
+	/*
+	 *  Obtiene la configuración actual
+	 *
+	 */
+
+	getConfig(): MessageBuilderConfig {
+		return { ...this.config };
+	}
+
+	/*
+	 *  Resetea la configuración a valores por defecto
+	 *
+	 */
+
+	resetConfig(): void {
+		this.config = { ...DEFAULT_MESSAGE_CONFIG };
+		this.playerLogger?.updateConfig({
+			enabled: this.config.enabled ?? LOGGER_CONFIG.enabled,
+			level: this.config.level ?? LOGGER_CONFIG.level,
+		});
+		this.currentLogger?.debug('Configuration reset to defaults');
+	}
 }

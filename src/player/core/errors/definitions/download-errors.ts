@@ -70,132 +70,132 @@ export const DOWNLOAD_ERROR_DEFINITIONS = {
 		message: "Failed to access download content data.",
 	},
 
-    // === ERRORES CON LOS PERFILES ASSIGNADOS A LAS DESCARGAS ===
-    DOWNLOAD_PROFILE_MANAGER_INITIALIZATION_FAILED: {
-        message: "Failed to initialize profile manager.",
-    },
-    DOWNLOAD_PROFILE_MANAGER_NOT_INITIALIZED: {
-        message: "Profile manager not initialized.",
-    },
+	// === ERRORES CON LOS PERFILES ASSIGNADOS A LAS DESCARGAS ===
+	DOWNLOAD_PROFILE_MANAGER_INITIALIZATION_FAILED: {
+		message: "Failed to initialize profile manager.",
+	},
+	DOWNLOAD_PROFILE_MANAGER_NOT_INITIALIZED: {
+		message: "Profile manager not initialized.",
+	},
 
-    // === ERRORES CON LA COLA DE DESCARGAS ===
-    DOWNLOAD_QUEUE_MANAGER_INITIALIZATION_FAILED: {
-        message: "Failed to initialize queue manager.",
-    },
-    DOWNLOAD_QUEUE_MANAGER_NOT_INITIALIZED: {
-        message: "Queue manager not initialized.",
-    },
-    DOWNLOAD_QUEUE_ADD_ITEM_FAILED: {
-        message: "Failed to add download to queue.",
-    },
-    DOWNLOAD_QUEUE_ITEM_NOT_FOUND: {
-        message: "Download item not found.",
-    },
-    DOWNLOAD_QUEUE_REMOVE_FAILED: {
-        message: "Failed to remove download from queue.",
-    },
-    DOWNLOAD_QUEUE_CLEANUP_FAILED: {
-        message: "Failed to clean up completed downloads.",
-    },
-    DOWNLOAD_QUEUE_CLEAR_FAILED: {
-        message: "Failed to clear download queue.",
-    },
-    DOWNLOAD_QUEUE_REORDER_FAILED: {
-        message: "Failed to reorder download queue.",
-    },
-    DOWNLOAD_QUEUE_INVALID_CONCURRENT_COUNT: {
-        message: "Invalid concurrent downloads count.",
-    },
-    DOWNLOAD_QUEUE_CLEAR_BY_STATE_FAILED: {
-        message: "Failed to clear downloads by state.",
-    },
+	// === ERRORES CON LA COLA DE DESCARGAS ===
+	DOWNLOAD_QUEUE_MANAGER_INITIALIZATION_FAILED: {
+		message: "Failed to initialize queue manager.",
+	},
+	DOWNLOAD_QUEUE_MANAGER_NOT_INITIALIZED: {
+		message: "Queue manager not initialized.",
+	},
+	DOWNLOAD_QUEUE_ADD_ITEM_FAILED: {
+		message: "Failed to add download to queue.",
+	},
+	DOWNLOAD_QUEUE_ITEM_NOT_FOUND: {
+		message: "Download item not found.",
+	},
+	DOWNLOAD_QUEUE_REMOVE_FAILED: {
+		message: "Failed to remove download from queue.",
+	},
+	DOWNLOAD_QUEUE_CLEANUP_FAILED: {
+		message: "Failed to clean up completed downloads.",
+	},
+	DOWNLOAD_QUEUE_CLEAR_FAILED: {
+		message: "Failed to clear download queue.",
+	},
+	DOWNLOAD_QUEUE_REORDER_FAILED: {
+		message: "Failed to reorder download queue.",
+	},
+	DOWNLOAD_QUEUE_INVALID_CONCURRENT_COUNT: {
+		message: "Invalid concurrent downloads count.",
+	},
+	DOWNLOAD_QUEUE_CLEAR_BY_STATE_FAILED: {
+		message: "Failed to clear downloads by state.",
+	},
 
-    // === ERRORES CON EL SERVICIO DE DESCARGAS BINARIAS ===
-    DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED: {
-        message: "Failed to initialize binary download service.",
-    },
-    DOWNLOAD_BINARY_SERVICE_NOT_INITIALIZED: {
-        message: "Binary download service not initialized.",
-    },
-    DOWNLOAD_BINARY_TASK_INVALID: {
-        message: "Invalid binary download task.",
-    },
-    DOWNLOAD_BINARY_START_FAILED: {
-        message: "Failed to start binary download.",
-    },
-    DOWNLOAD_BINARY_NOT_FOUND: {
-        message: "Binary download not found.",
-    },
-    DOWNLOAD_BINARY_PAUSE_FAILED: {
-        message: "Failed to pause binary download.",
-    },
-    DOWNLOAD_BINARY_RESUME_FAILED: {
-        message: "Failed to resume binary download.",
-    },
-    DOWNLOAD_BINARY_CANCEL_FAILED: {
-        message: "Failed to cancel binary download.",
-    },
+	// === ERRORES CON EL SERVICIO DE DESCARGAS BINARIAS ===
+	DOWNLOAD_BINARY_SERVICE_INITIALIZATION_FAILED: {
+		message: "Failed to initialize binary download service.",
+	},
+	DOWNLOAD_BINARY_SERVICE_NOT_INITIALIZED: {
+		message: "Binary download service not initialized.",
+	},
+	DOWNLOAD_BINARY_TASK_INVALID: {
+		message: "Invalid binary download task.",
+	},
+	DOWNLOAD_BINARY_START_FAILED: {
+		message: "Failed to start binary download.",
+	},
+	DOWNLOAD_BINARY_NOT_FOUND: {
+		message: "Binary download not found.",
+	},
+	DOWNLOAD_BINARY_PAUSE_FAILED: {
+		message: "Failed to pause binary download.",
+	},
+	DOWNLOAD_BINARY_RESUME_FAILED: {
+		message: "Failed to resume binary download.",
+	},
+	DOWNLOAD_BINARY_CANCEL_FAILED: {
+		message: "Failed to cancel binary download.",
+	},
 
-    // === ERRORES CON EL GESTOR PRINCIPAL DE DESCARGAS (DownloadsManager) ===
-    DOWNLOAD_MANAGER_INITIALIZATION_FAILED: {
-        message: "Failed to initialize downloads manager.",
-    },
-    DOWNLOAD_MANAGER_NOT_INITIALIZED: {
-        message: "Downloads manager not initialized.",
-    },
-    DOWNLOAD_MANAGER_ADD_FAILED: {
-        message: "Failed to add download via downloads manager.",
-    },
-    DOWNLOAD_MANAGER_REMOVE_FAILED: {
-        message: "Failed to remove download via downloads manager.",
-    },
-    DOWNLOAD_MANAGER_PAUSE_FAILED: {
-        message: "Failed to pause download via downloads manager.",
-    },
-    DOWNLOAD_MANAGER_RESUME_FAILED: {
-        message: "Failed to resume download via downloads manager.",
-    },
-    DOWNLOAD_MANAGER_PAUSE_ALL_FAILED: {
-        message: "Failed to pause all downloads.",
-    },
-    DOWNLOAD_MANAGER_RESUME_ALL_FAILED: {
-        message: "Failed to resume all downloads.",
-    },
-    DOWNLOAD_MANAGER_START_FAILED: {
-        message: "Failed to start downloads manager processing.",
-    },
-    DOWNLOAD_MANAGER_STOP_FAILED: {
-        message: "Failed to stop downloads manager processing.",
-    },
+	// === ERRORES CON EL GESTOR PRINCIPAL DE DESCARGAS (DownloadsManager) ===
+	DOWNLOAD_MANAGER_INITIALIZATION_FAILED: {
+		message: "Failed to initialize downloads manager.",
+	},
+	DOWNLOAD_MANAGER_NOT_INITIALIZED: {
+		message: "Downloads manager not initialized.",
+	},
+	DOWNLOAD_MANAGER_ADD_FAILED: {
+		message: "Failed to add download via downloads manager.",
+	},
+	DOWNLOAD_MANAGER_REMOVE_FAILED: {
+		message: "Failed to remove download via downloads manager.",
+	},
+	DOWNLOAD_MANAGER_PAUSE_FAILED: {
+		message: "Failed to pause download via downloads manager.",
+	},
+	DOWNLOAD_MANAGER_RESUME_FAILED: {
+		message: "Failed to resume download via downloads manager.",
+	},
+	DOWNLOAD_MANAGER_PAUSE_ALL_FAILED: {
+		message: "Failed to pause all downloads.",
+	},
+	DOWNLOAD_MANAGER_RESUME_ALL_FAILED: {
+		message: "Failed to resume all downloads.",
+	},
+	DOWNLOAD_MANAGER_START_FAILED: {
+		message: "Failed to start downloads manager processing.",
+	},
+	DOWNLOAD_MANAGER_STOP_FAILED: {
+		message: "Failed to stop downloads manager processing.",
+	},
 
-    // === ERRORES CON EL GESTOR DE CONFIGURACIÓN ===
-    CONFIG_MANAGER_INITIALIZATION_FAILED: {
-        message: "Failed to initialize config manager.",
-    },
-    CONFIG_MANAGER_NOT_INITIALIZED: {
-        message: "Config manager not initialized.",
-    },
-    CONFIG_UPDATE_FAILED: {
-        message: "Failed to update configuration.",
-    },
-    CONFIG_MULTIPLE_UPDATE_FAILED: {
-        message: "Failed to update multiple configuration properties.",
-    },
-    CONFIG_RESET_FAILED: {
-        message: "Failed to reset configuration to defaults.",
-    },
-    CONFIG_VALIDATION_FAILED: {
-        message: "Configuration validation failed.",
-    },
-    CONFIG_SAVE_FAILED: {
-        message: "Failed to save configuration.",
-    },
+	// === ERRORES CON EL GESTOR DE CONFIGURACIÓN ===
+	CONFIG_MANAGER_INITIALIZATION_FAILED: {
+		message: "Failed to initialize config manager.",
+	},
+	CONFIG_MANAGER_NOT_INITIALIZED: {
+		message: "Config manager not initialized.",
+	},
+	CONFIG_UPDATE_FAILED: {
+		message: "Failed to update configuration.",
+	},
+	CONFIG_MULTIPLE_UPDATE_FAILED: {
+		message: "Failed to update multiple configuration properties.",
+	},
+	CONFIG_RESET_FAILED: {
+		message: "Failed to reset configuration to defaults.",
+	},
+	CONFIG_VALIDATION_FAILED: {
+		message: "Configuration validation failed.",
+	},
+	CONFIG_SAVE_FAILED: {
+		message: "Failed to save configuration.",
+	},
 
-    // === ERRORES CON DESCARGAS DE SUBTÍTULOS ===
-    SUBTITLE_DOWNLOAD_FAILED: {
-        message: "Failed to download subtitle file.",
-    },
-    SUBTITLE_VALIDATION_FAILED: {
-        message: "Subtitle file validation failed.",
-    },
+	// === ERRORES CON DESCARGAS DE SUBTÍTULOS ===
+	SUBTITLE_DOWNLOAD_FAILED: {
+		message: "Failed to download subtitle file.",
+	},
+	SUBTITLE_VALIDATION_FAILED: {
+		message: "Subtitle file validation failed.",
+	},
 };

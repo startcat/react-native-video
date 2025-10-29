@@ -81,7 +81,6 @@ export function ensureDownloadId(item: UsableDownloadItem): UsableDownloadItem &
 	};
 }
 
-
 /*
  * Normaliza una URI para comparaciones
  *
@@ -95,13 +94,13 @@ export function normalizeUri(uri: string): string {
 	try {
 		// Limpiar espacios y convertir a minúsculas
 		let normalized = uri.trim().toLowerCase();
-		
+
 		// Remover fragment (#hash)
 		const hashIndex = normalized.indexOf('#');
 		if (hashIndex !== -1) {
 			normalized = normalized.substring(0, hashIndex);
 		}
-		
+
 		return normalized;
 	} catch (error) {
 		// Fallback: devolver la URI original limpia
