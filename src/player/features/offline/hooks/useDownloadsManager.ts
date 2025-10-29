@@ -11,6 +11,7 @@ import { PlayerError } from "../../../core/errors";
 import { downloadsManager } from "../managers/DownloadsManager";
 import { profileManager } from "../managers/ProfileManager";
 import { queueManager } from "../managers/QueueManager";
+import { storageService } from "../services/storage/StorageService";
 import {
 	BinaryDownloadTask,
 	DownloadEventType,
@@ -349,10 +350,12 @@ export function useDownloadsManager(
 				let task: BinaryDownloadTask | StreamDownloadTask;
 
 				if (itemWithId.type === DownloadType.BINARY) {
+					// Usar ruta absoluta del directorio de binarios
+					const binariesDir = storageService.getBinariesDirectory();
 					task = {
 						id: itemWithId.id,
 						url: itemWithId.uri,
-						destination: `/downloads/binary/${itemWithId.id}`,
+						destination: `${binariesDir}/${itemWithId.id}`,
 						headers: {},
 						resumable: true,
 					} as BinaryDownloadTask;
