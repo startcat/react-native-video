@@ -1,4 +1,4 @@
-import { OnReceiveAdEventData } from 'react-native-video';
+import { OnReceiveAdEventData } from "react-native-video";
 
 export const onAdStarted = (e: OnReceiveAdEventData) => {
 	// require('~/api/analytics').log('ad_served', {

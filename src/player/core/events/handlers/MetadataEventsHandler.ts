@@ -3,11 +3,11 @@
  *
  */
 
-import { PlayerAnalyticsEvents } from '../../../features/analytics';
+import { PlayerAnalyticsEvents } from "../../../features/analytics";
 
-import type { OnTimedMetadataData } from '../../../../specs/VideoNativeComponent';
+import type { OnTimedMetadataData } from "../../../../specs/VideoNativeComponent";
 
-import type { OnLoadData } from '../../../../types/events';
+import type { OnLoadData } from "../../../../types/events";
 
 export class MetadataEventsHandler {
 	private analyticsEvents: PlayerAnalyticsEvents;
@@ -33,7 +33,7 @@ export class MetadataEventsHandler {
 
 	handleTimedMetadata = (data: OnTimedMetadataData) => {
 		// Manejar metadatos temporales (captions, chapters, etc.)
-		console.log('[MetadataEventsHandler] Timed metadata:', data.metadata);
+		console.log("[MetadataEventsHandler] Timed metadata:", data.metadata);
 
 		this.analyticsEvents.onMetadataUpdate({
 			metadata: data.metadata,

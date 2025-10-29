@@ -1,7 +1,7 @@
-import { type SliderValues } from '../../../types/types';
-import { DVR_PLAYBACK_TYPE } from './enums';
+import { type SliderValues } from "../../../types/types";
+import { DVR_PLAYBACK_TYPE } from "./enums";
 
-import { type BaseProgressManagerOptions, type BaseUpdatePlayerData } from './base';
+import { type BaseProgressManagerOptions, type BaseUpdatePlayerData } from "./base";
 
 export interface EPGErrorData {
 	timestamp: number;

@@ -1,11 +1,11 @@
 // Timeline/wrapper.tsx - Corrección de SliderValues
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { View } from 'react-native';
-import { type IThumbnailMetadata, type TimelineProps } from '../../../../types';
-import { DVRSlider, VODSlider } from './slider';
-import { styles } from './styles';
-import { ThumbnailsContainer } from './thumbnails';
+import React, { useCallback, useMemo, useState } from "react";
+import { View } from "react-native";
+import { type IThumbnailMetadata, type TimelineProps } from "../../../../types";
+import { DVRSlider, VODSlider } from "./slider";
+import { styles } from "./styles";
+import { ThumbnailsContainer } from "./thumbnails";
 
 const TimelineBase = ({
 	playerProgress,
@@ -31,9 +31,9 @@ const TimelineBase = ({
 	const hasValidSliderValues = useMemo(() => {
 		return (
 			sliderValues &&
-			typeof sliderValues.minimumValue === 'number' &&
-			typeof sliderValues.maximumValue === 'number' &&
-			typeof sliderValues.progress === 'number' &&
+			typeof sliderValues.minimumValue === "number" &&
+			typeof sliderValues.maximumValue === "number" &&
+			typeof sliderValues.progress === "number" &&
 			sliderValues.maximumValue > sliderValues.minimumValue
 		);
 	}, [sliderValues]);
@@ -43,7 +43,7 @@ const TimelineBase = ({
 			setShowThumbnails(true);
 			setSliderValueVOD(value);
 
-			if (typeof propOnSlidingStart === 'function') {
+			if (typeof propOnSlidingStart === "function") {
 				propOnSlidingStart(value);
 			}
 		},
@@ -54,7 +54,7 @@ const TimelineBase = ({
 		(value: number) => {
 			setSliderValueVOD(value);
 
-			if (typeof propOnSlidingMove === 'function') {
+			if (typeof propOnSlidingMove === "function") {
 				propOnSlidingMove(value);
 			}
 		},
@@ -65,7 +65,7 @@ const TimelineBase = ({
 		(value: number) => {
 			setShowThumbnails(false);
 
-			if (typeof propOnSlidingComplete === 'function') {
+			if (typeof propOnSlidingComplete === "function") {
 				propOnSlidingComplete(value);
 			}
 		},
@@ -79,7 +79,7 @@ const TimelineBase = ({
 		}
 
 		// Fallback solo si tenemos duración válida
-		if (typeof duration === 'number' && duration > 0) {
+		if (typeof duration === "number" && duration > 0) {
 			return {
 				minimumValue: 0,
 				maximumValue: duration,
@@ -218,7 +218,7 @@ const TimelineBase = ({
 				{showVODSlider && (SliderVODComponent || DefaultVODSlider)}
 				{showDVRSlider && (SliderDVRComponent || DefaultDVRSlider)}
 				{!showVODSlider && !showDVRSlider && (
-					<View style={{ height: 20, justifyContent: 'center', alignItems: 'center' }}>
+					<View style={styles.placeholder}>
 						{/* Placeholder o mensaje de carga si es necesario */}
 					</View>
 				)}

@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet } from "react-native";
 
 // Defaults to small
 
@@ -14,9 +14,9 @@ export const styles = StyleSheet.create({
 	container: {
 		width: SMALL_SIZE,
 		height: SMALL_SIZE,
-		justifyContent: 'center',
-		alignItems: 'center',
-		alignSelf: 'center',
+		justifyContent: "center",
+		alignItems: "center",
+		alignSelf: "center",
 	},
 	big: {
 		width: BIG_SIZE,
@@ -32,8 +32,8 @@ export const styles = StyleSheet.create({
 	},
 	icon: {
 		fontSize: ICON_SMALL_SIZE,
-		color: 'white',
-		textAlign: 'center',
+		color: "white",
+		textAlign: "center",
 	},
 	iconBig: {
 		fontSize: ICON_BIG_SIZE,

@@ -1,4 +1,4 @@
-import { LogLevel } from '../../logger';
+import { LogLevel } from "../../logger";
 
 export interface StorageServiceConfig {
 	logEnabled?: boolean;
@@ -32,12 +32,12 @@ export interface FileInfo {
 }
 
 export enum StorageEventType {
-	SPACE_WARNING = 'storage:space_warning',
-	SPACE_CRITICAL = 'storage:space_critical',
-	SPACE_RECOVERED = 'storage:space_recovered',
-	CLEANUP_STARTED = 'storage:cleanup_started',
-	CLEANUP_COMPLETED = 'storage:cleanup_completed',
-	INFO_UPDATED = 'storage:info_updated',
-	FILE_CREATED = 'storage:file_created',
-	ERROR = 'storage:error',
+	SPACE_WARNING = "storage:space_warning",
+	SPACE_CRITICAL = "storage:space_critical",
+	SPACE_RECOVERED = "storage:space_recovered",
+	CLEANUP_STARTED = "storage:cleanup_started",
+	CLEANUP_COMPLETED = "storage:cleanup_completed",
+	INFO_UPDATED = "storage:info_updated",
+	FILE_CREATED = "storage:file_created",
+	ERROR = "storage:error",
 }

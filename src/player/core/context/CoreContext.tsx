@@ -3,8 +3,8 @@
  *
  */
 
-import { Logger } from '../../features/logger';
-import { type IPlayerInstanceContext } from './types';
+import { Logger } from "../../features/logger";
+import { type IPlayerInstanceContext } from "./types";
 
 export class PlayerContext implements IPlayerInstanceContext {
 	private static instanceCounter = 0;
@@ -19,7 +19,7 @@ export class PlayerContext implements IPlayerInstanceContext {
 
 		if (this.logger) {
 			this.logger.setInstanceId(this.instanceId);
-			this.logger.info('PlayerContext', 'PlayerContext created');
+			this.logger.info("PlayerContext", "PlayerContext created");
 		} else {
 			console.log(`PlayerContext created without logger: ${this.instanceId}`);
 		}

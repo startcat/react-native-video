@@ -6,13 +6,13 @@
 
 declare const __DEV__: boolean;
 
-import { type ComponentLogger, type ILogger, type LoggerConfig, LogLevel } from './types';
+import { type ComponentLogger, type ILogger, type LoggerConfig, LogLevel } from "./types";
 
-import { ANSI_COLORS } from './constants/colors';
-import { CONSOLE_ICONS } from './constants/icons';
-import { DefaultComponentLogger } from './DefaultComponentLogger';
+import { ANSI_COLORS } from "./constants/colors";
+import { CONSOLE_ICONS } from "./constants/icons";
+import { DefaultComponentLogger } from "./DefaultComponentLogger";
 
-type LoggerInternalConfig = Required<Omit<LoggerConfig, 'instanceId'>> & { instanceId?: number };
+type LoggerInternalConfig = Required<Omit<LoggerConfig, "instanceId">> & { instanceId?: number };
 
 export class Logger implements ILogger {
 	private config: LoggerInternalConfig;
@@ -34,12 +34,12 @@ export class Logger implements ILogger {
 	};
 
 	private static readonly LEVEL_NAMES = {
-		[LogLevel.DEBUG]: 'DEBUG',
-		[LogLevel.INFO]: 'INFO',
-		[LogLevel.WARN]: 'WARN',
-		[LogLevel.ERROR]: 'ERROR',
-		[LogLevel.NONE]: 'NONE',
-		[LogLevel.TEMP]: 'TEMP',
+		[LogLevel.DEBUG]: "DEBUG",
+		[LogLevel.INFO]: "INFO",
+		[LogLevel.WARN]: "WARN",
+		[LogLevel.ERROR]: "ERROR",
+		[LogLevel.NONE]: "NONE",
+		[LogLevel.TEMP]: "TEMP",
 	};
 
 	private static readonly COLOR_MAP = {
@@ -48,7 +48,7 @@ export class Logger implements ILogger {
 		[LogLevel.WARN]: Logger.COLORS.WARN,
 		[LogLevel.ERROR]: Logger.COLORS.ERROR,
 		[LogLevel.TEMP]: Logger.COLORS.TEMP,
-		[LogLevel.NONE]: '', // No color for NONE level
+		[LogLevel.NONE]: "", // No color for NONE level
 	};
 
 	constructor(config: LoggerConfig = {}, instanceId?: number) {
@@ -129,48 +129,48 @@ export class Logger implements ILogger {
 
 		// Nivel de log
 		if (this.config.includeLevelName) {
-			parts.push(this.applyPartColor('MESSAGE', level, `[${Logger.LEVEL_NAMES[level]}]`));
+			parts.push(this.applyPartColor("MESSAGE", level, `[${Logger.LEVEL_NAMES[level]}]`));
 		}
 
 		// Prefijo principal
-		parts.push(this.applyPartColor('PREFIX', level, this.config.prefix));
+		parts.push(this.applyPartColor("PREFIX", level, this.config.prefix));
 
 		// Instance ID
 		if (this.config.includeInstanceId && this.instanceId !== undefined) {
-			parts.push(this.applyPartColor('INSTANCE_ID', level, `#${this.instanceId}`));
+			parts.push(this.applyPartColor("INSTANCE_ID", level, `#${this.instanceId}`));
 		}
 
 		// Timestamp
 		if (this.config.includeTimestamp) {
-			parts.push(this.applyPartColor('TIMESTAMP', level, this.formatTimestamp()));
+			parts.push(this.applyPartColor("TIMESTAMP", level, this.formatTimestamp()));
 		}
 
 		// Componente
-		parts.push(this.applyPartColor('COMPONENT', level, `[${component}]`));
+		parts.push(this.applyPartColor("COMPONENT", level, `[${component}]`));
 
 		// Mensaje
-		parts.push(this.applyPartColor('MESSAGE', level, message));
+		parts.push(this.applyPartColor("MESSAGE", level, message));
 
-		return parts.join(' ');
+		return parts.join(" ");
 	}
 
 	private formatTimestamp(): string {
 		const now = new Date();
-		const hours = now.getHours().toString().padStart(2, '0');
-		const minutes = now.getMinutes().toString().padStart(2, '0');
-		const seconds = now.getSeconds().toString().padStart(2, '0');
-		const ms = now.getMilliseconds().toString().padStart(3, '0');
+		const hours = now.getHours().toString().padStart(2, "0");
+		const minutes = now.getMinutes().toString().padStart(2, "0");
+		const seconds = now.getSeconds().toString().padStart(2, "0");
+		const ms = now.getMilliseconds().toString().padStart(3, "0");
 		return `${hours}:${minutes}:${seconds}.${ms}`;
 	}
 
 	private applyPartColor(
-		part: 'PREFIX' | 'TIMESTAMP' | 'INSTANCE_ID' | 'LEVEL' | 'COMPONENT' | 'MESSAGE',
+		part: "PREFIX" | "TIMESTAMP" | "INSTANCE_ID" | "LEVEL" | "COMPONENT" | "MESSAGE",
 		level: LogLevel,
 		message: string
 	): string {
 		let color: string | undefined;
 
-		if (part === 'MESSAGE') {
+		if (part === "MESSAGE") {
 			color = Logger.COLOR_MAP[level];
 		} else {
 			color = Logger.COLORS[part];

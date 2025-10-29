@@ -1,13 +1,13 @@
-import { Text } from '@ui-kitten/components';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View } from 'react-native';
-import FastImage from 'react-native-fast-image';
+import { Text } from "@ui-kitten/components";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { View } from "react-native";
+import FastImage from "react-native-fast-image";
 
-import { parseToCounter } from '../../../../../../utils/time';
+import { parseToCounter } from "../../../../../../utils/time";
 
-import { type IThumbnail, type ThumbnailCellProps } from '../../../../../../types';
+import { type IThumbnail, type ThumbnailCellProps } from "../../../../../../types";
 
-import { styles } from './styles';
+import { styles } from "./styles";
 
 const ThumbnailCellBase = ({
 	seconds,

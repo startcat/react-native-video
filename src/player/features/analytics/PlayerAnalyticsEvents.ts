@@ -33,10 +33,10 @@ import {
 	type SubtitleShowParams,
 	type SubtitleTrackChangeParams,
 	type VolumeChangeParams,
-} from './types';
+} from "./types";
 
 import { PlayerError } from "../../core/errors";
-import { LOG_PREFIX } from './constants';
+import { LOG_PREFIX } from "./constants";
 
 export class PlayerAnalyticsEvents {
 	private plugins: Array<PlayerAnalyticsPlugin>;
@@ -65,23 +65,23 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onSourceChange() {
-		this.executePluginMethod('onSourceChange');
+		this.executePluginMethod("onSourceChange");
 	}
 
 	onCreatePlaybackSession() {
-		this.executePluginMethod('onCreatePlaybackSession');
+		this.executePluginMethod("onCreatePlaybackSession");
 	}
 
 	onMetadataLoaded(params: MetadataParams) {
-		this.executePluginMethod('onMetadataLoaded', params);
+		this.executePluginMethod("onMetadataLoaded", params);
 	}
 
 	onMetadataUpdate(params: MetadataParams) {
-		this.executePluginMethod('onMetadataUpdate', params);
+		this.executePluginMethod("onMetadataUpdate", params);
 	}
 
 	onDurationChange(params: DurationChangeParams) {
-		this.executePluginMethod('onDurationChange', params);
+		this.executePluginMethod("onDurationChange", params);
 	}
 
 	/*
@@ -90,19 +90,19 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onPlay() {
-		this.executePluginMethod('onPlay');
+		this.executePluginMethod("onPlay");
 	}
 
 	onPause() {
-		this.executePluginMethod('onPause');
+		this.executePluginMethod("onPause");
 	}
 
 	onEnd() {
-		this.executePluginMethod('onEnd');
+		this.executePluginMethod("onEnd");
 	}
 
 	onStop(params: StopParams = {}) {
-		this.executePluginMethod('onStop', params);
+		this.executePluginMethod("onStop", params);
 	}
 
 	/*
@@ -111,11 +111,11 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onBufferStart() {
-		this.executePluginMethod('onBufferStart');
+		this.executePluginMethod("onBufferStart");
 	}
 
 	onBufferStop() {
-		this.executePluginMethod('onBufferStop');
+		this.executePluginMethod("onBufferStop");
 	}
 
 	/*
@@ -124,27 +124,27 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onSeekStart() {
-		this.executePluginMethod('onSeekStart');
+		this.executePluginMethod("onSeekStart");
 	}
 
 	onSeekEnd(params: SeekEndParams) {
-		this.executePluginMethod('onSeekEnd', params);
+		this.executePluginMethod("onSeekEnd", params);
 	}
 
 	onPositionChange(params: PositionChangeParams) {
-		this.executePluginMethod('onPositionChange', params);
+		this.executePluginMethod("onPositionChange", params);
 	}
 
 	onPositionUpdate(params: PositionUpdateParams) {
-		this.executePluginMethod('onPositionUpdate', params);
+		this.executePluginMethod("onPositionUpdate", params);
 	}
 
 	onProgress(params: ProgressParams) {
-		this.executePluginMethod('onProgress', params);
+		this.executePluginMethod("onProgress", params);
 	}
 
 	onPlaybackRateChange(params: PlaybackRateChangeParams) {
-		this.executePluginMethod('onPlaybackRateChange', params);
+		this.executePluginMethod("onPlaybackRateChange", params);
 	}
 
 	/*
@@ -153,35 +153,35 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onAdBegin(params: AdBeginParams) {
-		this.executePluginMethod('onAdBegin', params);
+		this.executePluginMethod("onAdBegin", params);
 	}
 
 	onAdEnd(params: AdEndParams) {
-		this.executePluginMethod('onAdEnd', params);
+		this.executePluginMethod("onAdEnd", params);
 	}
 
 	onAdPause(params: AdPauseParams) {
-		this.executePluginMethod('onAdPause', params);
+		this.executePluginMethod("onAdPause", params);
 	}
 
 	onAdResume(params: AdResumeParams) {
-		this.executePluginMethod('onAdResume', params);
+		this.executePluginMethod("onAdResume", params);
 	}
 
 	onAdSkip(params: AdSkipParams) {
-		this.executePluginMethod('onAdSkip', params);
+		this.executePluginMethod("onAdSkip", params);
 	}
 
 	onAdBreakBegin(params: AdBreakBeginParams) {
-		this.executePluginMethod('onAdBreakBegin', params);
+		this.executePluginMethod("onAdBreakBegin", params);
 	}
 
 	onAdBreakEnd(params: AdBreakEndParams) {
-		this.executePluginMethod('onAdBreakEnd', params);
+		this.executePluginMethod("onAdBreakEnd", params);
 	}
 
 	onContentResume() {
-		this.executePluginMethod('onContentResume');
+		this.executePluginMethod("onContentResume");
 	}
 
 	/*
@@ -190,19 +190,19 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onError(params: ErrorParams) {
-		this.executePluginMethod('onError', params);
+		this.executePluginMethod("onError", params);
 	}
 
 	onContentProtectionError(params: ContentProtectionErrorParams) {
-		this.executePluginMethod('onContentProtectionError', params);
+		this.executePluginMethod("onContentProtectionError", params);
 	}
 
 	onNetworkError(params: NetworkErrorParams) {
-		this.executePluginMethod('onNetworkError', params);
+		this.executePluginMethod("onNetworkError", params);
 	}
 
 	onStreamError(params: StreamErrorParams) {
-		this.executePluginMethod('onStreamError', params);
+		this.executePluginMethod("onStreamError", params);
 	}
 
 	/*
@@ -211,27 +211,27 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onAudioTrackChange(params: AudioTrackChangeParams) {
-		this.executePluginMethod('onAudioTrackChange', params);
+		this.executePluginMethod("onAudioTrackChange", params);
 	}
 
 	onVolumeChange(params: VolumeChangeParams) {
-		this.executePluginMethod('onVolumeChange', params);
+		this.executePluginMethod("onVolumeChange", params);
 	}
 
 	onMuteChange(params: MuteChangeParams) {
-		this.executePluginMethod('onMuteChange', params);
+		this.executePluginMethod("onMuteChange", params);
 	}
 
 	onSubtitleTrackChange(params: SubtitleTrackChangeParams) {
-		this.executePluginMethod('onSubtitleTrackChange', params);
+		this.executePluginMethod("onSubtitleTrackChange", params);
 	}
 
 	onSubtitleShow(params: SubtitleShowParams) {
-		this.executePluginMethod('onSubtitleShow', params);
+		this.executePluginMethod("onSubtitleShow", params);
 	}
 
 	onSubtitleHide() {
-		this.executePluginMethod('onSubtitleHide');
+		this.executePluginMethod("onSubtitleHide");
 	}
 
 	/*
@@ -240,15 +240,15 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onQualityChange(params: QualityChangeParams) {
-		this.executePluginMethod('onQualityChange', params);
+		this.executePluginMethod("onQualityChange", params);
 	}
 
 	onBitrateChange(params: BitrateChangeParams) {
-		this.executePluginMethod('onBitrateChange', params);
+		this.executePluginMethod("onBitrateChange", params);
 	}
 
 	onResolutionChange(params: ResolutionChangeParams) {
-		this.executePluginMethod('onResolutionChange', params);
+		this.executePluginMethod("onResolutionChange", params);
 	}
 
 	/*
@@ -257,19 +257,19 @@ export class PlayerAnalyticsEvents {
 	 */
 
 	onApplicationForeground() {
-		this.executePluginMethod('onApplicationForeground');
+		this.executePluginMethod("onApplicationForeground");
 	}
 
 	onApplicationBackground() {
-		this.executePluginMethod('onApplicationBackground');
+		this.executePluginMethod("onApplicationBackground");
 	}
 
 	onApplicationActive() {
-		this.executePluginMethod('onApplicationActive');
+		this.executePluginMethod("onApplicationActive");
 	}
 
 	onApplicationInactive() {
-		this.executePluginMethod('onApplicationInactive');
+		this.executePluginMethod("onApplicationInactive");
 	}
 
 	/*
@@ -281,12 +281,12 @@ export class PlayerAnalyticsEvents {
 		this.plugins.forEach(plugin => {
 			try {
 				const method = (plugin as any)[methodName];
-				if (typeof method === 'function') {
+				if (typeof method === "function") {
 					method.apply(plugin, args);
 				}
 			} catch (ex) {
 				console.error(`${LOG_PREFIX} ${methodName} error: ${ex}`);
-				throw new PlayerError('PLAYER_ANALYTICS_PLUGIN_EXECUTION_ERROR', {
+				throw new PlayerError("PLAYER_ANALYTICS_PLUGIN_EXECUTION_ERROR", {
 					pluginName: plugin.name,
 					originalError: ex,
 				});
@@ -321,7 +321,7 @@ export class PlayerAnalyticsEvents {
 				plugin.destroy();
 			} catch (ex) {
 				console.error(`${LOG_PREFIX} destroy error in ${plugin.name}: ${ex}`);
-				throw new PlayerError('PLAYER_ANALYTICS_PLUGIN_DESTROY_ERROR', {
+				throw new PlayerError("PLAYER_ANALYTICS_PLUGIN_DESTROY_ERROR", {
 					pluginName: plugin.name,
 					originalError: ex,
 				});

@@ -1,2 +1,2 @@
-export { NormalFlavour } from './index.tsx';
-export { default } from './index.tsx';
+export { NormalFlavour } from "./index.tsx";
+export { default } from "./index.tsx";

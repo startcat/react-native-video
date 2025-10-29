@@ -1,4 +1,4 @@
-import COLOR from './colors.json';
-import SPACING from './spacing.json';
+import COLOR from "./colors.json";
+import SPACING from "./spacing.json";
 
 export { COLOR, SPACING };

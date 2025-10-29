@@ -1092,16 +1092,16 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			})
 		: null;
 
+	// Estilos dinámicos para el contenedor
+	const containerDynamicStyle = {
+		height: audioPlayerHeight,
+		backgroundColor: props.backgroundColor || styles.container.backgroundColor,
+		borderColor: props.topDividerColor,
+		borderTopWidth: props.topDividerColor ? 1 : 0,
+	};
+
 	return (
-		<Animated.View
-			style={{
-				...styles.audioContainer,
-				height: audioPlayerHeight,
-				backgroundColor: props.backgroundColor || styles.container.backgroundColor,
-				borderColor: props.topDividerColor,
-				borderTopWidth: props.topDividerColor ? 1 : 0,
-			}}
-		>
+		<Animated.View style={[styles.audioContainer, containerDynamicStyle]}>
 			{videoSource ? (
 				<Video
 					// @ts-ignore

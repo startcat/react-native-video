@@ -1,1 +1,1 @@
-export * from './sourceClass';
+export * from "./sourceClass";

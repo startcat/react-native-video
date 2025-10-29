@@ -3,10 +3,10 @@
  *
  */
 
-import { PlayerError } from '../../../core/errors';
-import { PlayerAnalyticsEvents } from '../../../features/analytics';
+import { PlayerError } from "../../../core/errors";
+import { PlayerAnalyticsEvents } from "../../../features/analytics";
 
-import type { OnVideoErrorData } from '../../../../specs/VideoNativeComponent';
+import type { OnVideoErrorData } from "../../../../specs/VideoNativeComponent";
 
 export class ErrorEventsHandler {
 	private analyticsEvents: PlayerAnalyticsEvents;
@@ -20,32 +20,32 @@ export class ErrorEventsHandler {
 			const errorType = this.categorizeError(data.error);
 
 			switch (errorType) {
-				case 'network':
+				case "network":
 					this.analyticsEvents.onNetworkError({
 						errorCode: data.error.code,
 						errorMessage: data.error.localizedDescription,
-						errorType: 'network',
+						errorType: "network",
 						isFatal: this.isErrorFatal(data.error),
 						statusCode: this.extractStatusCode(data.error),
 						url: this.extractUrl(data.error),
 					});
 					break;
 
-				case 'drm':
+				case "drm":
 					this.analyticsEvents.onContentProtectionError({
 						errorCode: data.error.code,
 						errorMessage: data.error.localizedDescription,
-						errorType: 'drm',
+						errorType: "drm",
 						isFatal: this.isErrorFatal(data.error),
 						drmType: this.extractDrmType(data.error),
 					});
 					break;
 
-				case 'stream':
+				case "stream":
 					this.analyticsEvents.onStreamError({
 						errorCode: data.error.code,
 						errorMessage: data.error.localizedDescription,
-						errorType: 'playback',
+						errorType: "playback",
 						isFatal: this.isErrorFatal(data.error),
 						streamUrl: this.extractStreamUrl(data.error),
 						bitrate: this.extractBitrate(data.error),
@@ -56,44 +56,44 @@ export class ErrorEventsHandler {
 					this.analyticsEvents.onError({
 						errorCode: data.error.code,
 						errorMessage: data.error.localizedDescription,
-						errorType: 'other',
+						errorType: "other",
 						isFatal: this.isErrorFatal(data.error),
 					});
 			}
 		} catch (error) {
-			throw new PlayerError('PLAYER_ERROR_PROCESSING_ERROR', { originalError: error });
+			throw new PlayerError("PLAYER_ERROR_PROCESSING_ERROR", { originalError: error });
 		}
 	};
 
-	private categorizeError = (error: any): 'network' | 'drm' | 'stream' | 'other' => {
-		const errorString = error.localizedDescription || error.description || '';
+	private categorizeError = (error: any): "network" | "drm" | "stream" | "other" => {
+		const errorString = error.localizedDescription || error.description || "";
 
-		if (errorString.includes('network') || errorString.includes('connection')) {
-			return 'network';
+		if (errorString.includes("network") || errorString.includes("connection")) {
+			return "network";
 		}
 
 		if (
-			errorString.includes('drm') ||
-			errorString.includes('license') ||
-			errorString.includes('protection')
+			errorString.includes("drm") ||
+			errorString.includes("license") ||
+			errorString.includes("protection")
 		) {
-			return 'drm';
+			return "drm";
 		}
 
 		if (
-			errorString.includes('stream') ||
-			errorString.includes('manifest') ||
-			errorString.includes('codec')
+			errorString.includes("stream") ||
+			errorString.includes("manifest") ||
+			errorString.includes("codec")
 		) {
-			return 'stream';
+			return "stream";
 		}
 
-		return 'other';
+		return "other";
 	};
 
 	private isErrorFatal = (error: any): boolean => {
 		// Determinar si el error es fatal basándose en el código o tipo
-		const fatalCodes = ['-1000', '-1001', '-1009', '-1200'];
+		const fatalCodes = ["-1000", "-1001", "-1009", "-1200"];
 		return fatalCodes.includes(String(error.code));
 	};
 

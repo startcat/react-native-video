@@ -1,14 +1,14 @@
-import React, { useCallback, useMemo } from 'react';
-import { Platform, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import { Spinner } from '@ui-kitten/components';
-import { Button } from '../buttons';
-import AirplayButton from '../buttons/airplay';
-import CastButton from '../buttons/cast';
+import React, { useCallback, useMemo } from "react";
+import { Platform, View } from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
+import { Spinner } from "@ui-kitten/components";
+import { Button } from "../buttons";
+import AirplayButton from "../buttons/airplay";
+import CastButton from "../buttons/cast";
 import { CONTROL_ACTION, BUTTON_SIZE, type ControlsBarProps } from "../../../../types";
-import { styles } from './styles';
+import { styles } from "./styles";
 
 const ANIMATION_SPEED = 150;
 
@@ -31,7 +31,7 @@ const ControlsHeaderBarBase = ({
 	const onExit = events?.onExit;
 
 	const handleBack = useCallback(() => {
-		if (typeof onExit === 'function') {
+		if (typeof onExit === "function") {
 			onExit();
 		} else {
 			navigation.goBack();
@@ -78,7 +78,7 @@ const ControlsHeaderBarBase = ({
 		[insets]
 	);
 
-	const showIosComponent = useMemo(() => Platform.OS === 'ios', []);
+	const showIosComponent = useMemo(() => Platform.OS === "ios", []);
 
 	return (
 		<View style={containerStyle}>

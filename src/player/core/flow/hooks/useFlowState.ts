@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { MediaFlowStateType, MediaType } from '../types';
-import type { UseMediaFlowReturn } from './useMediaFlow';
+import { useEffect, useState } from "react";
+import { MediaFlowStateType, MediaType } from "../types";
+import type { UseMediaFlowReturn } from "./useMediaFlow";
 
 export interface FlowStateInfo {
 	// Estados booleanos
@@ -41,7 +41,7 @@ export function useFlowState(mediaFlow: UseMediaFlowReturn): FlowStateInfo {
 		}
 
 		// Suscribirse a cambios de estado
-		const unsubscribe = mediaFlow.subscribe('state:change', ({ current }) => {
+		const unsubscribe = mediaFlow.subscribe("state:change", ({ current }) => {
 			setStateInfo(mapStateToInfo(current));
 		});
 
@@ -138,7 +138,7 @@ export function useIsFlowState(
 		}
 
 		// Suscribirse a cambios
-		const unsubscribe = mediaFlow.subscribe('state:change', ({ current }) => {
+		const unsubscribe = mediaFlow.subscribe("state:change", ({ current }) => {
 			setIsInState(states.includes(current.type));
 		});
 

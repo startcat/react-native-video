@@ -1,2 +1,2 @@
-export * from './audioPlayerBar';
-export * from './poster';
+export * from "./audioPlayerBar";
+export * from "./poster";

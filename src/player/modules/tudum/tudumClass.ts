@@ -1,8 +1,8 @@
-import { type IDrm, type IManifest, type IVideoSource } from '../../types';
+import { type IDrm, type IManifest, type IVideoSource } from "../../types";
 
-import { getDRM, getVideoSourceUri } from '../../utils';
+import { getDRM, getVideoSourceUri } from "../../utils";
 
-import { PlayerError } from '../../core/errors';
+import { PlayerError } from "../../core/errors";
 
 export interface TudumClassProps {
 	enabled?: boolean;
@@ -26,46 +26,46 @@ export class TudumClass {
 
 		this._isAutoNext = !!props.isAutoNext;
 
-		if (props.getTudumSource && typeof props.getTudumSource === 'function') {
+		if (props.getTudumSource && typeof props.getTudumSource === "function") {
 			let tudumSource: IVideoSource | null | undefined;
 
 			try {
 				tudumSource = props.getTudumSource();
 			} catch (error) {
-				throw new PlayerError('PLAYER_TUDUM_SOURCE_HOOK_FAILED', {
+				throw new PlayerError("PLAYER_TUDUM_SOURCE_HOOK_FAILED", {
 					originalError: error,
 				});
 			}
 
 			if (!tudumSource) {
-				throw new PlayerError('PLAYER_TUDUM_SOURCE_INVALID', {
+				throw new PlayerError("PLAYER_TUDUM_SOURCE_INVALID", {
 					returnedSource: tudumSource,
 				});
 			}
 
 			if (!tudumSource.uri) {
-				throw new PlayerError('PLAYER_TUDUM_SOURCE_INVALID', {
+				throw new PlayerError("PLAYER_TUDUM_SOURCE_INVALID", {
 					returnedSource: tudumSource,
-					reason: 'Missing URI in tudum source',
+					reason: "Missing URI in tudum source",
 				});
 			}
 
 			this._tudumSource = tudumSource;
 			// Solo habilitar si NO es salto automático
 			this._shouldPlay = !!props.enabled && !this._isAutoNext;
-		} else if (props.getTudumManifest && typeof props.getTudumManifest === 'function') {
+		} else if (props.getTudumManifest && typeof props.getTudumManifest === "function") {
 			let tudumManifest: IManifest | null | undefined;
 
 			try {
 				tudumManifest = props.getTudumManifest();
 			} catch (error) {
-				throw new PlayerError('PLAYER_TUDUM_MANIFEST_HOOK_FAILED', {
+				throw new PlayerError("PLAYER_TUDUM_MANIFEST_HOOK_FAILED", {
 					originalError: error,
 				});
 			}
 
 			if (!tudumManifest) {
-				throw new PlayerError('PLAYER_TUDUM_MANIFEST_INVALID', {
+				throw new PlayerError("PLAYER_TUDUM_MANIFEST_INVALID", {
 					returnedManifest: tudumManifest,
 				});
 			}
@@ -75,7 +75,7 @@ export class TudumClass {
 			try {
 				this._tudumDrm = getDRM(tudumManifest);
 			} catch (error) {
-				throw new PlayerError('PLAYER_TUDUM_DRM_PROCESSING_FAILED', {
+				throw new PlayerError("PLAYER_TUDUM_DRM_PROCESSING_FAILED", {
 					manifest: tudumManifest,
 					originalError: error,
 				});
@@ -85,14 +85,14 @@ export class TudumClass {
 			try {
 				tudumUri = getVideoSourceUri(tudumManifest);
 			} catch (error) {
-				throw new PlayerError('PLAYER_TUDUM_URI_GENERATION_FAILED', {
+				throw new PlayerError("PLAYER_TUDUM_URI_GENERATION_FAILED", {
 					manifest: tudumManifest,
 					originalError: error,
 				});
 			}
 
 			if (!tudumUri) {
-				throw new PlayerError('PLAYER_TUDUM_URI_GENERATION_FAILED', {
+				throw new PlayerError("PLAYER_TUDUM_URI_GENERATION_FAILED", {
 					manifest: tudumManifest,
 					generatedUri: tudumUri,
 				});
@@ -110,9 +110,9 @@ export class TudumClass {
 				return;
 			}
 
-			throw new PlayerError('PLAYER_TUDUM_CONFIGURATION_INVALID', {
+			throw new PlayerError("PLAYER_TUDUM_CONFIGURATION_INVALID", {
 				providedProps: props,
-				reason: 'No valid getTudumSource or getTudumManifest hook provided',
+				reason: "No valid getTudumSource or getTudumManifest hook provided",
 			});
 		}
 

@@ -4,10 +4,10 @@
  */
 
 function segmentDuration(durationInSeconds: number) {
-	const hours = typeof durationInSeconds === 'number' ? Math.floor(durationInSeconds / 3600) : 0;
+	const hours = typeof durationInSeconds === "number" ? Math.floor(durationInSeconds / 3600) : 0;
 	const minutes =
-		typeof durationInSeconds === 'number' ? Math.floor((durationInSeconds % 3600) / 60) : 0;
-	const seconds = typeof durationInSeconds === 'number' ? durationInSeconds % 60 : 0;
+		typeof durationInSeconds === "number" ? Math.floor((durationInSeconds % 3600) / 60) : 0;
+	const seconds = typeof durationInSeconds === "number" ? durationInSeconds % 60 : 0;
 
 	return {
 		hours: hours,
@@ -20,7 +20,7 @@ export function subtractMinutesFromDate(date: Date, min: number): Date {
 	try {
 		date.setMinutes(date.getMinutes() - min);
 	} catch (ex: unknown) {
-		console.log(ex instanceof Error ? ex.message : 'Unknown error');
+		console.log(ex instanceof Error ? ex.message : "Unknown error");
 	}
 
 	return date;
@@ -29,9 +29,9 @@ export function subtractMinutesFromDate(date: Date, min: number): Date {
 export function parseToCounter(durationInSeconds: number | string): string {
 	let seconds = 0;
 
-	if (typeof durationInSeconds !== 'number') {
+	if (typeof durationInSeconds !== "number") {
 		seconds = parseInt(durationInSeconds, 10);
-	} else if (typeof durationInSeconds === 'number') {
+	} else if (typeof durationInSeconds === "number") {
 		seconds = durationInSeconds;
 	}
 
@@ -42,24 +42,24 @@ export function parseToCounter(durationInSeconds: number | string): string {
 		seconds > 86400 || // Más de 24 horas en segundos (contenido muy largo)
 		seconds > 1000000000000 // Detectar timestamps Unix en milisegundos (demasiado grande)
 	) {
-		return '00:00';
+		return "00:00";
 	}
 
 	// Si parece ser un timestamp Unix (valores muy grandes), rechazar
 	if (seconds > 1000000000) {
 		// Timestamp Unix (mayor a ~31 años en segundos)
-		return '00:00';
+		return "00:00";
 	}
 
 	const segments = segmentDuration(seconds);
 
 	const segmentsToString = {
-		hours: segments.hours.toFixed(0).padStart(2, '0'),
-		minutes: segments.minutes.toFixed(0).padStart(2, '0'),
-		seconds: segments.seconds.toFixed(0).padStart(2, '0'),
+		hours: segments.hours.toFixed(0).padStart(2, "0"),
+		minutes: segments.minutes.toFixed(0).padStart(2, "0"),
+		seconds: segments.seconds.toFixed(0).padStart(2, "0"),
 	};
 
-	if (segmentsToString.hours === '00') {
+	if (segmentsToString.hours === "00") {
 		return `${segmentsToString.minutes}:${segmentsToString.seconds}`;
 	} else {
 		return `${segmentsToString.hours}:${segmentsToString.minutes}:${segmentsToString.seconds}`;
@@ -69,7 +69,7 @@ export function parseToCounter(durationInSeconds: number | string): string {
 export function parseToDetails(durationInSeconds: number | string): string {
 	let seconds = 0;
 
-	if (typeof durationInSeconds !== 'number') {
+	if (typeof durationInSeconds !== "number") {
 		seconds = parseInt(durationInSeconds, 10);
 	} else {
 		seconds = durationInSeconds;
@@ -91,15 +91,15 @@ export function parseToDetails(durationInSeconds: number | string): string {
 // Función helper para formatear timestamps absolutos a hora local
 export function formatTimestamp(timestamp: number | null | undefined): string {
 	if (!timestamp || timestamp <= 0) {
-		return '--:--:--';
+		return "--:--:--";
 	}
 
 	const date = new Date(timestamp);
 	// Formato HH:MM:SS en hora local
-	return date.toLocaleTimeString('es-ES', {
-		hour: '2-digit',
-		minute: '2-digit',
-		second: '2-digit',
+	return date.toLocaleTimeString("es-ES", {
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
 		hour12: false,
 	});
 }
@@ -113,7 +113,7 @@ export function formatTimestampDifference(startTimestamp: number, endTimestamp: 
 // Función helper para formatear el offset (ya está en segundos)
 export function formatOffset(offsetInSeconds: number | null | undefined): string {
 	if (offsetInSeconds === null || offsetInSeconds === undefined) {
-		return '--:--';
+		return "--:--";
 	}
 	return parseToCounter(offsetInSeconds);
 }

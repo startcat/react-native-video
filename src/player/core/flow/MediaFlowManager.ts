@@ -1,7 +1,7 @@
-import type { IDrm, OnProgressData } from '../../../types';
-import { MediaFlowDecisionEngine } from './MediaFlowDecisionEngine';
-import { MediaFlowEventBus } from './MediaFlowEventBus';
-import { MediaFlowStateManager } from './MediaFlowState';
+import type { IDrm, OnProgressData } from "../../../types";
+import { MediaFlowDecisionEngine } from "./MediaFlowDecisionEngine";
+import { MediaFlowEventBus } from "./MediaFlowEventBus";
+import { MediaFlowStateManager } from "./MediaFlowState";
 import {
 	MediaFlowStateType,
 	MediaType,
@@ -9,7 +9,7 @@ import {
 	type ExtendedVideoSource,
 	type MediaFlowConfig,
 	type MediaFlowState,
-} from './types';
+} from "./types";
 
 export interface MediaFlowManagerOptions {
 	debugMode?: boolean;
@@ -88,12 +88,12 @@ export class MediaFlowManager {
 	 */
 
 	async initialize(config: MediaFlowConfig): Promise<void> {
-		console.log('[MediaFlowManager] Initializing with config:', config);
+		console.log("[MediaFlowManager] Initializing with config:", config);
 
 		// Validar configuración
 		const validation = this.decisionEngine.validateConfig(config);
 		if (!validation.valid) {
-			throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
+			throw new Error(`Invalid configuration: ${validation.errors.join(", ")}`);
 		}
 
 		this.config = config;
@@ -109,7 +109,7 @@ export class MediaFlowManager {
 		this.isInitialized = true;
 
 		// Emitir evento de inicialización
-		this.eventBus.emit('flow:initialized', {
+		this.eventBus.emit("flow:initialized", {
 			config,
 			initialState: MediaFlowStateType.IDLE,
 		});
@@ -125,7 +125,7 @@ export class MediaFlowManager {
 
 	private async startFlow(): Promise<void> {
 		if (!this.config) {
-			throw new Error('Flow not initialized');
+			throw new Error("Flow not initialized");
 		}
 
 		// Tomar decisión inicial
@@ -139,7 +139,7 @@ export class MediaFlowManager {
 			contentSource: this.contentSource,
 		});
 
-		console.log('[MediaFlowManager] Initial decision:', decision);
+		console.log("[MediaFlowManager] Initial decision:", decision);
 
 		// Ejecutar la acción decidida
 		await this.executeDecision(decision);
@@ -163,7 +163,7 @@ export class MediaFlowManager {
 		const duration = progressData.duration || progressData.seekableDuration || 0;
 
 		// Emitir evento de progreso
-		this.eventBus.emit('progress:update', {
+		this.eventBus.emit("progress:update", {
 			type: currentState.mediaType,
 			currentTime: data.currentTime,
 			duration: duration,
@@ -182,10 +182,10 @@ export class MediaFlowManager {
 		const currentState = this.stateManager.getCurrentState();
 
 		if (currentState.type === MediaFlowStateType.PLAYING_TUDUM) {
-			console.log('[MediaFlowManager] Tudum ended, transitioning to content');
+			console.log("[MediaFlowManager] Tudum ended, transitioning to content");
 			this.handleTudumEnd();
 		} else if (currentState.type === MediaFlowStateType.PLAYING_CONTENT) {
-			console.log('[MediaFlowManager] Content ended');
+			console.log("[MediaFlowManager] Content ended");
 			this.handleContentEnd();
 		}
 	}
@@ -198,7 +198,7 @@ export class MediaFlowManager {
 	pause(): void {
 		const currentState = this.stateManager.getCurrentState();
 		if (currentState.mediaType) {
-			this.eventBus.emit('playback:pause', {
+			this.eventBus.emit("playback:pause", {
 				type: currentState.mediaType,
 				currentTime: 0, // TODO: Obtener tiempo actual real del ProgressCoordinator
 			});
@@ -213,7 +213,7 @@ export class MediaFlowManager {
 	resume(): void {
 		const currentState = this.stateManager.getCurrentState();
 		if (currentState.mediaType) {
-			this.eventBus.emit('playback:resume', {
+			this.eventBus.emit("playback:resume", {
 				type: currentState.mediaType,
 				currentTime: 0, // TODO: Obtener tiempo actual real del ProgressCoordinator
 			});
@@ -226,7 +226,7 @@ export class MediaFlowManager {
 	 */
 
 	dispose(): void {
-		console.log('[MediaFlowManager] Disposing');
+		console.log("[MediaFlowManager] Disposing");
 
 		// Limpiar timeout si existe
 		if (this.transitionTimeout) {
@@ -236,7 +236,7 @@ export class MediaFlowManager {
 
 		// Emitir evento de disposición
 		const finalState = this.stateManager.getCurrentState();
-		this.eventBus.emit('flow:disposed', {
+		this.eventBus.emit("flow:disposed", {
 			finalState: finalState.type,
 			playbackTime: 0, // TODO: Calcular tiempo total de reproducción
 		});
@@ -257,21 +257,21 @@ export class MediaFlowManager {
 
 	private setupInternalListeners(): void {
 		// Escuchar cambios de estado y notificar
-		this.eventBus.on('state:change', data => {
+		this.eventBus.on("state:change", data => {
 			if (this.onStateChange) {
 				this.onStateChange(data.current);
 			}
 		});
 
 		// Escuchar cuando una fuente está lista
-		this.eventBus.on('source:ready', data => {
+		this.eventBus.on("source:ready", data => {
 			if (this.onSourceReady) {
 				this.onSourceReady(data.source, data.drm);
 			}
 		});
 
 		// Escuchar errores
-		this.eventBus.on('source:error', data => {
+		this.eventBus.on("source:error", data => {
 			this.handleError(data.error, data.type);
 		});
 	}
@@ -286,7 +286,7 @@ export class MediaFlowManager {
 					// TODO: Obtener DRM del tudum cuando TudumManager esté disponible
 				}
 			} catch (error) {
-				console.error('[MediaFlowManager] Error preparing tudum source:', error);
+				console.error("[MediaFlowManager] Error preparing tudum source:", error);
 			}
 		}
 
@@ -294,7 +294,7 @@ export class MediaFlowManager {
 		// Por ahora, usar un placeholder
 		if (config.manifests && config.manifests.length > 0) {
 			this.contentSource = {
-				uri: 'content_placeholder', // TODO: Obtener URI real del manifest
+				uri: "content_placeholder", // TODO: Obtener URI real del manifest
 				title: config.title,
 			};
 		}
@@ -309,23 +309,23 @@ export class MediaFlowManager {
 
 	private async executeDecision(decision: any): Promise<void> {
 		switch (decision.action) {
-			case 'PLAY_TUDUM':
+			case "PLAY_TUDUM":
 				await this.loadTudum();
 				break;
 
-			case 'PLAY_CONTENT':
+			case "PLAY_CONTENT":
 				await this.loadContent();
 				break;
 
-			case 'SKIP_TUDUM':
+			case "SKIP_TUDUM":
 				this.skipToContent(decision.reason);
 				break;
 
-			case 'WAIT':
+			case "WAIT":
 				// No hacer nada, esperar siguiente evento
 				break;
 
-			case 'ERROR':
+			case "ERROR":
 				this.handleError(new Error(decision.reason), null);
 				break;
 		}
@@ -334,7 +334,7 @@ export class MediaFlowManager {
 	private async loadTudum(): Promise<void> {
 		try {
 			if (!this.tudumSource) {
-				throw new Error('Tudum source not available');
+				throw new Error("Tudum source not available");
 			}
 
 			// Cambiar estado
@@ -343,7 +343,7 @@ export class MediaFlowManager {
 			this.emitStateChange(newState, StateChangeReason.INITIALIZATION);
 
 			// Emitir source ready
-			this.eventBus.emit('source:ready', {
+			this.eventBus.emit("source:ready", {
 				source: this.tudumSource,
 				drm: this.tudumDrm,
 				type: MediaType.TUDUM,
@@ -355,12 +355,12 @@ export class MediaFlowManager {
 			this.emitStateChange(playingState, StateChangeReason.INITIALIZATION);
 
 			// Emitir evento de inicio
-			this.eventBus.emit('playback:start', {
+			this.eventBus.emit("playback:start", {
 				type: MediaType.TUDUM,
 				startPosition: 0,
 			});
 		} catch (error) {
-			this.eventBus.emit('source:error', {
+			this.eventBus.emit("source:error", {
 				error: error as Error,
 				type: MediaType.TUDUM,
 				fallbackAvailable: true,
@@ -371,7 +371,7 @@ export class MediaFlowManager {
 	private async loadContent(): Promise<void> {
 		try {
 			if (!this.contentSource) {
-				throw new Error('Content source not available');
+				throw new Error("Content source not available");
 			}
 
 			// Cambiar estado
@@ -384,7 +384,7 @@ export class MediaFlowManager {
 			this.emitStateChange(newState, StateChangeReason.INITIALIZATION);
 
 			// Emitir source ready
-			this.eventBus.emit('source:ready', {
+			this.eventBus.emit("source:ready", {
 				source: this.contentSource,
 				drm: this.contentDrm,
 				type: MediaType.CONTENT,
@@ -396,12 +396,12 @@ export class MediaFlowManager {
 			this.emitStateChange(playingState, StateChangeReason.INITIALIZATION);
 
 			// Emitir evento de inicio
-			this.eventBus.emit('playback:start', {
+			this.eventBus.emit("playback:start", {
 				type: MediaType.CONTENT,
 				startPosition: this.config?.startPosition || 0,
 			});
 		} catch (error) {
-			this.eventBus.emit('source:error', {
+			this.eventBus.emit("source:error", {
 				error: error as Error,
 				type: MediaType.CONTENT,
 				fallbackAvailable: false,
@@ -410,9 +410,9 @@ export class MediaFlowManager {
 	}
 
 	private skipToContent(reason: string): void {
-		console.log('[MediaFlowManager] Skipping tudum:', reason);
+		console.log("[MediaFlowManager] Skipping tudum:", reason);
 
-		this.eventBus.emit('decision:skipTudum', {
+		this.eventBus.emit("decision:skipTudum", {
 			reason,
 			conditions: {
 				isAutoNext: this.config?.isAutoNext || false,
@@ -430,7 +430,7 @@ export class MediaFlowManager {
 		this.emitStateChange(transitionState, StateChangeReason.MEDIA_END);
 
 		// Emitir evento
-		this.eventBus.emit('playback:end', {
+		this.eventBus.emit("playback:end", {
 			type: MediaType.TUDUM,
 			triggeredAutoNext: false,
 			nextContentAvailable: true,
@@ -450,7 +450,7 @@ export class MediaFlowManager {
 		// Determinar si hay siguiente contenido
 		const hasNext = false; // TODO: Verificar si hay siguiente episodio cuando esté disponible
 
-		this.eventBus.emit('playback:end', {
+		this.eventBus.emit("playback:end", {
 			type: MediaType.CONTENT,
 			triggeredAutoNext: hasNext && (this.config?.isAutoNext || false),
 			nextContentAvailable: hasNext,
@@ -458,7 +458,7 @@ export class MediaFlowManager {
 	}
 
 	private handleError(error: Error, mediaType: MediaType | null): void {
-		console.error('[MediaFlowManager] Error:', error);
+		console.error("[MediaFlowManager] Error:", error);
 
 		this.errorCount++;
 
@@ -490,13 +490,13 @@ export class MediaFlowManager {
 	private emitStateChange(newState: MediaFlowState, reason: StateChangeReason): void {
 		const previousState = { ...this.stateManager.getCurrentState() };
 
-		this.eventBus.emit('state:change', {
+		this.eventBus.emit("state:change", {
 			previous: previousState,
 			current: newState,
 			reason,
 		});
 
-		this.eventBus.emit('transition:complete', {
+		this.eventBus.emit("transition:complete", {
 			state: newState.type,
 			mediaType: newState.mediaType,
 		});

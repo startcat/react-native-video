@@ -1,8 +1,9 @@
-import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { type OnBufferData, type OnLoadData, type OnProgressData } from '../../../types';
-import Video, { type VideoRef } from '../../../Video';
-import { type PlayerAdapter, type PlayerContentInfo, type TrackInfo } from '../types';
-import { type ReactNativeVideoAdapterProps, type ReactNativeVideoAdapterRef } from './types';
+import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { StyleSheet } from "react-native";
+import { type OnBufferData, type OnLoadData, type OnProgressData } from "../../../types";
+import Video, { type VideoRef } from "../../../Video";
+import { type PlayerAdapter, type PlayerContentInfo, type TrackInfo } from "../types";
+import { type ReactNativeVideoAdapterProps, type ReactNativeVideoAdapterRef } from "./types";
 
 export const ReactNativeVideoAdapter = forwardRef<
 	ReactNativeVideoAdapterRef,
@@ -32,7 +33,7 @@ export const ReactNativeVideoAdapter = forwardRef<
 	const [maxBitrate, setMaxBitrateState] = useState<number | null>(props.maxBitrate || null);
 	const [currentBitrate, setCurrentBitrate] = useState<number | null>(null);
 	const [isFullscreen, setIsFullscreen] = useState(false);
-	const [resizeMode, setResizeModeState] = useState(props.resizeMode || 'contain');
+	const [resizeMode, setResizeModeState] = useState(props.resizeMode || "contain");
 
 	useImperativeHandle(
 		ref,
@@ -176,7 +177,7 @@ export const ReactNativeVideoAdapter = forwardRef<
 			},
 
 			async setResizeMode(
-				mode: 'contain' | 'cover' | 'stretch' | 'center'
+				mode: "contain" | "cover" | "stretch" | "center"
 			): Promise<boolean> {
 				setResizeModeState(mode);
 				return true;
@@ -243,11 +244,11 @@ export const ReactNativeVideoAdapter = forwardRef<
 
 			// Ciclo de vida
 			initialize() {
-				console.log('[ReactNativeVideoAdapter] Initialize');
+				console.log("[ReactNativeVideoAdapter] Initialize");
 			},
 
 			destroy() {
-				console.log('[ReactNativeVideoAdapter] Destroy');
+				console.log("[ReactNativeVideoAdapter] Destroy");
 			},
 
 			reset() {
@@ -278,7 +279,7 @@ export const ReactNativeVideoAdapter = forwardRef<
 			id: track.id || index,
 			name: track.title || track.name || `Audio ${index + 1}`,
 			language: track.language,
-			type: 'AUDIO' as const,
+			type: "AUDIO" as const,
 			bitrate: track.bitrate,
 			codecs: track.codecs,
 		}));
@@ -287,7 +288,7 @@ export const ReactNativeVideoAdapter = forwardRef<
 			id: track.id || index,
 			name: track.title || track.name || `Video ${index + 1}`,
 			language: track.language,
-			type: 'VIDEO' as const,
+			type: "VIDEO" as const,
 			bitrate: track.bitrate,
 			width: track.width,
 			height: track.height,
@@ -299,7 +300,7 @@ export const ReactNativeVideoAdapter = forwardRef<
 			id: track.id || index,
 			name: track.title || track.name || `Subtitle ${index + 1}`,
 			language: track.language,
-			type: 'TEXT' as const,
+			type: "TEXT" as const,
 		}));
 
 		setAvailableAudioTracks(audioTracks);
@@ -352,7 +353,7 @@ export const ReactNativeVideoAdapter = forwardRef<
 	const handleError = (e: any) => {
 		props.onError?.({
 			code: e.error?.code,
-			message: e.error?.message || 'Video playback error',
+			message: e.error?.message || "Video playback error",
 			details: e.error,
 			isRecoverable: e.error?.isRecoverable,
 		});
@@ -361,7 +362,7 @@ export const ReactNativeVideoAdapter = forwardRef<
 	return props.contentInfo?.source ? (
 		<Video
 			ref={videoRef}
-			style={{ flex: 1 }}
+			style={styles.video}
 			source={{
 				uri: props.contentInfo.source.uri,
 				type: props.contentInfo.source.type,
@@ -418,4 +419,10 @@ export const ReactNativeVideoAdapter = forwardRef<
 			onError={handleError}
 		/>
 	) : null;
+});
+
+const styles = StyleSheet.create({
+	video: {
+		flex: 1,
+	},
 });

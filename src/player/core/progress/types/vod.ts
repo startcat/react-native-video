@@ -1,5 +1,5 @@
-import { type SliderValues } from '../../../types/types';
-import { type BaseProgressManagerOptions, type BaseUpdatePlayerData } from './base';
+import { type SliderValues } from "../../../types/types";
+import { type BaseProgressManagerOptions, type BaseUpdatePlayerData } from "./base";
 
 export interface VODUpdatePlayerData extends BaseUpdatePlayerData {
 	// VOD puede tener propiedades adicionales específicas si es necesario

@@ -1,11 +1,11 @@
-import { type SliderValues } from '../../types/types';
-import { BaseProgressManager } from './BaseProgressManager';
-import { LOGGER_CONFIG } from './constants';
+import { type SliderValues } from "../../types/types";
+import { BaseProgressManager } from "./BaseProgressManager";
+import { LOGGER_CONFIG } from "./constants";
 import {
 	type VODProgressManagerOptions,
 	type VODProgressUpdateData,
 	type VODUpdatePlayerData,
-} from './types/vod';
+} from "./types/vod";
 
 export class VODProgressManagerClass extends BaseProgressManager {
 	// Estado específico del VOD
@@ -63,7 +63,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
 
 	getSliderValues(): SliderValues {
 		if (!this._isValidState()) {
-			this._currentLogger?.warn('getSliderValues: Invalid state');
+			this._currentLogger?.warn("getSliderValues: Invalid state");
 			return {
 				minimumValue: 0,
 				maximumValue: 1,
@@ -93,7 +93,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
 	}
 
 	reset(): void {
-		this._currentLogger?.info('Resetting VOD progress manager');
+		this._currentLogger?.info("Resetting VOD progress manager");
 
 		// Reset del estado base
 		super.reset();
@@ -140,12 +140,12 @@ export class VODProgressManagerClass extends BaseProgressManager {
 	}
 
 	goToStart(): void {
-		this._currentLogger?.info('Going to start');
+		this._currentLogger?.info("Going to start");
 		this._seekTo(this._seekableRange.start);
 	}
 
 	goToEnd(): void {
-		this._currentLogger?.info('Going to end');
+		this._currentLogger?.info("Going to end");
 		this._seekTo(this._seekableRange.end);
 	}
 
@@ -227,13 +227,13 @@ export class VODProgressManagerClass extends BaseProgressManager {
 		const isAtEnd = this._currentTime >= this._duration - 1; // 1 segundo de tolerancia
 
 		if (isAtEnd) {
-			this._currentLogger?.info('Reached end of content');
+			this._currentLogger?.info("Reached end of content");
 
 			if (this._enableLooping) {
-				this._currentLogger?.info('Looping enabled, going to start');
+				this._currentLogger?.info("Looping enabled, going to start");
 				setTimeout(() => this.goToStart(), 100);
 			} else if (this._autoSeekToEnd) {
-				this._currentLogger?.info('Auto seek to end enabled');
+				this._currentLogger?.info("Auto seek to end enabled");
 				this.goToEnd();
 			}
 		}
@@ -262,7 +262,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
 		const vodValid = this._duration !== null && this._duration > 0;
 
 		if (!vodValid) {
-			this._currentLogger?.warn('VOD invalid state: no duration');
+			this._currentLogger?.warn("VOD invalid state: no duration");
 		}
 
 		return baseValid && vodValid;
@@ -274,7 +274,7 @@ export class VODProgressManagerClass extends BaseProgressManager {
 	 */
 
 	destroy(): void {
-		this._currentLogger?.info('Destroying VOD progress manager');
+		this._currentLogger?.info("Destroying VOD progress manager");
 		super.destroy();
 
 		this._autoSeekToEnd = false;

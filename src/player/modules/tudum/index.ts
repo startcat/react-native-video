@@ -1,1 +1,1 @@
-export * from './tudumClass';
+export * from "./tudumClass";

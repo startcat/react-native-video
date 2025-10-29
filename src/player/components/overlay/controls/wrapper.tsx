@@ -1,14 +1,14 @@
-import React, { createElement, useCallback, useMemo } from 'react';
-import { View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type ControlsProps, CONTROL_ACTION } from '../../../../types';
-import { ControlsBottomBar } from './bottomBar';
-import { ControlsHeaderBar } from './header';
-import { ControlsMiddleBar } from './middleBar';
-import { styles } from './styles';
-import { Timeline } from './timeline';
-import { TimeMarks } from './timeMarks';
+import React, { createElement, useCallback, useMemo } from "react";
+import { View } from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { type ControlsProps, CONTROL_ACTION } from "../../../../types";
+import { ControlsBottomBar } from "./bottomBar";
+import { ControlsHeaderBar } from "./header";
+import { ControlsMiddleBar } from "./middleBar";
+import { styles } from "./styles";
+import { Timeline } from "./timeline";
+import { TimeMarks } from "./timeMarks";
 
 const ANIMATION_SPEED = 150;
 
@@ -30,7 +30,7 @@ const ControlsBase = (props: ControlsProps): React.ReactElement => {
 
 	const handlePress = useCallback(
 		(id: CONTROL_ACTION, value?: any) => {
-			if (typeof events?.onPress === 'function') {
+			if (typeof events?.onPress === "function") {
 				events.onPress(id, value);
 			}
 		},

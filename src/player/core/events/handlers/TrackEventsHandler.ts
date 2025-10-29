@@ -3,11 +3,11 @@
  *
  */
 
-import { PlayerAnalyticsEvents } from '../../../features/analytics';
+import { PlayerAnalyticsEvents } from "../../../features/analytics";
 
-import type { OnAudioTracksData, OnVolumeChangeData } from '../../../../specs/VideoNativeComponent';
+import type { OnAudioTracksData, OnVolumeChangeData } from "../../../../specs/VideoNativeComponent";
 
-import type { OnLoadData, OnTextTracksData } from '../../../../types/events';
+import type { OnLoadData, OnTextTracksData } from "../../../../types/events";
 
 export class TrackEventsHandler {
 	private analyticsEvents: PlayerAnalyticsEvents;

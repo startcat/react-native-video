@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { IDrm } from '../../../types';
-import { MediaFlowManager } from '../MediaFlowManager';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { IDrm } from "../../../types";
+import { MediaFlowManager } from "../MediaFlowManager";
 import type {
 	ExtendedVideoSource,
 	MediaFlowConfig,
 	MediaFlowEvents,
 	MediaFlowState,
-} from '../types';
+} from "../types";
 
 export interface UseMediaFlowOptions {
 	debugMode?: boolean;
@@ -74,7 +74,7 @@ export function useMediaFlow(options: UseMediaFlowOptions = {}): UseMediaFlowRet
 	// Inicializar el flujo
 	const initialize = useCallback(async (config: MediaFlowConfig) => {
 		if (!managerRef.current) {
-			throw new Error('MediaFlowManager not initialized');
+			throw new Error("MediaFlowManager not initialized");
 		}
 
 		setIsLoading(true);
@@ -115,7 +115,7 @@ export function useMediaFlow(options: UseMediaFlowOptions = {}): UseMediaFlowRet
 			handler: (data: MediaFlowEvents[K]) => void
 		): (() => void) => {
 			if (!managerRef.current) {
-				console.warn('MediaFlowManager not initialized, cannot subscribe to events');
+				console.warn("MediaFlowManager not initialized, cannot subscribe to events");
 				return () => {};
 			}
 

@@ -1,9 +1,9 @@
-import { VideoEventsAdapter } from '../VideoEventsAdapter';
+import { VideoEventsAdapter } from "../VideoEventsAdapter";
 
-import type { ReactVideoEvents } from '../../../../types';
-import type { PlayerError } from '../../errors';
+import type { ReactVideoEvents } from "../../../../types";
+import type { PlayerError } from "../../errors";
 
-import { PlayerAnalyticsEvents, type PlayerAnalyticsPlugin } from '../../../features/analytics';
+import { PlayerAnalyticsEvents, type PlayerAnalyticsPlugin } from "../../../features/analytics";
 
 export interface UseVideoAnalyticsProps {
 	plugins?: PlayerAnalyticsPlugin[];

@@ -3,8 +3,8 @@
  *
  */
 
-import { type MediaTrack } from 'react-native-google-cast';
-import { type OnLoadData } from '../../types';
+import { type MediaTrack } from "react-native-google-cast";
+import { type OnLoadData } from "../../types";
 
 import {
 	type IBasicProgram,
@@ -15,7 +15,7 @@ import {
 	type IVideoSource,
 	type IYoubora,
 	type IYouboraSettingsFormat,
-} from './types';
+} from "./types";
 
 export interface IPlayerHooks {
 	watchingProgressInterval?: number;

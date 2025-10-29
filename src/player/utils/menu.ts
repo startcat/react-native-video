@@ -1,10 +1,10 @@
-import { i18n } from '../locales';
+import { i18n } from "../locales";
 
-import { type OnLoadData } from '../../types';
+import { type OnLoadData } from "../../types";
 
-import { type MediaTrack } from 'react-native-google-cast';
+import { type MediaTrack } from "react-native-google-cast";
 
-import { type ILanguagesMapping, type IPlayerMenuData, PLAYER_MENU_DATA_TYPE } from '../types';
+import { type ILanguagesMapping, type IPlayerMenuData, PLAYER_MENU_DATA_TYPE } from "../types";
 
 const sortByIndex = (a: IPlayerMenuData, b: IPlayerMenuData) => {
 	if (a.type < b.type) {
@@ -40,43 +40,43 @@ export const mergeMenuData = (
 		type: PLAYER_MENU_DATA_TYPE.RATE,
 		index: 0,
 		id: 0.25,
-		label: '0.25x',
+		label: "0.25x",
 	});
 
 	menuData.push({
 		type: PLAYER_MENU_DATA_TYPE.RATE,
 		index: 1,
 		id: 0.5,
-		label: '0.5x',
+		label: "0.5x",
 	});
 
 	menuData.push({
 		type: PLAYER_MENU_DATA_TYPE.RATE,
 		index: 2,
 		id: 1,
-		label: 'Normal',
+		label: "Normal",
 	});
 
 	menuData.push({
 		type: PLAYER_MENU_DATA_TYPE.RATE,
 		index: 3,
 		id: 1.5,
-		label: '1.5x',
+		label: "1.5x",
 	});
 
 	menuData.push({
 		type: PLAYER_MENU_DATA_TYPE.RATE,
 		index: 4,
 		id: 2,
-		label: '2x',
+		label: "2x",
 	});
 
 	// Añadimos una opción de calidad que indique "Auto"
 	menuData.push({
 		type: PLAYER_MENU_DATA_TYPE.VIDEO,
 		index: -1,
-		code: 'none',
-		label: i18n.t('player_quality_auto'),
+		code: "none",
+		label: i18n.t("player_quality_auto"),
 	});
 
 	if (loadedData.videoTracks && isDASH) {
@@ -93,21 +93,21 @@ export const mergeMenuData = (
 			type: PLAYER_MENU_DATA_TYPE.VIDEO,
 			index: 5000000,
 			id: 5000000,
-			label: i18n.t('player_quality_high'),
+			label: i18n.t("player_quality_high"),
 		});
 
 		menuData.push({
 			type: PLAYER_MENU_DATA_TYPE.VIDEO,
 			index: 2500000,
 			id: 2500000,
-			label: i18n.t('player_quality_medium'),
+			label: i18n.t("player_quality_medium"),
 		});
 
 		menuData.push({
 			type: PLAYER_MENU_DATA_TYPE.VIDEO,
 			index: 1000000,
 			id: 1000000,
-			label: i18n.t('player_quality_low'),
+			label: i18n.t("player_quality_low"),
 		});
 	}
 
@@ -129,8 +129,8 @@ export const mergeMenuData = (
 	menuData.push({
 		type: PLAYER_MENU_DATA_TYPE.TEXT,
 		index: -1,
-		code: 'none',
-		label: i18n.t('language_none'),
+		code: "none",
+		label: i18n.t("language_none"),
 	});
 
 	if (loadedData.textTracks) {
@@ -169,13 +169,13 @@ export const mergeCastMenuData = (
 	menuData.push({
 		type: PLAYER_MENU_DATA_TYPE.TEXT,
 		index: -1,
-		code: 'none',
-		label: i18n.t('language_none'),
+		code: "none",
+		label: i18n.t("language_none"),
 	});
 
 	if (loadedData && loadedData.length) {
 		loadedData?.forEach(item => {
-			if (item.type === 'audio' && item.language !== 'un') {
+			if (item.type === "audio" && item.language !== "un") {
 				menuData.push({
 					type: PLAYER_MENU_DATA_TYPE.AUDIO,
 					id: item.id,
@@ -188,7 +188,7 @@ export const mergeCastMenuData = (
 				});
 
 				totalAudios++;
-			} else if (item.type === 'text') {
+			} else if (item.type === "text") {
 				menuData.push({
 					type: PLAYER_MENU_DATA_TYPE.TEXT,
 					id: item.id,

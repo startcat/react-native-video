@@ -1,1 +1,1 @@
-export * from './timeMarkersClass';
+export * from "./timeMarkersClass";

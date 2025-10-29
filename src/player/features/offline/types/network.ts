@@ -1,6 +1,6 @@
-import { type NetInfoCellularGeneration, type NetInfoState } from '@react-native-community/netinfo';
+import { type NetInfoCellularGeneration, type NetInfoState } from "@react-native-community/netinfo";
 
-import { LogLevel } from '../../logger';
+import { LogLevel } from "../../logger";
 
 export interface NetworkServiceConfig {
 	logEnabled?: boolean;
@@ -27,11 +27,11 @@ export interface NetworkPolicy {
 export type NetworkStatusCallback = (status: NetworkStatus) => void;
 
 export enum NetworkEventType {
-	CONNECTED = 'network:connected',
-	DISCONNECTED = 'network:disconnected',
-	TYPE_CHANGED = 'network:type_changed',
-	WIFI_CONNECTED = 'network:wifi_connected',
-	WIFI_DISCONNECTED = 'network:wifi_disconnected',
-	CELLULAR_CONNECTED = 'network:cellular_connected',
-	CELLULAR_DISCONNECTED = 'network:cellular_disconnected',
+	CONNECTED = "network:connected",
+	DISCONNECTED = "network:disconnected",
+	TYPE_CHANGED = "network:type_changed",
+	WIFI_CONNECTED = "network:wifi_connected",
+	WIFI_DISCONNECTED = "network:wifi_disconnected",
+	CELLULAR_CONNECTED = "network:cellular_connected",
+	CELLULAR_DISCONNECTED = "network:cellular_disconnected",
 }

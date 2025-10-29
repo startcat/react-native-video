@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
-import { View, Image } from 'react-native';
-import { type BackgroundPosterProps } from '../../types';
-import { styles } from './styles';
+import React, { useMemo } from "react";
+import { View, Image } from "react-native";
+import { type BackgroundPosterProps } from "../../types";
+import { styles } from "./styles";
 
 const BackgroundPosterComponent = ({
 	poster,

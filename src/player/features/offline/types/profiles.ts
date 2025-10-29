@@ -1,4 +1,4 @@
-import { LogLevel } from '../../logger';
+import { LogLevel } from "../../logger";
 
 export interface ProfileManagerConfig {
 	logEnabled?: boolean;
@@ -14,9 +14,9 @@ export interface ProfileContext {
 }
 
 export enum ProfileEventType {
-	PROFILE_CHANGED = 'profile_changed',
-	FILTERING_CHANGED = 'filtering_changed',
-	CONFIG_CHANGED = 'config_changed',
+	PROFILE_CHANGED = "profile_changed",
+	FILTERING_CHANGED = "filtering_changed",
+	CONFIG_CHANGED = "config_changed",
 }
 
 export interface ProfileEventData {

@@ -1,17 +1,17 @@
-import { PlayerError } from '../../core/errors';
-import { ComponentLogger, Logger } from '../../features/logger';
-import { getSourceMessageForCast } from '../../utils';
-import { LoggerConfigBasic } from '../logger/types';
+import { PlayerError } from "../../core/errors";
+import { ComponentLogger, Logger } from "../../features/logger";
+import { getSourceMessageForCast } from "../../utils";
+import { LoggerConfigBasic } from "../logger/types";
 import {
 	DEFAULT_MESSAGE_CONFIG,
 	LOGGER_CONFIG,
 	METADATA_CONFIG,
 	SUPPORTED_MIME_TYPES,
-} from './constants';
-import { CastContentType } from './types/enums';
-import { CastContentMetadata, CastMessageConfig, MessageBuilderConfig } from './types/types';
+} from "./constants";
+import { CastContentType } from "./types/enums";
+import { CastContentMetadata, CastMessageConfig, MessageBuilderConfig } from "./types/types";
 
-const LOG_KEY = 'CastMessageBuilder';
+const LOG_KEY = "CastMessageBuilder";
 
 /*
  *  Clase para construir mensajes Cast de forma consistente
@@ -80,7 +80,7 @@ export class CastMessageBuilder {
 			// Calcular posición de inicio
 			const startPosition = this.calculateStartPosition(config);
 
-			const streamType = metadata.isLive ? 'live' : 'buffered';
+			const streamType = metadata.isLive ? "live" : "buffered";
 
 			// Construir mensaje usando función existente
 			const message = getSourceMessageForCast(
@@ -91,7 +91,7 @@ export class CastMessageBuilder {
 				{
 					...metadata,
 					startPosition,
-					adTagUrl: this.config.enableAds ? config.metadata.adTagUrl : '',
+					adTagUrl: this.config.enableAds ? config.metadata.adTagUrl : "",
 				}
 			);
 
@@ -111,7 +111,7 @@ export class CastMessageBuilder {
 					contentType: this.getMimeType(config.source.uri),
 					type: this.getContentType(config.metadata),
 					buildTimestamp: Date.now(),
-					builderVersion: '1.0.0',
+					builderVersion: "1.0.0",
 				};
 			}
 
@@ -187,15 +187,15 @@ export class CastMessageBuilder {
 		return {
 			id: metadata.id,
 			title: this.truncateString(
-				metadata.title || 'Sin título',
+				metadata.title || "Sin título",
 				METADATA_CONFIG.MAX_TITLE_LENGTH
 			),
 			subtitle: this.truncateString(
-				metadata.subtitle || '',
+				metadata.subtitle || "",
 				METADATA_CONFIG.MAX_TITLE_LENGTH
 			),
 			description: this.truncateString(
-				metadata.description || '',
+				metadata.description || "",
 				METADATA_CONFIG.MAX_DESCRIPTION_LENGTH
 			),
 			poster: metadata.squaredPoster || metadata.poster || METADATA_CONFIG.DEFAULT_POSTER,
@@ -246,23 +246,23 @@ export class CastMessageBuilder {
 	private getMimeType(uri: string): string {
 		const url = uri.toLowerCase();
 
-		if (url.includes('.m3u8') || url.includes('hls')) {
+		if (url.includes(".m3u8") || url.includes("hls")) {
 			return SUPPORTED_MIME_TYPES.HLS;
 		}
 
-		if (url.includes('.mpd') || url.includes('dash')) {
+		if (url.includes(".mpd") || url.includes("dash")) {
 			return SUPPORTED_MIME_TYPES.DASH;
 		}
 
-		if (url.includes('.mp3')) {
+		if (url.includes(".mp3")) {
 			return SUPPORTED_MIME_TYPES.MP3;
 		}
 
-		if (url.includes('.mp4')) {
+		if (url.includes(".mp4")) {
 			return SUPPORTED_MIME_TYPES.MP4;
 		}
 
-		if (url.includes('.webm')) {
+		if (url.includes(".webm")) {
 			return SUPPORTED_MIME_TYPES.WEBM;
 		}
 
@@ -291,7 +291,7 @@ export class CastMessageBuilder {
 	private isValidUrl(url: string): boolean {
 		try {
 			new URL(url);
-			return url.startsWith('http://') || url.startsWith('https://');
+			return url.startsWith("http://") || url.startsWith("https://");
 		} catch {
 			return false;
 		}
@@ -306,7 +306,7 @@ export class CastMessageBuilder {
 		if (str.length <= maxLength) {
 			return str;
 		}
-		return str.substring(0, maxLength - 3) + '...';
+		return str.substring(0, maxLength - 3) + "...";
 	}
 
 	/*
@@ -329,6 +329,6 @@ export class CastMessageBuilder {
 			enabled: this.config.enabled ?? LOGGER_CONFIG.enabled,
 			level: this.config.level ?? LOGGER_CONFIG.level,
 		});
-		this.currentLogger?.debug('Configuration reset to defaults');
+		this.currentLogger?.debug("Configuration reset to defaults");
 	}
 }

@@ -20,15 +20,15 @@ export const DEFAULT_CAST_CONFIG = {
  */
 
 export const CAST_LOG_EVENTS = {
-	STATE_CHANGE: 'Cast state changed',
-	CONTENT_LOAD_START: 'Content load started',
-	CONTENT_LOAD_SUCCESS: 'Content loaded successfully',
-	CONTENT_LOAD_ERROR: 'Content load failed',
-	PLAYBACK_START: 'Playback started',
-	PLAYBACK_END: 'Playback ended',
-	CONTROL_ACTION: 'Control action executed',
-	CONNECTION_CHANGE: 'Connection changed',
-	ERROR: 'Cast error occurred',
+	STATE_CHANGE: "Cast state changed",
+	CONTENT_LOAD_START: "Content load started",
+	CONTENT_LOAD_SUCCESS: "Content loaded successfully",
+	CONTENT_LOAD_ERROR: "Content load failed",
+	PLAYBACK_START: "Playback started",
+	PLAYBACK_END: "Playback ended",
+	CONTROL_ACTION: "Control action executed",
+	CONNECTION_CHANGE: "Connection changed",
+	ERROR: "Cast error occurred",
 } as const;
 
 /*
@@ -37,7 +37,7 @@ export const CAST_LOG_EVENTS = {
  */
 
 export const LOGGER_CONFIG = {
-	prefix: '📡 Cast Feature',
+	prefix: "📡 Cast Feature",
 	enabled: true,
 	level: LogLevel.DEBUG,
 };
@@ -60,11 +60,11 @@ export const DEFAULT_MESSAGE_CONFIG = {
  */
 
 export const SUPPORTED_MIME_TYPES = {
-	HLS: 'application/x-mpegurl',
-	DASH: 'application/dash+xml',
-	MP3: 'audio/mp3',
-	MP4: 'video/mp4',
-	WEBM: 'video/webm',
+	HLS: "application/x-mpegurl",
+	DASH: "application/dash+xml",
+	MP3: "audio/mp3",
+	MP4: "video/mp4",
+	WEBM: "video/webm",
 } as const;
 
 /*
@@ -75,5 +75,5 @@ export const SUPPORTED_MIME_TYPES = {
 export const METADATA_CONFIG = {
 	MAX_TITLE_LENGTH: 200,
 	MAX_DESCRIPTION_LENGTH: 500,
-	DEFAULT_POSTER: '',
+	DEFAULT_POSTER: "",
 } as const;

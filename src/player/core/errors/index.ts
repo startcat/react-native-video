@@ -1,3 +1,3 @@
-export * from './PlayerError';
-export * from './types';
-export * from './VideoErrorMapper';
+export * from "./PlayerError";
+export * from "./types";
+export * from "./VideoErrorMapper";

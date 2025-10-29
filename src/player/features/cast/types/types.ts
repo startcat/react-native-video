@@ -6,13 +6,13 @@ import {
 	type MediaInfo,
 	type MediaQueueData,
 	type MediaTrack,
-} from 'react-native-google-cast';
+} from "react-native-google-cast";
 
-import { PlayerError } from '../../../core/errors';
-import { ComponentLogger, IDrm, IMappedYoubora, IVideoSource } from '../../../types';
+import { PlayerError } from "../../../core/errors";
+import { ComponentLogger, IDrm, IMappedYoubora, IVideoSource } from "../../../types";
 
 export interface CastConnectionInfo {
-	status: 'connected' | 'connecting' | 'notConnected';
+	status: "connected" | "connecting" | "notConnected";
 	deviceName: string | null;
 	statusText: string;
 }
@@ -21,7 +21,7 @@ export interface CastTrackInfo {
 	id: number;
 	name: string | null;
 	language: string | null;
-	type: 'AUDIO' | 'TEXT' | 'VIDEO';
+	type: "AUDIO" | "TEXT" | "VIDEO";
 }
 
 export interface CastMediaInfo {
@@ -68,7 +68,7 @@ export interface InternalCastState {
 
 export type CastAction =
 	| {
-			type: 'SYNC_UPDATE';
+			type: "SYNC_UPDATE";
 			payload: {
 				nativeCastState?: NativeCastState;
 				nativeSession?: CastSession;
@@ -78,21 +78,21 @@ export type CastAction =
 			};
 	  }
 	| {
-			type: 'UPDATE_VOLUME';
+			type: "UPDATE_VOLUME";
 			payload: {
 				level: number;
 				isMuted: boolean;
 			};
 	  }
 	| {
-			type: 'SET_ERROR';
+			type: "SET_ERROR";
 			payload: PlayerError;
 	  }
 	| {
-			type: 'CLEAR_ERROR';
+			type: "CLEAR_ERROR";
 	  }
 	| {
-			type: 'UPDATE_LOGGER';
+			type: "UPDATE_LOGGER";
 			payload: {
 				logger: ComponentLogger;
 			};

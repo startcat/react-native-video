@@ -1,5 +1,5 @@
-import { LogLevel } from '../../logger';
-import { DownloadItem } from './download';
+import { LogLevel } from "../../logger";
+import { DownloadItem } from "./download";
 
 export interface QueueManagerConfig {
 	logEnabled: boolean;

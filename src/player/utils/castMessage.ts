@@ -4,14 +4,14 @@ import {
 	type IManifest,
 	type IMappedYoubora,
 	DRM_TYPE,
-} from '../types';
+} from "../types";
 
-import { type CastMessage } from '../features/cast/types/types';
+import { type CastMessage } from "../features/cast/types/types";
 
-import { getAbsoluteUri } from './siteUrl';
+import { getAbsoluteUri } from "./siteUrl";
 
 const LOG_ENABLED = true;
-const LOG_KEY = '[Cast Message]';
+const LOG_KEY = "[Cast Message]";
 
 function log(message: string) {
 	if (LOG_ENABLED) {
@@ -30,8 +30,8 @@ export const getSourceMessageForCast = (
 		message = {};
 
 	messageMetadata = {
-		title: metadata?.title || '',
-		subtitle: metadata?.subtitle || '',
+		title: metadata?.title || "",
+		subtitle: metadata?.subtitle || "",
 		images: [],
 		isLive: !!metadata?.isLive,
 		licenseAcquisitionURL:

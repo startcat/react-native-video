@@ -3,8 +3,8 @@
  *
  */
 
-import { PlayerError } from '../../core/errors';
-import { PlayerAnalyticsEvents } from '../../features/analytics';
+import { PlayerError } from "../../core/errors";
+import { PlayerAnalyticsEvents } from "../../features/analytics";
 
 import type {
 	OnAudioTracksData,
@@ -20,16 +20,16 @@ import type {
 	OnVideoErrorData,
 	OnVideoTracksData,
 	OnVolumeChangeData,
-} from '../../../specs/VideoNativeComponent';
+} from "../../../specs/VideoNativeComponent";
 
-import type { OnLoadData, OnReceiveAdEventData, OnTextTracksData } from '../../../types/events';
+import type { OnLoadData, OnReceiveAdEventData, OnTextTracksData } from "../../../types/events";
 
-import { AdEventsHandler } from './handlers/AdEventsHandler';
-import { ErrorEventsHandler } from './handlers/ErrorEventsHandler';
-import { MetadataEventsHandler } from './handlers/MetadataEventsHandler';
-import { PlaybackEventsHandler } from './handlers/PlaybackEventsHandler';
-import { QualityEventsHandler } from './handlers/QualityEventsHandler';
-import { TrackEventsHandler } from './handlers/TrackEventsHandler';
+import { AdEventsHandler } from "./handlers/AdEventsHandler";
+import { ErrorEventsHandler } from "./handlers/ErrorEventsHandler";
+import { MetadataEventsHandler } from "./handlers/MetadataEventsHandler";
+import { PlaybackEventsHandler } from "./handlers/PlaybackEventsHandler";
+import { QualityEventsHandler } from "./handlers/QualityEventsHandler";
+import { TrackEventsHandler } from "./handlers/TrackEventsHandler";
 
 export class VideoEventsAdapter {
 	private analyticsEvents: PlayerAnalyticsEvents;
@@ -52,7 +52,7 @@ export class VideoEventsAdapter {
 
 	constructor(analyticsEvents: PlayerAnalyticsEvents) {
 		if (!analyticsEvents) {
-			throw new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED');
+			throw new PlayerError("PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED");
 		}
 
 		this.analyticsEvents = analyticsEvents;
@@ -66,7 +66,7 @@ export class VideoEventsAdapter {
 			this.trackHandler = new TrackEventsHandler(analyticsEvents);
 			this.metadataHandler = new MetadataEventsHandler(analyticsEvents);
 		} catch (error) {
-			throw new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED', {
+			throw new PlayerError("PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED", {
 				originalError: error,
 			});
 		}

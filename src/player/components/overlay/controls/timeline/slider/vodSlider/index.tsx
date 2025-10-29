@@ -1,12 +1,12 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { Platform, View } from 'react-native';
-import { throttle } from 'lodash';
-import { TimelineText } from '../../texts';
-import Slider from '@react-native-community/slider';
-import { type SliderVODProps } from '../../../../../../types';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { Platform, View } from "react-native";
+import { throttle } from "lodash";
+import { TimelineText } from "../../texts";
+import Slider from "@react-native-community/slider";
+import { type SliderVODProps } from "../../../../../../types";
 
-import { COLOR } from '../../../../../../theme';
-import { styles } from './styles';
+import { COLOR } from "../../../../../../theme";
+import { styles } from "./styles";
 
 const PLAYER_SLIDER_THROTTLE = 50;
 
@@ -20,14 +20,14 @@ const VODSliderBase = ({
 }: SliderVODProps): React.ReactElement | null => {
 	const [isEnded, setIsEnded] = useState<boolean>(false);
 	const [thumbTintColor, setThumbTintColor] = useState<string>(
-		Platform.OS === 'android' ? COLOR.theme.main : 'transparent'
+		Platform.OS === "android" ? COLOR.theme.main : "transparent"
 	);
 
 	const isDraggingRef = useRef<boolean>(false);
 
 	const handleDragThrottled = useRef(
 		throttle((value: number) => {
-			if (typeof propOnSlidingMove === 'function') {
+			if (typeof propOnSlidingMove === "function") {
 				propOnSlidingMove(value);
 			}
 		}, PLAYER_SLIDER_THROTTLE)
@@ -36,8 +36,8 @@ const VODSliderBase = ({
 	const checkContentIsEnded = useCallback(() => {
 		if (
 			!isDraggingRef.current &&
-			typeof maximumValue === 'number' &&
-			typeof progress === 'number' &&
+			typeof maximumValue === "number" &&
+			typeof progress === "number" &&
 			isFinite(maximumValue)
 		) {
 			try {
@@ -65,9 +65,9 @@ const VODSliderBase = ({
 	const handleSlidingStart = useCallback(
 		(value: number) => {
 			isDraggingRef.current = true;
-			setThumbTintColor('white');
+			setThumbTintColor("white");
 
-			if (typeof propOnSlidingStart === 'function') {
+			if (typeof propOnSlidingStart === "function") {
 				propOnSlidingStart(value);
 			}
 		},
@@ -77,9 +77,9 @@ const VODSliderBase = ({
 	const handleSlidingComplete = useCallback(
 		(value: number) => {
 			isDraggingRef.current = false;
-			setThumbTintColor(Platform.OS === 'android' ? COLOR.theme.main : 'transparent');
+			setThumbTintColor(Platform.OS === "android" ? COLOR.theme.main : "transparent");
 
-			if (typeof propOnSlidingComplete === 'function') {
+			if (typeof propOnSlidingComplete === "function") {
 				propOnSlidingComplete(value);
 			}
 		},
@@ -95,9 +95,9 @@ const VODSliderBase = ({
 
 	const shouldRenderSlider = useMemo(
 		() =>
-			typeof maximumValue === 'number' &&
+			typeof maximumValue === "number" &&
 			maximumValue > 0 &&
-			typeof progress === 'number' &&
+			typeof progress === "number" &&
 			progress >= 0 &&
 			isFinite(maximumValue),
 		[maximumValue, progress]
@@ -105,7 +105,7 @@ const VODSliderBase = ({
 
 	const sliderStep = useMemo(() => (maximumValue && maximumValue > 120 ? 20 : 1), [maximumValue]);
 
-	const maximumTrackTintColor = useMemo(() => (isEnded ? COLOR.theme.main : 'white'), [isEnded]);
+	const maximumTrackTintColor = useMemo(() => (isEnded ? COLOR.theme.main : "white"), [isEnded]);
 
 	const CurrentTimeText = useMemo(() => <TimelineText value={progress} />, [progress]);
 

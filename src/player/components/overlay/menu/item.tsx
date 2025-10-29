@@ -1,9 +1,9 @@
-import { Icon, Text } from '@ui-kitten/components';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { TouchableOpacity } from 'react-native';
-import { type MenuItemProps, CONTROL_ACTION } from '../../../../types';
-import { i18n } from '../../../locales';
-import { styles } from './styles';
+import { Icon, Text } from "@ui-kitten/components";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { TouchableOpacity } from "react-native";
+import { type MenuItemProps, CONTROL_ACTION } from "../../../../types";
+import { i18n } from "../../../locales";
+import { styles } from "./styles";
 
 const MenuItemBase = ({
 	data,
@@ -14,17 +14,17 @@ const MenuItemBase = ({
 	const controlActionId = useRef<CONTROL_ACTION>(CONTROL_ACTION.SUBTITLE_INDEX);
 
 	useEffect(() => {
-		if (data?.type === 'audio') {
-			accessibilityLabel.current = `${i18n.t('player_audio')} ${data?.label}`;
+		if (data?.type === "audio") {
+			accessibilityLabel.current = `${i18n.t("player_audio")} ${data?.label}`;
 			controlActionId.current = CONTROL_ACTION.AUDIO_INDEX;
-		} else if (data?.type === 'text') {
-			accessibilityLabel.current = `${i18n.t('player_subtitles')} ${data?.label}`;
+		} else if (data?.type === "text") {
+			accessibilityLabel.current = `${i18n.t("player_subtitles")} ${data?.label}`;
 			controlActionId.current = CONTROL_ACTION.SUBTITLE_INDEX;
 		}
 	}, [data]);
 
 	const handlePress = useCallback(() => {
-		if (typeof propOnPress === 'function') {
+		if (typeof propOnPress === "function") {
 			propOnPress(controlActionId.current, data.index);
 		}
 	}, [propOnPress, data.index]);

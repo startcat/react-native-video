@@ -1,9 +1,9 @@
-import { Text } from '@ui-kitten/components';
-import React, { useCallback, useMemo } from 'react';
-import { View } from 'react-native';
-import { BUTTON_SIZE, CONTROL_ACTION, type ControlsBarProps } from '../../../../types';
-import { Button, LiveButton } from '../buttons';
-import { styles } from './styles';
+import { Text } from "@ui-kitten/components";
+import React, { useCallback, useMemo } from "react";
+import { View } from "react-native";
+import { BUTTON_SIZE, CONTROL_ACTION, type ControlsBarProps } from "../../../../types";
+import { Button, LiveButton } from "../buttons";
+import { styles } from "./styles";
 
 const ControlsBottomBarBase = ({
 	playerMetadata,
@@ -87,7 +87,7 @@ const ControlsBottomBarBase = ({
 			<Button
 				id={CONTROL_ACTION.MUTE}
 				size={BUTTON_SIZE.SMALL}
-				iconName={muted ? 'volume-mute-outline' : 'volume-high-outline'}
+				iconName={muted ? "volume-mute-outline" : "volume-high-outline"}
 				value={!muted}
 				onPress={handlePress}
 			/>

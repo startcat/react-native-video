@@ -3,10 +3,10 @@
  *
  */
 
-import { PlayerError } from '../../../core/errors';
-import { PlayerAnalyticsEvents } from '../../../features/analytics';
+import { PlayerError } from "../../../core/errors";
+import { PlayerAnalyticsEvents } from "../../../features/analytics";
 
-import type { OnReceiveAdEventData } from '../../../../types/events';
+import type { OnReceiveAdEventData } from "../../../../types/events";
 
 export class AdEventsHandler {
 	private analyticsEvents: PlayerAnalyticsEvents;
@@ -22,72 +22,72 @@ export class AdEventsHandler {
 	handleAdEvent = (data: OnReceiveAdEventData) => {
 		try {
 			switch (data.event) {
-				case 'STARTED':
+				case "STARTED":
 					this.handleAdStarted(data);
 					break;
 
-				case 'COMPLETED':
+				case "COMPLETED":
 					this.handleAdCompleted();
 					break;
 
-				case 'SKIPPED':
+				case "SKIPPED":
 					this.handleAdSkipped();
 					break;
 
-				case 'PAUSED':
+				case "PAUSED":
 					this.handleAdPaused();
 					break;
 
-				case 'RESUMED':
+				case "RESUMED":
 					this.handleAdResumed();
 					break;
 
-				case 'ERROR':
+				case "ERROR":
 					this.handleAdError();
 					break;
 
-				case 'AD_BREAK_STARTED':
+				case "AD_BREAK_STARTED":
 					this.handleAdBreakStarted(data);
 					break;
 
-				case 'AD_BREAK_ENDED':
+				case "AD_BREAK_ENDED":
 					this.handleAdBreakEnded();
 					break;
 
-				case 'ALL_ADS_COMPLETED':
+				case "ALL_ADS_COMPLETED":
 					this.handleAllAdsCompleted();
 					break;
 
-				case 'CONTENT_PAUSE_REQUESTED':
+				case "CONTENT_PAUSE_REQUESTED":
 					// El contenido debe pausarse para mostrar un anuncio
 					break;
 
-				case 'CONTENT_RESUME_REQUESTED':
+				case "CONTENT_RESUME_REQUESTED":
 					this.handleContentResumeRequested();
 					break;
 
-				case 'FIRST_QUARTILE':
-				case 'MIDPOINT':
-				case 'THIRD_QUARTILE':
+				case "FIRST_QUARTILE":
+				case "MIDPOINT":
+				case "THIRD_QUARTILE":
 					this.handleAdProgress(data);
 					break;
 
-				case 'CLICK':
-				case 'TAPPED':
+				case "CLICK":
+				case "TAPPED":
 					this.handleAdClick(data);
 					break;
 
-				case 'LOADED':
+				case "LOADED":
 					this.handleAdLoaded(data);
 					break;
 
-				case 'IMPRESSION':
+				case "IMPRESSION":
 					this.handleAdImpression(data);
 					break;
 
 				default:
 					console.log(`[AdEventsHandler] Unhandled ad event: ${data.event}`);
-					throw new PlayerError('PLAYER_AD_EVENT_PROCESSING_ERROR', {
+					throw new PlayerError("PLAYER_AD_EVENT_PROCESSING_ERROR", {
 						event: data.event,
 					});
 			}
@@ -230,15 +230,15 @@ export class AdEventsHandler {
 
 	private extractAdType = (
 		data: OnReceiveAdEventData
-	): 'preroll' | 'midroll' | 'postroll' | undefined => {
+	): "preroll" | "midroll" | "postroll" | undefined => {
 		const position = (data.data as any)?.position;
 		if (position === 0) {
-			return 'preroll';
+			return "preroll";
 		}
 		if (position === -1) {
-			return 'postroll';
+			return "postroll";
 		}
-		return 'midroll';
+		return "midroll";
 	};
 
 	private extractAdBreakId = (data: OnReceiveAdEventData): string => {

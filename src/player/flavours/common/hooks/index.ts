@@ -1,1 +1,1 @@
-export * from './useIsLandscape';
+export * from "./useIsLandscape";

@@ -1,28 +1,34 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet } from "react-native";
 
 export const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: 'black',
+		backgroundColor: "black",
 	},
 	audioContainer: {
 		flex: 1,
-		backgroundColor: 'transparent',
+		backgroundColor: "transparent",
 	},
 	playerWrapper: {
 		flex: 1,
-		justifyContent: 'center',
-		alignContent: 'center',
-		alignItems: 'center',
-		backgroundColor: 'black',
+		justifyContent: "center",
+		alignContent: "center",
+		alignItems: "center",
+		backgroundColor: "black",
 	},
 	player: {
-		alignSelf: 'center',
+		alignSelf: "center",
 		aspectRatio: 16 / 9,
-		backgroundColor: 'black',
+		backgroundColor: "black",
 	},
 	audioPlayer: {
-		position: 'absolute',
+		position: "absolute",
 		bottom: -1000,
+	},
+	playerFullHeight: {
+		height: "100%",
+	},
+	playerFullWidth: {
+		width: "100%",
 	},
 });

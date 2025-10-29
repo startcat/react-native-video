@@ -1,4 +1,4 @@
-import { Logger, LogLevel } from '../../../features/logger';
+import { Logger, LogLevel } from "../../../features/logger";
 
 export interface SeekableRange {
 	start: number;

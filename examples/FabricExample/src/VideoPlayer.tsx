@@ -11,7 +11,13 @@ import {
   View,
 } from 'react-native';
 
-import Video, {FilterType, VideoRef, ResizeMode, IgnoreSilentSwitchType, MixWithOthersType} from 'react-native-video';
+import Video, {
+  FilterType,
+  VideoRef,
+  ResizeMode,
+  IgnoreSilentSwitchType,
+  MixWithOthersType,
+} from 'react-native-video';
 
 const filterTypes = [
   FilterType.NONE,
@@ -32,24 +38,24 @@ const filterTypes = [
   FilterType.SEPIA,
 ];
 
-type SkinType = 'custom' | 'native' | 'embed'
+type SkinType = 'custom' | 'native' | 'embed';
 
 type State = {
-  rate: number,
-  volume: number,
-  muted: boolean,
-  resizeMode: ResizeMode,
-  duration: number,
-  currentTime: number,
-  controls: boolean,
-  paused: boolean,
-  skin: SkinType,
-  ignoreSilentSwitch: IgnoreSilentSwitchType,
-  mixWithOthers: MixWithOthersType,
-  isBuffering: boolean,
-  filter: FilterType,
-  filterEnabled: boolean,
-}
+  rate: number;
+  volume: number;
+  muted: boolean;
+  resizeMode: ResizeMode;
+  duration: number;
+  currentTime: number;
+  controls: boolean;
+  paused: boolean;
+  skin: SkinType;
+  ignoreSilentSwitch: IgnoreSilentSwitchType;
+  mixWithOthers: MixWithOthersType;
+  isBuffering: boolean;
+  filter: FilterType;
+  filterEnabled: boolean;
+};
 
 class VideoPlayer extends Component<{}, State> {
   controlRef: React.RefObject<TouchableOpacity>;
@@ -330,8 +336,12 @@ class VideoPlayer extends Component<{}, State> {
             {Platform.OS === 'ios' ? (
               <>
                 <View style={styles.ignoreSilentSwitchControl}>
-                  {this.renderIgnoreSilentSwitchControl(IgnoreSilentSwitchType.IGNORE)}
-                  {this.renderIgnoreSilentSwitchControl(IgnoreSilentSwitchType.OBEY)}
+                  {this.renderIgnoreSilentSwitchControl(
+                    IgnoreSilentSwitchType.IGNORE,
+                  )}
+                  {this.renderIgnoreSilentSwitchControl(
+                    IgnoreSilentSwitchType.OBEY,
+                  )}
                 </View>
                 <View style={styles.mixWithOthersControl}>
                   {this.renderMixWithOthersControl(MixWithOthersType.MIX)}
@@ -438,8 +448,12 @@ class VideoPlayer extends Component<{}, State> {
             {Platform.OS === 'ios' ? (
               <>
                 <View style={styles.ignoreSilentSwitchControl}>
-                  {this.renderIgnoreSilentSwitchControl(IgnoreSilentSwitchType.IGNORE)}
-                  {this.renderIgnoreSilentSwitchControl(IgnoreSilentSwitchType.OBEY)}
+                  {this.renderIgnoreSilentSwitchControl(
+                    IgnoreSilentSwitchType.IGNORE,
+                  )}
+                  {this.renderIgnoreSilentSwitchControl(
+                    IgnoreSilentSwitchType.OBEY,
+                  )}
                 </View>
                 <View style={styles.mixWithOthersControl}>
                   {this.renderMixWithOthersControl(MixWithOthersType.MIX)}

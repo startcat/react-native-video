@@ -85,33 +85,33 @@ export interface MediaFlowConfig {
 // Eventos del sistema
 export interface MediaFlowEvents {
 	// Eventos de cambio de fuente
-	'source:ready': {
+	"source:ready": {
 		source: ExtendedVideoSource;
 		drm?: IDrm;
 		type: MediaType;
 		isReady: boolean;
 	};
 
-	'source:error': {
+	"source:error": {
 		error: Error;
 		type: MediaType;
 		fallbackAvailable: boolean;
 	};
 
 	// Eventos de transición
-	'transition:start': {
+	"transition:start": {
 		from: MediaFlowStateType;
 		to: MediaFlowStateType;
 		reason: StateChangeReason;
 	};
 
-	'transition:complete': {
+	"transition:complete": {
 		state: MediaFlowStateType;
 		mediaType: MediaType | null;
 	};
 
 	// Eventos de progreso
-	'progress:update': {
+	"progress:update": {
 		type: MediaType;
 		currentTime: number;
 		duration: number;
@@ -121,36 +121,36 @@ export interface MediaFlowEvents {
 	};
 
 	// Eventos de estado
-	'state:change': {
+	"state:change": {
 		previous: MediaFlowState;
 		current: MediaFlowState;
 		reason: StateChangeReason;
 	};
 
 	// Eventos de reproducción
-	'playback:start': {
+	"playback:start": {
 		type: MediaType;
 		startPosition: number;
 	};
 
-	'playback:end': {
+	"playback:end": {
 		type: MediaType;
 		triggeredAutoNext: boolean;
 		nextContentAvailable: boolean;
 	};
 
-	'playback:pause': {
+	"playback:pause": {
 		type: MediaType;
 		currentTime: number;
 	};
 
-	'playback:resume': {
+	"playback:resume": {
 		type: MediaType;
 		currentTime: number;
 	};
 
 	// Eventos de decisión
-	'decision:skipTudum': {
+	"decision:skipTudum": {
 		reason: string;
 		conditions: {
 			isAutoNext: boolean;
@@ -159,30 +159,30 @@ export interface MediaFlowEvents {
 		};
 	};
 
-	'decision:playTudum': {
+	"decision:playTudum": {
 		duration?: number;
 		source: ExtendedVideoSource;
 	};
 
 	// Eventos de buffer
-	'buffer:start': {
+	"buffer:start": {
 		type: MediaType;
 		currentTime: number;
 	};
 
-	'buffer:end': {
+	"buffer:end": {
 		type: MediaType;
 		currentTime: number;
 		bufferDuration: number;
 	};
 
 	// Eventos de inicialización
-	'flow:initialized': {
+	"flow:initialized": {
 		config: MediaFlowConfig;
 		initialState: MediaFlowStateType;
 	};
 
-	'flow:disposed': {
+	"flow:disposed": {
 		finalState: MediaFlowStateType;
 		playbackTime: number;
 	};

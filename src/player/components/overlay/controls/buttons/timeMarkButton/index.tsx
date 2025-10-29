@@ -1,9 +1,9 @@
-import { Text } from '@ui-kitten/components';
-import React, { useCallback, useMemo } from 'react';
-import { TouchableOpacity } from 'react-native';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { type TimeMarkButtonProps, CONTROL_ACTION } from '../../../../../types';
-import { styles } from './styles';
+import { Text } from "@ui-kitten/components";
+import React, { useCallback, useMemo } from "react";
+import { TouchableOpacity } from "react-native";
+import ReactNativeHapticFeedback from "react-native-haptic-feedback";
+import { type TimeMarkButtonProps, CONTROL_ACTION } from "../../../../../types";
+import { styles } from "./styles";
 
 const HAPTIC_OPTIONS = {
 	enableVibrateFallback: true,
@@ -29,9 +29,9 @@ const TimeMarkButtonComponent = ({
 
 	// Manejador de eventos con useCallback
 	const handlePress = useCallback(() => {
-		ReactNativeHapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
+		ReactNativeHapticFeedback.trigger("impactLight", HAPTIC_OPTIONS);
 
-		if (typeof propOnPress === 'function') {
+		if (typeof propOnPress === "function") {
 			propOnPress(id || CONTROL_ACTION.SEEK, value);
 		}
 	}, [propOnPress, id, value]);
@@ -53,6 +53,6 @@ const TimeMarkButtonComponent = ({
 	);
 };
 
-TimeMarkButtonComponent.displayName = 'TimeMarkButton';
+TimeMarkButtonComponent.displayName = "TimeMarkButton";
 
 export const TimeMarkButton = React.memo(TimeMarkButtonComponent);

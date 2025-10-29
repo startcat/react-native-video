@@ -1,4 +1,4 @@
-import type { MediaFlowEvents } from './types';
+import type { MediaFlowEvents } from "./types";
 
 type EventHandler<T = any> = (data: T) => void;
 type UnsubscribeFn = () => void;
@@ -141,7 +141,7 @@ export class MediaFlowEventBus {
 
 	pause(): void {
 		this.isPaused = true;
-		this.debug('Event emission paused');
+		this.debug("Event emission paused");
 	}
 
 	/*
@@ -158,7 +158,7 @@ export class MediaFlowEventBus {
 		this.queuedEvents = [];
 
 		queued.forEach(({ event, data }) => {
-			this.emit(event, data, 'queued');
+			this.emit(event, data, "queued");
 		});
 	}
 
@@ -196,7 +196,7 @@ export class MediaFlowEventBus {
 
 	clearHistory(): void {
 		this.eventHistory = [];
-		this.debug('Event history cleared');
+		this.debug("Event history cleared");
 	}
 
 	/*
@@ -246,7 +246,7 @@ export class MediaFlowEventBus {
 		this.events.clear();
 		this.eventHistory = [];
 		this.queuedEvents = [];
-		this.debug('EventBus disposed');
+		this.debug("EventBus disposed");
 	}
 
 	/*

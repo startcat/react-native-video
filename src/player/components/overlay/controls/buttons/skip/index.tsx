@@ -1,9 +1,9 @@
-import { Text } from '@ui-kitten/components';
-import React, { useCallback, useMemo } from 'react';
-import { TouchableOpacity } from 'react-native';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { type SkipButtonProps, CONTROL_ACTION } from '../../../../../types';
-import { styles } from './styles';
+import { Text } from "@ui-kitten/components";
+import React, { useCallback, useMemo } from "react";
+import { TouchableOpacity } from "react-native";
+import ReactNativeHapticFeedback from "react-native-haptic-feedback";
+import { type SkipButtonProps, CONTROL_ACTION } from "../../../../../types";
+import { styles } from "./styles";
 
 const HAPTIC_OPTIONS = {
 	enableVibrateFallback: true,
@@ -18,11 +18,11 @@ const SkipButtonBase = ({
 }: SkipButtonProps): React.ReactElement => {
 	const title = useMemo(() => {
 		if (id === CONTROL_ACTION.SKIP_INTRO) {
-			return 'Saltar Intro';
+			return "Saltar Intro";
 		} else if (id === CONTROL_ACTION.SKIP_CREDITS) {
-			return 'Saltar Créditos';
+			return "Saltar Créditos";
 		}
-		return '';
+		return "";
 	}, [id]);
 
 	const containerStyle = useMemo(
@@ -34,9 +34,9 @@ const SkipButtonBase = ({
 	);
 
 	const handlePress = useCallback(() => {
-		ReactNativeHapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
+		ReactNativeHapticFeedback.trigger("impactLight", HAPTIC_OPTIONS);
 
-		if (typeof propOnPress === 'function') {
+		if (typeof propOnPress === "function") {
 			propOnPress(id);
 		}
 	}, [propOnPress, id]);

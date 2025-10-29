@@ -1,6 +1,6 @@
 import { CastSession } from "react-native-google-cast";
 import { PlayerError } from "../../../core/errors";
-import { ComponentLogger } from '../../logger';
+import { ComponentLogger } from "../../logger";
 import {
 	CastAction,
 	CastConnectionInfo,
@@ -15,9 +15,9 @@ import { validateHookStateChange } from "./validations";
 export function createInitialCastState(): CastStateCustom {
 	return {
 		connection: {
-			status: 'notConnected',
+			status: "notConnected",
 			deviceName: null,
-			statusText: 'Desconectado',
+			statusText: "Desconectado",
 		},
 		media: {
 			url: null,
@@ -74,19 +74,19 @@ export function extractTracksInfo(mediaStatus: any) {
 			id: track.trackId,
 			name: track.name || track.language || `Track ${track.trackId}`,
 			language: track.language || null,
-			type: track.type?.toUpperCase() || 'UNKNOWN',
+			type: track.type?.toUpperCase() || "UNKNOWN",
 		};
 
 		const isActive = activeTracks.includes(track.trackId);
 
 		switch (track.type?.toUpperCase()) {
-			case 'AUDIO':
+			case "AUDIO":
 				audioTracks.push(trackInfo);
 				if (isActive) {
 					activeAudioTrack = trackInfo;
 				}
 				break;
-			case 'TEXT':
+			case "TEXT":
 				textTracks.push(trackInfo);
 				if (isActive) {
 					activeTextTrack = trackInfo;
@@ -145,7 +145,7 @@ export async function getVolume(
 export function castReducer(state: InternalCastState, action: CastAction): InternalCastState {
 	const currentLogger: ComponentLogger | null | undefined = state.logger;
 	switch (action.type) {
-		case 'SYNC_UPDATE': {
+		case "SYNC_UPDATE": {
 			const { payload } = action;
 			const {
 				nativeCastState,
@@ -161,26 +161,26 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 
 			// Procesar conexión
 			const connection: CastConnectionInfo = (() => {
-				const castStateStr = String(nativeCastState || 'NOT_CONNECTED').toUpperCase();
+				const castStateStr = String(nativeCastState || "NOT_CONNECTED").toUpperCase();
 
 				switch (castStateStr) {
-					case 'CONNECTED':
+					case "CONNECTED":
 						return {
-							status: 'connected',
-							deviceName: nativeSession?.deviceName || 'Dispositivo Cast',
-							statusText: `Conectado a ${nativeSession?.deviceName || 'dispositivo'}`,
+							status: "connected",
+							deviceName: nativeSession?.deviceName || "Dispositivo Cast",
+							statusText: `Conectado a ${nativeSession?.deviceName || "dispositivo"}`,
 						};
-					case 'CONNECTING':
+					case "CONNECTING":
 						return {
-							status: 'connecting',
+							status: "connecting",
 							deviceName: null,
-							statusText: 'Conectando...',
+							statusText: "Conectando...",
 						};
 					default:
 						return {
-							status: 'notConnected',
+							status: "notConnected",
 							deviceName: null,
-							statusText: 'Desconectado',
+							statusText: "Desconectado",
 						};
 				}
 			})();
@@ -188,7 +188,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 			// Procesar media (solo si tenemos conexión completa)
 			const media: CastMediaInfo = (() => {
 				const hasValidConnection =
-					connection.status === 'connected' && nativeSession && nativeClient;
+					connection.status === "connected" && nativeSession && nativeClient;
 
 				if (!hasValidConnection || !nativeMediaStatus) {
 					return {
@@ -219,7 +219,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 				const tracksInfo = extractTracksInfo(nativeMediaStatus);
 
 				// Normalizar playerState a mayúsculas para comparación
-				const normalizedPlayerState = String(playerState || '').toUpperCase();
+				const normalizedPlayerState = String(playerState || "").toUpperCase();
 
 				// Lógica mejorada para currentTime - evitar saltos a 0
 				let currentTime = nativeStreamPosition || 0;
@@ -227,7 +227,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 				// Si recibimos 0 pero tenemos una posición válida previa Y estamos buffering/loading
 				// mantener la posición previa para evitar saltos visuales en DASH/DVR
 				const isBufferingState =
-					normalizedPlayerState === 'BUFFERING' || normalizedPlayerState === 'LOADING';
+					normalizedPlayerState === "BUFFERING" || normalizedPlayerState === "LOADING";
 				const shouldPreservePosition =
 					currentTime === 0 &&
 					state.lastValidPosition > 0 &&
@@ -274,10 +274,10 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 					title: metadata.title,
 					subtitle: metadata.subtitle,
 					imageUrl: metadata.imageUrl,
-					isPlaying: normalizedPlayerState === 'PLAYING',
-					isPaused: normalizedPlayerState === 'PAUSED',
+					isPlaying: normalizedPlayerState === "PLAYING",
+					isPaused: normalizedPlayerState === "PAUSED",
 					isBuffering: isBufferingState,
-					isIdle: normalizedPlayerState === 'IDLE',
+					isIdle: normalizedPlayerState === "IDLE",
 					currentTime,
 					duration: effectiveDuration,
 					seekableRange: {
@@ -303,7 +303,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 
 			// Procesar errores del MediaStatus
 			const error: PlayerError | null = (() => {
-				if (nativeMediaStatus?.idleReason === 'ERROR') {
+				if (nativeMediaStatus?.idleReason === "ERROR") {
 					return new PlayerError("PLAYER_CAST_PLAYBACK_INTERRUPTED", {
 						idleReason: nativeMediaStatus.idleReason,
 					});
@@ -320,17 +320,17 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 					: state.lastValidPosition;
 
 			const connectionHasChanged = validateHookStateChange(
-				'castState - connection',
+				"castState - connection",
 				state.castState.connection,
 				connection
 			);
 			const mediaHasChanged = validateHookStateChange(
-				'castState - media',
+				"castState - media",
 				state.castState.media,
 				media
 			);
 			const errorHasChanged = validateHookStateChange(
-				'castState - error',
+				"castState - error",
 				state.castState.error,
 				error
 			);
@@ -352,7 +352,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 			}
 		}
 
-		case 'UPDATE_VOLUME': {
+		case "UPDATE_VOLUME": {
 			return {
 				...state,
 				castState: {
@@ -366,7 +366,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 			};
 		}
 
-		case 'SET_ERROR': {
+		case "SET_ERROR": {
 			return {
 				...state,
 				castState: {
@@ -377,7 +377,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 			};
 		}
 
-		case 'CLEAR_ERROR': {
+		case "CLEAR_ERROR": {
 			return {
 				...state,
 				castState: {
@@ -388,7 +388,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 			};
 		}
 
-		case 'UPDATE_LOGGER': {
+		case "UPDATE_LOGGER": {
 			return {
 				...state,
 				logger: action.payload.logger,

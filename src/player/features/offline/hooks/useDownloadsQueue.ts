@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
-import { queueManager } from '../managers/QueueManager';
-import { DownloadItem, DownloadStates } from '../types';
-import { QueueStats } from '../types/queue';
+import { useCallback, useEffect, useState } from "react";
+import { queueManager } from "../managers/QueueManager";
+import { DownloadItem, DownloadStates } from "../types";
+import { QueueStats } from "../types/queue";
 
 /*
  * Hook para gestión de la cola de descargas según la interfaz del contexto
@@ -67,7 +67,7 @@ export function useDownloadsQueue(): UseDownloadsQueueReturn {
 			setStats(currentStats);
 			setCurrentActive(currentStats.downloading);
 		} catch (error) {
-			console.error('Error updating queue states:', error);
+			console.error("Error updating queue states:", error);
 		}
 	}, []);
 
@@ -84,7 +84,7 @@ export function useDownloadsQueue(): UseDownloadsQueueReturn {
 		initializeQueue();
 
 		// Suscribirse a todos los eventos de la cola
-		const unsubscribeAll = queueManager.subscribe('all', () => {
+		const unsubscribeAll = queueManager.subscribe("all", () => {
 			updateQueueStates();
 		});
 
@@ -95,11 +95,11 @@ export function useDownloadsQueue(): UseDownloadsQueueReturn {
 			setMaxConcurrentState(data.maxConcurrent);
 		};
 
-		eventEmitter.on('max_concurrent_changed', handleMaxConcurrentChange);
+		eventEmitter.on("max_concurrent_changed", handleMaxConcurrentChange);
 
 		return () => {
 			unsubscribeAll();
-			eventEmitter.off('max_concurrent_changed', handleMaxConcurrentChange);
+			eventEmitter.off("max_concurrent_changed", handleMaxConcurrentChange);
 		};
 	}, [updateQueueStates]);
 
@@ -141,7 +141,7 @@ export function useDownloadsQueue(): UseDownloadsQueueReturn {
 
 	// Eventos
 	const onQueueChanged = useCallback((callback: (stats: QueueStats) => void) => {
-		return queueManager.subscribe('all', () => {
+		return queueManager.subscribe("all", () => {
 			const currentStats = queueManager.getQueueStats();
 			callback(currentStats);
 		});

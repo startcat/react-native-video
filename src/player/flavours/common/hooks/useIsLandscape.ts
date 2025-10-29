@@ -4,9 +4,9 @@
  *
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { useWindowDimensions } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useState } from "react";
+import { useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const PLAYER_ASPECT_RATIO = 16 / 9;
 
@@ -16,10 +16,15 @@ export function useIsLandscape() {
 	const [isLandscapePlayer, setIsLandscapePlayer] = useState<boolean>(false);
 
 	const checkIfPlayerIsLandscape = useCallback(
-		(height: number, width: number, leftInset: number, rightInset: number): boolean => {
+		(
+			windowHeight: number,
+			windowWidth: number,
+			leftInset: number,
+			rightInset: number
+		): boolean => {
 			// Calculamos una dimension del player
 			const margins = Math.max(leftInset, rightInset);
-			const windowAspectRatio = (width - margins) / height;
+			const windowAspectRatio = (windowWidth - margins) / windowHeight;
 
 			return windowAspectRatio >= PLAYER_ASPECT_RATIO;
 		},

@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import type { HostComponent, ViewProps } from 'react-native';
-import { NativeModules, requireNativeComponent } from 'react-native';
+import type { HostComponent, ViewProps } from "react-native";
+import { NativeModules, requireNativeComponent } from "react-native";
 import type {
 	DirectEventHandler,
 	Double,
 	Float,
 	Int32,
 	WithDefault,
-} from 'react-native/Libraries/Types/CodegenTypes';
+} from "react-native/Libraries/Types/CodegenTypes";
 
 // -------- There are types for native component (future codegen) --------
 // if you are looking for types for react component, see src/types/video.ts
@@ -44,7 +44,7 @@ export type VideoSrc = Readonly<{
 	metadata?: VideoMetadata;
 }>;
 
-type DRMType = WithDefault<string, 'widevine'>;
+type DRMType = WithDefault<string, "widevine">;
 
 type DebugConfig = Readonly<{
 	enable?: boolean;
@@ -99,9 +99,9 @@ type TextTracks = ReadonlyArray<
 	}>
 >;
 
-type SelectedTextTrackType = WithDefault<string, 'system'>;
+type SelectedTextTrackType = WithDefault<string, "system">;
 
-type SelectedAudioTrackType = WithDefault<string, 'system'>;
+type SelectedAudioTrackType = WithDefault<string, "system">;
 
 type SelectedTextTrack = Readonly<{
 	type?: SelectedTextTrackType;
@@ -113,7 +113,7 @@ type SelectedAudioTrack = Readonly<{
 	value?: string;
 }>;
 
-type SelectedVideoTrackType = WithDefault<string, 'auto'>;
+type SelectedVideoTrackType = WithDefault<string, "auto">;
 
 type SelectedVideoTrack = Readonly<{
 	type?: SelectedVideoTrackType;
@@ -133,7 +133,7 @@ type BufferConfigLive = Readonly<{
 	targetOffsetMs?: Int32;
 }>;
 
-type BufferingStrategyType = WithDefault<string, 'Default'>;
+type BufferingStrategyType = WithDefault<string, "Default">;
 
 type BufferConfig = Readonly<{
 	minBufferMs?: Float;
@@ -165,7 +165,7 @@ type OnLoadData = Readonly<{
 	naturalSize: Readonly<{
 		width: Float;
 		height: Float;
-		orientation: WithDefault<string, 'landscape'>;
+		orientation: WithDefault<string, "landscape">;
 	}>;
 	audioTracks: {
 		index: Int32;
@@ -182,7 +182,7 @@ type OnLoadData = Readonly<{
 		/**
 		 * iOS only supports VTT, Android supports all 3
 		 */
-		type?: WithDefault<string, 'srt'>;
+		type?: WithDefault<string, "srt">;
 		selected?: boolean;
 	}[];
 }>;
@@ -248,7 +248,7 @@ type OnTextTracksData = Readonly<{
 		/**
 		 * iOS only supports VTT, Android supports all 3
 		 */
-		type?: WithDefault<string, 'srt'>;
+		type?: WithDefault<string, "srt">;
 		selected?: boolean;
 	}[];
 }>;
@@ -294,7 +294,7 @@ export type OnPictureInPictureStatusChangedData = Readonly<{
 
 type OnReceiveAdEventData = Readonly<{
 	data?: {};
-	event: WithDefault<string, 'AD_BREAK_ENDED'>;
+	event: WithDefault<string, "AD_BREAK_ENDED">;
 }>;
 
 export type OnVideoErrorData = Readonly<{
@@ -331,7 +331,7 @@ export interface VideoNativeProps extends ViewProps {
 	adTagUrl?: string;
 	allowsExternalPlayback?: boolean; // ios, true
 	maxBitRate?: Float;
-	resizeMode?: WithDefault<string, 'none'>;
+	resizeMode?: WithDefault<string, "none">;
 	repeat?: boolean;
 	automaticallyWaitsToMinimizeStalling?: boolean;
 	textTracks?: TextTracks;
@@ -341,7 +341,7 @@ export interface VideoNativeProps extends ViewProps {
 	paused?: boolean;
 	muted?: boolean;
 	controls?: boolean;
-	filter?: WithDefault<string, ''>;
+	filter?: WithDefault<string, "">;
 	filterEnabled?: boolean;
 	volume?: Float; // default 1.0
 	playInBackground?: boolean;
@@ -349,12 +349,12 @@ export interface VideoNativeProps extends ViewProps {
 	preferredForwardBufferDuration?: Float; //ios, 0
 	playWhenInactive?: boolean; // ios, false
 	pictureInPicture?: boolean; // ios, false
-	ignoreSilentSwitch?: WithDefault<string, 'inherit'>; // ios, 'inherit'
-	mixWithOthers?: WithDefault<string, 'inherit'>; // ios, 'inherit'
+	ignoreSilentSwitch?: WithDefault<string, "inherit">; // ios, 'inherit'
+	mixWithOthers?: WithDefault<string, "inherit">; // ios, 'inherit'
 	rate?: Float;
 	fullscreen?: boolean; // ios, false
 	fullscreenAutorotate?: boolean;
-	fullscreenOrientation?: WithDefault<string, 'all'>;
+	fullscreenOrientation?: WithDefault<string, "all">;
 	progressUpdateInterval?: Float;
 	restoreUserInterfaceForPIPStopCompletionHandler?: boolean;
 	localSourceEncryptionKeyScheme?: string;
@@ -427,12 +427,12 @@ export interface VideoDecoderPropertiesType {
 		mimeType: string,
 		width: number,
 		height: number
-	) => Promise<'unsupported' | 'hardware' | 'software'>;
-	isHEVCSupported: () => Promise<'unsupported' | 'hardware' | 'software'>;
+	) => Promise<"unsupported" | "hardware" | "software">;
+	isHEVCSupported: () => Promise<"unsupported" | "hardware" | "software">;
 }
 
 export const VideoManager = NativeModules.VideoManager as VideoManagerType;
 export const VideoDecoderProperties =
 	NativeModules.VideoDecoderProperties as VideoDecoderPropertiesType;
 
-export default requireNativeComponent<VideoNativeProps>('RCTVideo') as VideoComponentType;
+export default requireNativeComponent<VideoNativeProps>("RCTVideo") as VideoComponentType;

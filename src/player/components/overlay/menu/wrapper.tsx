@@ -1,12 +1,12 @@
-import { Button, Text } from '@ui-kitten/components';
-import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
-import Animated, { SlideInDown, SlideOutDown } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type MenuProps, CONTROL_ACTION } from '../../../../types';
-import { i18n } from '../../../locales';
-import { MenuItem } from './item';
-import { styles } from './styles';
+import { Button, Text } from "@ui-kitten/components";
+import React, { useCallback, useMemo, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { type MenuProps, CONTROL_ACTION } from "../../../../types";
+import { i18n } from "../../../locales";
+import { MenuItem } from "./item";
+import { styles } from "./styles";
 
 const ANIMATION_SPEED = 150;
 
@@ -28,7 +28,7 @@ const MenuBase = ({
 	const [selectedVideoIndex, setSelectedVideoIndex] = useState<number>(videoIndex);
 	const [selectedAudioIndex, setSelectedAudioIndex] = useState<number>(audioIndex);
 	const [selectedSubtitleIndex, setSelectedSubtitleIndex] = useState<number>(
-		typeof subtitleIndex === 'number' ? subtitleIndex : -1
+		typeof subtitleIndex === "number" ? subtitleIndex : -1
 	);
 
 	const handlePress = useCallback((id: CONTROL_ACTION, value?: any) => {
@@ -42,24 +42,24 @@ const MenuBase = ({
 	}, []);
 
 	const handleClose = useCallback(() => {
-		if (typeof propOnPress === 'function') {
+		if (typeof propOnPress === "function") {
 			propOnPress(CONTROL_ACTION.MENU_CLOSE);
 		}
 	}, [propOnPress]);
 
 	const handleAccept = useCallback(() => {
-		if (typeof propOnPress === 'function') {
-			if (selectedVideoIndex !== videoIndex && typeof selectedVideoIndex === 'number') {
+		if (typeof propOnPress === "function") {
+			if (selectedVideoIndex !== videoIndex && typeof selectedVideoIndex === "number") {
 				propOnPress(CONTROL_ACTION.VIDEO_INDEX, selectedVideoIndex);
 			}
 
-			if (selectedAudioIndex !== audioIndex && typeof selectedAudioIndex === 'number') {
+			if (selectedAudioIndex !== audioIndex && typeof selectedAudioIndex === "number") {
 				propOnPress(CONTROL_ACTION.AUDIO_INDEX, selectedAudioIndex);
 			}
 
 			if (
 				selectedSubtitleIndex !== subtitleIndex &&
-				typeof selectedSubtitleIndex === 'number'
+				typeof selectedSubtitleIndex === "number"
 			) {
 				propOnPress(CONTROL_ACTION.SUBTITLE_INDEX, selectedSubtitleIndex);
 			}
@@ -88,17 +88,17 @@ const MenuBase = ({
 	);
 
 	const subtitleItems = useMemo(
-		() => menuData?.filter(item => item.type === 'text') || [],
+		() => menuData?.filter(item => item.type === "text") || [],
 		[menuData]
 	);
 
 	const audioItems = useMemo(
-		() => menuData?.filter(item => item.type === 'audio') || [],
+		() => menuData?.filter(item => item.type === "audio") || [],
 		[menuData]
 	);
 
 	const handleCloseWrapper = useCallback(() => {
-		if (typeof propOnClose === 'function') {
+		if (typeof propOnClose === "function") {
 			propOnClose();
 		} else {
 			handleClose();
@@ -119,7 +119,7 @@ const MenuBase = ({
 						showsVerticalScrollIndicator={false}
 						stickyHeaderIndices={[0]}
 					>
-						<Header title={i18n.t('player_subtitles')} />
+						<Header title={i18n.t("player_subtitles")} />
 						{subtitleItems.map((item, index) => (
 							<MenuItem
 								key={`${item.type}_${index}`}
@@ -138,7 +138,7 @@ const MenuBase = ({
 						showsVerticalScrollIndicator={false}
 						stickyHeaderIndices={[0]}
 					>
-						<Header title={i18n.t('player_audio')} />
+						<Header title={i18n.t("player_audio")} />
 						{audioItems.map((item, index) => (
 							<MenuItem
 								key={`${item.type}_${index}`}
@@ -157,7 +157,7 @@ const MenuBase = ({
 						onPress={handleClose}
 						accessibilityRole="button"
 					>
-						{i18n.t('cancel')}
+						{i18n.t("cancel")}
 					</Button>
 					<Button
 						style={styles.mainButton}
@@ -165,7 +165,7 @@ const MenuBase = ({
 						onPress={handleAccept}
 						accessibilityRole="button"
 					>
-						{i18n.t('accept')}
+						{i18n.t("accept")}
 					</Button>
 				</View>
 			</Pressable>

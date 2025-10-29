@@ -1,1 +1,1 @@
-export * from './usePlayerAnalyticsEvents';
+export * from "./usePlayerAnalyticsEvents";

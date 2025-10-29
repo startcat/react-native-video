@@ -1,9 +1,9 @@
-import { Icon } from '@ui-kitten/components';
-import React, { useCallback, useMemo } from 'react';
-import { TouchableOpacity } from 'react-native';
-import ReactNativeHapticFeedback from 'react-native-haptic-feedback';
-import { type ButtonProps, BUTTON_SIZE } from '../../../../../types';
-import { styles } from './styles';
+import { Icon } from "@ui-kitten/components";
+import React, { useCallback, useMemo } from "react";
+import { TouchableOpacity } from "react-native";
+import ReactNativeHapticFeedback from "react-native-haptic-feedback";
+import { type ButtonProps, BUTTON_SIZE } from "../../../../../types";
+import { styles } from "./styles";
 
 const HAPTIC_OPTIONS = {
 	enableVibrateFallback: true,
@@ -49,9 +49,9 @@ const ButtonComponent = ({
 
 	// Manejador de eventos con useCallback
 	const handlePress = useCallback(() => {
-		ReactNativeHapticFeedback.trigger('impactLight', HAPTIC_OPTIONS);
+		ReactNativeHapticFeedback.trigger("impactLight", HAPTIC_OPTIONS);
 
-		if (typeof propOnPress === 'function') {
+		if (typeof propOnPress === "function") {
 			propOnPress(id, value);
 		}
 	}, [propOnPress, id, value]);
@@ -76,6 +76,6 @@ const ButtonComponent = ({
 	);
 };
 
-ButtonComponent.displayName = 'Button';
+ButtonComponent.displayName = "Button";
 
 export const Button = React.memo(ButtonComponent);
