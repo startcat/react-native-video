@@ -22,6 +22,9 @@
 	"resolutions": {
 		"@types/react": "~18.0.0"
 	},
+	"dependencies": {
+		"@kesha-antonov/react-native-background-downloader": "github:kesha-antonov/react-native-background-downloader#9cceb336a7bd80f64279f47d08688fed252fea70"
+	},
 	"devDependencies": {
 		"@babel/core": "^7.20.0",
 		"@jamesacarr/eslint-formatter-github-actions": "^0.2.0",
@@ -50,7 +53,6 @@
 		"typescript": "5.1.6"
 	},
 	"peerDependencies": {
-		"@kesha-antonov/react-native-background-downloader": "^3.2.6",
 		"@react-native-async-storage/async-storage": "*",
 		"@react-native-community/netinfo": "^11.2.1",
 		"@react-native-community/slider": "^4.5.2",

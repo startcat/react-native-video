@@ -3,7 +3,7 @@ import { CastMediaInfo } from '../types/types';
 import { useCastState } from './useCastState';
 
 export function useCastMedia(config: LoggerConfigBasic = {}): CastMediaInfo {
-    const castState = useCastState(config);
+	const castState = useCastState(config);
 
-    return castState.media;
+	return castState.media;
 }

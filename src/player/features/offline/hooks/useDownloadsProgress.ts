@@ -63,7 +63,9 @@ export function useDownloadsProgress(
 ): UseDownloadsProgressReturn {
 	// Memoizar cálculo de downloadId para evitar recalcular en cada render
 	const downloadId = useMemo(() => {
-		if (!downloadIdOrUri) return "";
+		if (!downloadIdOrUri) {
+			return "";
+		}
 		const isUri = isValidUri(downloadIdOrUri);
 		return isUri ? generateDownloadIdFromUri(downloadIdOrUri) : downloadIdOrUri;
 	}, [downloadIdOrUri]);
@@ -194,7 +196,9 @@ export function useDownloadsProgress(
 	// Suscribirse a eventos de descarga (OPTIMIZADO)
 	// Usa subscribeToDownload que filtra eventos por downloadId específico
 	useEffect(() => {
-		if (!downloadId) return;
+		if (!downloadId) {
+			return;
+		}
 
 		// Una sola suscripción filtrada en lugar de 8 suscripciones
 		// Esto reduce drásticamente el número de callbacks ejecutados

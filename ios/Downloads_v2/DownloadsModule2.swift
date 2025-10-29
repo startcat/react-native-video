@@ -343,8 +343,23 @@ class DownloadsModule2: RCTEventEmitter {
                     return
                 }
                 
-                let asset = AVURLAsset(url: url)
-                print("📥 [DownloadsModule2] AVURLAsset created successfully")
+                // Configurar opciones del asset con headers HTTP si están presentes
+                var assetOptions: [String: Any] = [:]
+                
+                // Agregar headers HTTP si están configurados
+                if let headers = config["headers"] as? [String: String], !headers.isEmpty {
+                    assetOptions["AVURLAssetHTTPHeaderFieldsKey"] = headers
+                    print("📥 [DownloadsModule2] Adding HTTP headers: \(headers.keys.joined(separator: ", "))")
+                }
+                
+                // Agregar cookies HTTP
+                if let cookies = HTTPCookieStorage.shared.cookies {
+                    assetOptions[AVURLAssetHTTPCookiesKey] = cookies
+                    print("📥 [DownloadsModule2] Adding \(cookies.count) HTTP cookies")
+                }
+                
+                let asset = AVURLAsset(url: url, options: assetOptions)
+                print("📥 [DownloadsModule2] AVURLAsset created successfully with options")
                 
                 // Handle DRM if present
                 if let drmConfig = config["drm"] as? NSDictionary {
@@ -416,8 +431,14 @@ class DownloadsModule2: RCTEventEmitter {
                 self.lastProgressUpdate.removeValue(forKey: downloadId)
                 print("📥 [DownloadsModule2] Download info removed. Remaining downloads: \(self.activeDownloads.count)")
                 
+                // Remove asset path from UserDefaults (IMPORTANTE para cálculo de espacio)
+                self.removeAssetPath(forDownloadId: downloadId)
+                
                 // Remove downloaded files
                 try self.removeDownloadedFiles(for: downloadId)
+                
+                // Persistir estado actualizado
+                self.persistDownloadState()
                 
                 // Invalidar cache de downloadSpace
                 self.invalidateDownloadSpaceCache()
@@ -987,12 +1008,17 @@ class DownloadsModule2: RCTEventEmitter {
         }
         
         print("📥 [DownloadsModule2] Creating download task for: \(downloadInfo.title)")
+        
+        // No especificar bitrate mínimo para permitir cualquier variante disponible
+        // Esto evita errores HTTP 500 cuando el manifest no tiene la calidad solicitada
         let downloadTask = session.makeAssetDownloadTask(
             asset: asset,
             assetTitle: downloadInfo.title,
             assetArtworkData: nil,
-            options: [AVAssetDownloadTaskMinimumRequiredMediaBitrateKey: minBitrate]
+            options: nil  // Dejar que iOS elija la mejor variante disponible
         )
+        
+        print("📥 [DownloadsModule2] Download task created without bitrate restriction (iOS will auto-select)")
         
         // Safe unwrap instead of force unwrap to prevent crashes
         guard let task = downloadTask else {

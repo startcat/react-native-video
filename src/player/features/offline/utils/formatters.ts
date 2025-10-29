@@ -18,8 +18,12 @@
  */
 
 export function formatDownloadSpeed(bytesPerSecond: number, decimals: number = 2): string {
-	if (bytesPerSecond === 0) return "0 B/s";
-	if (bytesPerSecond < 0) return "N/A";
+	if (bytesPerSecond === 0) {
+		return "0 B/s";
+	}
+	if (bytesPerSecond < 0) {
+		return "N/A";
+	}
 
 	const units = ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"];
 	const k = 1000; // Usar 1000 en lugar de 1024 para velocidades de red (estándar SI)
@@ -45,7 +49,9 @@ export function formatDownloadSpeed(bytesPerSecond: number, decimals: number = 2
  */
 
 export function formatRemainingTime(seconds: number, showSeconds: boolean = true): string {
-	if (seconds <= 0 || !isFinite(seconds)) return "N/A";
+	if (seconds <= 0 || !isFinite(seconds)) {
+		return "N/A";
+	}
 
 	const hours = Math.floor(seconds / 3600);
 	const minutes = Math.floor((seconds % 3600) / 60);
@@ -88,8 +94,12 @@ export function formatFileSize(
 	decimals: number = 2,
 	useBinary: boolean = false
 ): string {
-	if (bytes === 0) return "0 B";
-	if (bytes < 0) return "N/A";
+	if (bytes === 0) {
+		return "0 B";
+	}
+	if (bytes < 0) {
+		return "N/A";
+	}
 
 	const k = useBinary ? 1024 : 1000;
 	const units = useBinary

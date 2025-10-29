@@ -346,18 +346,22 @@ export class SourceClass {
 			}
 
 			const queryIndex = url.indexOf("?");
-			if (queryIndex === -1) return false;
+			if (queryIndex === -1) {
+				return false;
+			}
 
 			const queryString = url.slice(queryIndex + 1);
 			const params: Record<string, string> = {};
 
 			queryString.split("&").forEach(part => {
 				const [key, value] = part.split("=");
-				if (key) params[decodeURIComponent(key)] = decodeURIComponent(value || "");
+				if (key) {
+					params[decodeURIComponent(key)] = decodeURIComponent(value || "");
+				}
 			});
 
-			const start = params["start"];
-			const end = params["end"];
+			const start = params.start;
+			const end = params.end;
 
 			return !!start && !!end;
 		} catch (error) {

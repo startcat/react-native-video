@@ -1,6 +1,6 @@
 enum Orientation {
-  PORTRAIT = 'portrait',
-  LANDSCAPE = 'landscape',
+	PORTRAIT = 'portrait',
+	LANDSCAPE = 'landscape',
 }
 
 export default Orientation;

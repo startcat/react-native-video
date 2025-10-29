@@ -886,18 +886,24 @@ export class QueueManager {
 			return;
 		}
 
-		// Solo loggear cuando hay trabajo real que procesar
-		this.currentLogger.debug(
-			TAG,
-			`processQueue - Active: ${activeDownloads}, Queued: ${queuedDownloads}, Max: ${this.config.maxConcurrentDownloads}`
-		);
-
+		// Verificar si hay espacio para más descargas
 		if (activeDownloads >= this.config.maxConcurrentDownloads) {
+			// Solo loggear si hay descargas esperando en cola
+			if (queuedDownloads > 0) {
+				this.currentLogger.debug(
+					TAG,
+					`Max concurrent downloads reached (${activeDownloads}/${this.config.maxConcurrentDownloads}), keeping ${queuedDownloads} items in queue`
+				);
+			}
+			return;
+		}
+
+		// Solo loggear cuando realmente vamos a procesar algo
+		if (queuedDownloads > 0) {
 			this.currentLogger.debug(
 				TAG,
-				`Max concurrent downloads reached (${activeDownloads}/${this.config.maxConcurrentDownloads}), keeping items in queue`
+				`processQueue - Active: ${activeDownloads}, Queued: ${queuedDownloads}, Max: ${this.config.maxConcurrentDownloads}`
 			);
-			return;
 		}
 
 		// Buscar siguiente descarga en cola
@@ -919,7 +925,7 @@ export class QueueManager {
 		try {
 			// Verificar conectividad antes de iniciar
 			if (!this.canDownloadNow()) {
-				this.currentLogger.debug(TAG, `Network conditions not suitable for download`);
+				this.currentLogger.debug(TAG, "Network conditions not suitable for download");
 				return;
 			}
 
@@ -985,6 +991,15 @@ export class QueueManager {
 
 	private async sendToDestinationQueue(item: DownloadItem): Promise<void> {
 		try {
+			// Verificar si la descarga ya está siendo procesada
+			if (this.currentlyDownloading.has(item.id)) {
+				this.currentLogger.warn(
+					TAG,
+					`Download ${item.id} is already being processed, skipping duplicate sendToDestinationQueue`
+				);
+				return;
+			}
+
 			// Crear tarea específica según el tipo
 			let task: BinaryDownloadTask | StreamDownloadTask;
 
@@ -1370,7 +1385,9 @@ export class QueueManager {
 			// Sincronizar estado para cada descarga
 			let syncedCount = 0;
 			for (const nativeDownload of nativeDownloads) {
-				if (!nativeDownload.id) continue;
+				if (!nativeDownload.id) {
+					continue;
+				}
 
 				const localItem = this.downloadQueue.get(nativeDownload.id);
 				if (localItem && localItem.state !== nativeDownload.state) {

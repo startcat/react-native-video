@@ -7,101 +7,103 @@ import { Spinner } from '@ui-kitten/components';
 import { Button } from '../buttons';
 import AirplayButton from '../buttons/airplay';
 import CastButton from '../buttons/cast';
-import { 
-    CONTROL_ACTION,
-    BUTTON_SIZE,
-    type ControlsBarProps
-} from '../../../../types';
+import { CONTROL_ACTION, BUTTON_SIZE, type ControlsBarProps } from "../../../../types";
 import { styles } from './styles';
 
 const ANIMATION_SPEED = 150;
 
-const ControlsHeaderBarBase = ({ 
-    playerProgress,
-    playerMetadata,
-    components,
-    events,
-    preloading = false,
-    isContentLoaded = false,
-    isChangingSource = false
+const ControlsHeaderBarBase = ({
+	playerProgress,
+	playerMetadata,
+	components,
+	events,
+	preloading = false,
+	isContentLoaded = false,
+	isChangingSource = false,
 }: ControlsBarProps): React.ReactElement => {
-    const navigation = useNavigation();
-    const insets = useSafeAreaInsets();
-    
-    // Extract values from structured props
-    const isPreloading = playerProgress?.isBuffering ?? preloading;
-    const headerMetadata = components?.headerMetadata;
-    const onPress = events?.onPress;
-    const onExit = events?.onExit;
+	const navigation = useNavigation();
+	const insets = useSafeAreaInsets();
 
-    const handleBack = useCallback(() => {
-        if (typeof onExit === 'function') {
-            onExit();
-        } else {
-            navigation.goBack();
-        }
-    }, [navigation, onExit]);
+	// Extract values from structured props
+	const isPreloading = playerProgress?.isBuffering ?? preloading;
+	const headerMetadata = components?.headerMetadata;
+	const onPress = events?.onPress;
+	const onExit = events?.onExit;
 
-    const BackButton = useMemo(() => (
-        <Button
-            id={CONTROL_ACTION.BACK}
-            iconName='chevron-back-outline'
-            onPress={handleBack}
-            size={BUTTON_SIZE.SMALL}
-        />
-    ), [handleBack]);
+	const handleBack = useCallback(() => {
+		if (typeof onExit === 'function') {
+			onExit();
+		} else {
+			navigation.goBack();
+		}
+	}, [navigation, onExit]);
 
-    const Loader = useMemo(() => (
-        <Animated.View 
-            style={styles.loader}
-            entering={FadeIn.duration(ANIMATION_SPEED)}
-            exiting={FadeOut.duration(ANIMATION_SPEED)}
-        >
-            <Spinner />
-        </Animated.View>
-    ), []);
+	const BackButton = useMemo(
+		() => (
+			<Button
+				id={CONTROL_ACTION.BACK}
+				iconName="chevron-back-outline"
+				onPress={handleBack}
+				size={BUTTON_SIZE.SMALL}
+			/>
+		),
+		[handleBack]
+	);
 
-    const HeaderMetadataComponent = useMemo(() => 
-        headerMetadata ? React.createElement(headerMetadata, { onPress }) : null
-    , [headerMetadata, onPress]);
+	const Loader = useMemo(
+		() => (
+			<Animated.View
+				style={styles.loader}
+				entering={FadeIn.duration(ANIMATION_SPEED)}
+				exiting={FadeOut.duration(ANIMATION_SPEED)}
+			>
+				<Spinner />
+			</Animated.View>
+		),
+		[]
+	);
 
-    const containerStyle = useMemo(() => ({
-        ...styles.container,
-        top: styles.container.top + (insets?.top || 0),
-        left: styles.container.left + Math.max(insets.left || 0, insets.right || 0),
-        right: styles.container.right + Math.max(insets.left || 0, insets.right || 0)
-    }), [insets]);
+	const HeaderMetadataComponent = useMemo(
+		() => (headerMetadata ? React.createElement(headerMetadata, { onPress }) : null),
+		[headerMetadata, onPress]
+	);
 
-    const showIosComponent = useMemo(() => 
-        Platform.OS === 'ios', 
-    []);
+	const containerStyle = useMemo(
+		() => ({
+			...styles.container,
+			top: styles.container.top + (insets?.top || 0),
+			left: styles.container.left + Math.max(insets.left || 0, insets.right || 0),
+			right: styles.container.right + Math.max(insets.left || 0, insets.right || 0),
+		}),
+		[insets]
+	);
 
-    return (
-        <View style={containerStyle}>
-            {HeaderMetadataComponent}
+	const showIosComponent = useMemo(() => Platform.OS === 'ios', []);
 
-            <View style={styles.left}>
-                {BackButton}
-            </View>
+	return (
+		<View style={containerStyle}>
+			{HeaderMetadataComponent}
 
-            <View style={styles.right}>
-                {isPreloading && Loader}
-                {showIosComponent && <AirplayButton />}
-                <CastButton />
-            </View>
-        </View>
-    );
+			<View style={styles.left}>{BackButton}</View>
+
+			<View style={styles.right}>
+				{isPreloading && Loader}
+				{showIosComponent && <AirplayButton />}
+				<CastButton />
+			</View>
+		</View>
+	);
 };
 
 // Comparador personalizado para evitar renderizados innecesarios
 const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps): boolean => {
-    return (
-        prevProps.playerProgress?.isBuffering === nextProps.playerProgress?.isBuffering &&
-        prevProps.preloading === nextProps.preloading &&
-        prevProps.components?.headerMetadata === nextProps.components?.headerMetadata &&
-        prevProps.events?.onPress === nextProps.events?.onPress &&
-        prevProps.events?.onExit === nextProps.events?.onExit
-    );
+	return (
+		prevProps.playerProgress?.isBuffering === nextProps.playerProgress?.isBuffering &&
+		prevProps.preloading === nextProps.preloading &&
+		prevProps.components?.headerMetadata === nextProps.components?.headerMetadata &&
+		prevProps.events?.onPress === nextProps.events?.onPress &&
+		prevProps.events?.onExit === nextProps.events?.onExit
+	);
 };
 
 // Exportamos el componente memoizado con el nombre ControlsHeaderBar

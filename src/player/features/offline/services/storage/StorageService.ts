@@ -690,7 +690,9 @@ export class StorageService {
 
 			return await RNFS.readFile(path, encoding);
 		} catch (error) {
-			if (error instanceof PlayerError) throw error;
+			if (error instanceof PlayerError) {
+				throw error;
+			}
 
 			throw new PlayerError("STORAGE_FILE_SYSTEM_610", {
 				originalError: error,
@@ -1300,7 +1302,9 @@ export class StorageService {
 	 */
 
 	public startMonitoring(intervalMs: number = 120000): void {
-		if (this.isMonitoring) return;
+		if (this.isMonitoring) {
+			return;
+		}
 
 		this.isMonitoring = true;
 		this.monitoringInterval = setInterval(async () => {
@@ -1317,7 +1321,9 @@ export class StorageService {
 	 */
 
 	public stopMonitoring(): void {
-		if (!this.isMonitoring) return;
+		if (!this.isMonitoring) {
+			return;
+		}
 
 		this.isMonitoring = false;
 		if (this.monitoringInterval) {

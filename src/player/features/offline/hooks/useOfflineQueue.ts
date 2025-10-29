@@ -15,20 +15,17 @@ export function useOfflineQueue() {
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [isPaused, setIsPaused] = useState(false);
 
-	const addToQueue = useCallback(
-		async (downloadItem: DownloadItem) => {
-			try {
-				const downloadId = await queueManager.addDownloadItem(downloadItem);
-				setQueue(queueManager.getAllDownloads());
-				setQueuePositions(queueManager.getQueuePositions());
-				return downloadId;
-			} catch (error) {
-				console.error("Failed to add download to queue:", error);
-				throw error;
-			}
-		},
-		[]
-	);
+	const addToQueue = useCallback(async (downloadItem: DownloadItem) => {
+		try {
+			const downloadId = await queueManager.addDownloadItem(downloadItem);
+			setQueue(queueManager.getAllDownloads());
+			setQueuePositions(queueManager.getQueuePositions());
+			return downloadId;
+		} catch (error) {
+			console.error("Failed to add download to queue:", error);
+			throw error;
+		}
+	}, []);
 
 	const clearQueue = useCallback(async () => {
 		try {

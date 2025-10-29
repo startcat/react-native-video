@@ -1055,7 +1055,31 @@ export class DownloadsManager {
 	}
 
 	private async restorePreviousState(): Promise<void> {
-		// TODO: Implementar cuando esté disponible la persistencia
+		// Limpiar descargas fallidas sin progreso (evita contaminar la cola)
+		const downloads = queueManager.getAllDownloads();
+		const failedWithoutProgress = downloads.filter(
+			item =>
+				item.state === DownloadStates.FAILED &&
+				item.stats.bytesDownloaded === 0 &&
+				item.stats.totalBytes === 0
+		);
+
+		if (failedWithoutProgress.length > 0) {
+			this.currentLogger.info(
+				TAG,
+				`Cleaning ${failedWithoutProgress.length} failed downloads without progress`
+			);
+
+			for (const item of failedWithoutProgress) {
+				try {
+					await queueManager.removeDownload(item.id);
+					this.currentLogger.debug(TAG, `Removed failed download: ${item.id}`);
+				} catch (error) {
+					this.currentLogger.warn(TAG, `Failed to remove ${item.id}:`, error);
+				}
+			}
+		}
+
 		this.currentLogger.debug(TAG, "Previous state restored");
 	}
 

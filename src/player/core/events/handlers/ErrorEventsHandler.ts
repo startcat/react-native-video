@@ -6,117 +6,119 @@
 import { PlayerError } from '../../../core/errors';
 import { PlayerAnalyticsEvents } from '../../../features/analytics';
 
-import type {
-    OnVideoErrorData,
-} from '../../../../specs/VideoNativeComponent';
+import type { OnVideoErrorData } from '../../../../specs/VideoNativeComponent';
 
 export class ErrorEventsHandler {
-    private analyticsEvents: PlayerAnalyticsEvents;
+	private analyticsEvents: PlayerAnalyticsEvents;
 
-    constructor(analyticsEvents: PlayerAnalyticsEvents) {
-        this.analyticsEvents = analyticsEvents;
-    }
+	constructor(analyticsEvents: PlayerAnalyticsEvents) {
+		this.analyticsEvents = analyticsEvents;
+	}
 
-    handleError = (data: OnVideoErrorData) => {
+	handleError = (data: OnVideoErrorData) => {
+		try {
+			const errorType = this.categorizeError(data.error);
 
-        try {
-            const errorType = this.categorizeError(data.error);
-            
-            switch (errorType) {
-                case 'network':
-                    this.analyticsEvents.onNetworkError({
-                        errorCode: data.error.code,
-                        errorMessage: data.error.localizedDescription,
-                        errorType: 'network',
-                        isFatal: this.isErrorFatal(data.error),
-                        statusCode: this.extractStatusCode(data.error),
-                        url: this.extractUrl(data.error)
-                    });
-                    break;
+			switch (errorType) {
+				case 'network':
+					this.analyticsEvents.onNetworkError({
+						errorCode: data.error.code,
+						errorMessage: data.error.localizedDescription,
+						errorType: 'network',
+						isFatal: this.isErrorFatal(data.error),
+						statusCode: this.extractStatusCode(data.error),
+						url: this.extractUrl(data.error),
+					});
+					break;
 
-                case 'drm':
-                    this.analyticsEvents.onContentProtectionError({
-                        errorCode: data.error.code,
-                        errorMessage: data.error.localizedDescription,
-                        errorType: 'drm',
-                        isFatal: this.isErrorFatal(data.error),
-                        drmType: this.extractDrmType(data.error)
-                    });
-                    break;
+				case 'drm':
+					this.analyticsEvents.onContentProtectionError({
+						errorCode: data.error.code,
+						errorMessage: data.error.localizedDescription,
+						errorType: 'drm',
+						isFatal: this.isErrorFatal(data.error),
+						drmType: this.extractDrmType(data.error),
+					});
+					break;
 
-                case 'stream':
-                    this.analyticsEvents.onStreamError({
-                        errorCode: data.error.code,
-                        errorMessage: data.error.localizedDescription,
-                        errorType: 'playback',
-                        isFatal: this.isErrorFatal(data.error),
-                        streamUrl: this.extractStreamUrl(data.error),
-                        bitrate: this.extractBitrate(data.error)
-                    });
-                    break;
+				case 'stream':
+					this.analyticsEvents.onStreamError({
+						errorCode: data.error.code,
+						errorMessage: data.error.localizedDescription,
+						errorType: 'playback',
+						isFatal: this.isErrorFatal(data.error),
+						streamUrl: this.extractStreamUrl(data.error),
+						bitrate: this.extractBitrate(data.error),
+					});
+					break;
 
-                default:
-                    this.analyticsEvents.onError({
-                        errorCode: data.error.code,
-                        errorMessage: data.error.localizedDescription,
-                        errorType: 'other',
-                        isFatal: this.isErrorFatal(data.error)
-                    });
-            }
+				default:
+					this.analyticsEvents.onError({
+						errorCode: data.error.code,
+						errorMessage: data.error.localizedDescription,
+						errorType: 'other',
+						isFatal: this.isErrorFatal(data.error),
+					});
+			}
+		} catch (error) {
+			throw new PlayerError('PLAYER_ERROR_PROCESSING_ERROR', { originalError: error });
+		}
+	};
 
-        } catch(error) {
-            throw new PlayerError('PLAYER_ERROR_PROCESSING_ERROR', { originalError: error });
-        }
+	private categorizeError = (error: any): 'network' | 'drm' | 'stream' | 'other' => {
+		const errorString = error.localizedDescription || error.description || '';
 
-    };
+		if (errorString.includes('network') || errorString.includes('connection')) {
+			return 'network';
+		}
 
-    private categorizeError = (error: any): 'network' | 'drm' | 'stream' | 'other' => {
-        const errorString = error.localizedDescription || error.description || '';
-        
-        if (errorString.includes('network') || errorString.includes('connection')) {
-            return 'network';
-        }
-        
-        if (errorString.includes('drm') || errorString.includes('license') || errorString.includes('protection')) {
-            return 'drm';
-        }
-        
-        if (errorString.includes('stream') || errorString.includes('manifest') || errorString.includes('codec')) {
-            return 'stream';
-        }
-        
-        return 'other';
-    };
+		if (
+			errorString.includes('drm') ||
+			errorString.includes('license') ||
+			errorString.includes('protection')
+		) {
+			return 'drm';
+		}
 
-    private isErrorFatal = (error: any): boolean => {
-        // Determinar si el error es fatal basándose en el código o tipo
-        const fatalCodes = ['-1000', '-1001', '-1009', '-1200'];
-        return fatalCodes.includes(String(error.code));
-    };
+		if (
+			errorString.includes('stream') ||
+			errorString.includes('manifest') ||
+			errorString.includes('codec')
+		) {
+			return 'stream';
+		}
 
-    private extractStatusCode = (error: any): number | undefined => {
-        // Extraer código de estado HTTP si está disponible
-        return error.statusCode || error.httpStatusCode;
-    };
+		return 'other';
+	};
 
-    private extractUrl = (error: any): string | undefined => {
-        // Extraer URL que causó el error
-        return error.url || error.requestUrl;
-    };
+	private isErrorFatal = (error: any): boolean => {
+		// Determinar si el error es fatal basándose en el código o tipo
+		const fatalCodes = ['-1000', '-1001', '-1009', '-1200'];
+		return fatalCodes.includes(String(error.code));
+	};
 
-    private extractDrmType = (error: any): string | undefined => {
-        // Extraer tipo de DRM del error
-        return error.drmType || error.licenseType;
-    };
+	private extractStatusCode = (error: any): number | undefined => {
+		// Extraer código de estado HTTP si está disponible
+		return error.statusCode || error.httpStatusCode;
+	};
 
-    private extractStreamUrl = (error: any): string | undefined => {
-        // Extraer URL del stream
-        return error.streamUrl || error.manifestUrl;
-    };
+	private extractUrl = (error: any): string | undefined => {
+		// Extraer URL que causó el error
+		return error.url || error.requestUrl;
+	};
 
-    private extractBitrate = (error: any): number | undefined => {
-        // Extraer bitrate si está disponible
-        return error.bitrate;
-    };
+	private extractDrmType = (error: any): string | undefined => {
+		// Extraer tipo de DRM del error
+		return error.drmType || error.licenseType;
+	};
 
+	private extractStreamUrl = (error: any): string | undefined => {
+		// Extraer URL del stream
+		return error.streamUrl || error.manifestUrl;
+	};
+
+	private extractBitrate = (error: any): number | undefined => {
+		// Extraer bitrate si está disponible
+		return error.bitrate;
+	};
 }

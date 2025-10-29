@@ -1,3 +1,3 @@
 export interface IPlayerInstanceContext {
-    getInstanceId(): number;
+	getInstanceId(): number;
 }

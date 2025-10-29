@@ -31,7 +31,7 @@ const OverlayBase = (props: OverlayProps): React.ReactElement => {
 	useEffect(() => {
 		// If we are connected to Airplay, don't let the controls disappear
 		setAvoidDissapear(!!props.alwaysVisible);
-		if (!!props.alwaysVisible) {
+		if (props.alwaysVisible) {
 			setVisibleControls(true);
 		}
 	}, [props.alwaysVisible]);

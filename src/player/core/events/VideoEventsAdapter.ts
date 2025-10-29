@@ -7,26 +7,22 @@ import { PlayerError } from '../../core/errors';
 import { PlayerAnalyticsEvents } from '../../features/analytics';
 
 import type {
-    OnAudioTracksData,
-    OnBandwidthUpdateData,
-    OnBufferData,
-    OnLoadStartData,
-    OnPlaybackRateChangeData,
-    OnPlaybackStateChangedData,
-    OnProgressData,
-    OnSeekData,
-    OnTimedMetadataData,
-    OnVideoAspectRatioData,
-    OnVideoErrorData,
-    OnVideoTracksData,
-    OnVolumeChangeData
+	OnAudioTracksData,
+	OnBandwidthUpdateData,
+	OnBufferData,
+	OnLoadStartData,
+	OnPlaybackRateChangeData,
+	OnPlaybackStateChangedData,
+	OnProgressData,
+	OnSeekData,
+	OnTimedMetadataData,
+	OnVideoAspectRatioData,
+	OnVideoErrorData,
+	OnVideoTracksData,
+	OnVolumeChangeData,
 } from '../../../specs/VideoNativeComponent';
 
-import type {
-    OnLoadData,
-    OnReceiveAdEventData,
-    OnTextTracksData
-} from '../../../types/events';
+import type { OnLoadData, OnReceiveAdEventData, OnTextTracksData } from '../../../types/events';
 
 import { AdEventsHandler } from './handlers/AdEventsHandler';
 import { ErrorEventsHandler } from './handlers/ErrorEventsHandler';
@@ -36,199 +32,197 @@ import { QualityEventsHandler } from './handlers/QualityEventsHandler';
 import { TrackEventsHandler } from './handlers/TrackEventsHandler';
 
 export class VideoEventsAdapter {
+	private analyticsEvents: PlayerAnalyticsEvents;
+	private playbackHandler: PlaybackEventsHandler;
+	private adHandler: AdEventsHandler;
+	private qualityHandler: QualityEventsHandler;
+	private errorHandler: ErrorEventsHandler;
+	private trackHandler: TrackEventsHandler;
+	private metadataHandler: MetadataEventsHandler;
 
-    private analyticsEvents: PlayerAnalyticsEvents;
-    private playbackHandler: PlaybackEventsHandler;
-    private adHandler: AdEventsHandler;
-    private qualityHandler: QualityEventsHandler;
-    private errorHandler: ErrorEventsHandler;
-    private trackHandler: TrackEventsHandler;
-    private metadataHandler: MetadataEventsHandler;
+	// Estado interno para tracking
+	private isPlaying = false;
+	private isBuffering = false;
+	private currentPosition = 0;
+	private duration = 0;
+	private currentPlaybackRate = 1.0;
+	private currentVolume = 1.0;
+	private isMuted = false;
+	private isSessionActive = false;
 
-    // Estado interno para tracking
-    private isPlaying = false;
-    private isBuffering = false;
-    private currentPosition = 0;
-    private duration = 0;
-    private currentPlaybackRate = 1.0;
-    private currentVolume = 1.0;
-    private isMuted = false;
-    private isSessionActive = false;
+	constructor(analyticsEvents: PlayerAnalyticsEvents) {
+		if (!analyticsEvents) {
+			throw new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED');
+		}
 
-    constructor(analyticsEvents: PlayerAnalyticsEvents) {
+		this.analyticsEvents = analyticsEvents;
 
-        if (!analyticsEvents) {
-            throw new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED');
-        }
+		try {
+			// Inicializar handlers
+			this.playbackHandler = new PlaybackEventsHandler(analyticsEvents);
+			this.adHandler = new AdEventsHandler(analyticsEvents);
+			this.qualityHandler = new QualityEventsHandler(analyticsEvents);
+			this.errorHandler = new ErrorEventsHandler(analyticsEvents);
+			this.trackHandler = new TrackEventsHandler(analyticsEvents);
+			this.metadataHandler = new MetadataEventsHandler(analyticsEvents);
+		} catch (error) {
+			throw new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED', {
+				originalError: error,
+			});
+		}
+	}
 
-        this.analyticsEvents = analyticsEvents;
-        
-        try {
-            // Inicializar handlers
-            this.playbackHandler = new PlaybackEventsHandler(analyticsEvents);
-            this.adHandler = new AdEventsHandler(analyticsEvents);
-            this.qualityHandler = new QualityEventsHandler(analyticsEvents);
-            this.errorHandler = new ErrorEventsHandler(analyticsEvents);
-            this.trackHandler = new TrackEventsHandler(analyticsEvents);
-            this.metadataHandler = new MetadataEventsHandler(analyticsEvents);
+	/*
+	 * Métodos principales para conectar con el Video component
+	 */
 
-        } catch(error) {
-            throw new PlayerError('PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED', { originalError: error});
-        }
+	onLoadStart = (data: OnLoadStartData) => {
+		if (!this.isSessionActive) {
+			this.analyticsEvents.onCreatePlaybackSession();
+			this.isSessionActive = true;
+		}
+		this.analyticsEvents.onSourceChange();
+	};
 
-    }
+	onLoad = (data: OnLoadData) => {
+		this.duration = data.duration * 1000; // Convertir a milisegundos
+		this.currentPosition = data.currentTime * 1000;
 
-    /*
-     * Métodos principales para conectar con el Video component
-     */
+		this.metadataHandler.handleLoad(data);
+		this.trackHandler.handleTracksLoad(data);
 
-    onLoadStart = (data: OnLoadStartData) => {
-        if (!this.isSessionActive) {
-            this.analyticsEvents.onCreatePlaybackSession();
-            this.isSessionActive = true;
-        }
-        this.analyticsEvents.onSourceChange();
-    };
+		this.analyticsEvents.onDurationChange({
+			duration: this.duration,
+			previousDuration: 0,
+		});
+	};
 
-    onLoad = (data: OnLoadData) => {
-        this.duration = data.duration * 1000; // Convertir a milisegundos
-        this.currentPosition = data.currentTime * 1000;
-        
-        this.metadataHandler.handleLoad(data);
-        this.trackHandler.handleTracksLoad(data);
-        
-        this.analyticsEvents.onDurationChange({
-            duration: this.duration,
-            previousDuration: 0
-        });
-    };
+	onProgress = (data: OnProgressData) => {
+		const positionMs = data.currentTime * 1000;
+		const durationMs = data.seekableDuration * 1000;
 
-    onProgress = (data: OnProgressData) => {
-        const positionMs = data.currentTime * 1000;
-        const durationMs = data.seekableDuration * 1000;
-        
-        this.playbackHandler.handleProgress(data, positionMs, durationMs);
-        
-        // Actualizar posición interna
-        this.currentPosition = positionMs;
-        if (durationMs > this.duration) {
-            this.duration = durationMs;
-        }
-    };
+		this.playbackHandler.handleProgress(data, positionMs, durationMs);
 
-    onPlaybackStateChanged = (data: OnPlaybackStateChangedData) => {
-        this.playbackHandler.handlePlaybackStateChange(data, this.isPlaying);
-        this.isPlaying = data.isPlaying;
-    };
+		// Actualizar posición interna
+		this.currentPosition = positionMs;
+		if (durationMs > this.duration) {
+			this.duration = durationMs;
+		}
+	};
 
-    onBuffer = (data: OnBufferData) => {
-        this.playbackHandler.handleBuffer(data, this.isBuffering);
-        this.isBuffering = data.isBuffering;
-    };
+	onPlaybackStateChanged = (data: OnPlaybackStateChangedData) => {
+		this.playbackHandler.handlePlaybackStateChange(data, this.isPlaying);
+		this.isPlaying = data.isPlaying;
+	};
 
-    onSeek = (data: OnSeekData) => {
-        this.playbackHandler.handleSeek(data, this.currentPosition);
-        this.currentPosition = data.currentTime * 1000;
-    };
+	onBuffer = (data: OnBufferData) => {
+		this.playbackHandler.handleBuffer(data, this.isBuffering);
+		this.isBuffering = data.isBuffering;
+	};
 
-    onPlaybackRateChange = (data: OnPlaybackRateChangeData) => {
-        this.analyticsEvents.onPlaybackRateChange({
-            rate: data.playbackRate,
-            previousRate: this.currentPlaybackRate
-        });
-        this.currentPlaybackRate = data.playbackRate;
-    };
+	onSeek = (data: OnSeekData) => {
+		this.playbackHandler.handleSeek(data, this.currentPosition);
+		this.currentPosition = data.currentTime * 1000;
+	};
 
-    onVolumeChange = (data: OnVolumeChangeData) => {
-        this.trackHandler.handleVolumeChange(data, this.currentVolume, this.isMuted);
-        this.currentVolume = data.volume;
-        this.isMuted = data.volume === 0;
-    };
+	onPlaybackRateChange = (data: OnPlaybackRateChangeData) => {
+		this.analyticsEvents.onPlaybackRateChange({
+			rate: data.playbackRate,
+			previousRate: this.currentPlaybackRate,
+		});
+		this.currentPlaybackRate = data.playbackRate;
+	};
 
-    onEnd = () => {
-        this.analyticsEvents.onEnd();
-        this.isPlaying = false;
-        this.isSessionActive = false;
-    };
+	onVolumeChange = (data: OnVolumeChangeData) => {
+		this.trackHandler.handleVolumeChange(data, this.currentVolume, this.isMuted);
+		this.currentVolume = data.volume;
+		this.isMuted = data.volume === 0;
+	};
 
-    onError = (data: OnVideoErrorData) => {
-        this.errorHandler.handleError(data);
-    };
+	onEnd = () => {
+		this.analyticsEvents.onEnd();
+		this.isPlaying = false;
+		this.isSessionActive = false;
+	};
 
-    onReceiveAdEvent = (data: OnReceiveAdEventData) => {
-        this.adHandler.handleAdEvent(data);
-    };
+	onError = (data: OnVideoErrorData) => {
+		this.errorHandler.handleError(data);
+	};
 
-    onAudioTracks = (data: OnAudioTracksData) => {
-        this.trackHandler.handleAudioTracks(data);
-    };
+	onReceiveAdEvent = (data: OnReceiveAdEventData) => {
+		this.adHandler.handleAdEvent(data);
+	};
 
-    onTextTracks = (data: OnTextTracksData) => {
-        this.trackHandler.handleTextTracks(data);
-    };
+	onAudioTracks = (data: OnAudioTracksData) => {
+		this.trackHandler.handleAudioTracks(data);
+	};
 
-    onVideoTracks = (data: OnVideoTracksData) => {
-        this.qualityHandler.handleVideoTracks(data);
-    };
+	onTextTracks = (data: OnTextTracksData) => {
+		this.trackHandler.handleTextTracks(data);
+	};
 
-    onBandwidthUpdate = (data: OnBandwidthUpdateData) => {
-        this.qualityHandler.handleBandwidthUpdate(data);
-    };
+	onVideoTracks = (data: OnVideoTracksData) => {
+		this.qualityHandler.handleVideoTracks(data);
+	};
 
-    onAspectRatio = (data: OnVideoAspectRatioData) => {
-        this.qualityHandler.handleAspectRatio(data);
-    };
+	onBandwidthUpdate = (data: OnBandwidthUpdateData) => {
+		this.qualityHandler.handleBandwidthUpdate(data);
+	};
 
-    onTimedMetadata = (data: OnTimedMetadataData) => {
-        this.metadataHandler.handleTimedMetadata(data);
-    };
+	onAspectRatio = (data: OnVideoAspectRatioData) => {
+		this.qualityHandler.handleAspectRatio(data);
+	};
 
-    onReadyForDisplay = () => {
-        // El contenido está listo para mostrar
-        this.analyticsEvents.onBufferStop();
-    };
+	onTimedMetadata = (data: OnTimedMetadataData) => {
+		this.metadataHandler.handleTimedMetadata(data);
+	};
 
-    /*
-     * Métodos de estado de aplicación
-     *
-     */
+	onReadyForDisplay = () => {
+		// El contenido está listo para mostrar
+		this.analyticsEvents.onBufferStop();
+	};
 
-    onApplicationForeground = () => {
-        this.analyticsEvents.onApplicationForeground();
-    };
+	/*
+	 * Métodos de estado de aplicación
+	 *
+	 */
 
-    onApplicationBackground = () => {
-        this.analyticsEvents.onApplicationBackground();
-    };
+	onApplicationForeground = () => {
+		this.analyticsEvents.onApplicationForeground();
+	};
 
-    onApplicationActive = () => {
-        this.analyticsEvents.onApplicationActive();
-    };
+	onApplicationBackground = () => {
+		this.analyticsEvents.onApplicationBackground();
+	};
 
-    onApplicationInactive = () => {
-        this.analyticsEvents.onApplicationInactive();
-    };
+	onApplicationActive = () => {
+		this.analyticsEvents.onApplicationActive();
+	};
 
-    /*
-     * Getters para acceso al estado interno
-     *
-     */
+	onApplicationInactive = () => {
+		this.analyticsEvents.onApplicationInactive();
+	};
 
-    getCurrentPosition = () => this.currentPosition;
-    getDuration = () => this.duration;
-    getIsPlaying = () => this.isPlaying;
-    getIsBuffering = () => this.isBuffering;
-    getCurrentPlaybackRate = () => this.currentPlaybackRate;
-    getCurrentVolume = () => this.currentVolume;
-    getIsMuted = () => this.isMuted;
+	/*
+	 * Getters para acceso al estado interno
+	 *
+	 */
 
-    /*
-     * Limpieza
-     *
-     */
+	getCurrentPosition = () => this.currentPosition;
+	getDuration = () => this.duration;
+	getIsPlaying = () => this.isPlaying;
+	getIsBuffering = () => this.isBuffering;
+	getCurrentPlaybackRate = () => this.currentPlaybackRate;
+	getCurrentVolume = () => this.currentVolume;
+	getIsMuted = () => this.isMuted;
 
-    destroy = () => {
-        this.isSessionActive = false;
-        this.analyticsEvents.destroy();
-    };
+	/*
+	 * Limpieza
+	 *
+	 */
+
+	destroy = () => {
+		this.isSessionActive = false;
+		this.analyticsEvents.destroy();
+	};
 }

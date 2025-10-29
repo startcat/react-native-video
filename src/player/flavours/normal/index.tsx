@@ -245,11 +245,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 			// Establecer currentSourceType basado en si vamos a reproducir tudum
 			if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
-				currentLogger.current?.debug(`Will play tudum first, then content`);
+				currentLogger.current?.debug("Will play tudum first, then content");
 				currentSourceType.current = "tudum";
 				loadTudumSource();
 			} else {
-				currentLogger.current?.debug(`Skipping tudum - loading content directly`);
+				currentLogger.current?.debug("Skipping tudum - loading content directly");
 				currentSourceType.current = "content";
 				loadContentSource();
 			}
@@ -258,7 +258,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	// Función para cargar source del tudum
 	const loadTudumSource = () => {
-		currentLogger.current?.debug(`loadTudumSource`);
+		currentLogger.current?.debug("loadTudumSource");
 
 		if (tudumRef.current?.source) {
 			currentSourceType.current = "tudum";
@@ -274,7 +274,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	// Función para cargar source del contenido
 	const loadContentSource = () => {
-		currentLogger.current?.debug(`loadContentSource`);
+		currentLogger.current?.debug("loadContentSource");
 
 		isChangingSource.current = true;
 		currentSourceType.current = "content";
@@ -302,7 +302,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// Si el source ya está listo inmediatamente, forzar la carga
 			setTimeout(() => {
 				if (sourceRef.current?.isReady && currentSourceType.current === "content") {
-					currentLogger.current?.debug(`Forcing content load - sourceRef is ready`);
+					currentLogger.current?.debug("Forcing content load - sourceRef is ready");
 					setPlayerSource();
 				}
 			}, 100);
@@ -311,7 +311,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	// Función para cambiar de tudum a contenido
 	const switchFromTudumToContent = () => {
-		currentLogger.current?.debug(`switchFromTudumToContent`);
+		currentLogger.current?.debug("switchFromTudumToContent");
 
 		// Limpiar completamente el source del tudum
 		currentSourceType.current = null;
@@ -334,7 +334,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// Si hay un source de contenido pendiente, usarlo directamente
 			if (pendingContentSource.current && pendingContentSource.current.isReady) {
 				currentLogger.current?.debug(
-					`switchFromTudumToContent - Loading pending content source directly`
+					"switchFromTudumToContent - Loading pending content source directly"
 				);
 				currentSourceType.current = "content";
 				setPlayerSource(pendingContentSource.current);
@@ -342,7 +342,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			} else {
 				// Cargar el contenido principal
 				currentLogger.current?.debug(
-					`switchFromTudumToContent - Loading main content source`
+					"switchFromTudumToContent - Loading main content source"
 				);
 				currentSourceType.current = "content";
 				loadContentSource();
@@ -441,7 +441,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		) {
 			// Si estamos reproduciendo tudum, guardar el source del contenido para después
 			currentLogger.current?.debug(
-				`onSourceChanged - Saving content source for later (tudum is playing)`
+				"onSourceChanged - Saving content source for later (tudum is playing)"
 			);
 			pendingContentSource.current = data;
 
@@ -464,7 +464,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 		} else if (currentSourceType.current === "content") {
 			// Si ya estamos en modo contenido, procesar normalmente
-			currentLogger.current?.debug(`onSourceChanged - Processing content source normally`);
+			currentLogger.current?.debug("onSourceChanged - Processing content source normally");
 
 			playerProgressRef.current = {
 				...props.playerProgress,
@@ -480,13 +480,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			setPlayerSource(data);
 		} else {
 			// Estado inicial o indefinido
-			currentLogger.current?.debug(`onSourceChanged - Initial state, processing source`);
+			currentLogger.current?.debug("onSourceChanged - Initial state, processing source");
 
 			// Si no tenemos tipo definido, debe ser contenido
 			if (!currentSourceType.current) {
 				currentSourceType.current = "content";
 				currentLogger.current?.info(
-					`onSourceChanged - Setting currentSourceType to content`
+					"onSourceChanged - Setting currentSourceType to content"
 				);
 			}
 
@@ -521,7 +521,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		currentLogger.current?.temp(`setPlayerSource (data ${JSON.stringify(data)})`);
 
 		if (data && data?.isReady) {
-			currentLogger.current?.debug(`setPlayerSource - Using provided data`);
+			currentLogger.current?.debug("setPlayerSource - Using provided data");
 			setBuffering(true);
 			drm.current = data.drm;
 
@@ -538,7 +538,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			);
 			setVideoSource(data.source!);
 		} else if (sourceRef.current?.isReady) {
-			currentLogger.current?.debug(`setPlayerSource - Using sourceRef`);
+			currentLogger.current?.debug("setPlayerSource - Using sourceRef");
 			setBuffering(true);
 			drm.current = sourceRef.current.playerSourceDrm;
 
@@ -555,7 +555,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			);
 			setVideoSource(sourceRef.current.playerSource!);
 		} else {
-			currentLogger.current?.error(`setPlayerSource - No valid source available`);
+			currentLogger.current?.error("setPlayerSource - No valid source available");
 		}
 	};
 
@@ -897,7 +897,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 		// Actions to be saved between flavours
 		if (COMMON_DATA_FIELDS.includes(id) && props?.events?.onChangeCommonData) {
-			let data: ICommonData = {};
+			const data: ICommonData = {};
 
 			if (id === CONTROL_ACTION.MUTE) {
 				data.muted = !!value;
@@ -955,7 +955,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 		// Solo procesar onLoad para contenido principal, no para tudum
 		if (currentSourceType.current === "content" && !isContentLoaded) {
-			currentLogger.current?.debug(`handleOnLoad - Processing content load`);
+			currentLogger.current?.debug("handleOnLoad - Processing content load");
 
 			// Para VOD, establecer la duración desde el evento onLoad
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
@@ -1088,13 +1088,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 		if (currentSourceType.current === "tudum") {
 			// Acaba la reproducción del Tudum externo
-			currentLogger.current?.debug(`handleOnEnd: Tudum finished, switching to main content`);
+			currentLogger.current?.debug("handleOnEnd: Tudum finished, switching to main content");
 			isChangingSource.current = true;
 			switchFromTudumToContent();
 		} else if (currentSourceType.current === "content" && props.events?.onEnd) {
 			// Termina el contenido principal
 			currentLogger.current?.debug(
-				`handleOnEnd: Content finished, preparing for possible auto next`
+				"handleOnEnd: Content finished, preparing for possible auto next"
 			);
 
 			// Preparar tudum para salto automático antes de notificar

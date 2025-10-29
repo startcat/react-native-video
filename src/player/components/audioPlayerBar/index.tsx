@@ -25,7 +25,7 @@ import {
 } from "../../types";
 
 // Declaraciones globales para TypeScript
-declare var __DEV__: boolean;
+declare let __DEV__: boolean;
 
 const PLAYER_MAX_HEIGHT = 80;
 
@@ -102,7 +102,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 		);
 
 		return () => {
-			console.log(`[Audio Player Bar] Unmounted`);
+			console.log("[Audio Player Bar] Unmounted");
 
 			if (typeof changesAudioPlayerListener === "string") {
 				EventRegister.removeEventListener(changesAudioPlayerListener);
@@ -222,7 +222,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 	 */
 
 	const changeCommonData = (data: ICommonData) => {
-		let preferencesData: IPreferencesCommonData = {};
+		const preferencesData: IPreferencesCommonData = {};
 
 		if (data?.time && dpoData?.playerProgress) {
 			dpoData.playerProgress.currentTime = data.time;

@@ -6,258 +6,261 @@
 import { PlayerError } from '../../../core/errors';
 import { PlayerAnalyticsEvents } from '../../../features/analytics';
 
-import type {
-    OnReceiveAdEventData
-} from '../../../../types/events';
+import type { OnReceiveAdEventData } from '../../../../types/events';
 
 export class AdEventsHandler {
-    private analyticsEvents: PlayerAnalyticsEvents;
-    private currentAdId?: string;
-    private currentAdBreakId?: string;
-    private adStartTime?: number;
-    private isAdPlaying = false;
+	private analyticsEvents: PlayerAnalyticsEvents;
+	private currentAdId?: string;
+	private currentAdBreakId?: string;
+	private adStartTime?: number;
+	private isAdPlaying = false;
 
-    constructor(analyticsEvents: PlayerAnalyticsEvents) {
-        this.analyticsEvents = analyticsEvents;
-    }
+	constructor(analyticsEvents: PlayerAnalyticsEvents) {
+		this.analyticsEvents = analyticsEvents;
+	}
 
-    handleAdEvent = (data: OnReceiveAdEventData) => {
+	handleAdEvent = (data: OnReceiveAdEventData) => {
+		try {
+			switch (data.event) {
+				case 'STARTED':
+					this.handleAdStarted(data);
+					break;
 
-        try {
-            switch (data.event) {
-                case 'STARTED':
-                    this.handleAdStarted(data);
-                    break;
-                    
-                case 'COMPLETED':
-                    this.handleAdCompleted();
-                    break;
-                    
-                case 'SKIPPED':
-                    this.handleAdSkipped();
-                    break;
-                    
-                case 'PAUSED':
-                    this.handleAdPaused();
-                    break;
-                    
-                case 'RESUMED':
-                    this.handleAdResumed();
-                    break;
-                    
-                case 'ERROR':
-                    this.handleAdError();
-                    break;
-                    
-                case 'AD_BREAK_STARTED':
-                    this.handleAdBreakStarted(data);
-                    break;
-                    
-                case 'AD_BREAK_ENDED':
-                    this.handleAdBreakEnded();
-                    break;
-                    
-                case 'ALL_ADS_COMPLETED':
-                    this.handleAllAdsCompleted();
-                    break;
-                    
-                case 'CONTENT_PAUSE_REQUESTED':
-                    // El contenido debe pausarse para mostrar un anuncio
-                    break;
-                    
-                case 'CONTENT_RESUME_REQUESTED':
-                    this.handleContentResumeRequested();
-                    break;
-                    
-                case 'FIRST_QUARTILE':
-                case 'MIDPOINT':
-                case 'THIRD_QUARTILE':
-                    this.handleAdProgress(data);
-                    break;
-                    
-                case 'CLICK':
-                case 'TAPPED':
-                    this.handleAdClick(data);
-                    break;
-                    
-                case 'LOADED':
-                    this.handleAdLoaded(data);
-                    break;
-                    
-                case 'IMPRESSION':
-                    this.handleAdImpression(data);
-                    break;
-                    
-                default:
-                    console.log(`[AdEventsHandler] Unhandled ad event: ${data.event}`);
-                    throw new PlayerError('PLAYER_AD_EVENT_PROCESSING_ERROR', {
-                        event: data.event,
-                    });
-            }
-        } catch(error) {
-            throw error;
-        }
+				case 'COMPLETED':
+					this.handleAdCompleted();
+					break;
 
-    };
+				case 'SKIPPED':
+					this.handleAdSkipped();
+					break;
 
-    private handleAdStarted = (data: OnReceiveAdEventData) => {
-        this.isAdPlaying = true;
-        this.adStartTime = Date.now();
-        this.currentAdId = this.extractAdId(data);
-        
-        this.analyticsEvents.onAdBegin({
-            adId: this.currentAdId,
-            adDuration: this.extractAdDuration(data),
-            adPosition: this.extractAdPosition(data),
-            adType: this.extractAdType(data)
-        });
-    };
+				case 'PAUSED':
+					this.handleAdPaused();
+					break;
 
-    private handleAdCompleted = () => {
-        this.analyticsEvents.onAdEnd({
-            adId: this.currentAdId,
-            completed: true
-        });
-        
-        this.isAdPlaying = false;
-        this.currentAdId = undefined;
-        this.adStartTime = undefined;
-    };
+				case 'RESUMED':
+					this.handleAdResumed();
+					break;
 
-    private handleAdSkipped = () => {
-        const skipPosition = this.adStartTime ? Date.now() - this.adStartTime : undefined;
-        
-        this.analyticsEvents.onAdSkip({
-            adId: this.currentAdId,
-            skipPosition
-        });
-        
-        this.analyticsEvents.onAdEnd({
-            adId: this.currentAdId,
-            completed: false
-        });
-        
-        this.isAdPlaying = false;
-        this.currentAdId = undefined;
-        this.adStartTime = undefined;
-    };
+				case 'ERROR':
+					this.handleAdError();
+					break;
 
-    private handleAdPaused = () => {
-        this.analyticsEvents.onAdPause({
-            adId: this.currentAdId
-        });
-    };
+				case 'AD_BREAK_STARTED':
+					this.handleAdBreakStarted(data);
+					break;
 
-    private handleAdResumed = () => {
-        this.analyticsEvents.onAdResume({
-            adId: this.currentAdId
-        });
-    };
+				case 'AD_BREAK_ENDED':
+					this.handleAdBreakEnded();
+					break;
 
-    private handleAdError = () => {
-        this.analyticsEvents.onAdEnd({
-            adId: this.currentAdId,
-            completed: false
-        });
-        
-        this.isAdPlaying = false;
-        this.currentAdId = undefined;
-        this.adStartTime = undefined;
-    };
+				case 'ALL_ADS_COMPLETED':
+					this.handleAllAdsCompleted();
+					break;
 
-    private handleAdBreakStarted = (data: OnReceiveAdEventData) => {
-        this.currentAdBreakId = this.extractAdBreakId(data);
-        
-        this.analyticsEvents.onAdBreakBegin({
-            adBreakId: this.currentAdBreakId,
-            adCount: this.extractAdCount(data),
-            adBreakPosition: this.extractAdBreakPosition(data)
-        });
-    };
+				case 'CONTENT_PAUSE_REQUESTED':
+					// El contenido debe pausarse para mostrar un anuncio
+					break;
 
-    private handleAdBreakEnded = () => {
-        this.analyticsEvents.onAdBreakEnd({
-            adBreakId: this.currentAdBreakId
-        });
-        
-        this.currentAdBreakId = undefined;
-    };
+				case 'CONTENT_RESUME_REQUESTED':
+					this.handleContentResumeRequested();
+					break;
 
-    private handleAllAdsCompleted = () => {
-        if (this.currentAdBreakId) {
-            this.analyticsEvents.onAdBreakEnd({
-                adBreakId: this.currentAdBreakId
-            });
-        }
-        
-        this.currentAdBreakId = undefined;
-        this.isAdPlaying = false;
-    };
+				case 'FIRST_QUARTILE':
+				case 'MIDPOINT':
+				case 'THIRD_QUARTILE':
+					this.handleAdProgress(data);
+					break;
 
-    private handleContentResumeRequested = () => {
-        this.analyticsEvents.onContentResume();
-    };
+				case 'CLICK':
+				case 'TAPPED':
+					this.handleAdClick(data);
+					break;
 
-    private handleAdProgress = (data: OnReceiveAdEventData) => {
-        // Los eventos de progreso del anuncio se pueden usar para analíticas específicas
-        console.log(`[AdEventsHandler] Ad progress: ${data.event}`);
-    };
+				case 'LOADED':
+					this.handleAdLoaded(data);
+					break;
 
-    private handleAdClick = (data: OnReceiveAdEventData) => {
-        console.log(`[AdEventsHandler] Ad clicked: ${data.event}`);
-    };
+				case 'IMPRESSION':
+					this.handleAdImpression(data);
+					break;
 
-    private handleAdLoaded = (data: OnReceiveAdEventData) => {
-        console.log(`[AdEventsHandler] Ad loaded: ${data.event}`);
-    };
+				default:
+					console.log(`[AdEventsHandler] Unhandled ad event: ${data.event}`);
+					throw new PlayerError('PLAYER_AD_EVENT_PROCESSING_ERROR', {
+						event: data.event,
+					});
+			}
+		} catch (error) {
+			throw error;
+		}
+	};
 
-    private handleAdImpression = (data: OnReceiveAdEventData) => {
-        console.log(`[AdEventsHandler] Ad impression: ${data.event}`);
-    };
+	private handleAdStarted = (data: OnReceiveAdEventData) => {
+		this.isAdPlaying = true;
+		this.adStartTime = Date.now();
+		this.currentAdId = this.extractAdId(data);
 
-    /*
-     * Métodos de utilidad para extraer datos del evento
-     *
-     */
+		this.analyticsEvents.onAdBegin({
+			adId: this.currentAdId,
+			adDuration: this.extractAdDuration(data),
+			adPosition: this.extractAdPosition(data),
+			adType: this.extractAdType(data),
+		});
+	};
 
-    private extractAdId = (data: OnReceiveAdEventData): string => {
-        return (data.data as any)?.adId || `ad_${Date.now()}`;
-    };
+	private handleAdCompleted = () => {
+		this.analyticsEvents.onAdEnd({
+			adId: this.currentAdId,
+			completed: true,
+		});
 
-    private extractAdDuration = (data: OnReceiveAdEventData): number | undefined => {
-        return (data.data as any)?.duration ? (data.data as any).duration * 1000 : undefined;
-    };
+		this.isAdPlaying = false;
+		this.currentAdId = undefined;
+		this.adStartTime = undefined;
+	};
 
-    private extractAdPosition = (data: OnReceiveAdEventData): number | undefined => {
-        return (data.data as any)?.position ? (data.data as any).position * 1000 : undefined;
-    };
+	private handleAdSkipped = () => {
+		const skipPosition = this.adStartTime ? Date.now() - this.adStartTime : undefined;
 
-    private extractAdType = (data: OnReceiveAdEventData): 'preroll' | 'midroll' | 'postroll' | undefined => {
-        const position = (data.data as any)?.position;
-        if (position === 0) return 'preroll';
-        if (position === -1) return 'postroll';
-        return 'midroll';
-    };
+		this.analyticsEvents.onAdSkip({
+			adId: this.currentAdId,
+			skipPosition,
+		});
 
-    private extractAdBreakId = (data: OnReceiveAdEventData): string => {
-        return (data.data as any)?.adBreakId || `adbreak_${Date.now()}`;
-    };
+		this.analyticsEvents.onAdEnd({
+			adId: this.currentAdId,
+			completed: false,
+		});
 
-    private extractAdCount = (data: OnReceiveAdEventData): number | undefined => {
-        return (data.data as any)?.adCount;
-    };
+		this.isAdPlaying = false;
+		this.currentAdId = undefined;
+		this.adStartTime = undefined;
+	};
 
-    private extractAdBreakPosition = (data: OnReceiveAdEventData): number | undefined => {
-        return (data.data as any)?.adBreakPosition ? (data.data as any).adBreakPosition * 1000 : undefined;
-    };
+	private handleAdPaused = () => {
+		this.analyticsEvents.onAdPause({
+			adId: this.currentAdId,
+		});
+	};
 
-    /*
-     * Getters
-     *
-     */
+	private handleAdResumed = () => {
+		this.analyticsEvents.onAdResume({
+			adId: this.currentAdId,
+		});
+	};
 
-    getIsAdPlaying = () => this.isAdPlaying;
-    getCurrentAdId = () => this.currentAdId;
-    getCurrentAdBreakId = () => this.currentAdBreakId;
+	private handleAdError = () => {
+		this.analyticsEvents.onAdEnd({
+			adId: this.currentAdId,
+			completed: false,
+		});
 
+		this.isAdPlaying = false;
+		this.currentAdId = undefined;
+		this.adStartTime = undefined;
+	};
+
+	private handleAdBreakStarted = (data: OnReceiveAdEventData) => {
+		this.currentAdBreakId = this.extractAdBreakId(data);
+
+		this.analyticsEvents.onAdBreakBegin({
+			adBreakId: this.currentAdBreakId,
+			adCount: this.extractAdCount(data),
+			adBreakPosition: this.extractAdBreakPosition(data),
+		});
+	};
+
+	private handleAdBreakEnded = () => {
+		this.analyticsEvents.onAdBreakEnd({
+			adBreakId: this.currentAdBreakId,
+		});
+
+		this.currentAdBreakId = undefined;
+	};
+
+	private handleAllAdsCompleted = () => {
+		if (this.currentAdBreakId) {
+			this.analyticsEvents.onAdBreakEnd({
+				adBreakId: this.currentAdBreakId,
+			});
+		}
+
+		this.currentAdBreakId = undefined;
+		this.isAdPlaying = false;
+	};
+
+	private handleContentResumeRequested = () => {
+		this.analyticsEvents.onContentResume();
+	};
+
+	private handleAdProgress = (data: OnReceiveAdEventData) => {
+		// Los eventos de progreso del anuncio se pueden usar para analíticas específicas
+		console.log(`[AdEventsHandler] Ad progress: ${data.event}`);
+	};
+
+	private handleAdClick = (data: OnReceiveAdEventData) => {
+		console.log(`[AdEventsHandler] Ad clicked: ${data.event}`);
+	};
+
+	private handleAdLoaded = (data: OnReceiveAdEventData) => {
+		console.log(`[AdEventsHandler] Ad loaded: ${data.event}`);
+	};
+
+	private handleAdImpression = (data: OnReceiveAdEventData) => {
+		console.log(`[AdEventsHandler] Ad impression: ${data.event}`);
+	};
+
+	/*
+	 * Métodos de utilidad para extraer datos del evento
+	 *
+	 */
+
+	private extractAdId = (data: OnReceiveAdEventData): string => {
+		return (data.data as any)?.adId || `ad_${Date.now()}`;
+	};
+
+	private extractAdDuration = (data: OnReceiveAdEventData): number | undefined => {
+		return (data.data as any)?.duration ? (data.data as any).duration * 1000 : undefined;
+	};
+
+	private extractAdPosition = (data: OnReceiveAdEventData): number | undefined => {
+		return (data.data as any)?.position ? (data.data as any).position * 1000 : undefined;
+	};
+
+	private extractAdType = (
+		data: OnReceiveAdEventData
+	): 'preroll' | 'midroll' | 'postroll' | undefined => {
+		const position = (data.data as any)?.position;
+		if (position === 0) {
+			return 'preroll';
+		}
+		if (position === -1) {
+			return 'postroll';
+		}
+		return 'midroll';
+	};
+
+	private extractAdBreakId = (data: OnReceiveAdEventData): string => {
+		return (data.data as any)?.adBreakId || `adbreak_${Date.now()}`;
+	};
+
+	private extractAdCount = (data: OnReceiveAdEventData): number | undefined => {
+		return (data.data as any)?.adCount;
+	};
+
+	private extractAdBreakPosition = (data: OnReceiveAdEventData): number | undefined => {
+		return (data.data as any)?.adBreakPosition
+			? (data.data as any).adBreakPosition * 1000
+			: undefined;
+	};
+
+	/*
+	 * Getters
+	 *
+	 */
+
+	getIsAdPlaying = () => this.isAdPlaying;
+	getCurrentAdId = () => this.currentAdId;
+	getCurrentAdBreakId = () => this.currentAdBreakId;
 }
