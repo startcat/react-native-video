@@ -131,14 +131,14 @@ export function useCastState(
 	useEffect(() => {
 		const currentState = state.castState;
 		const prevState = prevStateRef.current;
-		const callbacks = callbacksRef.current;
+		const currentCallbacks = callbacksRef.current;
 
 		// Callback de cambio de conexión
 		if (
 			currentState.connection.status !== prevState.connection.status &&
-			callbacks.onConnectionChange
+			currentCallbacks.onConnectionChange
 		) {
-			callbacks.onConnectionChange(currentState.connection.status);
+			currentCallbacks.onConnectionChange(currentState.connection.status);
 		}
 
 		// Callback de cambio de media
@@ -146,25 +146,25 @@ export function useCastState(
 			(currentState.media.url !== prevState.media.url ||
 				currentState.media.isPlaying !== prevState.media.isPlaying ||
 				currentState.media.isPaused !== prevState.media.isPaused) &&
-			callbacks.onMediaChange
+			currentCallbacks.onMediaChange
 		) {
-			callbacks.onMediaChange(currentState.media);
+			currentCallbacks.onMediaChange(currentState.media);
 		}
 
 		// Callback de cambio de pista de audio
 		if (
 			currentState.media.audioTrack?.id !== prevState.media.audioTrack?.id &&
-			callbacks.onAudioTrackChange
+			currentCallbacks.onAudioTrackChange
 		) {
-			callbacks.onAudioTrackChange(currentState.media.audioTrack);
+			currentCallbacks.onAudioTrackChange(currentState.media.audioTrack);
 		}
 
 		// Callback de cambio de pista de subtítulos
 		if (
 			currentState.media.textTrack?.id !== prevState.media.textTrack?.id &&
-			callbacks.onTextTrackChange
+			currentCallbacks.onTextTrackChange
 		) {
-			callbacks.onTextTrackChange(currentState.media.textTrack);
+			currentCallbacks.onTextTrackChange(currentState.media.textTrack);
 		}
 
 		// Callback de error
@@ -186,8 +186,8 @@ export function useCastState(
 			);
 		})();
 
-		if (errorChanged && callbacks.onError) {
-			callbacks.onError(currentState.error);
+		if (errorChanged && currentCallbacks.onError) {
+			currentCallbacks.onError(currentState.error);
 		}
 
 		prevStateRef.current = currentState;
