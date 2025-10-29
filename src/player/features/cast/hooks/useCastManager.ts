@@ -652,7 +652,7 @@ export function useCastManager(
 	// Callbacks de eventos basados en cambios de estado: onPlaybackStarted, onPlaybackEnded
 	useEffect(() => {
 		const { media } = castState;
-		const callbacks = callbacksRef.current;
+		const currentCallbacks = callbacksRef.current;
 
 		// currentLogger.current?.temp(`(useEffect) Cast State Media - isPlaying: ${media.isPlaying}, isIdle: ${media.isIdle}, url: ${media.url}, ref: ${lastLoadedContentRef.current}`);
 
@@ -660,28 +660,28 @@ export function useCastManager(
 		if (
 			media.isPlaying &&
 			!media.isIdle &&
-			callbacks.onPlaybackStarted &&
+			currentCallbacks.onPlaybackStarted &&
 			(!lastLoadedContentRef.current || lastLoadedContentRef.current !== media.url)
 		) {
 			currentLogger.current?.info(
 				`Firing onPlaybackStarted callback - media.isPlaying: ${media.isPlaying}, media.isIdle: ${media.isIdle}`
 			);
 			lastLoadedContentRef.current = media.url;
-			callbacks.onPlaybackStarted();
+			currentCallbacks.onPlaybackStarted();
 		}
 
 		// Detectar fin de reproducción
-		if (media.isIdle && lastLoadedContentRef.current && callbacks.onPlaybackEnded) {
+		if (media.isIdle && lastLoadedContentRef.current && currentCallbacks.onPlaybackEnded) {
 			lastLoadedContentRef.current = null;
-			callbacks.onPlaybackEnded();
+			currentCallbacks.onPlaybackEnded();
 		}
 	}, [castState.media.isPlaying, castState.media.isIdle, castState.media.url]);
 
 	// Callback de cambio de volumen: onVolumeChanged
 	useEffect(() => {
-		const callbacks = callbacksRef.current;
-		if (callbacks.onVolumeChanged) {
-			callbacks.onVolumeChanged(castState.volume.level, castState.volume.isMuted);
+		const currentCallbacks = callbacksRef.current;
+		if (currentCallbacks.onVolumeChanged) {
+			currentCallbacks.onVolumeChanged(castState.volume.level, castState.volume.isMuted);
 		}
 	}, [castState.volume.level, castState.volume.isMuted]);
 
