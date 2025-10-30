@@ -614,30 +614,52 @@ export class StreamDownloadService {
 	public async cancelDownload(downloadId: string): Promise<void> {
 		const download = this.activeDownloads.get(downloadId);
 
+		// Si no está en activeDownloads, verificar si está en cola
 		if (!download) {
-			// Verificar si está en cola
 			const queueIndex = this.downloadQueue.findIndex(task => task.id === downloadId);
 			if (queueIndex >= 0) {
 				this.downloadQueue.splice(queueIndex, 1);
 				this.eventEmitter.emit(DownloadEventType.CANCELLED, { taskId: downloadId });
+				this.currentLogger.info(TAG, `Stream download removed from queue: ${downloadId}`);
 				return;
 			}
-			throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
+
+			// Si no está ni en activeDownloads ni en queue, intentar cancelar en nativo de todos modos
+			// Esto puede ocurrir cuando el QueueManager gestiona la descarga
+			this.currentLogger.warn(
+				TAG,
+				`Download ${downloadId} not found in service, attempting native cancellation`
+			);
 		}
 
 		try {
+			// Intentar cancelar en módulo nativo (puede fallar si no existe, pero es OK)
 			await nativeManager.cancelDownload(downloadId);
 
-			// Remover de descargas activas
-			this.activeDownloads.delete(downloadId);
+			// Remover de descargas activas si existe
+			if (download) {
+				this.activeDownloads.delete(downloadId);
+			}
 
 			this.eventEmitter.emit(DownloadEventType.CANCELLED, {
 				taskId: downloadId,
-				progress: download.progress,
+				progress: download?.progress || { percent: 0, bytesWritten: 0, totalBytes: 0 },
 			});
 
 			this.currentLogger.info(TAG, `Stream download cancelled: ${downloadId}`);
 		} catch (error) {
+			// Si el error es que no existe en nativo, es OK (ya fue cancelada o no existe)
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			if (errorMessage.includes("not found") || errorMessage.includes("doesn't exist")) {
+				this.currentLogger.warn(
+					TAG,
+					`Download ${downloadId} not found in native, considering it cancelled`
+				);
+				this.eventEmitter.emit(DownloadEventType.CANCELLED, { taskId: downloadId });
+				return;
+			}
+
+			// Para otros errores, propagar
 			throw new PlayerError("DOWNLOAD_FAILED", {
 				originalError: error,
 				downloadId,

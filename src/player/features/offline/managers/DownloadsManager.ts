@@ -261,10 +261,13 @@ export class DownloadsManager {
 		}
 
 		// Coordinar con DownloadService para eventos de descargas
-		const downloadUnsubscriber = downloadService.subscribe("all", async data => {
-			await this.handleDownloadEvent(data);
+		// Suscribirse a cada tipo de evento específicamente
+		Object.values(DownloadEventType).forEach(eventType => {
+			const downloadUnsubscriber = downloadService.subscribe(eventType, async data => {
+				await this.handleDownloadEvent(data);
+			});
+			this.eventUnsubscribers.push(downloadUnsubscriber);
 		});
-		this.eventUnsubscribers.push(downloadUnsubscriber);
 
 		// Coordinar con NetworkService para políticas de red
 		if (this.config.networkMonitoringEnabled) {
@@ -391,6 +394,10 @@ export class DownloadsManager {
 			// Invalidar cache de estadísticas cuando hay cambios
 			this.invalidateStatsCache();
 
+			// CRÍTICO: Notificar al QueueManager sobre eventos de descarga
+			// Esto mantiene sincronizado el estado del QueueManager con los eventos reales
+			await this.notifyQueueManagerOfEvent(type, eventData);
+
 			// Aplicar políticas globales según el evento
 			this.applyGlobalPolicies(type, eventData);
 
@@ -412,6 +419,85 @@ export class DownloadsManager {
 			this.state.lastUpdated = Date.now();
 		} catch (error) {
 			this.currentLogger.error(TAG, "Error handling download event", error);
+		}
+	}
+
+	/*
+	 * Notifica al QueueManager sobre eventos de descarga
+	 * Esto mantiene el estado del QueueManager sincronizado con los eventos reales
+	 *
+	 */
+
+	private async notifyQueueManagerOfEvent(
+		eventType: DownloadEventType,
+		eventData: any
+	): Promise<void> {
+		try {
+			const downloadId = eventData.taskId || eventData.downloadId;
+			if (!downloadId) {
+				this.currentLogger.warn(
+					TAG,
+					"Cannot notify QueueManager: missing downloadId in event data"
+				);
+				return;
+			}
+
+			// Notificar según el tipo de evento
+			switch (eventType) {
+				case DownloadEventType.PROGRESS: {
+					if (eventData.percent !== undefined) {
+						await queueManager.notifyDownloadProgress(downloadId, eventData.percent);
+						this.currentLogger.debug(
+							TAG,
+							`Notified QueueManager of progress: ${downloadId} - ${eventData.percent}%`
+						);
+					}
+					break;
+				}
+
+				case DownloadEventType.COMPLETED: {
+					const filePath = eventData.filePath || eventData.fileUri;
+					await queueManager.notifyDownloadCompleted(downloadId, filePath);
+					this.currentLogger.info(TAG, `Notified QueueManager of completion: ${downloadId}`);
+					break;
+				}
+
+				case DownloadEventType.FAILED: {
+					const error =
+						eventData.error instanceof PlayerError
+							? eventData.error
+							: new PlayerError("DOWNLOAD_FAILED", {
+									originalError: eventData.error,
+									downloadId,
+								});
+					await queueManager.notifyDownloadFailed(downloadId, error);
+					this.currentLogger.warn(TAG, `Notified QueueManager of failure: ${downloadId}`);
+					break;
+				}
+
+				case DownloadEventType.PAUSED: {
+					await queueManager.notifyDownloadPaused(downloadId);
+					this.currentLogger.debug(TAG, `Notified QueueManager of pause: ${downloadId}`);
+					break;
+				}
+
+				case DownloadEventType.RESUMED: {
+					// QueueManager no tiene notifyDownloadResumed, actualizar estado directamente
+					// El resume se maneja internamente cuando se procesa la cola
+					this.currentLogger.debug(TAG, `Download resumed: ${downloadId}`);
+					break;
+				}
+
+				// Otros eventos no requieren notificación al QueueManager
+				default:
+					break;
+			}
+		} catch (error) {
+			this.currentLogger.error(
+				TAG,
+				`Failed to notify QueueManager of event ${eventType}`,
+				error
+			);
 		}
 	}
 
@@ -728,6 +814,10 @@ export class DownloadsManager {
 			this.state.isPaused = false;
 			this.state.lastUpdated = Date.now();
 
+			// Limpiar descargas huérfanas antes de reanudar
+			// Esto resetea descargas que quedaron en DOWNLOADING tras reiniciar la app
+			await queueManager.forceCleanupOrphanedDownloads();
+
 			// Inicializar procesamiento del QueueManager si no se había iniciado automáticamente
 			if (!this.config.autoStart) {
 				this.currentLogger.info(
@@ -756,6 +846,32 @@ export class DownloadsManager {
 			}
 			// Solo envolver errores no tipados
 			throw new PlayerError("DOWNLOAD_MANAGER_RESUME_ALL_FAILED", { originalError: error });
+		}
+	}
+
+	/*
+	 * Limpia descargas huérfanas que quedaron en estado DOWNLOADING
+	 * Útil cuando la app se reinicia y las descargas quedan atascadas
+	 *
+	 */
+
+	public async cleanupOrphanedDownloads(): Promise<number> {
+		if (!this.state.isInitialized) {
+			throw new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE");
+		}
+
+		try {
+			const remainingDownloading = await queueManager.forceCleanupOrphanedDownloads();
+			this.currentLogger.info(
+				TAG,
+				`Orphaned downloads cleaned, ${remainingDownloading} still downloading`
+			);
+			return remainingDownloading;
+		} catch (error) {
+			if (error instanceof PlayerError) {
+				throw error;
+			}
+			throw new PlayerError("DOWNLOAD_FAILED", { originalError: error });
 		}
 	}
 

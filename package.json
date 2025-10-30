@@ -23,7 +23,7 @@
 		"@types/react": "~18.0.0"
 	},
 	"dependencies": {
-		"@kesha-antonov/react-native-background-downloader": "github:kesha-antonov/react-native-background-downloader#9cceb336a7bd80f64279f47d08688fed252fea70"
+		"@kesha-antonov/react-native-background-downloader": "^3.2.6"
 	},
 	"devDependencies": {
 		"@babel/core": "^7.20.0",

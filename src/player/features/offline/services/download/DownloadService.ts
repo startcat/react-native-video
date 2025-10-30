@@ -277,18 +277,30 @@ export class DownloadService {
 		if (this.config.enableBinaryDownloads) {
 			try {
 				const binaryStrategy = this.strategyFactory.createStrategy(DownloadType.BINARY);
-				const binaryUnsubscriber = binaryStrategy.subscribe("all", (data: any) => {
-					this.eventEmitter.emit("binary:" + (data.type || "unknown"), {
-						...data,
-						sourceType: DownloadType.BINARY,
+				// Suscribirse a cada tipo de evento específicamente para capturar el tipo
+				const unsubscribers: (() => void)[] = [];
+
+				Object.values(DownloadEventType).forEach(eventType => {
+					const unsub = binaryStrategy.subscribe(eventType, (data: any) => {
+						// Emitir con prefijo para identificación
+						this.eventEmitter.emit(`binary:${eventType}`, {
+							...data,
+							type: eventType,
+							sourceType: DownloadType.BINARY,
+						});
+						// También emitir evento genérico con tipo correcto
+						this.eventEmitter.emit(eventType, {
+							...data,
+							type: eventType,
+							sourceType: DownloadType.BINARY,
+						});
 					});
-					// También emitir evento genérico
-					this.eventEmitter.emit(data.type || "unknown", {
-						...data,
-						sourceType: DownloadType.BINARY,
-					});
+					unsubscribers.push(unsub);
 				});
-				this.eventUnsubscribers.set(DownloadType.BINARY, binaryUnsubscriber);
+
+				this.eventUnsubscribers.set(DownloadType.BINARY, () => {
+					unsubscribers.forEach(unsub => unsub());
+				});
 			} catch (error) {
 				this.currentLogger.warn(TAG, "Failed to setup binary event bridge", error);
 			}
@@ -298,18 +310,30 @@ export class DownloadService {
 		if (this.config.enableStreamDownloads) {
 			try {
 				const streamStrategy = this.strategyFactory.createStrategy(DownloadType.STREAM);
-				const streamUnsubscriber = streamStrategy.subscribe("all", (data: any) => {
-					this.eventEmitter.emit("stream:" + (data.type || "unknown"), {
-						...data,
-						sourceType: DownloadType.STREAM,
+				// Suscribirse a cada tipo de evento específicamente para capturar el tipo
+				const unsubscribers: (() => void)[] = [];
+
+				Object.values(DownloadEventType).forEach(eventType => {
+					const unsub = streamStrategy.subscribe(eventType, (data: any) => {
+						// Emitir con prefijo para identificación
+						this.eventEmitter.emit(`stream:${eventType}`, {
+							...data,
+							type: eventType,
+							sourceType: DownloadType.STREAM,
+						});
+						// También emitir evento genérico con tipo correcto
+						this.eventEmitter.emit(eventType, {
+							...data,
+							type: eventType,
+							sourceType: DownloadType.STREAM,
+						});
 					});
-					// También emitir evento genérico
-					this.eventEmitter.emit(data.type || "unknown", {
-						...data,
-						sourceType: DownloadType.STREAM,
-					});
+					unsubscribers.push(unsub);
 				});
-				this.eventUnsubscribers.set(DownloadType.STREAM, streamUnsubscriber);
+
+				this.eventUnsubscribers.set(DownloadType.STREAM, () => {
+					unsubscribers.forEach(unsub => unsub());
+				});
 			} catch (error) {
 				this.currentLogger.warn(TAG, "Failed to setup stream event bridge", error);
 			}
