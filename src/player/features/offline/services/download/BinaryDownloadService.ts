@@ -434,10 +434,14 @@ export class BinaryDownloadService {
 	 */
 
 	private async executeDownload(task: BinaryDownloadTask): Promise<void> {
+		// Preservar retryCount si ya existe una descarga activa
+		const existingDownload = this.activeDownloads.get(task.id);
+		const retryCount = existingDownload?.retryCount || 0;
+
 		const activeDownload: ActiveBinaryDownload = {
 			task,
 			startTime: Date.now(),
-			retryCount: 0,
+			retryCount,
 			state: DownloadStates.DOWNLOADING,
 			progress: {
 				taskId: task.id,
@@ -450,9 +454,43 @@ export class BinaryDownloadService {
 		this.activeDownloads.set(task.id, activeDownload);
 
 		try {
-			// Crear directorio de destino si no existe
+			// Si es un retry, limpiar archivo corrupto primero
+			if (retryCount > 0) {
+				this.currentLogger.debug(
+					TAG,
+					`Cleaning up corrupted file before retry: ${task.destination}`
+				);
+				try {
+					// Intentar eliminar archivo (deleteFile ya verifica existencia internamente)
+					await storageService.deleteFile(task.destination);
+				} catch (cleanupError) {
+					// Si falla (ej: archivo no existe), continuar de todas formas
+					this.currentLogger.debug(
+						TAG,
+						`File cleanup skipped (may not exist): ${cleanupError}`
+					);
+				}
+			}
+
+			// Crear directorio de destino si no existe (idempotente)
 			const destinationDir = task.destination.substring(0, task.destination.lastIndexOf("/"));
-			await storageService.createDirectory(destinationDir);
+			try {
+				await storageService.createDirectory(destinationDir);
+			} catch (dirError: any) {
+				// Si el error es que el directorio ya existe, continuar
+				// De lo contrario, lanzar el error
+				if (
+					!dirError.message?.includes("already exists") &&
+					!dirError.message?.includes("could not be created")
+				) {
+					throw dirError;
+				}
+				// Directorio ya existe o no se pudo crear por razón válida, continuar
+				this.currentLogger.debug(
+					TAG,
+					`Directory creation skipped (may already exist): ${destinationDir}`
+				);
+			}
 
 			// Configurar opciones de descarga según la API de la librería
 			const downloadOptions = {
@@ -593,6 +631,17 @@ export class BinaryDownloadService {
 			// de que el filesystem haya sincronizado completamente el archivo
 			await new Promise(resolve => setTimeout(resolve, 500));
 
+			// Log detallado del estado del archivo antes de validar
+			this.currentLogger.debug(
+				TAG,
+				`Validating downloaded file: ${download.task.destination}`,
+				{
+					taskId,
+					expectedSize: download.progress.totalBytes,
+					downloadedSize: download.progress.bytesWritten,
+				}
+			);
+
 			// Validar archivo descargado
 			// skipReadTest: true porque en Android RNFS.read() falla con archivos de react-native-background-downloader
 			// debido a permisos, incluso si el archivo es válido
@@ -604,13 +653,16 @@ export class BinaryDownloadService {
 
 			if (!validation.isValid) {
 				// Log detallado del error de validación
-				this.currentLogger.error(
-					TAG,
-					`Download validation failed: ${taskId}`,
-					validation.errors
-				);
+				this.currentLogger.error(TAG, `Download validation failed: ${taskId}`, {
+					filePath: download.task.destination,
+					expectedSize: download.progress.totalBytes,
+					downloadedSize: download.progress.bytesWritten,
+					validationErrors: validation.errors,
+					validationWarnings: validation.warnings,
+				});
 				throw new PlayerError("DOWNLOAD_CORRUPTED", {
 					taskId,
+					filePath: download.task.destination,
 					validationErrors: validation.errors,
 				});
 			}

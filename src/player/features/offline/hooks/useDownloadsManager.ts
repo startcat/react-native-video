@@ -135,6 +135,46 @@ export function useDownloadsManager(
 		}
 	}, [config, onError]);
 
+	// Función de ordenamiento de descargas
+	const sortDownloads = useCallback((items: DownloadItem[]): DownloadItem[] => {
+		// Definir prioridad de estados
+		const statePriority: Record<DownloadStates, number> = {
+			// Activas (prioridad 1)
+			[DownloadStates.DOWNLOADING]: 1,
+			[DownloadStates.PREPARING]: 1,
+			// En cola (prioridad 2)
+			[DownloadStates.QUEUED]: 2,
+			[DownloadStates.PAUSED]: 2,
+			[DownloadStates.WAITING_FOR_NETWORK]: 2,
+			// Fallidas (prioridad 3)
+			[DownloadStates.FAILED]: 3,
+			// Completadas (prioridad 4)
+			[DownloadStates.COMPLETED]: 4,
+			// Otros estados (prioridad 5)
+			[DownloadStates.RESTART]: 5,
+			[DownloadStates.RESTARTING]: 5,
+			[DownloadStates.REMOVING]: 5,
+			[DownloadStates.STOPPED]: 5,
+			[DownloadStates.NOT_DOWNLOADED]: 5,
+		};
+
+		return [...items].sort((a, b) => {
+			// 1. Ordenar por prioridad de estado
+			const priorityA = statePriority[a.state] || 5;
+			const priorityB = statePriority[b.state] || 5;
+
+			if (priorityA !== priorityB) {
+				return priorityA - priorityB;
+			}
+
+			// 2. Dentro del mismo grupo, ordenar por fecha de inserción (más reciente primero)
+			const timeA = a.stats.startedAt || 0;
+			const timeB = b.stats.startedAt || 0;
+
+			return timeB - timeA; // Descendente: más reciente primero
+		});
+	}, []);
+
 	// Actualizar estado desde el manager
 	const updateState = useCallback(() => {
 		if (downloadsManager.isInitialized()) {
@@ -145,12 +185,15 @@ export function useDownloadsManager(
 			// 	`[useDownloadsManager] updateState - downloads: ${newDownloads.length}, averageSpeed: ${newQueueStats.averageSpeed}`
 			// );
 
-			setDownloads(newDownloads);
+			// Ordenar descargas antes de actualizar el estado
+			const sortedDownloads = sortDownloads(newDownloads);
+
+			setDownloads(sortedDownloads);
 			setQueueStats(newQueueStats);
 			setIsProcessing(downloadsManager.isProcessing());
 			setIsPaused(downloadsManager.isPaused());
 		}
-	}, []);
+	}, [sortDownloads]);
 
 	// Suscripción a eventos del sistema
 	useEffect(() => {
