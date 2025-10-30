@@ -322,60 +322,17 @@ export class BinaryDownloadService {
 	 */
 
 	public async resumeDownload(taskId: string): Promise<void> {
-		const download = this.activeDownloads.get(taskId);
-		if (!download) {
-			throw new PlayerError("DOWNLOAD_BINARY_NOT_FOUND", { taskId });
-		}
+		// NOTA: Para descargas binarias, el resume se maneja en DownloadsManager
+		// mediante el flujo completo de removeDownload() + addDownload()
+		// Este método NO debe hacer nada porque la descarga será recreada completamente
 
-		if (download.state !== DownloadStates.PAUSED) {
-			this.currentLogger.warn(TAG, `Download not paused: ${taskId}`);
-			return;
-		}
+		this.currentLogger.info(
+			TAG,
+			`Binary resume delegated to DownloadsManager (will be recreated): ${taskId}`
+		);
 
-		try {
-			// Verificar conectividad
-			if (!networkService.isOnline()) {
-				throw new PlayerError("NETWORK_CONNECTION_001", { taskId });
-			}
-
-			// Verificar WiFi si es requerido
-			if (this.config.requiresWifi && !networkService.isWifiConnected()) {
-				throw new PlayerError("NETWORK_DOWNLOADS_WIFI_RESTRICTED", { taskId });
-			}
-
-			// IMPORTANTE: Como usamos stop() en pauseDownload(), debemos reiniciar la descarga desde cero
-			// La librería react-native-background-downloader NO soporta resume parcial en Android
-			this.currentLogger.info(
-				TAG,
-				`Restarting download from beginning (no partial resume support): ${taskId}`
-			);
-
-			// Emitir evento RESUMED inmediatamente para que QueueManager sepa que está activa
-			this.eventEmitter.emit(DownloadEventType.RESUMED, { taskId });
-
-			// CRÍTICO: Limpiar la tarea pausada anterior de RNBackgroundDownloader
-			// Si no lo hacemos, la librería puede seguir reportando progreso de la tarea vieja
-			if (download.downloadTask) {
-				try {
-					download.downloadTask.stop();
-					this.currentLogger.debug(TAG, `Stopped old download task: ${taskId}`);
-				} catch (stopError) {
-					this.currentLogger.warn(TAG, `Failed to stop old task: ${stopError}`);
-				}
-			}
-
-			// Reiniciar descarga con el MISMO ID (sin cambiar el ID)
-			// La recreación completa (eliminar + crear nueva) se maneja en DownloadsManager
-			this.currentLogger.debug(TAG, `Restarting download with same ID: ${taskId}`);
-
-			// Reiniciar la descarga desde cero manteniendo el mismo ID
-			await this.executeDownload(download.task);
-		} catch (error) {
-			throw new PlayerError("DOWNLOAD_BINARY_RESUME_FAILED", {
-				originalError: error,
-				taskId,
-			});
-		}
+		// No hacer nada aquí - DownloadsManager se encarga del flujo completo
+		return Promise.resolve();
 	}
 
 	/*
