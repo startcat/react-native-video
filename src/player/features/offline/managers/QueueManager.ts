@@ -1114,9 +1114,16 @@ export class QueueManager {
 
 	public async notifyDownloadProgress(
 		downloadId: string,
-		progressPercent: number
+		progressPercent: number,
+		bytesWritten?: number,
+		totalBytes?: number
 	): Promise<void> {
-		await this.updateDownloadProgress(downloadId, progressPercent);
+		await this.updateDownloadProgress(
+			downloadId,
+			progressPercent,
+			bytesWritten,
+			totalBytes
+		);
 
 		const item = this.downloadQueue.get(downloadId);
 		if (item) {
@@ -1295,10 +1302,35 @@ export class QueueManager {
 	 *
 	 */
 
-	private async updateDownloadProgress(downloadId: string, progress: number): Promise<void> {
+	private async updateDownloadProgress(
+		downloadId: string,
+		progress: number,
+		bytesWritten?: number,
+		totalBytes?: number
+	): Promise<void> {
 		const item = this.downloadQueue.get(downloadId);
 		if (item) {
 			item.stats.progressPercent = Math.max(0, Math.min(100, progress));
+
+			// Actualizar bytes descargados y totales si están disponibles
+			if (bytesWritten !== undefined) {
+				item.stats.bytesDownloaded = bytesWritten;
+			}
+			if (totalBytes !== undefined) {
+				item.stats.totalBytes = totalBytes;
+			}
+
+			// Calcular velocidad de descarga si tenemos los datos
+			if (bytesWritten !== undefined && totalBytes !== undefined && item.stats.startedAt) {
+				const now = Date.now();
+				const elapsedSeconds = (now - item.stats.startedAt) / 1000;
+
+				if (elapsedSeconds > 0) {
+					// Velocidad en bytes por segundo
+					item.stats.downloadSpeed = Math.round(bytesWritten / elapsedSeconds);
+				}
+			}
+
 			this.downloadQueue.set(downloadId, item);
 
 			// Solo persistir en cambios importantes de progreso (cada 10%)
