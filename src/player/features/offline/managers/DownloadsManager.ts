@@ -762,17 +762,54 @@ export class DownloadsManager {
 				return;
 			}
 
-			// BINARIOS: Reiniciar descarga sin eliminar del QueueManager
+			// BINARIOS: Recrear como descarga nueva (limitación de react-native-background-downloader)
 			this.currentLogger.info(
 				TAG,
-				`Binary download will be restarted (no partial resume support): ${downloadId}`
+				`Binary download will be recreated (no partial resume support): ${downloadId}`
 			);
 
-			// Simplemente reanudar a través del servicio
-			// El servicio se encargará de limpiar y reiniciar con el mismo ID
-			await downloadService.resumeDownload(downloadId, downloadType);
+			// 1. Obtener datos de la descarga pausada desde QueueManager
+			const downloadItem = queueManager.getDownload(downloadId);
+			if (!downloadItem) {
+				throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
+			}
 
-			this.currentLogger.info(TAG, `Binary download restarted: ${downloadId}`);
+			// 2. Guardar datos necesarios para recrear
+			const savedData = {
+				id: downloadItem.id,
+				title: downloadItem.title,
+				uri: downloadItem.uri,
+				media: downloadItem.media,
+				licenseExpirationDate: downloadItem.licenseExpirationDate,
+				drm: downloadItem.drm,
+				drmScheme: downloadItem.drmScheme,
+				subtitles: downloadItem.subtitles,
+			};
+
+			this.currentLogger.debug(TAG, `Saved download data for recreation: ${downloadId}`);
+
+			// 3. Eliminar la descarga antigua (sigue el flujo completo de removeDownload)
+			await this.removeDownload(downloadId);
+			this.currentLogger.debug(TAG, `Old download removed: ${downloadId}`);
+
+			// 4. Crear BinaryDownloadTask para recrear
+			const binariesDir = storageService.getBinariesDirectory();
+			const binaryTask: BinaryDownloadTask = {
+				id: savedData.id, // Mantener el ID original
+				url: savedData.uri,
+				destination: `${binariesDir}/${savedData.id}`,
+				title: savedData.title,
+				headers: {},
+				resumable: true,
+			};
+
+			// 5. Recrear como descarga nueva (sigue el flujo completo de addDownload)
+			const newDownloadId = await this.addDownload(binaryTask, DownloadType.BINARY);
+
+			this.currentLogger.info(
+				TAG,
+				`Binary download recreated: ${downloadId} → ${newDownloadId}`
+			);
 		} catch (error) {
 			// Propagar PlayerError de servicios/managers directamente
 			if (error instanceof PlayerError) {
