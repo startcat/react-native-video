@@ -51,6 +51,9 @@ export class StorageService {
 	}> | null = null;
 	private pendingDownloadsFolderSizePromise: Promise<number> | null = null;
 
+	// Tracking de descargas activas para incluir su tamaño estimado
+	private activeDownloads: Map<string, { bytesWritten: number; totalBytes: number }> = new Map();
+
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
 
@@ -337,32 +340,32 @@ export class StorageService {
 		// Crear promesa que otras llamadas concurrentes pueden esperar
 		this.pendingDownloadsFolderSizePromise = (async () => {
 			try {
-				// En iOS, usar el tamaño del native module porque los assets se guardan
-				// en una ubicación especial del sistema que RNFS no puede acceder
-				if (Platform.OS === "ios" && DownloadsModule2?.getSystemInfo) {
-					try {
-						const cached = await this.getCachedSystemInfo();
-						this.currentLogger.info(TAG, "Using native download space (iOS)", {
-							downloadSpace: cached.downloadSpace,
-							sizeFormatted: formatFileSize(cached.downloadSpace),
-						});
-						return cached.downloadSpace;
-					} catch (error) {
-						this.currentLogger.warn(
-							TAG,
-							"Failed to get native download space, falling back to RNFS",
-							error
-						);
-						// Fall through to RNFS calculation
-					}
-				}
-
-				// Android o fallback para iOS: usar RNFS
+				// IMPORTANTE: Siempre usar RNFS para calcular el tamaño
+				// Razón: DownloadsModule2 solo cuenta assets HLS/DASH registrados en UserDefaults
+				// Las descargas binarias (react-native-background-downloader) no están registradas ahí
+				// RNFS puede leer todos los archivos en el directorio, incluyendo binarios
 				let totalSize = 0;
 
 				// Calcular tamaño del directorio de descargas
 				const downloadSize = await this.calculateDirectorySize(this.downloadPath);
 				totalSize += downloadSize;
+
+				// Agregar tamaño estimado de descargas activas
+				// Esto es especialmente importante en Android donde react-native-background-downloader
+				// descarga a un archivo temporal que no aparece en el directorio final hasta completar
+				let activeDownloadsSize = 0;
+				for (const [_taskId, progress] of this.activeDownloads.entries()) {
+					activeDownloadsSize += progress.bytesWritten;
+				}
+
+				if (activeDownloadsSize > 0) {
+					this.currentLogger.debug(TAG, "Active downloads size calculated", {
+						count: this.activeDownloads.size,
+						size: activeDownloadsSize,
+						sizeFormatted: formatFileSize(activeDownloadsSize),
+					});
+					totalSize += activeDownloadsSize;
+				}
 
 				this.currentLogger.debug(TAG, "Download path size calculated", {
 					path: this.downloadPath,
@@ -419,6 +422,37 @@ export class StorageService {
 				originalError: error,
 				context: "StorageService.getTempFolderSize",
 			});
+		}
+	}
+
+	/*
+	 * Registra una descarga activa para incluir su tamaño estimado
+	 * Llamar cuando una descarga inicia o actualiza su progreso
+	 *
+	 */
+
+	public registerActiveDownload(
+		taskId: string,
+		bytesWritten: number,
+		totalBytes: number
+	): void {
+		this.activeDownloads.set(taskId, { bytesWritten, totalBytes });
+		// Invalidar cache para que el próximo cálculo incluya esta descarga
+		this.invalidateDownloadSpaceCache();
+	}
+
+	/*
+	 * Desregistra una descarga activa
+	 * Llamar cuando una descarga completa, falla o se cancela
+	 *
+	 */
+
+	public unregisterActiveDownload(taskId: string): void {
+		const wasActive = this.activeDownloads.delete(taskId);
+		if (wasActive) {
+			// Invalidar cache para que el próximo cálculo no incluya esta descarga
+			this.invalidateDownloadSpaceCache();
+			this.currentLogger.debug(TAG, `Unregistered active download: ${taskId}`);
 		}
 	}
 
