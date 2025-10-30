@@ -40,8 +40,6 @@ export class BinaryDownloadService {
 	private isProcessingQueue: boolean = false;
 	// Tracking para cálculo de velocidad y tiempo estimado
 	private lastProgressUpdate: Map<string, { bytes: number; timestamp: number }> = new Map();
-	// Mapeo de IDs temporales a IDs originales (para descargas reanudadas)
-	private taskIdMap: Map<string, string> = new Map();
 
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
@@ -192,6 +190,7 @@ export class BinaryDownloadService {
 				};
 
 				this.activeDownloads.set(task.id, activeDownload);
+
 				this.setupTaskCallbacks(task, activeDownload);
 			}
 
@@ -351,41 +350,40 @@ export class BinaryDownloadService {
 				`Restarting download from beginning (no partial resume support): ${taskId}`
 			);
 
-			// Emitir evento RESUMED inmediatamente para que Queue Manager sepa que está activa
+			// Emitir evento RESUMED inmediatamente para que QueueManager sepa que está activa
 			this.eventEmitter.emit(DownloadEventType.RESUMED, { taskId });
 
-			// CRÍTICO: Crear nueva tarea con ID único para evitar conflictos con librería nativa
-			// La librería puede no disparar callbacks si detecta un ID duplicado
+			// CRÍTICO: Limpiar la tarea pausada anterior de RNBackgroundDownloader
+			// Si no lo hacemos, la librería puede seguir reportando progreso de la tarea vieja
+			if (download.downloadTask) {
+				try {
+					download.downloadTask.stop();
+					this.currentLogger.debug(TAG, `Stopped old download task: ${taskId}`);
+				} catch (stopError) {
+					this.currentLogger.warn(TAG, `Failed to stop old task: ${stopError}`);
+				}
+			}
+
+			// SIMPLIFICACIÓN MÁXIMA: Eliminar entrada antigua y recrear como descarga nueva
+			// Esto evita toda la complejidad de mapeo de IDs y funciona igual que una descarga nueva
+			this.currentLogger.debug(TAG, `Removing old download entry: ${taskId}`);
+			this.activeDownloads.delete(taskId);
+
+			// Crear nueva tarea con ID único para evitar conflictos con librería nativa
 			const newTaskId = `${taskId}_${Date.now()}`;
 			this.currentLogger.debug(
 				TAG,
-				`Generating new task ID for resume: ${taskId} → ${newTaskId}`
+				`Creating new download with fresh ID: ${taskId} → ${newTaskId}`
 			);
 
-			// Guardar mapeo de ID temporal → ID original para los callbacks
-			this.taskIdMap.set(newTaskId, taskId);
-
-			// Crear nueva tarea con ID único pero mantener el taskId original en el Map
-			const resumeTask = {
+			// Crear tarea completamente nueva (como si fuera la primera vez)
+			const newTask: BinaryDownloadTask = {
 				...download.task,
-				id: newTaskId, // ID único para la librería nativa
+				id: newTaskId,
 			};
 
-			// Reiniciar descarga desde cero con nuevo ID
-			await this.executeDownload(resumeTask);
-
-			// Actualizar el Map para que el taskId original apunte a la nueva descarga
-			const newDownload = this.activeDownloads.get(newTaskId);
-			if (newDownload) {
-				// Copiar la descarga con el taskId original
-				this.activeDownloads.set(taskId, {
-					...newDownload,
-					task: { ...newDownload.task, id: taskId }, // Restaurar ID original
-				});
-				// Eliminar la entrada temporal
-				this.activeDownloads.delete(newTaskId);
-				this.currentLogger.debug(TAG, `Remapped download from ${newTaskId} to ${taskId}`);
-			}
+			// Iniciar descarga desde cero (sin pasar originalTaskId)
+			await this.executeDownload(newTask);
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_BINARY_RESUME_FAILED", {
 				originalError: error,
@@ -569,10 +567,8 @@ export class BinaryDownloadService {
 				url: task.url,
 				destination: task.destination,
 				headers: task.headers || {},
-				metadata: {
-					// Título para la notificación (Android)
-					title: task.title || task.id,
-				},
+				// Título para la notificación (Android/iOS)
+				notificationTitle: task.title || task.id,
 				// Android specific options
 				isAllowedOverRoaming: this.config.allowCellular,
 				isAllowedOverMetered: this.config.allowCellular,
@@ -590,13 +586,11 @@ export class BinaryDownloadService {
 				.begin(({ expectedBytes }: { expectedBytes: number }) => {
 					// Callback de inicio
 					activeDownload.progress.totalBytes = expectedBytes || 0;
+					activeDownload.state = DownloadStates.DOWNLOADING;
 					this.activeDownloads.set(task.id, activeDownload);
 
-					// Usar ID original si existe mapeo, sino usar task.id
-					const actualTaskId = this.taskIdMap.get(task.id) || task.id;
-
 					this.eventEmitter.emit(DownloadEventType.STARTED, {
-						taskId: actualTaskId,
+						taskId: task.id,
 						url: task.url,
 						destination: task.destination,
 						expectedBytes,
@@ -641,11 +635,8 @@ export class BinaryDownloadService {
 							timestamp: now,
 						});
 
-						// Usar ID original si existe mapeo, sino usar task.id
-						const actualTaskId = this.taskIdMap.get(task.id) || task.id;
-
 						const progress: BinaryDownloadProgress = {
-							taskId: actualTaskId,
+							taskId: task.id,
 							bytesWritten: bytesDownloaded,
 							totalBytes: bytesTotal,
 							percent:
@@ -660,11 +651,7 @@ export class BinaryDownloadService {
 						this.activeDownloads.set(task.id, activeDownload);
 
 						// Registrar en StorageService para incluir en cálculo de espacio
-						storageService.registerActiveDownload(
-							actualTaskId,
-							bytesDownloaded,
-							bytesTotal
-						);
+						storageService.registerActiveDownload(task.id, bytesDownloaded, bytesTotal);
 
 						this.eventEmitter.emit(DownloadEventType.PROGRESS, progress);
 						this.currentLogger.debug(
@@ -674,22 +661,10 @@ export class BinaryDownloadService {
 					}
 				)
 				.done(() => {
-					// Callback de completado
-					const actualTaskId = this.taskIdMap.get(task.id) || task.id;
-					this.handleDownloadSuccess(actualTaskId);
-					// Limpiar mapeo si existe
-					if (this.taskIdMap.has(task.id)) {
-						this.taskIdMap.delete(task.id);
-					}
+					this.handleDownloadSuccess(task.id);
 				})
 				.error(({ error, errorCode }: { error: string; errorCode: number }) => {
-					// Callback de error
-					const actualTaskId = this.taskIdMap.get(task.id) || task.id;
-					this.handleDownloadError(actualTaskId, { message: error, code: errorCode });
-					// Limpiar mapeo si existe
-					if (this.taskIdMap.has(task.id)) {
-						this.taskIdMap.delete(task.id);
-					}
+					this.handleDownloadError(task.id, { message: error, code: errorCode });
 				});
 
 			// Guardar referencia a la tarea
@@ -741,10 +716,8 @@ export class BinaryDownloadService {
 						timestamp: now,
 					});
 
-					const actualTaskId = this.taskIdMap.get(taskId) || taskId;
-
 					const progress: BinaryDownloadProgress = {
-						taskId: actualTaskId,
+						taskId: taskId,
 						bytesWritten: bytesDownloaded,
 						totalBytes: bytesTotal,
 						percent:
@@ -757,34 +730,20 @@ export class BinaryDownloadService {
 					this.activeDownloads.set(taskId, activeDownload);
 
 					// Registrar en StorageService para incluir en cálculo de espacio
-					storageService.registerActiveDownload(
-						actualTaskId,
-						bytesDownloaded,
-						bytesTotal
-					);
+					storageService.registerActiveDownload(taskId, bytesDownloaded, bytesTotal);
 
 					this.eventEmitter.emit(DownloadEventType.PROGRESS, progress);
 					this.currentLogger.debug(
 						TAG,
-						`Recovery progress: ${actualTaskId} - ${progress.percent}%`
+						`Recovery progress: ${taskId} - ${progress.percent}%`
 					);
 				}
 			)
 			.done(() => {
-				const actualTaskId = this.taskIdMap.get(taskId) || taskId;
-				this.handleDownloadSuccess(actualTaskId);
-				// Limpiar mapeo si existe
-				if (this.taskIdMap.has(taskId)) {
-					this.taskIdMap.delete(taskId);
-				}
+				this.handleDownloadSuccess(taskId);
 			})
 			.error(({ error, errorCode }: { error: string; errorCode: number }) => {
-				const actualTaskId = this.taskIdMap.get(taskId) || taskId;
-				this.handleDownloadError(actualTaskId, { message: error, code: errorCode });
-				// Limpiar mapeo si existe
-				if (this.taskIdMap.has(taskId)) {
-					this.taskIdMap.delete(taskId);
-				}
+				this.handleDownloadError(taskId, { message: error, code: errorCode });
 			});
 	}
 
@@ -878,6 +837,7 @@ export class BinaryDownloadService {
 			// Remover de descargas activas después de un breve delay
 			setTimeout(() => {
 				this.activeDownloads.delete(taskId);
+
 				this.currentLogger.debug(TAG, `Removed from active downloads: ${taskId}`);
 				this.processNextInQueue();
 			}, 1000);
@@ -1194,7 +1154,6 @@ export class BinaryDownloadService {
 		this.activeDownloads.clear();
 		this.downloadQueue = [];
 		this.lastProgressUpdate.clear();
-		this.taskIdMap.clear();
 		this.isInitialized = false;
 
 		this.currentLogger.info(TAG, "BinaryDownloadService destroyed");

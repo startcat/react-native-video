@@ -401,6 +401,7 @@ export function useDownloadsManager(
 						id: itemWithId.id,
 						url: itemWithId.uri,
 						destination: `${binariesDir}/${itemWithId.id}`,
+						title: itemWithId.title, // Título para notificaciones
 						headers: {},
 						resumable: true,
 					} as BinaryDownloadTask;
