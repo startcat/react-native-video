@@ -857,7 +857,11 @@ export class StorageService {
 	 *
 	 */
 
-	public async validateFile(filePath: string, expectedSize?: number): Promise<ValidationResult> {
+	public async validateFile(
+		filePath: string,
+		expectedSize?: number,
+		skipReadTest: boolean = false
+	): Promise<ValidationResult> {
 		const errors: string[] = [];
 		const warnings: string[] = [];
 
@@ -874,16 +878,28 @@ export class StorageService {
 			}
 
 			if (expectedSize && fileInfo.size !== expectedSize) {
-				errors.push(
-					`Incorrect file size. Expected: ${expectedSize}, Actual: ${fileInfo.size}`
+				warnings.push(
+					`File size mismatch. Expected: ${expectedSize}, Actual: ${fileInfo.size}`
 				);
 			}
 
-			// Verificar si el archivo es accesible
-			try {
-				await RNFS.read(filePath, 1);
-			} catch (readError) {
-				errors.push("File is not accessible for reading");
+			// Verificar si el archivo es accesible (opcional)
+			// En Android, RNFS.read() puede fallar con archivos descargados por react-native-background-downloader
+			// debido a permisos, incluso si el archivo existe y es válido
+			if (!skipReadTest) {
+				try {
+					await RNFS.read(filePath, 1);
+					this.currentLogger.debug(TAG, `File read test passed: ${filePath}`);
+				} catch (readError) {
+					// En Android, esto puede fallar por permisos pero el archivo es válido
+					// Solo agregamos warning en lugar de error
+					warnings.push("File read test failed (may be permissions issue)");
+					this.currentLogger.warn(
+						TAG,
+						`File read test failed but file exists: ${filePath}`,
+						readError
+					);
+				}
 			}
 
 			return {

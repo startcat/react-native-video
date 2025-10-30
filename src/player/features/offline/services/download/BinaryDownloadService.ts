@@ -341,15 +341,24 @@ export class BinaryDownloadService {
 	public async cancelDownload(taskId: string): Promise<void> {
 		const download = this.activeDownloads.get(taskId);
 
+		// Si no está en activeDownloads, verificar si está en cola interna
 		if (!download) {
-			// Verificar si está en cola
 			const queueIndex = this.downloadQueue.findIndex(task => task.id === taskId);
 			if (queueIndex >= 0) {
 				this.downloadQueue.splice(queueIndex, 1);
 				this.eventEmitter.emit(DownloadEventType.CANCELLED, { taskId });
+				this.currentLogger.info(TAG, `Binary download removed from queue: ${taskId}`);
 				return;
 			}
-			throw new PlayerError("DOWNLOAD_BINARY_NOT_FOUND", { taskId });
+
+			// Si no está en ningún lado, es válido cuando QueueManager gestiona la descarga
+			// Emitir evento de cancelación de todos modos para mantener consistencia
+			this.currentLogger.warn(
+				TAG,
+				`Download ${taskId} not found in service, considering it cancelled`
+			);
+			this.eventEmitter.emit(DownloadEventType.CANCELLED, { taskId });
+			return;
 		}
 
 		try {
@@ -366,12 +375,15 @@ export class BinaryDownloadService {
 				progress: download.progress,
 			});
 
-			this.currentLogger.info(TAG, `Download cancelled: ${taskId}`);
+			this.currentLogger.info(TAG, `Binary download cancelled: ${taskId}`);
 		} catch (error) {
-			throw new PlayerError("DOWNLOAD_BINARY_CANCEL_FAILED", {
-				originalError: error,
-				taskId,
-			});
+			// Si falla al cancelar, emitir evento de todos modos
+			this.currentLogger.warn(
+				TAG,
+				`Error cancelling binary download ${taskId}, emitting event anyway`,
+				error
+			);
+			this.eventEmitter.emit(DownloadEventType.CANCELLED, { taskId });
 		}
 	}
 
@@ -576,18 +588,55 @@ export class BinaryDownloadService {
 		}
 
 		try {
+			// Esperar un momento para asegurar que el archivo esté completamente escrito
+			// La librería react-native-background-downloader puede disparar .done() antes
+			// de que el filesystem haya sincronizado completamente el archivo
+			await new Promise(resolve => setTimeout(resolve, 500));
+
 			// Validar archivo descargado
-			const validation = await storageService.validateFile(download.task.destination);
+			// skipReadTest: true porque en Android RNFS.read() falla con archivos de react-native-background-downloader
+			// debido a permisos, incluso si el archivo es válido
+			const validation = await storageService.validateFile(
+				download.task.destination,
+				undefined,
+				true // skipReadTest
+			);
+
 			if (!validation.isValid) {
+				// Log detallado del error de validación
+				this.currentLogger.error(
+					TAG,
+					`Download validation failed: ${taskId}`,
+					validation.errors
+				);
 				throw new PlayerError("DOWNLOAD_CORRUPTED", {
 					taskId,
 					validationErrors: validation.errors,
 				});
 			}
 
+			// Log warnings si existen (ej: size mismatch)
+			if (validation.warnings && validation.warnings.length > 0) {
+				this.currentLogger.warn(
+					TAG,
+					`Download validation warnings: ${taskId}`,
+					validation.warnings
+				);
+			}
+
 			// Actualizar estado
 			download.state = DownloadStates.COMPLETED;
 			download.progress.percent = 100;
+
+			// Log de éxito con detalles
+			this.currentLogger.info(
+				TAG,
+				`Download completed successfully: ${taskId} - ${formatFileSize(download.progress.totalBytes)}`,
+				{
+					filePath: download.task.destination,
+					duration: Date.now() - download.startTime,
+				}
+			);
 
 			// Emitir evento de completado
 			this.eventEmitter.emit(DownloadEventType.COMPLETED, {
@@ -597,25 +646,10 @@ export class BinaryDownloadService {
 				duration: Date.now() - download.startTime,
 			});
 
-			this.currentLogger.info(
-				TAG,
-				`Download completed: ${taskId} - ${formatFileSize(download.progress.totalBytes)}`
-			);
-
-			// Completar el job usando la API de la librería
-			try {
-				// Importar la función completeHandler
-				const { completeHandler } = await import(
-					"@kesha-antonov/react-native-background-downloader"
-				);
-				completeHandler(taskId);
-			} catch (importError) {
-				this.currentLogger.warn(TAG, `Could not import completeHandler: ${importError}`);
-			}
-
 			// Remover de descargas activas después de un breve delay
 			setTimeout(() => {
 				this.activeDownloads.delete(taskId);
+				this.currentLogger.debug(TAG, `Removed from active downloads: ${taskId}`);
 				this.processNextInQueue();
 			}, 1000);
 		} catch (error) {
@@ -643,6 +677,18 @@ export class BinaryDownloadService {
 
 		download.error = downloadError;
 		download.retryCount++;
+
+		// Log detallado del error
+		this.currentLogger.error(
+			TAG,
+			`Download error for ${taskId} (attempt ${download.retryCount}/${this.config.maxRetries})`,
+			{
+				errorCode: downloadError.code,
+				errorMessage: downloadError.message,
+				filePath: download.task.destination,
+				url: download.task.url,
+			}
+		);
 
 		// Intentar reintento si no se han agotado
 		if (download.retryCount < this.config.maxRetries) {

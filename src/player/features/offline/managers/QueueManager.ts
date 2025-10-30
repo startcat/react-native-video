@@ -42,6 +42,7 @@ export class QueueManager {
 	private currentlyDownloading: Set<string> = new Set();
 	private retryTracker: Map<string, number> = new Map();
 	private currentLogger: Logger;
+	private isProcessingQueue: boolean = false; // Flag para prevenir ejecuciones concurrentes
 
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
@@ -866,6 +867,26 @@ export class QueueManager {
 	 */
 
 	private async processQueue(): Promise<void> {
+		// Prevenir ejecuciones concurrentes de processQueue
+		if (this.isProcessingQueue) {
+			return;
+		}
+
+		this.isProcessingQueue = true;
+
+		try {
+			await this.doProcessQueue();
+		} finally {
+			this.isProcessingQueue = false;
+		}
+	}
+
+	/*
+	 * Implementación real del procesamiento de cola
+	 *
+	 */
+
+	private async doProcessQueue(): Promise<void> {
 		// Verificar límite de descargas concurrentes
 		// IMPORTANTE: Solo contar descargas activas (DOWNLOADING o PAUSED), no COMPLETED ni FAILED
 		const activeDownloads = Array.from(this.downloadQueue.values()).filter(
@@ -937,6 +958,26 @@ export class QueueManager {
 					`Waiting 500ms before starting next download (${activeDownloads} active downloads)`
 				);
 				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+
+			// Verificar de nuevo después del delay que la descarga sigue en QUEUED
+			// Puede haber cambiado de estado durante el delay
+			const currentItem = this.downloadQueue.get(nextDownloadId);
+			if (!currentItem || currentItem.state !== DownloadStates.QUEUED) {
+				this.currentLogger.debug(
+					TAG,
+					`Download ${nextDownloadId} no longer in QUEUED state, skipping`
+				);
+				return;
+			}
+
+			// Verificar que no está ya siendo procesada
+			if (this.currentlyDownloading.has(nextDownloadId)) {
+				this.currentLogger.debug(
+					TAG,
+					`Download ${nextDownloadId} already in currentlyDownloading, skipping`
+				);
+				return;
 			}
 
 			this.currentLogger.info(
@@ -1379,6 +1420,9 @@ export class QueueManager {
 
 			if (!nativeDownloads || nativeDownloads.length === 0) {
 				this.currentLogger.debug(TAG, "No native downloads found during sync");
+				// CRÍTICO: Limpiar descargas huérfanas que están en DOWNLOADING pero no existen en nativo
+				// Esto ocurre cuando la app se reinicia y las descargas nativas se pierden
+				await this.cleanupOrphanedDownloads();
 				return;
 			}
 
@@ -1422,6 +1466,87 @@ export class QueueManager {
 			this.currentLogger.error(TAG, "Failed to sync with native state", error);
 			// No lanzar error - esto es una operación de sincronización que no debe fallar
 		}
+	}
+
+	/*
+	 * Limpia descargas huérfanas que quedaron en estado DOWNLOADING pero no existen en el módulo nativo
+	 * Esto ocurre cuando la app se reinicia con Metro y las descargas nativas se pierden
+	 *
+	 */
+
+	private async cleanupOrphanedDownloads(): Promise<void> {
+		try {
+			let cleanedCount = 0;
+			const orphanedIds: string[] = [];
+
+			// Buscar descargas que están marcadas como DOWNLOADING pero no existen en nativo
+			for (const [downloadId, item] of this.downloadQueue.entries()) {
+				if (
+					item.state === DownloadStates.DOWNLOADING ||
+					item.state === DownloadStates.PREPARING
+				) {
+					orphanedIds.push(downloadId);
+				}
+			}
+
+			if (orphanedIds.length === 0) {
+				return;
+			}
+
+			this.currentLogger.warn(
+				TAG,
+				`Found ${orphanedIds.length} orphaned downloads, resetting to QUEUED state`
+			);
+
+			// Resetear estado de descargas huérfanas a QUEUED para que puedan reiniciarse
+			for (const downloadId of orphanedIds) {
+				const item = this.downloadQueue.get(downloadId);
+				if (item) {
+					item.state = DownloadStates.QUEUED;
+					// Resetear progreso si existe la propiedad
+					if ("progress" in item) {
+						(item as any).progress = 0;
+					}
+					this.downloadQueue.set(downloadId, item);
+					this.currentlyDownloading.delete(downloadId);
+					cleanedCount++;
+
+					this.currentLogger.debug(
+						TAG,
+						`Reset orphaned download to QUEUED: ${downloadId}`
+					);
+				}
+			}
+
+			// Persistir cambios
+			if (cleanedCount > 0) {
+				await persistenceService.saveDownloadState(this.downloadQueue);
+				this.currentLogger.info(
+					TAG,
+					`Cleaned up ${cleanedCount} orphaned downloads, reset to QUEUED`
+				);
+
+				// Emitir evento genérico para actualizar UI
+				this.eventEmitter.emit("orphaned_downloads_cleaned", {
+					cleanedCount,
+					orphanedIds,
+				});
+			}
+		} catch (error) {
+			this.currentLogger.error(TAG, "Failed to cleanup orphaned downloads", error);
+		}
+	}
+
+	/*
+	 * Método público para forzar limpieza de descargas huérfanas
+	 * Útil para debugging o cuando el usuario quiere resetear el estado
+	 *
+	 */
+
+	public async forceCleanupOrphanedDownloads(): Promise<number> {
+		await this.cleanupOrphanedDownloads();
+		// Retornar número de descargas en estado DOWNLOADING después de la limpieza
+		return this.currentlyDownloading.size;
 	}
 
 	/*
