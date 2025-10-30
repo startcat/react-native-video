@@ -38,6 +38,10 @@ export class BinaryDownloadService {
 	private activeDownloads: Map<string, ActiveBinaryDownload> = new Map();
 	private downloadQueue: BinaryDownloadTask[] = [];
 	private isProcessingQueue: boolean = false;
+	// Tracking para cálculo de velocidad y tiempo estimado
+	private lastProgressUpdate: Map<string, { bytes: number; timestamp: number }> = new Map();
+	// Mapeo de IDs temporales a IDs originales (para descargas reanudadas)
+	private taskIdMap: Map<string, string> = new Map();
 
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
@@ -221,8 +225,21 @@ export class BinaryDownloadService {
 
 		try {
 			// Verificar si ya está descargando
-			if (this.activeDownloads.has(task.id)) {
-				this.currentLogger.warn(TAG, `Download already active: ${task.id}`);
+			const existingDownload = this.activeDownloads.get(task.id);
+			if (existingDownload) {
+				// Si está pausada, reanudarla
+				if (existingDownload.state === DownloadStates.PAUSED) {
+					this.currentLogger.info(
+						TAG,
+						`Download exists in PAUSED state, resuming: ${task.id}`
+					);
+					return this.resumeDownload(task.id);
+				}
+				// Si ya está descargando o en otro estado, ignorar
+				this.currentLogger.warn(
+					TAG,
+					`Download already active in state ${existingDownload.state}: ${task.id}`
+				);
 				return;
 			}
 
@@ -281,11 +298,17 @@ export class BinaryDownloadService {
 		}
 
 		try {
-			// Pausar usando background downloader (solo iOS)
-			download.downloadTask.pause(); // pause() es síncrono, no devuelve Promise
+			// NOTA: react-native-background-downloader NO soporta pause() en Android
+			// pause() solo funciona en iOS. En Android, debemos usar stop() para detener completamente
+			// y reiniciar la descarga desde cero al reanudar (no hay resume parcial)
+			download.downloadTask.stop(); // stop() detiene completamente la descarga
 
-			// El callback se encargará de actualizar el estado
-			this.currentLogger.info(TAG, `Download paused: ${taskId}`);
+			// Actualizar estado manualmente ya que stop() no dispara callbacks
+			download.state = DownloadStates.PAUSED;
+			this.activeDownloads.set(taskId, download);
+
+			this.eventEmitter.emit(DownloadEventType.PAUSED, { taskId });
+			this.currentLogger.info(TAG, `Download stopped (paused): ${taskId}`);
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_BINARY_PAUSE_FAILED", {
 				originalError: error,
@@ -301,7 +324,7 @@ export class BinaryDownloadService {
 
 	public async resumeDownload(taskId: string): Promise<void> {
 		const download = this.activeDownloads.get(taskId);
-		if (!download || !download.downloadTask) {
+		if (!download) {
 			throw new PlayerError("DOWNLOAD_BINARY_NOT_FOUND", { taskId });
 		}
 
@@ -321,10 +344,48 @@ export class BinaryDownloadService {
 				throw new PlayerError("NETWORK_DOWNLOADS_WIFI_RESTRICTED", { taskId });
 			}
 
-			// Reanudar usando background downloader (solo iOS)
-			download.downloadTask.resume(); // resume() es síncrono, no devuelve Promise
+			// IMPORTANTE: Como usamos stop() en pauseDownload(), debemos reiniciar la descarga desde cero
+			// La librería react-native-background-downloader NO soporta resume parcial en Android
+			this.currentLogger.info(
+				TAG,
+				`Restarting download from beginning (no partial resume support): ${taskId}`
+			);
 
-			this.currentLogger.info(TAG, `Download resumed: ${taskId}`);
+			// Emitir evento RESUMED inmediatamente para que Queue Manager sepa que está activa
+			this.eventEmitter.emit(DownloadEventType.RESUMED, { taskId });
+
+			// CRÍTICO: Crear nueva tarea con ID único para evitar conflictos con librería nativa
+			// La librería puede no disparar callbacks si detecta un ID duplicado
+			const newTaskId = `${taskId}_${Date.now()}`;
+			this.currentLogger.debug(
+				TAG,
+				`Generating new task ID for resume: ${taskId} → ${newTaskId}`
+			);
+
+			// Guardar mapeo de ID temporal → ID original para los callbacks
+			this.taskIdMap.set(newTaskId, taskId);
+
+			// Crear nueva tarea con ID único pero mantener el taskId original en el Map
+			const resumeTask = {
+				...download.task,
+				id: newTaskId, // ID único para la librería nativa
+			};
+
+			// Reiniciar descarga desde cero con nuevo ID
+			await this.executeDownload(resumeTask);
+
+			// Actualizar el Map para que el taskId original apunte a la nueva descarga
+			const newDownload = this.activeDownloads.get(newTaskId);
+			if (newDownload) {
+				// Copiar la descarga con el taskId original
+				this.activeDownloads.set(taskId, {
+					...newDownload,
+					task: { ...newDownload.task, id: taskId }, // Restaurar ID original
+				});
+				// Eliminar la entrada temporal
+				this.activeDownloads.delete(newTaskId);
+				this.currentLogger.debug(TAG, `Remapped download from ${newTaskId} to ${taskId}`);
+			}
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_BINARY_RESUME_FAILED", {
 				originalError: error,
@@ -367,6 +428,12 @@ export class BinaryDownloadService {
 				download.downloadTask.stop(); // stop() es síncrono, no devuelve Promise
 			}
 
+			// Eliminar archivo físico del disco
+			const deleted = await storageService.deleteFile(download.task.destination);
+			if (deleted) {
+				this.currentLogger.info(TAG, `Deleted binary file: ${download.task.destination}`);
+			}
+
 			// Remover de descargas activas
 			this.activeDownloads.delete(taskId);
 
@@ -374,6 +441,9 @@ export class BinaryDownloadService {
 				taskId,
 				progress: download.progress,
 			});
+
+			// Desregistrar de StorageService
+			storageService.unregisterActiveDownload(taskId);
 
 			this.currentLogger.info(TAG, `Binary download cancelled: ${taskId}`);
 		} catch (error) {
@@ -454,11 +524,12 @@ export class BinaryDownloadService {
 		this.activeDownloads.set(task.id, activeDownload);
 
 		try {
-			// Si es un retry, limpiar archivo corrupto primero
-			if (retryCount > 0) {
+			// Limpiar archivo parcial/corrupto antes de iniciar/reiniciar descarga
+			// Esto incluye: retries por error, o reanudaciones después de pause/stop
+			if (retryCount > 0 || existingDownload?.state === DownloadStates.PAUSED) {
 				this.currentLogger.debug(
 					TAG,
-					`Cleaning up corrupted file before retry: ${task.destination}`
+					`Cleaning up partial/corrupted file before download: ${task.destination}`
 				);
 				try {
 					// Intentar eliminar archivo (deleteFile ya verifica existencia internamente)
@@ -498,12 +569,21 @@ export class BinaryDownloadService {
 				url: task.url,
 				destination: task.destination,
 				headers: task.headers || {},
-				metadata: {}, // Required by API
+				metadata: {
+					// Título para la notificación (Android)
+					title: task.title || task.id,
+				},
 				// Android specific options
 				isAllowedOverRoaming: this.config.allowCellular,
 				isAllowedOverMetered: this.config.allowCellular,
 				isNotificationVisible: this.config.showNotifications,
 			};
+
+			this.currentLogger.info(
+				TAG,
+				`Creating download task with RNBackgroundDownloader: ${task.id}`,
+				{ url: task.url, destination: task.destination }
+			);
 
 			// Crear tarea de descarga usando la API correcta
 			const downloadTask = RNBackgroundDownloader.download(downloadOptions)
@@ -512,8 +592,11 @@ export class BinaryDownloadService {
 					activeDownload.progress.totalBytes = expectedBytes || 0;
 					this.activeDownloads.set(task.id, activeDownload);
 
+					// Usar ID original si existe mapeo, sino usar task.id
+					const actualTaskId = this.taskIdMap.get(task.id) || task.id;
+
 					this.eventEmitter.emit(DownloadEventType.STARTED, {
-						taskId: task.id,
+						taskId: actualTaskId,
 						url: task.url,
 						destination: task.destination,
 						expectedBytes,
@@ -533,18 +616,55 @@ export class BinaryDownloadService {
 						bytesTotal: number;
 					}) => {
 						// Callback de progreso
+						// Calcular velocidad y tiempo estimado
+						const now = Date.now();
+						const lastUpdate = this.lastProgressUpdate.get(task.id);
+						let downloadSpeed = 0;
+						let estimatedTimeRemaining = 0;
+
+						if (lastUpdate) {
+							const timeDiff = (now - lastUpdate.timestamp) / 1000; // segundos
+							const bytesDiff = bytesDownloaded - lastUpdate.bytes;
+							if (timeDiff > 0) {
+								downloadSpeed = bytesDiff / timeDiff; // bytes/segundo
+								const remainingBytes = bytesTotal - bytesDownloaded;
+								estimatedTimeRemaining =
+									downloadSpeed > 0
+										? Math.round(remainingBytes / downloadSpeed)
+										: 0;
+							}
+						}
+
+						// Actualizar tracking
+						this.lastProgressUpdate.set(task.id, {
+							bytes: bytesDownloaded,
+							timestamp: now,
+						});
+
+						// Usar ID original si existe mapeo, sino usar task.id
+						const actualTaskId = this.taskIdMap.get(task.id) || task.id;
+
 						const progress: BinaryDownloadProgress = {
-							taskId: task.id,
+							taskId: actualTaskId,
 							bytesWritten: bytesDownloaded,
 							totalBytes: bytesTotal,
 							percent:
 								bytesTotal > 0
 									? Math.round((bytesDownloaded / bytesTotal) * 100)
 									: 0,
+							downloadSpeed, // bytes/segundo
+							estimatedTimeRemaining, // segundos
 						};
 
 						activeDownload.progress = progress;
 						this.activeDownloads.set(task.id, activeDownload);
+
+						// Registrar en StorageService para incluir en cálculo de espacio
+						storageService.registerActiveDownload(
+							actualTaskId,
+							bytesDownloaded,
+							bytesTotal
+						);
 
 						this.eventEmitter.emit(DownloadEventType.PROGRESS, progress);
 						this.currentLogger.debug(
@@ -555,11 +675,21 @@ export class BinaryDownloadService {
 				)
 				.done(() => {
 					// Callback de completado
-					this.handleDownloadSuccess(task.id);
+					const actualTaskId = this.taskIdMap.get(task.id) || task.id;
+					this.handleDownloadSuccess(actualTaskId);
+					// Limpiar mapeo si existe
+					if (this.taskIdMap.has(task.id)) {
+						this.taskIdMap.delete(task.id);
+					}
 				})
 				.error(({ error, errorCode }: { error: string; errorCode: number }) => {
 					// Callback de error
-					this.handleDownloadError(task.id, { message: error, code: errorCode });
+					const actualTaskId = this.taskIdMap.get(task.id) || task.id;
+					this.handleDownloadError(actualTaskId, { message: error, code: errorCode });
+					// Limpiar mapeo si existe
+					if (this.taskIdMap.has(task.id)) {
+						this.taskIdMap.delete(task.id);
+					}
 				});
 
 			// Guardar referencia a la tarea
@@ -588,29 +718,73 @@ export class BinaryDownloadService {
 					bytesDownloaded: number;
 					bytesTotal: number;
 				}) => {
+					// Calcular velocidad y tiempo estimado
+					const now = Date.now();
+					const lastUpdate = this.lastProgressUpdate.get(taskId);
+					let downloadSpeed = 0;
+					let estimatedTimeRemaining = 0;
+
+					if (lastUpdate) {
+						const timeDiff = (now - lastUpdate.timestamp) / 1000; // segundos
+						const bytesDiff = bytesDownloaded - lastUpdate.bytes;
+						if (timeDiff > 0) {
+							downloadSpeed = bytesDiff / timeDiff; // bytes/segundo
+							const remainingBytes = bytesTotal - bytesDownloaded;
+							estimatedTimeRemaining =
+								downloadSpeed > 0 ? Math.round(remainingBytes / downloadSpeed) : 0;
+						}
+					}
+
+					// Actualizar tracking
+					this.lastProgressUpdate.set(taskId, {
+						bytes: bytesDownloaded,
+						timestamp: now,
+					});
+
+					const actualTaskId = this.taskIdMap.get(taskId) || taskId;
+
 					const progress: BinaryDownloadProgress = {
-						taskId,
+						taskId: actualTaskId,
 						bytesWritten: bytesDownloaded,
 						totalBytes: bytesTotal,
 						percent:
 							bytesTotal > 0 ? Math.round((bytesDownloaded / bytesTotal) * 100) : 0,
+						downloadSpeed, // bytes/segundo
+						estimatedTimeRemaining, // segundos
 					};
 
 					activeDownload.progress = progress;
 					this.activeDownloads.set(taskId, activeDownload);
 
+					// Registrar en StorageService para incluir en cálculo de espacio
+					storageService.registerActiveDownload(
+						actualTaskId,
+						bytesDownloaded,
+						bytesTotal
+					);
+
 					this.eventEmitter.emit(DownloadEventType.PROGRESS, progress);
 					this.currentLogger.debug(
 						TAG,
-						`Recovery progress: ${taskId} - ${progress.percent}%`
+						`Recovery progress: ${actualTaskId} - ${progress.percent}%`
 					);
 				}
 			)
 			.done(() => {
-				this.handleDownloadSuccess(taskId);
+				const actualTaskId = this.taskIdMap.get(taskId) || taskId;
+				this.handleDownloadSuccess(actualTaskId);
+				// Limpiar mapeo si existe
+				if (this.taskIdMap.has(taskId)) {
+					this.taskIdMap.delete(taskId);
+				}
 			})
 			.error(({ error, errorCode }: { error: string; errorCode: number }) => {
-				this.handleDownloadError(taskId, { message: error, code: errorCode });
+				const actualTaskId = this.taskIdMap.get(taskId) || taskId;
+				this.handleDownloadError(actualTaskId, { message: error, code: errorCode });
+				// Limpiar mapeo si existe
+				if (this.taskIdMap.has(taskId)) {
+					this.taskIdMap.delete(taskId);
+				}
 			});
 	}
 
@@ -698,6 +872,9 @@ export class BinaryDownloadService {
 				duration: Date.now() - download.startTime,
 			});
 
+			// Desregistrar de StorageService
+			storageService.unregisterActiveDownload(taskId);
+
 			// Remover de descargas activas después de un breve delay
 			setTimeout(() => {
 				this.activeDownloads.delete(taskId);
@@ -776,6 +953,9 @@ export class BinaryDownloadService {
 		});
 
 		this.currentLogger.error(TAG, `Download failed: ${taskId}`, downloadError);
+
+		// Desregistrar de StorageService
+		storageService.unregisterActiveDownload(taskId);
 
 		// Procesar siguiente en cola
 		this.processNextInQueue();
@@ -1012,7 +1192,9 @@ export class BinaryDownloadService {
 
 		this.eventEmitter.removeAllListeners();
 		this.activeDownloads.clear();
-		this.downloadQueue.length = 0;
+		this.downloadQueue = [];
+		this.lastProgressUpdate.clear();
+		this.taskIdMap.clear();
 		this.isInitialized = false;
 
 		this.currentLogger.info(TAG, "BinaryDownloadService destroyed");

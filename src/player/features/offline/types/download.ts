@@ -142,6 +142,7 @@ export interface BinaryDownloadTask {
 	id: string;
 	url: string;
 	destination: string;
+	title?: string; // Título para mostrar en notificaciones
 	headers?: Record<string, string>;
 	progressInterval?: number;
 	resumable?: boolean;
@@ -152,6 +153,8 @@ export interface BinaryDownloadProgress {
 	bytesWritten: number;
 	totalBytes: number;
 	percent: number;
+	downloadSpeed?: number; // bytes/segundo
+	estimatedTimeRemaining?: number; // segundos
 }
 
 export interface ValidationResult {
