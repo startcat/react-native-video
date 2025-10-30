@@ -446,7 +446,12 @@ export class DownloadsManager {
 			switch (eventType) {
 				case DownloadEventType.PROGRESS: {
 					if (eventData.percent !== undefined) {
-						await queueManager.notifyDownloadProgress(downloadId, eventData.percent);
+						await queueManager.notifyDownloadProgress(
+							downloadId,
+							eventData.percent,
+							eventData.bytesWritten,
+							eventData.totalBytes
+						);
 						this.currentLogger.debug(
 							TAG,
 							`Notified QueueManager of progress: ${downloadId} - ${eventData.percent}%`
@@ -785,7 +790,26 @@ export class DownloadsManager {
 			// Coordinar con QueueManager para pausar todas las descargas
 			await queueManager.pauseAll();
 
-			// Pausar explícitamente el procesamiento nativo
+			// Pausar descargas binarias activas a través del DownloadService
+			const activeDownloads = this.getDownloads().filter(
+				item =>
+					item.state === DownloadStates.DOWNLOADING && item.type === DownloadType.BINARY
+			);
+
+			for (const download of activeDownloads) {
+				try {
+					await downloadService.pauseDownload(download.id, download.type);
+					this.currentLogger.debug(TAG, `Paused binary download: ${download.id}`);
+				} catch (error) {
+					this.currentLogger.warn(
+						TAG,
+						`Failed to pause binary download ${download.id}`,
+						error
+					);
+				}
+			}
+
+			// Pausar explícitamente el procesamiento nativo (para streams)
 			await nativeManager.stopDownloadProcessing();
 
 			this.eventEmitter.emit("downloads:paused_all", {
@@ -830,7 +854,25 @@ export class DownloadsManager {
 			// Reanudar todas las descargas pausadas a través del QueueManager
 			await queueManager.resumeAll();
 
-			// Iniciar explícitamente el procesamiento nativo
+			// Reanudar descargas binarias pausadas a través del DownloadService
+			const pausedDownloads = this.getDownloads().filter(
+				item => item.state === DownloadStates.PAUSED && item.type === DownloadType.BINARY
+			);
+
+			for (const download of pausedDownloads) {
+				try {
+					await downloadService.resumeDownload(download.id, download.type);
+					this.currentLogger.debug(TAG, `Resumed binary download: ${download.id}`);
+				} catch (error) {
+					this.currentLogger.warn(
+						TAG,
+						`Failed to resume binary download ${download.id}`,
+						error
+					);
+				}
+			}
+
+			// Iniciar explícitamente el procesamiento nativo (para streams)
 			await nativeManager.startDownloadProcessing();
 
 			this.eventEmitter.emit("downloads:resumed_all", {
