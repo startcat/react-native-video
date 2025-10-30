@@ -48,7 +48,7 @@ export class DownloadsManager {
 	// Cache de estadísticas para optimizar consultas frecuentes
 	private lastStatsUpdate: number = 0;
 	private cachedStats: QueueStats | null = null;
-	private readonly STATS_CACHE_TTL = 2000; // 2 segundos
+	private readonly STATS_CACHE_TTL = 500; // 500ms - Actualización frecuente para tiempo estimado
 
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
