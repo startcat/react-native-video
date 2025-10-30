@@ -487,9 +487,8 @@ export class DownloadsManager {
 				}
 
 				case DownloadEventType.RESUMED: {
-					// QueueManager no tiene notifyDownloadResumed, actualizar estado directamente
-					// El resume se maneja internamente cuando se procesa la cola
-					this.currentLogger.debug(TAG, `Download resumed: ${downloadId}`);
+					await queueManager.notifyDownloadResumed(downloadId);
+					this.currentLogger.debug(TAG, `Notified QueueManager of resume: ${downloadId}`);
 					break;
 				}
 
@@ -753,12 +752,48 @@ export class DownloadsManager {
 				throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
 			}
 
-			// Reanudar descarga usando el tipo correcto
-			await downloadService.resumeDownload(downloadId, downloadType);
+			// STREAMS: Reanudar normalmente
+			if (downloadType === DownloadType.STREAM) {
+				await downloadService.resumeDownload(downloadId, downloadType);
+				this.currentLogger.info(
+					TAG,
+					`Stream download resumed: ${downloadId}`
+				);
+				return;
+			}
+
+			// BINARIOS: Recrear como descarga nueva (limitación de react-native-background-downloader)
+			this.currentLogger.info(
+				TAG,
+				`Binary download will be recreated (no partial resume support): ${downloadId}`
+			);
+
+			// 1. Obtener datos de la descarga pausada
+			const downloadItem = queueManager.getDownload(downloadId);
+			if (!downloadItem) {
+				throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
+			}
+
+			// 2. Crear BinaryDownloadTask para recrear la descarga
+			const binariesDir = storageService.getBinariesDirectory();
+			const binaryTask: BinaryDownloadTask = {
+				id: downloadItem.id, // Mantener el ID original
+				url: downloadItem.uri,
+				destination: `${binariesDir}/${downloadItem.id}`,
+				title: downloadItem.title,
+				headers: {},
+				resumable: true,
+			};
+
+			// 3. Eliminar la descarga antigua (elimina de activeDownloads y QueueManager)
+			await this.removeDownload(downloadId);
+
+			// 4. Recrear como descarga nueva
+			const newDownloadId = await this.addDownload(binaryTask, DownloadType.BINARY);
 
 			this.currentLogger.info(
 				TAG,
-				`Download resumed via manager: ${downloadId} (${downloadType})`
+				`Binary download recreated: ${downloadId} → ${newDownloadId}`
 			);
 		} catch (error) {
 			// Propagar PlayerError de servicios/managers directamente
@@ -854,19 +889,23 @@ export class DownloadsManager {
 			// Reanudar todas las descargas pausadas a través del QueueManager
 			await queueManager.resumeAll();
 
-			// Reanudar descargas binarias pausadas a través del DownloadService
+			// Reanudar/recrear todas las descargas pausadas (streams y binarios)
+			// Para binarios, this.resumeDownload aplicará el flujo de recreación
 			const pausedDownloads = this.getDownloads().filter(
-				item => item.state === DownloadStates.PAUSED && item.type === DownloadType.BINARY
+				item => item.state === DownloadStates.PAUSED
 			);
 
 			for (const download of pausedDownloads) {
 				try {
-					await downloadService.resumeDownload(download.id, download.type);
-					this.currentLogger.debug(TAG, `Resumed binary download: ${download.id}`);
+					await this.resumeDownload(download.id);
+					this.currentLogger.debug(
+						TAG,
+						`Resumed/recreated download: ${download.id} (${download.type})`
+					);
 				} catch (error) {
 					this.currentLogger.warn(
 						TAG,
-						`Failed to resume binary download ${download.id}`,
+						`Failed to resume/recreate download ${download.id}`,
 						error
 					);
 				}

@@ -1211,6 +1211,35 @@ export class QueueManager {
 	}
 
 	/*
+	 * Notifica que una descarga ha sido reanudada y está descargando activamente
+	 * Este método se llama cuando BinaryDownloadService confirma que la descarga ha comenzado
+	 * Actualiza el estado a DOWNLOADING sin importar el estado previo (QUEUED, PAUSED, etc.)
+	 *
+	 */
+
+	public async notifyDownloadResumed(downloadId: string): Promise<void> {
+		const item = this.downloadQueue.get(downloadId);
+		if (!item) {
+			this.currentLogger.warn(TAG, `Cannot notify resumed: download not found: ${downloadId}`);
+			return;
+		}
+
+		// Actualizar estado a DOWNLOADING (sin importar el estado previo)
+		await this.updateDownloadState(downloadId, DownloadStates.DOWNLOADING);
+
+		// Agregar a descargas activas
+		this.currentlyDownloading.add(downloadId);
+
+		// Emitir evento de actualización
+		this.eventEmitter.emit(DownloadEventType.RESUMED, { downloadId, item });
+
+		this.currentLogger.debug(
+			TAG,
+			`Download confirmed as DOWNLOADING by service: ${downloadId}`
+		);
+	}
+
+	/*
 	 * MÉTODOS PRIVADOS PARA MANEJO INTERNO
 	 *
 	 */
