@@ -364,26 +364,12 @@ export class BinaryDownloadService {
 				}
 			}
 
-			// SIMPLIFICACIÓN MÁXIMA: Eliminar entrada antigua y recrear como descarga nueva
-			// Esto evita toda la complejidad de mapeo de IDs y funciona igual que una descarga nueva
-			this.currentLogger.debug(TAG, `Removing old download entry: ${taskId}`);
-			this.activeDownloads.delete(taskId);
+			// Reiniciar descarga con el MISMO ID (sin cambiar el ID)
+			// La recreación completa (eliminar + crear nueva) se maneja en DownloadsManager
+			this.currentLogger.debug(TAG, `Restarting download with same ID: ${taskId}`);
 
-			// Crear nueva tarea con ID único para evitar conflictos con librería nativa
-			const newTaskId = `${taskId}_${Date.now()}`;
-			this.currentLogger.debug(
-				TAG,
-				`Creating new download with fresh ID: ${taskId} → ${newTaskId}`
-			);
-
-			// Crear tarea completamente nueva (como si fuera la primera vez)
-			const newTask: BinaryDownloadTask = {
-				...download.task,
-				id: newTaskId,
-			};
-
-			// Iniciar descarga desde cero (sin pasar originalTaskId)
-			await this.executeDownload(newTask);
+			// Reiniciar la descarga desde cero manteniendo el mismo ID
+			await this.executeDownload(download.task);
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_BINARY_RESUME_FAILED", {
 				originalError: error,

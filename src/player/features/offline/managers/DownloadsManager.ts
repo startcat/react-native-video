@@ -762,39 +762,17 @@ export class DownloadsManager {
 				return;
 			}
 
-			// BINARIOS: Recrear como descarga nueva (limitación de react-native-background-downloader)
+			// BINARIOS: Reiniciar descarga sin eliminar del QueueManager
 			this.currentLogger.info(
 				TAG,
-				`Binary download will be recreated (no partial resume support): ${downloadId}`
+				`Binary download will be restarted (no partial resume support): ${downloadId}`
 			);
 
-			// 1. Obtener datos de la descarga pausada
-			const downloadItem = queueManager.getDownload(downloadId);
-			if (!downloadItem) {
-				throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
-			}
+			// Simplemente reanudar a través del servicio
+			// El servicio se encargará de limpiar y reiniciar con el mismo ID
+			await downloadService.resumeDownload(downloadId, downloadType);
 
-			// 2. Crear BinaryDownloadTask para recrear la descarga
-			const binariesDir = storageService.getBinariesDirectory();
-			const binaryTask: BinaryDownloadTask = {
-				id: downloadItem.id, // Mantener el ID original
-				url: downloadItem.uri,
-				destination: `${binariesDir}/${downloadItem.id}`,
-				title: downloadItem.title,
-				headers: {},
-				resumable: true,
-			};
-
-			// 3. Eliminar la descarga antigua (elimina de activeDownloads y QueueManager)
-			await this.removeDownload(downloadId);
-
-			// 4. Recrear como descarga nueva
-			const newDownloadId = await this.addDownload(binaryTask, DownloadType.BINARY);
-
-			this.currentLogger.info(
-				TAG,
-				`Binary download recreated: ${downloadId} → ${newDownloadId}`
-			);
+			this.currentLogger.info(TAG, `Binary download restarted: ${downloadId}`);
 		} catch (error) {
 			// Propagar PlayerError de servicios/managers directamente
 			if (error instanceof PlayerError) {
