@@ -1,5 +1,3 @@
-// Timeline/wrapper.tsx - Corrección de SliderValues
-
 import React, { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { type IThumbnailMetadata, type TimelineProps } from "../../../../types";

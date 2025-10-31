@@ -463,7 +463,10 @@ export class DownloadsManager {
 				case DownloadEventType.COMPLETED: {
 					const filePath = eventData.filePath || eventData.fileUri;
 					await queueManager.notifyDownloadCompleted(downloadId, filePath);
-					this.currentLogger.info(TAG, `Notified QueueManager of completion: ${downloadId}`);
+					this.currentLogger.info(
+						TAG,
+						`Notified QueueManager of completion: ${downloadId}`
+					);
 					break;
 				}
 
@@ -691,20 +694,33 @@ export class DownloadsManager {
 					TAG,
 					`Skipping cancellation for ${downloadState} download: ${downloadId}`
 				);
-				
+
 				// Para descargas binarias completadas, eliminar el archivo físico manualmente
-				if (downloadType === DownloadType.BINARY && downloadState === DownloadStates.COMPLETED) {
+				if (
+					downloadType === DownloadType.BINARY &&
+					downloadState === DownloadStates.COMPLETED
+				) {
 					try {
 						const binariesDir = storageService.getBinariesDirectory();
 						const filePath = `${binariesDir}/${downloadId}`;
 						const deleted = await storageService.deleteFile(filePath);
 						if (deleted) {
-							this.currentLogger.info(TAG, `Deleted completed binary file: ${filePath}`);
+							this.currentLogger.info(
+								TAG,
+								`Deleted completed binary file: ${filePath}`
+							);
 						} else {
-							this.currentLogger.warn(TAG, `Binary file not found or already deleted: ${filePath}`);
+							this.currentLogger.warn(
+								TAG,
+								`Binary file not found or already deleted: ${filePath}`
+							);
 						}
 					} catch (error) {
-						this.currentLogger.warn(TAG, `Error deleting binary file for ${downloadId}:`, error);
+						this.currentLogger.warn(
+							TAG,
+							`Error deleting binary file for ${downloadId}:`,
+							error
+						);
 						// No lanzar error, continuar con la eliminación de la cola
 					}
 				}
