@@ -226,20 +226,32 @@ export class BinaryDownloadService {
 			// Verificar si ya está descargando
 			const existingDownload = this.activeDownloads.get(task.id);
 			if (existingDownload) {
-				// Si está pausada, reanudarla
+				// Si está pausada, eliminarla para permitir recreación
 				if (existingDownload.state === DownloadStates.PAUSED) {
 					this.currentLogger.info(
 						TAG,
-						`Download exists in PAUSED state, resuming: ${task.id}`
+						`Download exists in PAUSED state, removing to allow recreation: ${task.id}`
 					);
-					return this.resumeDownload(task.id);
+					// Limpiar la tarea pausada
+					if (existingDownload.downloadTask) {
+						try {
+							existingDownload.downloadTask.stop();
+						} catch (error) {
+							// Ignorar errores al detener
+						}
+					}
+					// Eliminar de activeDownloads para permitir recreación
+					this.activeDownloads.delete(task.id);
+					this.currentLogger.debug(TAG, `Removed paused download from activeDownloads: ${task.id}`);
+					// Continuar con la creación de la nueva descarga
+				} else {
+					// Si ya está descargando o en otro estado, ignorar
+					this.currentLogger.warn(
+						TAG,
+						`Download already active in state ${existingDownload.state}: ${task.id}`
+					);
+					return;
 				}
-				// Si ya está descargando o en otro estado, ignorar
-				this.currentLogger.warn(
-					TAG,
-					`Download already active in state ${existingDownload.state}: ${task.id}`
-				);
-				return;
 			}
 
 			// Verificar conectividad
