@@ -421,6 +421,8 @@ export const ReactNativeVideoAdapter = forwardRef<
 	) : null;
 });
 
+ReactNativeVideoAdapter.displayName = "ReactNativeVideoAdapter";
+
 const styles = StyleSheet.create({
 	video: {
 		flex: 1,

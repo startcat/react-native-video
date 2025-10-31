@@ -1711,8 +1711,30 @@ export class QueueManager {
 				}
 
 				// Actualizar total bytes si viene del evento nativo
+				// IMPORTANTE: Para streams adaptativos (DASH/HLS), el totalBytes puede variar
+				// según la calidad de los segmentos descargados. Para evitar que el progreso
+				// retroceda, solo actualizamos si:
+				// 1. No tenemos un valor previo (primera vez)
+				// 2. El nuevo valor es significativamente mayor (>5% diferencia)
 				if (data.totalBytes !== undefined && data.totalBytes > 0) {
-					item.stats.totalBytes = data.totalBytes;
+					const currentTotal = item.stats.totalBytes || 0;
+					
+					if (currentTotal === 0) {
+						// Primera vez, establecer el valor
+						item.stats.totalBytes = data.totalBytes;
+					} else {
+						// Solo actualizar si el nuevo valor es significativamente mayor
+						const percentDiff = ((data.totalBytes - currentTotal) / currentTotal) * 100;
+						if (percentDiff > 5) {
+							// El nuevo total es >5% mayor, actualizar
+							item.stats.totalBytes = data.totalBytes;
+							this.currentLogger.debug(
+								TAG,
+								`Updated totalBytes for ${downloadId}: ${currentTotal} → ${data.totalBytes} (+${percentDiff.toFixed(1)}%)`
+							);
+						}
+						// Si es menor o similar, mantener el valor actual para estabilidad
+					}
 				}
 
 				// CALCULAR bytes si no vienen del nativo (usando speed y tiempo transcurrido)

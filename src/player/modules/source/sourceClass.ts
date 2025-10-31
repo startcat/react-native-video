@@ -6,13 +6,7 @@ import {
 	STREAM_FORMAT_TYPE,
 } from "../../types";
 
-import {
-	getBestManifest,
-	getContentById,
-	getDRM,
-	getManifestSourceType,
-	getVideoSourceUri,
-} from "../../utils";
+import { getBestManifest, getDRM, getManifestSourceType, getVideoSourceUri } from "../../utils";
 
 import { PlayerError } from "../../core/errors";
 import { downloadsManager } from "../../features/offline/managers/DownloadsManager";
@@ -161,8 +155,9 @@ export class SourceClass {
 		this._isDASH = this._currentManifest?.type === STREAM_FORMAT_TYPE.DASH;
 
 		// Revisamos si se trata de un Binario descargado
+		let downloadItem = null;
 		if (props.id) {
-			const downloadItem = downloadsManager.getDownload(props.id?.toString() || "");
+			downloadItem = downloadsManager.getDownload(props.id?.toString() || "");
 
 			if (downloadItem) {
 				// Está descargado si el estado es COMPLETED
@@ -215,24 +210,17 @@ export class SourceClass {
 			},
 		};
 
-		if (this._isDownloaded && this._isBinary) {
-			const offlineBinary = getContentById(props.id!);
+		if (downloadItem && this._isDownloaded && this._isBinary) {
 			console.log(`${LOG_TAG} changeSource -> isDownloaded && isBinary`);
 
-			if (!offlineBinary) {
-				throw new PlayerError("PLAYER_SOURCE_OFFLINE_CONTENT_NOT_FOUND", {
-					contentId: props.id,
-				});
-			}
-
-			if (!offlineBinary.offlineData?.fileUri) {
+			if (!downloadItem.fileUri) {
 				throw new PlayerError("PLAYER_SOURCE_OFFLINE_FILE_URI_INVALID", {
 					contentId: props.id,
-					offlineData: offlineBinary.offlineData,
+					offlineData: downloadItem,
 				});
 			}
 
-			this._videoSource.uri = `file://${offlineBinary.offlineData.fileUri}`;
+			this._videoSource.uri = `file://${downloadItem.fileUri}`;
 			console.log(`${LOG_TAG} constructed URI:`, this._videoSource.uri);
 		}
 

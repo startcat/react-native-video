@@ -213,7 +213,7 @@ export class StorageService {
 		// Crear promesa que otras llamadas concurrentes pueden esperar
 		this.pendingSystemInfoPromise = (async () => {
 			try {
-				this.currentLogger.debug(TAG, "Getting system info from native");
+				//this.currentLogger.debug(TAG, "Getting system info from native");
 				const systemInfo = await DownloadsModule2.getSystemInfo();
 
 				// Actualizar cache
@@ -367,11 +367,11 @@ export class StorageService {
 					totalSize += activeDownloadsSize;
 				}
 
-				this.currentLogger.debug(TAG, "Download path size calculated", {
-					path: this.downloadPath,
-					size: downloadSize,
-					sizeFormatted: formatFileSize(downloadSize),
-				});
+				// this.currentLogger.debug(TAG, "Download path size calculated", {
+				// 	path: this.downloadPath,
+				// 	size: downloadSize,
+				// 	sizeFormatted: formatFileSize(downloadSize),
+				// });
 
 				// Calcular tamaño del directorio temporal
 				const tempSize = await this.calculateDirectorySize(this.tempPath);
@@ -431,11 +431,7 @@ export class StorageService {
 	 *
 	 */
 
-	public registerActiveDownload(
-		taskId: string,
-		bytesWritten: number,
-		totalBytes: number
-	): void {
+	public registerActiveDownload(taskId: string, bytesWritten: number, totalBytes: number): void {
 		this.activeDownloads.set(taskId, { bytesWritten, totalBytes });
 		// Invalidar cache para que el próximo cálculo incluya esta descarga
 		this.invalidateDownloadSpaceCache();
@@ -1108,38 +1104,38 @@ export class StorageService {
 
 			const items = await RNFS.readDir(dirPath);
 			let totalSize = 0;
-			let fileCount = 0;
-			let dirCount = 0;
+			// let fileCount = 0;
+			// let dirCount = 0;
 
 			for (const item of items) {
 				if (item.isDirectory()) {
-					dirCount++;
+					// dirCount++;
 					// Recursivamente calcular subdirectorios
 					totalSize += await this.calculateDirectorySize(item.path);
 				} else {
-					fileCount++;
+					// fileCount++;
 					// Sumar tamaño de archivos
 					totalSize += item.size;
 
 					// Log cada archivo encontrado con su tamaño
-					if (item.size > 0 && Platform.OS === "ios") {
-						this.currentLogger.debug(TAG, `📄 File: ${item.name}`, {
-							path: item.path,
-							size: item.size,
-							sizeFormatted: formatFileSize(item.size),
-						});
-					}
+					// if (item.size > 0 && Platform.OS === "ios") {
+					// 	this.currentLogger.debug(TAG, `📄 File: ${item.name}`, {
+					// 		path: item.path,
+					// 		size: item.size,
+					// 		sizeFormatted: formatFileSize(item.size),
+					// 	});
+					// }
 				}
 			}
 
-			if (fileCount > 0 || dirCount > 0) {
-				this.currentLogger.debug(TAG, `📁 Directory scanned: ${dirPath}`, {
-					files: fileCount,
-					directories: dirCount,
-					totalSize,
-					sizeFormatted: formatFileSize(totalSize),
-				});
-			}
+			// if (fileCount > 0 || dirCount > 0) {
+			// 	this.currentLogger.debug(TAG, `📁 Directory scanned: ${dirPath}`, {
+			// 		files: fileCount,
+			// 		directories: dirCount,
+			// 		totalSize,
+			// 		sizeFormatted: formatFileSize(totalSize),
+			// 	});
+			// }
 
 			return totalSize;
 		} catch (error) {
