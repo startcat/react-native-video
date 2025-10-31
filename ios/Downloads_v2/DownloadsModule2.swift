@@ -1135,6 +1135,29 @@ class DownloadsModule2: RCTEventEmitter {
             print("⚠️ [DownloadsModule2] Error cleaning download directory: \(error.localizedDescription)")
             // Don't throw - partial cleanup is acceptable
         }
+        
+        // Also check in subdirectories (Binaries, Streams, etc.) for downloads
+        let subdirectories = ["Binaries", "Streams"]
+        for subdirName in subdirectories {
+            let subdir = downloadDir.appendingPathComponent(subdirName)
+            if fileManager.fileExists(atPath: subdir.path) {
+                do {
+                    let contents = try fileManager.contentsOfDirectory(at: subdir, includingPropertiesForKeys: nil)
+                    
+                    for item in contents {
+                        let itemName = item.lastPathComponent
+                        // Check if the name matches or contains the downloadId
+                        if itemName == downloadId || itemName.contains(downloadId) {
+                            try fileManager.removeItem(at: item)
+                            print("✅ [DownloadsModule2] Deleted file in \(subdirName): \(itemName)")
+                        }
+                    }
+                } catch {
+                    print("⚠️ [DownloadsModule2] Error cleaning \(subdirName) directory: \(error.localizedDescription)")
+                    // Don't throw - partial cleanup is acceptable
+                }
+            }
+        }
     }
     
     private func releaseLicenseForDownload(_ downloadId: String) {

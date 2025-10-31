@@ -686,11 +686,28 @@ export class DownloadsManager {
 				await downloadService.cancelDownload(downloadId, downloadType);
 				this.currentLogger.debug(TAG, `Download cancelled via service: ${downloadId}`);
 			} else {
-				// Para descargas completadas o fallidas, solo eliminar de la cola
+				// Para descargas completadas o fallidas
 				this.currentLogger.debug(
 					TAG,
 					`Skipping cancellation for ${downloadState} download: ${downloadId}`
 				);
+				
+				// Para descargas binarias completadas, eliminar el archivo físico manualmente
+				if (downloadType === DownloadType.BINARY && downloadState === DownloadStates.COMPLETED) {
+					try {
+						const binariesDir = storageService.getBinariesDirectory();
+						const filePath = `${binariesDir}/${downloadId}`;
+						const deleted = await storageService.deleteFile(filePath);
+						if (deleted) {
+							this.currentLogger.info(TAG, `Deleted completed binary file: ${filePath}`);
+						} else {
+							this.currentLogger.warn(TAG, `Binary file not found or already deleted: ${filePath}`);
+						}
+					} catch (error) {
+						this.currentLogger.warn(TAG, `Error deleting binary file for ${downloadId}:`, error);
+						// No lanzar error, continuar con la eliminación de la cola
+					}
+				}
 			}
 
 			// Remover de la cola (siempre)
