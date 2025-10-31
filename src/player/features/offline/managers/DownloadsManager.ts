@@ -755,14 +755,12 @@ export class DownloadsManager {
 			// STREAMS: Reanudar normalmente
 			if (downloadType === DownloadType.STREAM) {
 				await downloadService.resumeDownload(downloadId, downloadType);
-				this.currentLogger.info(
-					TAG,
-					`Stream download resumed: ${downloadId}`
-				);
+				this.currentLogger.info(TAG, `Stream download resumed: ${downloadId}`);
 				return;
 			}
 
 			// BINARIOS: Recrear como descarga nueva (limitación de react-native-background-downloader)
+			// NO llamar a downloadService.resumeDownload() - ir directo al flujo de recreación
 			this.currentLogger.info(
 				TAG,
 				`Binary download will be recreated (no partial resume support): ${downloadId}`
@@ -792,7 +790,35 @@ export class DownloadsManager {
 			await this.removeDownload(downloadId);
 			this.currentLogger.debug(TAG, `Old download removed: ${downloadId}`);
 
-			// 4. Crear BinaryDownloadTask para recrear
+			// 4. Recrear DownloadItem para QueueManager (con perfil activo)
+			const activeProfileId = profileManager.getActiveProfileId();
+			const profileIds = activeProfileId ? [activeProfileId] : [];
+
+			const newDownloadItem: DownloadItem = {
+				id: savedData.id,
+				type: DownloadType.BINARY,
+				title: savedData.title,
+				uri: savedData.uri,
+				media: savedData.media,
+				licenseExpirationDate: savedData.licenseExpirationDate,
+				drm: savedData.drm,
+				drmScheme: savedData.drmScheme,
+				subtitles: savedData.subtitles,
+				profileIds,
+				state: DownloadStates.QUEUED,
+				stats: {
+					progressPercent: 0,
+					bytesDownloaded: 0,
+					totalBytes: 0,
+					retryCount: 0,
+				},
+			};
+
+			// 5. Agregar al QueueManager primero (esto lo agrega a la cola y persiste)
+			await queueManager.addDownloadItem(newDownloadItem);
+			this.currentLogger.debug(TAG, `Download re-added to queue: ${downloadId}`);
+
+			// 6. Crear BinaryDownloadTask para iniciar descarga
 			const binariesDir = storageService.getBinariesDirectory();
 			const binaryTask: BinaryDownloadTask = {
 				id: savedData.id, // Mantener el ID original
@@ -803,7 +829,7 @@ export class DownloadsManager {
 				resumable: true,
 			};
 
-			// 5. Recrear como descarga nueva (sigue el flujo completo de addDownload)
+			// 7. Iniciar la descarga (esto la ejecuta físicamente)
 			const newDownloadId = await this.addDownload(binaryTask, DownloadType.BINARY);
 
 			this.currentLogger.info(
