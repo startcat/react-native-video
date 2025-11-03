@@ -18,8 +18,10 @@ import {
 	BinaryDownloadTask,
 	DownloadError,
 	DownloadErrorCode,
+	DownloadEventCallback,
 	DownloadEventType,
 	DownloadStates,
+	NetworkStatus,
 	ValidationResult,
 } from "../../types";
 import { formatFileSize } from "../../utils/formatters";
@@ -242,7 +244,10 @@ export class BinaryDownloadService {
 					}
 					// Eliminar de activeDownloads para permitir recreación
 					this.activeDownloads.delete(task.id);
-					this.currentLogger.debug(TAG, `Removed paused download from activeDownloads: ${task.id}`);
+					this.currentLogger.debug(
+						TAG,
+						`Removed paused download from activeDownloads: ${task.id}`
+					);
 					// Continuar con la creación de la nueva descarga
 				} else {
 					// Si ya está descargando o en otro estado, ignorar
@@ -500,12 +505,13 @@ export class BinaryDownloadService {
 			const destinationDir = task.destination.substring(0, task.destination.lastIndexOf("/"));
 			try {
 				await storageService.createDirectory(destinationDir);
-			} catch (dirError: any) {
+			} catch (dirError: unknown) {
 				// Si el error es que el directorio ya existe, continuar
 				// De lo contrario, lanzar el error
+				const errorMessage = (dirError as { message?: string })?.message || "";
 				if (
-					!dirError.message?.includes("already exists") &&
-					!dirError.message?.includes("could not be created")
+					!errorMessage.includes("already exists") &&
+					!errorMessage.includes("could not be created")
 				) {
 					throw dirError;
 				}
@@ -635,7 +641,10 @@ export class BinaryDownloadService {
 	 *
 	 */
 
-	private setupTaskCallbacks(downloadTask: any, activeDownload: ActiveBinaryDownload): void {
+	private setupTaskCallbacks(
+		downloadTask: ReturnType<typeof RNBackgroundDownloader.download>,
+		activeDownload: ActiveBinaryDownload
+	): void {
 		const taskId = activeDownload.task.id;
 
 		// Para tareas recuperadas, configuramos los callbacks necesarios
@@ -806,15 +815,17 @@ export class BinaryDownloadService {
 	 *
 	 */
 
-	private async handleDownloadError(taskId: string, error: any): Promise<void> {
+	private async handleDownloadError(taskId: string, error: unknown): Promise<void> {
 		const download = this.activeDownloads.get(taskId);
 		if (!download) {
 			return;
 		}
 
+		const errorMessage = (error as { message?: string })?.message || "Unknown download error";
+
 		const downloadError: DownloadError = {
 			code: this.mapErrorToCode(error),
-			message: error.message || "Unknown download error",
+			message: errorMessage,
 			details: error,
 			timestamp: Date.now(),
 		};
@@ -918,7 +929,7 @@ export class BinaryDownloadService {
 	 *
 	 */
 
-	private handleNetworkChange(networkStatus: any): void {
+	private handleNetworkChange(networkStatus: NetworkStatus): void {
 		// Si WiFi es requerido y se perdió la conexión WiFi
 		if (this.config.requiresWifi && !networkStatus.isWifi && networkStatus.isCellular) {
 			this.currentLogger.info(TAG, "WiFi lost, pausing downloads that require WiFi");
@@ -986,12 +997,12 @@ export class BinaryDownloadService {
 	 *
 	 */
 
-	private mapErrorToCode(error: any): DownloadErrorCode {
+	private mapErrorToCode(error: unknown): DownloadErrorCode {
 		if (!error) {
 			return DownloadErrorCode.UNKNOWN;
 		}
 
-		const message = error.message?.toLowerCase() || "";
+		const message = ((error as { message?: string })?.message || "").toLowerCase();
 
 		if (message.includes("network") || message.includes("connection")) {
 			return DownloadErrorCode.NETWORK_ERROR;
@@ -1069,7 +1080,10 @@ export class BinaryDownloadService {
 	 *
 	 */
 
-	public subscribe(event: DownloadEventType | "all", callback: (data: any) => void): () => void {
+	public subscribe(
+		event: DownloadEventType | "all",
+		callback: DownloadEventCallback
+	): () => void {
 		if (event === "all") {
 			Object.values(DownloadEventType).forEach(eventType => {
 				this.eventEmitter.on(eventType, callback);
