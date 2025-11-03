@@ -73,7 +73,7 @@ export function useOfflineQueue() {
 
 	useEffect(() => {
 		// Suscribirse a eventos de QueueManager
-		const handleQueueEvent = (eventData: any) => {
+		const handleQueueEvent = (_eventData: unknown) => {
 			setQueue(queueManager.getAllDownloads());
 			setQueuePositions(queueManager.getQueuePositions());
 		};
@@ -82,7 +82,7 @@ export function useOfflineQueue() {
 		const unsubscribeQueue = queueManager.subscribe("all", handleQueueEvent);
 
 		// NetworkService solo para eventos de conectividad
-		const handleNetworkChange = (networkStatus: any) => {
+		const handleNetworkChange = (_networkStatus: unknown) => {
 			// Actualizar estado de procesamiento basado en conectividad
 			const canProcess = networkService.areDownloadsAllowed();
 			setIsProcessing(canProcess && !isPaused);
