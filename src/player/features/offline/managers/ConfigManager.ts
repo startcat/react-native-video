@@ -45,7 +45,6 @@ export class ConfigManager {
 	private isInitialized: boolean = false;
 	private initPromise: Promise<void> | null = null;
 	private currentDownloadsConfig: ConfigDownloads;
-	// REMOVIDO: autoSaveTimer ya que no usamos auto-save periódico
 	private pendingSave: boolean = false;
 	private saveTimeout: ReturnType<typeof setTimeout> | null = null;
 	private readonly DEBOUNCE_DELAY = 500;
@@ -213,7 +212,7 @@ export class ConfigManager {
 			for (const [property, value] of Object.entries(updates)) {
 				const key = property as keyof ConfigDownloads;
 				if (JSON.stringify(newConfig[key]) !== JSON.stringify(value)) {
-					(newConfig as any)[key] = value;
+					(newConfig as Record<string, unknown>)[key] = value;
 					hasChanges = true;
 				}
 			}
@@ -413,14 +412,15 @@ export class ConfigManager {
 					}
 					break;
 
-				case "max_concurrent_downloads":
+				case "max_concurrent_downloads": {
 					const concurrent = value as number;
 					if (!Number.isInteger(concurrent) || concurrent < 1 || concurrent > 10) {
 						throw new Error("max_concurrent_downloads must be integer between 1-10");
 					}
 					break;
+				}
 
-				case "streamQuality":
+				case "streamQuality": {
 					const validQualities = ["auto", "low", "medium", "high", "max"];
 					if (!validQualities.includes(value as string)) {
 						throw new Error(
@@ -428,34 +428,39 @@ export class ConfigManager {
 						);
 					}
 					break;
+				}
 
-				case "storage_warning_threshold":
+				case "storage_warning_threshold": {
 					const threshold = value as number;
 					if (typeof threshold !== "number" || threshold < 0 || threshold > 1) {
 						throw new Error("storage_warning_threshold must be number between 0-1");
 					}
 					break;
+				}
 
-				case "min_free_space_mb":
+				case "min_free_space_mb": {
 					const space = value as number;
 					if (!Number.isInteger(space) || space < 0 || space > 10000) {
 						throw new Error("min_free_space_mb must be integer between 0-10000 MB");
 					}
 					break;
+				}
 
-				case "retry_attempts":
+				case "retry_attempts": {
 					const attempts = value as number;
 					if (!Number.isInteger(attempts) || attempts < 0 || attempts > 10) {
 						throw new Error("retry_attempts must be integer between 0-10");
 					}
 					break;
+				}
 
-				case "retry_delay_ms":
+				case "retry_delay_ms": {
 					const delay = value as number;
 					if (!Number.isInteger(delay) || delay < 1000 || delay > 60000) {
 						throw new Error("retry_delay_ms must be integer between 1000-60000 ms");
 					}
 					break;
+				}
 
 				default:
 					// Para propiedades no validadas, pasar sin validación
