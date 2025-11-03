@@ -196,7 +196,7 @@ export class SubtitleDownloadService {
 			const localPath = `${subtitlesDir}/${filename}`;
 
 			// Descargar con reintentos
-			let lastError: any = null;
+			let lastError: unknown = null;
 			for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
 				try {
 					if (attempt > 0) {
@@ -244,7 +244,7 @@ export class SubtitleDownloadService {
 					});
 
 					return downloadedItem;
-				} catch (error: any) {
+				} catch (error: unknown) {
 					lastError = error;
 					if (attempt === this.config.maxRetries) {
 						throw error;
@@ -253,12 +253,14 @@ export class SubtitleDownloadService {
 			}
 
 			throw lastError;
-		} catch (error: any) {
+		} catch (error: unknown) {
+			const errorMessage = (error as { message?: string })?.message || "Unknown error";
+
 			// Emitir evento de error
 			this.eventEmitter.emit(SubtitleDownloadEventType.FAILED, {
 				subtitleId: task.id,
 				downloadId: task.downloadId,
-				error: error.message || "Unknown error",
+				error: errorMessage,
 			});
 
 			throw new PlayerError("SUBTITLE_DOWNLOAD_FAILED", {
@@ -337,8 +339,8 @@ export class SubtitleDownloadService {
 				format: task.format,
 				downloadedAt: Date.now(),
 			};
-		} catch (error: any) {
-			if (error.name === "AbortError") {
+		} catch (error: unknown) {
+			if ((error as { name?: string })?.name === "AbortError") {
 				throw new Error("Download cancelled");
 			}
 			throw error;
@@ -545,7 +547,10 @@ export class SubtitleDownloadService {
 	 *
 	 */
 
-	public subscribe(event: SubtitleDownloadEventType, callback: (data: any) => void): () => void {
+	public subscribe(
+		event: SubtitleDownloadEventType,
+		callback: (data?: unknown) => void
+	): () => void {
 		this.eventEmitter.on(event, callback);
 		return () => this.eventEmitter.off(event, callback);
 	}
