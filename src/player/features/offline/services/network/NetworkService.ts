@@ -4,6 +4,7 @@
  */
 
 import NetInfo, {
+	NetInfoCellularState,
 	NetInfoState,
 	NetInfoStateType,
 	NetInfoSubscription,
@@ -171,9 +172,6 @@ export class NetworkService {
 		try {
 			const state = await NetInfo.fetch();
 			this.currentStatus = this.parseNetworkState(state);
-
-			// Actualizar store
-			this.updateStore();
 
 			return this.currentStatus;
 		} catch (error) {
@@ -397,9 +395,6 @@ export class NetworkService {
 		this.previousStatus = { ...this.currentStatus };
 		this.currentStatus = this.parseNetworkState(state);
 
-		// Actualizar store
-		this.updateStore();
-
 		// Detectar y emitir eventos específicos
 		this.detectAndEmitEvents();
 
@@ -431,7 +426,8 @@ export class NetworkService {
 
 		// Añadir generación celular si aplica
 		if (state.type === NetInfoStateType.cellular && state.details) {
-			status.cellularGeneration = (state.details as any).cellularGeneration;
+			const cellularDetails = state.details as NetInfoCellularState;
+			status.cellularGeneration = cellularDetails.cellularGeneration;
 		}
 
 		return status;
@@ -474,26 +470,6 @@ export class NetworkService {
 		// Cambio de tipo
 		if (prev.isWifi !== curr.isWifi || prev.isCellular !== curr.isCellular) {
 			this.eventEmitter.emit(NetworkEventType.TYPE_CHANGED, curr);
-		}
-	}
-
-	/*
-	 * Actualiza el store con el estado actual
-	 *
-	 */
-
-	private updateStore(): void {
-		try {
-			// downloadStoreManager.getState().updateNetworkStatus({
-			//     isConnected: this.currentStatus.isConnected,
-			//     isWifi: this.currentStatus.isWifi,
-			//     isCellular: this.currentStatus.isCellular,
-			// });
-		} catch (error) {
-			this.currentLogger.error(TAG, `Error updating store: ${error}`);
-			throw new PlayerError("NETWORK_SERVICE_STORE_UPDATE_FAILED", {
-				originalError: error,
-			});
 		}
 	}
 

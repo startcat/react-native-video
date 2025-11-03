@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { EventEmitter } from "eventemitter3";
 import { PlayerError } from "../../../../core/errors";
-import { Logger } from "../../../logger";
+import { Logger, LogLevel } from "../../../logger";
 import { LOG_TAGS } from "../../constants";
 import { DEFAULT_CONFIG_PERSISTENCE, LOGGER_DEFAULTS } from "../../defaultConfigs";
 import {
@@ -12,6 +12,7 @@ import {
 	DownloadType,
 	PersistedData,
 	PersistenceConfig,
+	PersistenceEventCallback,
 	PersistenceEventType,
 	ProfileDownloadMapping,
 } from "../../types";
@@ -40,7 +41,6 @@ export class PersistenceService {
 		DOWNLOADS: "@downloads_state_v1",
 		BACKUP: "@downloads_backup_v1",
 		PROFILES: "@downloads_profiles_v1",
-		METRICS: "@downloads_metrics_v1",
 		CONFIG: "@downloads_config_v1",
 		VERSION: "@downloads_version",
 	};
@@ -140,8 +140,11 @@ export class PersistenceService {
 				downloads: Array.from(downloads.entries()),
 				queue: [], // Se actualizará desde QueueManager
 				profileMappings: [], // Se actualizará desde ProfileManager
-				config: {}, // Se actualizará desde el store
-				metrics: {}, // Se actualizará desde el store
+				config: {
+					logEnabled: true,
+					logLevel: LogLevel.INFO,
+					activeProfileRequired: false,
+				}, // Se actualizará desde ConfigManager
 				timestamp: Date.now(),
 			};
 
@@ -361,6 +364,7 @@ export class PersistenceService {
 
 	/*
 	 * Actualiza configuración de descargas parcialmente
+	 *
 	 */
 
 	public async updateDownloadsConfig(
@@ -403,6 +407,7 @@ export class PersistenceService {
 
 	/*
 	 * Elimina la configuración de descargas persistida
+	 *
 	 */
 
 	public async clearDownloadsConfig(): Promise<void> {
@@ -422,42 +427,6 @@ export class PersistenceService {
 		}
 	}
 
-	/*
-	 * Guarda métricas de descarga
-	 */
-
-	public async saveMetrics(metrics: any): Promise<void> {
-		try {
-			await AsyncStorage.setItem(
-				this.KEYS.METRICS,
-				JSON.stringify({
-					...metrics,
-					lastUpdated: Date.now(),
-				})
-			);
-
-			this.currentLogger.debug(TAG, "Metrics saved");
-		} catch (error) {
-			this.currentLogger.error(TAG, "Failed to save metrics", error);
-			// No lanzar error, las métricas no son críticas
-		}
-	}
-
-	/*
-	 * Carga métricas de descarga
-	 *
-	 */
-
-	public async loadMetrics(): Promise<any> {
-		try {
-			const data = await AsyncStorage.getItem(this.KEYS.METRICS);
-			return data ? JSON.parse(data) : {};
-		} catch (error) {
-			this.currentLogger.error(TAG, "Failed to load metrics", error);
-			// No lanzar error, las métricas no son críticas
-			return {};
-		}
-	}
 	/*
 	 * Guarda configuración de descargas
 	 */
@@ -686,7 +655,6 @@ export class PersistenceService {
 		try {
 			const downloads = await this.loadDownloadState();
 			const profiles = await this.loadProfileMappings();
-			const metrics = await this.loadMetrics();
 			const config = await this.loadDownloadsConfig();
 
 			const exportData = {
@@ -694,7 +662,6 @@ export class PersistenceService {
 				exportDate: Date.now(),
 				downloads: Array.from(downloads.entries()),
 				profiles,
-				metrics,
 				config,
 			};
 
@@ -740,12 +707,8 @@ export class PersistenceService {
 			);
 			await this.saveDownloadState(downloads);
 
-			if (migratedData.profiles) {
-				await this.saveProfileMappings(migratedData.profiles);
-			}
-
-			if (migratedData.metrics) {
-				await this.saveMetrics(migratedData.metrics);
+			if (migratedData.profileMappings) {
+				await this.saveProfileMappings(migratedData.profileMappings);
 			}
 
 			if (migratedData.config) {
@@ -806,39 +769,56 @@ export class PersistenceService {
 	 *
 	 */
 
-	private async migrateDataIfNeeded(data: any): Promise<any> {
+	private async migrateDataIfNeeded(
+		data: Partial<PersistedData> & { version?: number }
+	): Promise<PersistedData> {
 		if (data.version === this.dataVersion) {
-			return data;
+			return data as PersistedData;
 		}
 
+		const fromVersion = data.version ?? 0;
+
 		this.eventEmitter.emit(PersistenceEventType.MIGRATION_STARTED, {
-			fromVersion: data.version,
+			fromVersion,
 			toVersion: this.dataVersion,
 		});
 
-		let migratedData = { ...data };
+		let migratedData: Partial<PersistedData> & { version?: number } = { ...data };
 
 		try {
 			// Aplicar migraciones secuencialmente
-			if (data.version < 1) {
+			if (fromVersion < 1) {
 				// Migración de versión 0 a 1
 				migratedData = this.migrateV0ToV1(migratedData);
 			}
 
 			// Futuras migraciones...
-			// if (data.version < 2) {
+			// if (fromVersion < 2) {
 			//     migratedData = this.migrateV1ToV2(migratedData);
 			// }
 
-			migratedData.version = this.dataVersion;
+			// Asegurar que todos los campos requeridos existen
+			const finalData: PersistedData = {
+				version: this.dataVersion,
+				downloads: migratedData.downloads || [],
+				queue: migratedData.queue || [],
+				profileMappings: migratedData.profileMappings || [],
+				config: migratedData.config || {
+					logEnabled: true,
+					logLevel: LogLevel.INFO,
+					activeProfileRequired: false,
+				},
+				timestamp: Date.now(),
+				checksum: migratedData.checksum,
+			};
 
 			this.eventEmitter.emit(PersistenceEventType.MIGRATION_COMPLETED);
 			this.currentLogger.info(
 				TAG,
-				`Data migrated from v${data.version} to v${this.dataVersion}`
+				`Data migrated from v${fromVersion} to v${this.dataVersion}`
 			);
 
-			return migratedData;
+			return finalData;
 		} catch (error) {
 			this.currentLogger.error(TAG, "Failed to migrate data", error);
 			throw error;
@@ -850,10 +830,13 @@ export class PersistenceService {
 	 *
 	 */
 
-	private migrateV0ToV1(data: any): any {
+	private migrateV0ToV1(
+		data: Partial<PersistedData> & { version?: number }
+	): Partial<PersistedData> & { version?: number } {
 		// Migrar de estructura antigua (offlineData) a nueva estructura
 
 		if (data.downloads && Array.isArray(data.downloads)) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			data.downloads = data.downloads.map(([id, item]: [string, any]) => {
 				// Si el item ya tiene la nueva estructura, no migrar
 				if (item.profileIds !== undefined && item.stats !== undefined) {
@@ -981,7 +964,7 @@ export class PersistenceService {
 	 *
 	 */
 
-	private async compressData(data: any): Promise<string> {
+	private async compressData(data: unknown): Promise<string> {
 		// En producción, usar una librería de compresión como lz-string
 		// import LZString from 'lz-string';
 		// return LZString.compressToUTF16(JSON.stringify(data));
@@ -995,7 +978,7 @@ export class PersistenceService {
 	 *
 	 */
 
-	private async decompressData(data: string): Promise<any> {
+	private async decompressData(data: string): Promise<PersistedData> {
 		// En producción, usar una librería de compresión
 		// import LZString from 'lz-string';
 		// const decompressed = LZString.decompressFromUTF16(data);
@@ -1010,7 +993,7 @@ export class PersistenceService {
 	 *
 	 */
 
-	private generateChecksum(data: any): string {
+	private generateChecksum(data: unknown): string {
 		// En producción, usar una función hash como SHA256
 		// Por ahora, usar un checksum simple
 		const str = JSON.stringify(data);
@@ -1018,7 +1001,9 @@ export class PersistenceService {
 
 		for (let i = 0; i < str.length; i++) {
 			const char = str.charCodeAt(i);
+			// eslint-disable-next-line no-bitwise
 			hash = (hash << 5) - hash + char;
+			// eslint-disable-next-line no-bitwise
 			hash = hash & hash; // Convert to 32bit integer
 		}
 
@@ -1085,7 +1070,7 @@ export class PersistenceService {
 
 	public subscribe(
 		event: PersistenceEventType | "all",
-		callback: (data: any) => void
+		callback: PersistenceEventCallback
 	): () => void {
 		if (event === "all") {
 			Object.values(PersistenceEventType).forEach(eventType => {
