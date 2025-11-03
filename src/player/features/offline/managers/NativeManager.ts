@@ -12,6 +12,7 @@ import { LOG_TAGS } from "../constants";
 import { DEFAULT_CONFIG_NATIVE, LOGGER_DEFAULTS } from "../defaultConfigs";
 import {
 	DownloadCompleteEvent,
+	DownloadErrorCode,
 	DownloadFailedEvent,
 	DownloadItem,
 	DownloadProgressEvent,
@@ -24,6 +25,7 @@ import {
 } from "../types";
 
 import { IDrm } from "../../../types";
+import { storageService } from "../services/storage/StorageService";
 
 const TAG = LOG_TAGS.NATIVE_MANAGER;
 
@@ -36,13 +38,15 @@ export class NativeManager {
 	private initPromise: Promise<void> | null = null;
 
 	// Referencias a módulos nativos
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private nativeModule: any = null;
 	private nativeEventEmitter: NativeEventEmitter | null = null;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	private eventSubscriptions: Map<string, any> = new Map();
 
 	// Estado interno
 	private systemInfo: SystemInfo | null = null;
-	private eventBuffer: Array<{ event: string; data: any; timestamp: number }> = [];
+	private eventBuffer: Array<{ event: string; data: unknown; timestamp: number }> = [];
 
 	private constructor() {
 		// Configuración por defecto del manager
@@ -173,9 +177,12 @@ export class NativeManager {
 		];
 
 		events.forEach(eventName => {
-			const subscription = this.nativeEventEmitter!.addListener(eventName, (data: any) => {
-				this.handleNativeEvent(eventName, data);
-			});
+			const subscription = this.nativeEventEmitter!.addListener(
+				eventName,
+				(data: unknown) => {
+					this.handleNativeEvent(eventName, data);
+				}
+			);
 
 			this.eventSubscriptions.set(eventName, subscription);
 		});
@@ -264,7 +271,7 @@ export class NativeManager {
 	 *
 	 */
 
-	private handleNativeEvent(eventName: string, data: any): void {
+	private handleNativeEvent(eventName: string, data: unknown): void {
 		try {
 			// this.currentLogger.debug(TAG, `Received native event: ${eventName}`, data);
 
@@ -320,20 +327,31 @@ export class NativeManager {
 		}
 	}
 
-	private handleDownloadProgress(data: any): void {
+	private handleDownloadProgress(data: unknown): void {
+		const eventData = data as {
+			id: string;
+			progress?: number;
+			speed?: number;
+			bytesDownloaded?: number;
+			totalBytes?: number;
+			remainingTime?: number;
+			localPath?: string;
+			fileUri?: string;
+			duration?: number;
+		};
 		// FILTRAR eventos innecesarios desde la fuente nativa
-		const percent = data.progress || 0;
-		const speed = data.speed || 0;
+		const percent = eventData.progress || 0;
+		const speed = eventData.speed || 0;
 
 		// Log de debug para entender qué está pasando con descargas al 100%
 		if (percent >= 100 && speed === 0) {
 			this.currentLogger.warn(
 				TAG,
-				`Native module sending progress events for completed download: ${data.id}`,
+				`Native module sending progress events for completed download: ${eventData.id}`,
 				{
 					progress: percent,
 					speed: speed,
-					remainingTime: data.remainingTime,
+					remainingTime: eventData.remainingTime,
 					state: "unknown_from_progress_event",
 				}
 			);
@@ -347,14 +365,14 @@ export class NativeManager {
 				// 2% de los eventos
 				this.currentLogger.debug(
 					TAG,
-					`Auto-completing download that reached 100%: ${data.id}`
+					`Auto-completing download that reached 100%: ${eventData.id}`
 				);
 
 				// Emitir evento de completado ya que el módulo nativo no lo está haciendo
 				this.eventEmitter.emit("download_completed", {
-					downloadId: data.id,
-					fileUri: data.localPath || data.fileUri,
-					totalBytes: data.totalBytes || 0,
+					downloadId: eventData.id,
+					fileUri: eventData.localPath || eventData.fileUri,
+					totalBytes: eventData.totalBytes || 0,
 					duration: 0,
 				});
 			}
@@ -362,62 +380,87 @@ export class NativeManager {
 		}
 
 		// No reenviar eventos estáticos repetitivos (sin cambios y sin actividad)
-		if (speed === 0 && data.remainingTime === 0 && percent < 100) {
+		if (speed === 0 && eventData.remainingTime === 0 && percent < 100) {
 			// Solo log ocasional para debug, no spam
 			if (Math.random() < 0.02) {
 				// 2% de los eventos
 				this.currentLogger.debug(
 					TAG,
-					`Filtering static progress event: ${data.id} (${percent}%, no activity)`
+					`Filtering static progress event: ${eventData.id} (${percent}%, no activity)`
 				);
 			}
 			return;
 		}
 
 		const progressEvent: DownloadProgressEvent = {
-			downloadId: data.id,
+			downloadId: eventData.id,
 			percent: percent,
-			bytesDownloaded: data.bytesDownloaded || 0,
-			totalBytes: data.totalBytes || 0,
+			bytesDownloaded: eventData.bytesDownloaded || 0,
+			totalBytes: eventData.totalBytes || 0,
 			speed: speed,
-			remainingTime: data.remainingTime,
+			remainingTime: eventData.remainingTime,
 		};
 		this.eventEmitter.emit("download_progress", progressEvent);
 	}
 
-	private handleDownloadStateChanged(data: any): void {
+	private handleDownloadStateChanged(data: unknown): void {
+		const eventData = data as {
+			id: string;
+			state: string;
+			previousState?: string;
+		};
 		this.eventEmitter.emit("download_state_changed", {
-			downloadId: data.id,
-			state: data.state,
-			previousState: data.previousState,
+			downloadId: eventData.id,
+			state: eventData.state,
+			previousState: eventData.previousState,
 			timestamp: Date.now(),
 		});
 	}
 
-	private handleDownloadCompleted(data: any): void {
+	private handleDownloadCompleted(data: unknown): void {
+		const eventData = data as {
+			id: string;
+			fileUri?: string;
+			localPath?: string;
+			fileSize?: number;
+			duration?: number;
+		};
 		const completeEvent: DownloadCompleteEvent = {
-			downloadId: data.id,
-			fileUri: data.fileUri || data.localPath,
-			totalBytes: data.totalBytes || 0,
-			duration: data.duration || 0,
+			downloadId: eventData.id,
+			fileUri: eventData.fileUri || eventData.localPath || "",
+			totalBytes: eventData.fileSize || 0,
+			duration: eventData.duration || 0,
 		};
 
 		// Invalidar cache de download space en iOS
 		if (Platform.OS === "ios") {
-			const { storageService } = require("../services/storage/StorageService");
 			storageService.invalidateDownloadSpaceCache();
 		}
 
 		this.eventEmitter.emit("download_completed", completeEvent);
 	}
 
-	private handleDownloadError(data: any): void {
+	private handleDownloadError(data: unknown): void {
+		const eventData = data as {
+			id: string;
+			error?: { code?: string; message?: string; details?: unknown };
+			errorCode?: string;
+			errorMessage?: string;
+			errorDetails?: unknown;
+		};
+
+		// Map native error code to DownloadErrorCode enum
+		const errorCode = eventData.error?.code || eventData.errorCode || "UNKNOWN";
+		const mappedCode = Object.values(DownloadErrorCode).includes(errorCode as DownloadErrorCode)
+			? (errorCode as DownloadErrorCode)
+			: DownloadErrorCode.UNKNOWN;
+
 		const errorEvent: DownloadFailedEvent = {
-			downloadId: data.id,
+			downloadId: eventData.id,
 			error: {
-				code: data.errorCode || "UNKNOWN",
-				message: data.message || "Unknown download error",
-				details: data.details,
+				code: mappedCode,
+				message: eventData.error?.message || eventData.errorMessage || "Unknown error",
+				details: eventData.error?.details || eventData.errorDetails,
 				timestamp: Date.now(),
 			},
 		};
@@ -425,19 +468,19 @@ export class NativeManager {
 		this.eventEmitter.emit("download_error", errorEvent);
 	}
 
-	private handleDownloadPrepared(data: any): void {
+	private handleDownloadPrepared(data: unknown): void {
 		this.eventEmitter.emit("download_prepared", data);
 	}
 
-	private handleDownloadPrepareError(data: any): void {
+	private handleDownloadPrepareError(data: unknown): void {
 		this.eventEmitter.emit("download_prepare_error", data);
 	}
 
-	private handleLicenseEvent(eventName: string, data: any): void {
+	private handleLicenseEvent(eventName: string, data: unknown): void {
 		this.eventEmitter.emit(eventName.replace(/([A-Z])/g, "_$1").toLowerCase(), data);
 	}
 
-	private bufferEvent(eventName: string, data: any): void {
+	private bufferEvent(eventName: string, data: unknown): void {
 		if (this.eventBuffer.length >= this.config.eventBufferSize) {
 			this.eventBuffer.shift(); // Remover el más antiguo
 		}
@@ -522,7 +565,6 @@ export class NativeManager {
 
 			// Invalidar cache de download space en iOS
 			if (Platform.OS === "ios") {
-				const { storageService } = require("../services/storage/StorageService");
 				storageService.invalidateDownloadSpaceCache();
 			}
 		} catch (error) {
@@ -633,9 +675,11 @@ export class NativeManager {
 		}
 	}
 
-	/**
+	/*
 	 * Pausa todo el procesamiento de descargas
+	 *
 	 */
+
 	public async stopDownloadProcessing(): Promise<void> {
 		this.validateInitialized();
 
@@ -693,13 +737,15 @@ export class NativeManager {
 
 	/*
 	 * Método público para obtener información de una descarga específica
+	 *
 	 */
+
 	public async getDownload(downloadId: string): Promise<DownloadItem | null> {
 		this.validateInitialized();
 
 		try {
 			const downloads = await this.nativeModule.getDownloads();
-			const download = downloads.find((d: any) => d.id === downloadId);
+			const download = downloads.find((d: DownloadItem) => d.id === downloadId);
 			return download || null;
 		} catch (error) {
 			this.currentLogger.error(TAG, `Failed to get download info: ${downloadId}`, error);
@@ -916,7 +962,9 @@ export class NativeManager {
 
 	/*
 	 * Método para limpiar descargas problemáticas que siguen enviando eventos
+	 *
 	 */
+
 	public async cleanupCompletedDownload(downloadId: string): Promise<boolean> {
 		this.validateInitialized();
 
@@ -1042,7 +1090,7 @@ export class NativeManager {
 	 *
 	 */
 
-	public getEventHistory(): Array<{ event: string; data: any; timestamp: number }> {
+	public getEventHistory(): Array<{ event: string; data: unknown; timestamp: number }> {
 		return [...this.eventBuffer];
 	}
 
