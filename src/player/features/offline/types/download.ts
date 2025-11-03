@@ -36,9 +36,19 @@ export enum DownloadEventType {
 // Event data types for each download event
 export type DownloadEventData =
 	| { taskId: string; url: string; destination: string } // STARTED
-	| { taskId: string; percent: number; bytesWritten: number; totalBytes: number; downloadSpeed?: number; estimatedTimeRemaining?: number } // PROGRESS
+	| {
+			taskId: string;
+			percent: number;
+			bytesWritten: number;
+			totalBytes: number;
+			downloadSpeed?: number;
+			estimatedTimeRemaining?: number;
+	  } // PROGRESS
 	| { taskId: string; filePath: string; fileSize: number; duration: number } // COMPLETED
-	| { taskId: string; error: { code: string; message: string; details: unknown; timestamp: number } } // FAILED
+	| {
+			taskId: string;
+			error: { code: string; message: string; details: unknown; timestamp: number };
+	  } // FAILED
 	| { taskId: string } // PAUSED, RESUMED, REMOVED
 	| { taskId: string; queuePosition: number } // QUEUED
 	| { taskId: string; progress?: { bytesWritten: number; totalBytes: number; percent: number } } // CANCELLED
@@ -109,7 +119,7 @@ export interface ActiveBinaryDownload {
 export interface DownloadError {
 	code: DownloadErrorCode;
 	message: string;
-	details?: any;
+	details?: unknown;
 	timestamp: number;
 }
 
@@ -229,7 +239,7 @@ export interface DownloadItemMetadata {
 	uri: string;
 
 	// Metadata
-	media?: any;
+	media?: unknown;
 	licenseExpirationDate?: number;
 
 	// Perfiles asociados
@@ -252,7 +262,7 @@ export interface DownloadItem {
 	uri: string;
 
 	// Metadata
-	media?: any; // Metadatos del video, que dependen de proyecto
+	media?: unknown; // Metadatos del video, que dependen de proyecto
 	licenseExpirationDate?: number; // Fecha de expiración de licencia
 
 	// Perfiles asociados
@@ -309,7 +319,7 @@ export interface UsableDownloadItem {
 	uri: string;
 
 	// Metadata
-	media?: any; // Metadatos del video, que dependen de proyecto
+	media?: unknown; // Metadatos del video, que dependen de proyecto
 	licenseExpirationDate?: number; // Fecha de expiración de licencia
 
 	// Configuración DRM
@@ -360,15 +370,15 @@ export interface DownloadFailedEvent {
 
 // Estrategias de descarga - Strategy Pattern
 export interface DownloadStrategy {
-	initialize(config?: any): Promise<void>;
-	startDownload(task: any): Promise<void>;
+	initialize(config?: unknown): Promise<void>;
+	startDownload(task: unknown): Promise<void>;
 	pauseDownload(downloadId: string): Promise<void>;
 	resumeDownload(downloadId: string): Promise<void>;
 	cancelDownload(downloadId: string): Promise<void>;
-	getDownloadState(downloadId: string): any;
-	getAllActiveDownloads(): any[];
-	getStats(): any;
-	subscribe(event: DownloadEventType | "all", callback: (data: any) => void): () => void;
+	getDownloadState(downloadId: string): unknown;
+	getAllActiveDownloads(): unknown[];
+	getStats(): unknown;
+	subscribe(event: DownloadEventType | "all", callback: (data: unknown) => void): () => void;
 	destroy(): void;
 }
 

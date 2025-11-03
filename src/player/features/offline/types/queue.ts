@@ -20,7 +20,7 @@ export interface QueueEventData {
 	item?: ExtendedDownloadItem;
 	percent?: number;
 	queueSize?: number;
-	error?: any;
+	error?: unknown;
 }
 
 export type QueueStatusCallback = (data: QueueEventData) => void;

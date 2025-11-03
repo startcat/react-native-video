@@ -24,8 +24,8 @@ export interface ConfigManagerConfig {
 // Eventos de configuración
 export interface ConfigUpdateEvent {
 	property: keyof ConfigDownloads | "multiple";
-	oldValue: any;
-	newValue: any;
+	oldValue: unknown;
+	newValue: unknown;
 	config: ConfigDownloads;
 }
 
@@ -36,7 +36,7 @@ export interface ConfigResetEvent {
 
 export interface ConfigValidationFailedEvent {
 	property: keyof ConfigDownloads;
-	value: any;
+	value: unknown;
 	error: Error;
 }
 
@@ -48,4 +48,4 @@ export type ConfigEventType =
 	| "config_validation_failed"
 	| "config_saved";
 
-export type ConfigEventCallback = (data: any) => void;
+export type ConfigEventCallback = (data: unknown) => void;
