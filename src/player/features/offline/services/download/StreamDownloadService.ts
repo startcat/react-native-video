@@ -15,8 +15,12 @@ import {
 	ActiveStreamDownload,
 	DownloadError,
 	DownloadErrorCode,
+	DownloadEventCallback,
 	DownloadEventType,
 	DownloadStates,
+	NativeDownloadConfig,
+	NativeManagerEventData,
+	NetworkStatus,
 	StreamDownloadServiceConfig,
 	StreamDownloadTask,
 	SubtitleDownloadTask,
@@ -150,19 +154,19 @@ export class StreamDownloadService {
 
 	private setupNativeEventListeners(): void {
 		// Suscribirse a eventos específicos del NativeManager
-		nativeManager.subscribe("download_progress", (data: any) => {
+		nativeManager.subscribe("download_progress", data => {
 			this.handleNativeEvent("download_progress", data);
 		});
 
-		nativeManager.subscribe("download_state_changed", (data: any) => {
+		nativeManager.subscribe("download_state_changed", data => {
 			this.handleNativeEvent("download_state_changed", data);
 		});
 
-		nativeManager.subscribe("download_completed", (data: any) => {
+		nativeManager.subscribe("download_completed", data => {
 			this.handleNativeEvent("download_completed", data);
 		});
 
-		nativeManager.subscribe("download_error", (data: any) => {
+		nativeManager.subscribe("download_error", data => {
 			this.handleNativeEvent("download_error", data);
 		});
 
@@ -174,7 +178,7 @@ export class StreamDownloadService {
 	 *
 	 */
 
-	private handleNativeEvent(eventName: string, data: any): void {
+	private handleNativeEvent(eventName: string, data: NativeManagerEventData): void {
 		try {
 			// Manejar eventos específicos que nos interesan
 			switch (eventName) {
@@ -199,8 +203,15 @@ export class StreamDownloadService {
 		}
 	}
 
-	private handleProgressEvent(data: any): void {
-		const { downloadId, percent, bytesDownloaded, totalBytes, speed, remainingTime } = data;
+	private handleProgressEvent(data: unknown): void {
+		const { downloadId, percent, bytesDownloaded, totalBytes, speed, remainingTime } = data as {
+			downloadId: string;
+			percent?: number;
+			bytesDownloaded?: number;
+			totalBytes?: number;
+			speed?: number;
+			remainingTime?: number;
+		};
 
 		if (this.activeDownloads.has(downloadId)) {
 			const activeDownload = this.activeDownloads.get(downloadId)!;
@@ -225,8 +236,9 @@ export class StreamDownloadService {
 		}
 	}
 
-	private handleStateChangeEvent(data: any): void {
-		const { downloadId, state } = data;
+	private handleStateChangeEvent(data: unknown): void {
+		const eventData = data as { downloadId: string; state: string; error?: unknown };
+		const { downloadId, state } = eventData;
 
 		if (this.activeDownloads.has(downloadId)) {
 			const activeDownload = this.activeDownloads.get(downloadId)!;
@@ -244,7 +256,7 @@ export class StreamDownloadService {
 				case DownloadStates.FAILED:
 					this.eventEmitter.emit(DownloadEventType.FAILED, {
 						taskId: downloadId,
-						error: data.error || "Download failed",
+						error: eventData.error || "Download failed",
 					});
 					break;
 				case DownloadStates.PAUSED:
@@ -257,8 +269,9 @@ export class StreamDownloadService {
 		}
 	}
 
-	private async handleCompletedEvent(data: any): Promise<void> {
-		const { downloadId } = data;
+	private async handleCompletedEvent(data: unknown): Promise<void> {
+		const eventData = data as { downloadId: string; fileUri?: string; localPath?: string };
+		const { downloadId } = eventData;
 
 		if (this.activeDownloads.has(downloadId)) {
 			const activeDownload = this.activeDownloads.get(downloadId);
@@ -298,22 +311,32 @@ export class StreamDownloadService {
 						`Failed to download subtitles for ${downloadId}`,
 						error
 					);
-					// No fallar la descarga principal por subtítulos fallidos
+				} finally {
+					this.eventEmitter.emit(DownloadEventType.COMPLETED, {
+						taskId: downloadId,
+						fileUri: eventData.fileUri || eventData.localPath,
+					});
+
+					// Remover de descargas activas cuando se complete
+					this.activeDownloads.delete(downloadId);
 				}
+			} else {
+				this.eventEmitter.emit(DownloadEventType.COMPLETED, {
+					taskId: downloadId,
+					fileUri: eventData.fileUri || eventData.localPath,
+				});
+
+				// Remover de descargas activas cuando se complete
+				this.activeDownloads.delete(downloadId);
 			}
-
-			this.eventEmitter.emit(DownloadEventType.COMPLETED, {
-				taskId: downloadId,
-				fileUri: data.fileUri || data.localPath,
-			});
-
-			// Remover de descargas activas cuando se complete
-			this.activeDownloads.delete(downloadId);
 		}
 	}
 
-	private handleErrorEvent(data: any): void {
-		const { downloadId, error } = data;
+	private handleErrorEvent(data: unknown): void {
+		const { downloadId, error } = data as {
+			downloadId: string;
+			error?: { message?: string };
+		};
 
 		if (this.activeDownloads.has(downloadId)) {
 			this.eventEmitter.emit(DownloadEventType.FAILED, {
@@ -418,7 +441,7 @@ export class StreamDownloadService {
 	 *
 	 */
 
-	private handleNetworkChange(networkStatus: any): void {
+	private handleNetworkChange(networkStatus: NetworkStatus): void {
 		// Si WiFi es requerido y se perdió la conexión WiFi
 		if (this.config.requiresWifi && !networkStatus.isWifi && networkStatus.isCellular) {
 			this.currentLogger.info(TAG, "WiFi lost, pausing downloads that require WiFi");
@@ -709,7 +732,7 @@ export class StreamDownloadService {
 			}
 
 			// Configurar descarga nativa
-			const nativeConfig: any = {
+			const nativeConfig: NativeDownloadConfig & { headers?: Record<string, string> } = {
 				id: task.id,
 				uri: task.manifestUrl,
 				title: task.title,
@@ -791,15 +814,18 @@ export class StreamDownloadService {
 	 *
 	 */
 
-	private async handleStreamDownloadError(downloadId: string, error: any): Promise<void> {
+	private async handleStreamDownloadError(downloadId: string, error: unknown): Promise<void> {
 		const download = this.activeDownloads.get(downloadId);
 		if (!download) {
 			return;
 		}
 
+		const errorMessage =
+			(error as { message?: string })?.message || "Unknown stream download error";
+
 		const downloadError: DownloadError = {
 			code: this.mapErrorToCode(error),
-			message: error.message || "Unknown stream download error",
+			message: errorMessage,
 			details: error,
 			timestamp: Date.now(),
 		};
@@ -889,12 +915,12 @@ export class StreamDownloadService {
 	 *
 	 */
 
-	private mapErrorToCode(error: any): DownloadErrorCode {
+	private mapErrorToCode(error: unknown): DownloadErrorCode {
 		if (!error) {
 			return DownloadErrorCode.UNKNOWN;
 		}
 
-		const message = error.message?.toLowerCase() || "";
+		const message = ((error as { message?: string })?.message || "").toLowerCase();
 
 		if (message.includes("network") || message.includes("connection")) {
 			return DownloadErrorCode.NETWORK_ERROR;
@@ -997,7 +1023,10 @@ export class StreamDownloadService {
 	 *
 	 */
 
-	public subscribe(event: DownloadEventType | "all", callback: (data: any) => void): () => void {
+	public subscribe(
+		event: DownloadEventType | "all",
+		callback: DownloadEventCallback
+	): () => void {
 		if (event === "all") {
 			Object.values(DownloadEventType).forEach(eventType => {
 				this.eventEmitter.on(eventType, callback);
@@ -1013,11 +1042,6 @@ export class StreamDownloadService {
 			return () => this.eventEmitter.off(event, callback);
 		}
 	}
-
-	/*
-	 * Debug utilities
-	 *
-	 */
 
 	/*
 	 * Utilidades privadas
@@ -1049,7 +1073,7 @@ export class StreamDownloadService {
 
 		// Cancelar todas las descargas activas
 		for (const downloadId of this.activeDownloads.keys()) {
-			this.cancelDownload(downloadId).catch((error: any) => {
+			this.cancelDownload(downloadId).catch((error: unknown) => {
 				this.currentLogger.error(
 					TAG,
 					`Failed to cancel download during destroy: ${downloadId}`,
