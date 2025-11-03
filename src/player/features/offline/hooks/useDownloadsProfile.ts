@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { profileManager } from "../managers/ProfileManager";
-import { ProfileContext, ProfileEventType } from "../types";
+import { ProfileContext, ProfileEventData, ProfileEventType } from "../types";
 import { DownloadItem } from "../types/download";
 
 /*
@@ -26,7 +26,8 @@ export function useDownloadsProfile(): UseDownloadsProfileReturn {
 	// Suscribirse a cambios de perfil
 	useEffect(() => {
 		const unsubscribe = profileManager.subscribe(ProfileEventType.PROFILE_CHANGED, data => {
-			setActiveProfile(data.current || null);
+			const eventData = data as ProfileEventData;
+			setActiveProfile(eventData.current || null);
 		});
 
 		return unsubscribe;
@@ -66,16 +67,16 @@ export function useDownloadsProfile(): UseDownloadsProfileReturn {
 
 	// Filtrar descargas por perfil activo
 	const filterByActiveProfile = useCallback(
-		(downloads: DownloadItem[]): DownloadItem[] => {
-			return profileManager.filterByActiveProfile(downloads);
-		},
-		[activeProfile]
+		(downloads: DownloadItem[]): DownloadItem[] =>
+			profileManager.filterByActiveProfile(downloads),
+		[]
 	);
 
 	// Cambiar perfil activo
-	const switchProfile = useCallback((profile: ProfileContext | null) => {
-		profileManager.setActiveProfile(profile);
-	}, []);
+	const switchProfile = useCallback(
+		(profile: ProfileContext | null) => profileManager.setActiveProfile(profile),
+		[]
+	);
 
 	// Hook para actualizar la lista de descargas desde el store principal
 	// Esta función debería ser llamada desde el hook principal de descargas
@@ -105,7 +106,8 @@ export function useActiveProfile(): ProfileContext | null {
 
 	useEffect(() => {
 		const unsubscribe = profileManager.subscribe(ProfileEventType.PROFILE_CHANGED, data => {
-			setActiveProfile(data.current || null);
+			const eventData = data as ProfileEventData;
+			setActiveProfile(eventData.current || null);
 		});
 
 		return unsubscribe;
@@ -136,6 +138,11 @@ export function useCanDownload(): {
 	}, []);
 
 	const canDownload = useMemo(() => {
+		// Dependencias implícitas: activeProfile y stats se usan para recalcular
+		// cuando cambian, aunque profileManager.canDownload() no las use directamente
+		if (!activeProfile && stats.activeProfileRequired) {
+			return false;
+		}
 		try {
 			return profileManager.canDownload();
 		} catch (error) {
@@ -146,6 +153,14 @@ export function useCanDownload(): {
 
 	const canDownloadContent = useCallback(
 		(downloadItem: DownloadItem) => {
+			// Dependencias implícitas: activeProfile y stats se usan para recalcular
+			if (!activeProfile && stats.activeProfileRequired) {
+				return false;
+			}
+			// Si el filtrado no está habilitado, permitir descarga
+			if (!stats.filteringEnabled) {
+				return true;
+			}
 			try {
 				return profileManager.canDownloadContent(downloadItem);
 			} catch (error) {
