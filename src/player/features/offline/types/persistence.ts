@@ -1,4 +1,5 @@
 import { LogLevel } from "../../logger";
+import { ConfigDownloads } from "./config";
 import { DownloadItem } from "./download";
 import { ProfileDownloadMapping } from "./profiles";
 
@@ -15,8 +16,7 @@ export interface PersistedData {
 	downloads: Array<[string, DownloadItem]>;
 	queue: string[];
 	profileMappings: ProfileDownloadMapping[];
-	config: any;
-	metrics: any;
+	config: ConfigDownloads;
 	timestamp: number;
 	checksum?: string;
 }
@@ -42,3 +42,17 @@ export enum PersistenceEventType {
 	DATA_CORRUPTED = "persistence:data_corrupted",
 	AUTO_SAVE = "persistence:auto_save",
 }
+
+// Event data types for each persistence event
+export type PersistenceEventData =
+	| { itemCount: number; dataSize: number } // SAVE_COMPLETED
+	| { itemCount: number } // LOAD_COMPLETED, RESTORE_COMPLETED
+	| { type: string; dataSize: number } // SAVE_COMPLETED (config)
+	| { type: string } // LOAD_STARTED, LOAD_COMPLETED (config)
+	| { type: string; error: unknown } // LOAD_FAILED (config)
+	| { fromVersion: number; toVersion: number } // MIGRATION_STARTED
+	| { restoredFromBackup: boolean } // DATA_CORRUPTED
+	| Error // SAVE_FAILED, LOAD_FAILED, RESTORE_FAILED
+	| void; // Events without data
+
+export type PersistenceEventCallback = (data?: PersistenceEventData) => void;
