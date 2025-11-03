@@ -229,7 +229,10 @@ export class ProfileManager {
 	 *
 	 */
 
-	public subscribe(event: ProfileEventType | "all", callback: (data: any) => void): () => void {
+	public subscribe(
+		event: ProfileEventType | "all",
+		callback: (data?: unknown) => void
+	): () => void {
 		if (event === "all") {
 			Object.values(ProfileEventType).forEach(eventType => {
 				this.eventEmitter.on(eventType, callback);
