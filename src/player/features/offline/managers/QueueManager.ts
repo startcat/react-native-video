@@ -1118,12 +1118,7 @@ export class QueueManager {
 		bytesWritten?: number,
 		totalBytes?: number
 	): Promise<void> {
-		await this.updateDownloadProgress(
-			downloadId,
-			progressPercent,
-			bytesWritten,
-			totalBytes
-		);
+		await this.updateDownloadProgress(downloadId, progressPercent, bytesWritten, totalBytes);
 
 		const item = this.downloadQueue.get(downloadId);
 		if (item) {
@@ -1220,7 +1215,10 @@ export class QueueManager {
 	public async notifyDownloadResumed(downloadId: string): Promise<void> {
 		const item = this.downloadQueue.get(downloadId);
 		if (!item) {
-			this.currentLogger.warn(TAG, `Cannot notify resumed: download not found: ${downloadId}`);
+			this.currentLogger.warn(
+				TAG,
+				`Cannot notify resumed: download not found: ${downloadId}`
+			);
 			return;
 		}
 
@@ -1331,7 +1329,7 @@ export class QueueManager {
 	 *
 	 */
 
-	private async updateDownloadProgress(
+	public async updateDownloadProgress(
 		downloadId: string,
 		progress: number,
 		bytesWritten?: number,
@@ -1718,7 +1716,7 @@ export class QueueManager {
 				// 2. El nuevo valor es significativamente mayor (>5% diferencia)
 				if (data.totalBytes !== undefined && data.totalBytes > 0) {
 					const currentTotal = item.stats.totalBytes || 0;
-					
+
 					if (currentTotal === 0) {
 						// Primera vez, establecer el valor
 						item.stats.totalBytes = data.totalBytes;

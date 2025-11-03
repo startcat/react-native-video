@@ -18,6 +18,7 @@ import { networkService } from "../services/network/NetworkService";
 import { storageService } from "../services/storage/StorageService";
 import {
 	BinaryDownloadTask,
+	DownloadEventCallback,
 	DownloadEventType,
 	DownloadItem,
 	DownloadsManagerConfig,
@@ -326,11 +327,12 @@ export class DownloadsManager {
 	 *
 	 */
 
-	private handleQueueEvent(eventType: DownloadEventType, data: any): void {
+	private handleQueueEvent(eventType: DownloadEventType, data: unknown): void {
 		try {
+			const eventData = data as Record<string, unknown>;
 			// Los eventos de cola se propagan directamente ya que son de alto nivel
 			this.eventEmitter.emit("queue:" + eventType, {
-				...data,
+				...eventData,
 				timestamp: Date.now(),
 				managerState: this.getState(),
 			});
@@ -338,7 +340,7 @@ export class DownloadsManager {
 			// CRÍTICO: Re-emitir eventos de descarga importantes para que los hooks los reciban
 			// Re-emitir como evento de descarga directo (sin prefijo "queue:")
 			this.eventEmitter.emit(eventType, {
-				...data,
+				...eventData,
 				timestamp: Date.now(),
 			});
 
@@ -349,13 +351,14 @@ export class DownloadsManager {
 		}
 	}
 
-	private handleConfigEvent(data: any): void {
+	private handleConfigEvent(data: unknown): void {
 		try {
+			const eventData = data as { type?: string; [key: string]: unknown };
 			// Los cambios de configuración pueden requerir aplicar nuevas políticas
 			this.setupGlobalPolicies();
 
-			this.eventEmitter.emit("config:" + (data.type || "unknown"), {
-				...data,
+			this.eventEmitter.emit("config:" + (eventData.type || "unknown"), {
+				...eventData,
 				timestamp: Date.now(),
 				managerState: this.getState(),
 			});
@@ -366,11 +369,12 @@ export class DownloadsManager {
 		}
 	}
 
-	private handleProfileEvent(data: any): void {
+	private handleProfileEvent(data: unknown): void {
 		try {
+			const eventData = data as { type?: string; [key: string]: unknown };
 			// Los cambios de perfil pueden afectar qué descargas son visibles
-			this.eventEmitter.emit("profile:" + (data.type || "unknown"), {
-				...data,
+			this.eventEmitter.emit("profile:" + (eventData.type || "unknown"), {
+				...eventData,
 				timestamp: Date.now(),
 				managerState: this.getState(),
 			});
@@ -387,9 +391,13 @@ export class DownloadsManager {
 	 *
 	 */
 
-	private async handleDownloadEvent(data: any): Promise<void> {
+	private async handleDownloadEvent(data: unknown): Promise<void> {
 		try {
-			const { type, sourceType, ...eventData } = data;
+			const { type, sourceType, ...eventData } = data as {
+				type: DownloadEventType;
+				sourceType?: string;
+				[key: string]: unknown;
+			};
 
 			// Invalidar cache de estadísticas cuando hay cambios
 			this.invalidateStatsCache();
@@ -430,10 +438,15 @@ export class DownloadsManager {
 
 	private async notifyQueueManagerOfEvent(
 		eventType: DownloadEventType,
-		eventData: any
+		eventData: unknown
 	): Promise<void> {
 		try {
-			const downloadId = eventData.taskId || eventData.downloadId;
+			const data = eventData as {
+				taskId?: string;
+				downloadId?: string;
+				[key: string]: unknown;
+			};
+			const downloadId = data.taskId || data.downloadId;
 			if (!downloadId) {
 				this.currentLogger.warn(
 					TAG,
@@ -445,41 +458,40 @@ export class DownloadsManager {
 			// Notificar según el tipo de evento
 			switch (eventType) {
 				case DownloadEventType.PROGRESS: {
-					if (eventData.percent !== undefined) {
-						await queueManager.notifyDownloadProgress(
+					if (eventType === DownloadEventType.PROGRESS) {
+						queueManager.updateDownloadProgress(
 							downloadId,
-							eventData.percent,
-							eventData.bytesWritten,
-							eventData.totalBytes
+							(data as { progress: number }).progress || 0,
+							(data as { bytesDownloaded: number }).bytesDownloaded || 0,
+							(data as { totalBytes: number }).totalBytes || 0
 						);
 						this.currentLogger.debug(
 							TAG,
-							`Notified QueueManager of progress: ${downloadId} - ${eventData.percent}%`
+							`Notified QueueManager of progress: ${downloadId} - ${(data as { percent: number }).percent}%`
 						);
 					}
 					break;
 				}
 
+				case DownloadEventType.FAILED: {
+					const error = data.error as { message?: string } | string | undefined;
+					const errorMessage =
+						(typeof error === "object" && error?.message) ||
+						(typeof error === "string" ? error : "Unknown error");
+					await queueManager.notifyDownloadFailed(downloadId, errorMessage);
+					this.currentLogger.warn(TAG, `Notified QueueManager of failure: ${downloadId}`);
+					break;
+				}
+
 				case DownloadEventType.COMPLETED: {
-					const filePath = eventData.filePath || eventData.fileUri;
-					await queueManager.notifyDownloadCompleted(downloadId, filePath);
+					await queueManager.notifyDownloadCompleted(
+						downloadId,
+						(data as { fileUri: string }).fileUri || ""
+					);
 					this.currentLogger.info(
 						TAG,
 						`Notified QueueManager of completion: ${downloadId}`
 					);
-					break;
-				}
-
-				case DownloadEventType.FAILED: {
-					const error =
-						eventData.error instanceof PlayerError
-							? eventData.error
-							: new PlayerError("DOWNLOAD_FAILED", {
-									originalError: eventData.error,
-									downloadId,
-								});
-					await queueManager.notifyDownloadFailed(downloadId, error);
-					this.currentLogger.warn(TAG, `Notified QueueManager of failure: ${downloadId}`);
 					break;
 				}
 
@@ -513,8 +525,8 @@ export class DownloadsManager {
 	 *
 	 */
 
-	private handleNetworkEvent(networkData: any): void {
-		const { isConnected } = networkData;
+	private handleNetworkEvent(networkData: unknown): void {
+		const { isConnected } = networkData as { isConnected: boolean };
 
 		// Política global: pausar descargas si se perdió conectividad
 		if (!isConnected && this.state.isProcessing) {
@@ -545,8 +557,11 @@ export class DownloadsManager {
 	 *
 	 */
 
-	private handleStorageEvent(storageData: any): void {
-		const { isLowSpace, criticalSpace } = storageData;
+	private handleStorageEvent(storageData: unknown): void {
+		const { isLowSpace, criticalSpace } = storageData as {
+			isLowSpace?: boolean;
+			criticalSpace?: boolean;
+		};
 
 		// Política global: pausar descargas si hay poco espacio
 		if ((isLowSpace || criticalSpace) && this.state.isProcessing) {
@@ -569,7 +584,7 @@ export class DownloadsManager {
 	 *
 	 */
 
-	private applyGlobalPolicies(eventType: string, eventData: any): void {
+	private applyGlobalPolicies(eventType: string, eventData: unknown): void {
 		// Política de reintentos automáticos
 		if (this.config.autoRetryEnabled && eventType === DownloadEventType.FAILED) {
 			this.handleAutoRetry(eventData);
@@ -586,8 +601,11 @@ export class DownloadsManager {
 	 *
 	 */
 
-	private handleAutoRetry(failedEventData: any): void {
-		const { taskId, retryCount = 0 } = failedEventData;
+	private handleAutoRetry(failedEventData: unknown): void {
+		const { taskId, retryCount = 0 } = failedEventData as {
+			taskId: string;
+			retryCount?: number;
+		};
 
 		if (retryCount < this.config.maxRetryAttempts) {
 			const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
@@ -1242,7 +1260,7 @@ export class DownloadsManager {
 
 	public subscribe(
 		event: DownloadEventType | "all" | string,
-		callback: (data: any) => void
+		callback: DownloadEventCallback
 	): () => void {
 		this.eventEmitter.on(event, callback);
 		return () => this.eventEmitter.off(event, callback);
@@ -1298,7 +1316,7 @@ export class DownloadsManager {
 
 	private async validateGlobalPolicies(
 		task: BinaryDownloadTask | StreamDownloadTask,
-		type: DownloadType
+		_type: DownloadType
 	): Promise<void> {
 		// Validar espacio disponible
 		if (this.config.storageMonitoringEnabled) {
