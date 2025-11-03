@@ -181,7 +181,7 @@ export function useStorageInfo(): UseStorageInfoReturn {
 			unsubscribeSpaceCritical();
 			unsubscribeSpaceRecovered();
 		};
-	}, []); // ✅ Sin dependencias - se ejecuta solo al montar
+	}, []);
 
 	// Acciones
 	const checkSpace = useCallback(async (): Promise<void> => {
