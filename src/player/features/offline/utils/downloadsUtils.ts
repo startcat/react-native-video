@@ -27,8 +27,8 @@ export function generateDownloadIdFromUri(uri: string): string {
 
 		// Reemplazar espacios y caracteres especiales con guiones
 		cleanUri = cleanUri
-			.replace(/[\s\+]/g, "-") // Espacios y + por guiones
-			.replace(/[^\w\-\.\/]/g, "-") // Caracteres especiales por guiones
+			.replace(/[\s+]/g, "-") // Espacios y + por guiones
+			.replace(/[^\w\-./]/g, "-") // Caracteres especiales por guiones
 			.replace(/-+/g, "-") // Múltiples guiones por uno solo
 			.replace(/^-+|-+$/g, "") // Remover guiones al inicio y final
 			.toLowerCase(); // Convertir a minúsculas
@@ -57,7 +57,9 @@ function simpleHash(str: string): string {
 	let hash = 0;
 	for (let i = 0; i < str.length; i++) {
 		const char = str.charCodeAt(i);
+		// eslint-disable-next-line no-bitwise
 		hash = (hash << 5) - hash + char;
+		// eslint-disable-next-line no-bitwise
 		hash = hash & hash; // Convert to 32-bit integer
 	}
 	return Math.abs(hash).toString(36);
@@ -132,8 +134,13 @@ export function isValidUri(uri: string): boolean {
  *
  */
 
-export function calculateRemainingTime(stats: any): number {
-	const { bytesDownloaded = 0, totalBytes = 0, downloadSpeed = 0 } = stats;
+export function calculateRemainingTime(stats: unknown): number {
+	const statsObj = stats as {
+		bytesDownloaded?: number;
+		totalBytes?: number;
+		downloadSpeed?: number;
+	};
+	const { bytesDownloaded = 0, totalBytes = 0, downloadSpeed = 0 } = statsObj;
 
 	if (downloadSpeed <= 0 || totalBytes <= 0 || bytesDownloaded >= totalBytes) {
 		return 0;
