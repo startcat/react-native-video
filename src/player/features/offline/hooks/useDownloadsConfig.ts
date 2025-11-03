@@ -7,8 +7,15 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { LogLevel } from "../../logger";
 import { configManager } from "../managers/ConfigManager";
-import { ConfigDownloads, ConfigEventCallback } from "../types";
+import {
+	ConfigDownloads,
+	ConfigEventCallback,
+	ConfigResetEvent,
+	ConfigUpdateEvent,
+	ConfigValidationFailedEvent,
+} from "../types";
 
 export interface UseDownloadsConfigReturn {
 	// Configuración actual
@@ -60,8 +67,9 @@ export function useDownloadsConfig(): UseDownloadsConfigReturn {
 				setConfig(initialConfig);
 				setIsInitialized(true);
 				setError(null);
-			} catch (err: any) {
-				setError(err?.message || "Failed to initialize ConfigManager");
+			} catch (err: unknown) {
+				const errorObj = err as Error;
+				setError(errorObj?.message || "Failed to initialize ConfigManager");
 				setIsInitialized(false);
 			}
 		};
@@ -71,28 +79,32 @@ export function useDownloadsConfig(): UseDownloadsConfigReturn {
 
 	// Suscripción a eventos de configuración
 	useEffect(() => {
-		const handleConfigUpdate: ConfigEventCallback = updateEvent => {
+		const handleConfigUpdate: ConfigEventCallback = data => {
+			const updateEvent = data as ConfigUpdateEvent;
 			if (updateEvent?.config) {
 				setConfig(updateEvent.config);
 				setError(null); // Limpiar errores en actualizaciones exitosas
 			}
 		};
 
-		const handleConfigReset: ConfigEventCallback = resetEvent => {
+		const handleConfigReset: ConfigEventCallback = data => {
+			const resetEvent = data as ConfigResetEvent;
 			if (resetEvent?.newConfig) {
 				setConfig(resetEvent.newConfig);
 				setError(null);
 			}
 		};
 
-		const handleConfigValidationFailed: ConfigEventCallback = validationEvent => {
+		const handleConfigValidationFailed: ConfigEventCallback = data => {
+			const validationEvent = data as ConfigValidationFailedEvent;
 			if (validationEvent?.error) {
 				const errorMsg = validationEvent.error.message || validationEvent.error.toString();
 				setError(`Validation failed for ${validationEvent.property}: ${errorMsg}`);
 			}
 		};
 
-		const handleConfigLoaded: ConfigEventCallback = loadEvent => {
+		const handleConfigLoaded: ConfigEventCallback = data => {
+			const loadEvent = data as ConfigUpdateEvent;
 			if (loadEvent?.config) {
 				setConfig(loadEvent.config);
 				setError(null);
@@ -218,13 +230,14 @@ export function useDownloadsConfigExtended(): UseDownloadsConfigExtendedReturn {
 	const updateLogLevel = useCallback(
 		async (level: "DEBUG" | "INFO" | "WARN" | "ERROR"): Promise<void> => {
 			// Mapear string a LogLevel enum
-			const logLevelMap: Record<string, any> = {
-				DEBUG: "DEBUG",
-				INFO: "INFO",
-				WARN: "WARN",
-				ERROR: "ERROR",
+			const logLevelMap: Record<string, LogLevel> = {
+				DEBUG: LogLevel.DEBUG,
+				INFO: LogLevel.INFO,
+				WARN: LogLevel.WARN,
+				ERROR: LogLevel.ERROR,
 			};
-			await configManager.updateConfig("logLevel", logLevelMap[level]);
+			const mappedLevel = logLevelMap[level] || LogLevel.INFO;
+			await configManager.updateConfig("logLevel", mappedLevel);
 		},
 		[]
 	);

@@ -112,29 +112,6 @@ export function useDownloadsManager(
 	const [isPaused, setIsPaused] = useState(false);
 	const [error, setError] = useState<PlayerError | null>(null);
 
-	// Inicialización automática
-	useEffect(() => {
-		if (autoInit && !isInitialized) {
-			initializeManager();
-		}
-	}, [autoInit, isInitialized]);
-
-	const initializeManager = useCallback(async () => {
-		try {
-			await downloadsManager.initialize(config);
-			updateState();
-			setIsInitialized(true);
-			setError(null);
-		} catch (err) {
-			const caughtError =
-				err instanceof PlayerError
-					? err
-					: new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", { originalError: err });
-			setError(caughtError);
-			onError?.(caughtError);
-		}
-	}, [config, onError]);
-
 	// Función de ordenamiento de descargas
 	const sortDownloads = useCallback((items: DownloadItem[]): DownloadItem[] => {
 		// Definir prioridad de estados
@@ -195,6 +172,29 @@ export function useDownloadsManager(
 		}
 	}, [sortDownloads]);
 
+	const initializeManager = useCallback(async () => {
+		try {
+			await downloadsManager.initialize(config);
+			updateState();
+			setIsInitialized(true);
+			setError(null);
+		} catch (err) {
+			const caughtError =
+				err instanceof PlayerError
+					? err
+					: new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE", { originalError: err });
+			setError(caughtError);
+			onError?.(caughtError);
+		}
+	}, [config, onError, updateState]);
+
+	// Inicialización automática
+	useEffect(() => {
+		if (autoInit && !isInitialized) {
+			initializeManager();
+		}
+	}, [autoInit, isInitialized, initializeManager]);
+
 	// Suscripción a eventos del sistema
 	useEffect(() => {
 		if (!downloadsManager.isInitialized()) {
@@ -218,23 +218,26 @@ export function useDownloadsManager(
 
 		// Eventos de descarga
 		unsubscribers.push(
-			downloadsManager.subscribe(DownloadEventType.STARTED, (data: any) => {
+			downloadsManager.subscribe(DownloadEventType.STARTED, (data: unknown) => {
+				const eventData = data as { taskId: string };
 				updateState();
-				onDownloadStarted?.(data.taskId);
+				onDownloadStarted?.(eventData.taskId);
 			})
 		);
 
 		unsubscribers.push(
-			downloadsManager.subscribe(DownloadEventType.COMPLETED, (data: any) => {
+			downloadsManager.subscribe(DownloadEventType.COMPLETED, (data: unknown) => {
+				const eventData = data as { taskId: string };
 				updateState();
-				onDownloadCompleted?.(data.taskId);
+				onDownloadCompleted?.(eventData.taskId);
 			})
 		);
 
 		unsubscribers.push(
-			downloadsManager.subscribe(DownloadEventType.FAILED, (data: any) => {
+			downloadsManager.subscribe(DownloadEventType.FAILED, (data: unknown) => {
+				const eventData = data as { taskId: string; error: PlayerError };
 				updateState();
-				onDownloadFailed?.(data.taskId, data.error);
+				onDownloadFailed?.(eventData.taskId, eventData.error);
 			})
 		);
 
