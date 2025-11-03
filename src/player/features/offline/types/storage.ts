@@ -41,3 +41,14 @@ export enum StorageEventType {
 	FILE_CREATED = "storage:file_created",
 	ERROR = "storage:error",
 }
+
+// Event data types for each storage event
+export type StorageEventData =
+	| { usagePercent: number; availableSpace: number } // SPACE_WARNING, SPACE_CRITICAL, SPACE_RECOVERED
+	| { freedBytes: number } // CLEANUP_COMPLETED
+	| StorageInfo // INFO_UPDATED
+	| FileInfo // FILE_CREATED
+	| unknown // ERROR, CLEANUP_STARTED
+	| void; // Events without data
+
+export type StorageEventCallback = (data?: StorageEventData) => void;

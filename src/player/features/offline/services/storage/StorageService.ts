@@ -7,6 +7,7 @@ import { DEFAULT_CONFIG, DIRECTORIES, LIMITS, LOG_TAGS, PATTERNS } from "../../c
 import { DEFAULT_CONFIG_STORAGE, LOGGER_DEFAULTS } from "../../defaultConfigs";
 import {
 	FileInfo,
+	StorageEventCallback,
 	StorageEventType,
 	StorageInfo,
 	StorageServiceConfig,
@@ -482,14 +483,13 @@ export class StorageService {
 	 */
 
 	public async estimateSpaceNeeded(
-		downloadId?: string,
+		_downloadId?: string,
 		downloadType?: string,
 		quality?: string
 	): Promise<number> {
 		// Implementación básica de estimación
-		// En una implementación real, esto consultaría metadatos del contenido usando downloadId
-		// Por ahora, downloadId no se usa pero se mantiene para compatibilidad futura
-		void downloadId; // Silenciar warning de linter
+		// En una implementación real, esto consultaría metadatos del contenido usando _downloadId
+		// Por ahora, _downloadId no se usa pero se mantiene para compatibilidad futura
 
 		const estimates = {
 			BINARY: 50 * 1024 * 1024, // 50MB para archivos binarios
@@ -868,9 +868,9 @@ export class StorageService {
 				createdAt: stat.ctime ? new Date(stat.ctime).getTime() : undefined,
 				modifiedAt: stat.mtime ? new Date(stat.mtime).getTime() : undefined,
 			};
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// File not found is not an error, return null
-			if (error?.code === "ENOENT") {
+			if ((error as { code?: string })?.code === "ENOENT") {
 				return null;
 			}
 			this.currentLogger.error(TAG, `Error getting file info: ${filePath}`, error);
@@ -1101,6 +1101,11 @@ export class StorageService {
 				this.currentLogger.debug(TAG, "Directory does not exist", { dirPath });
 				return 0;
 			}
+
+			/*
+			 * Para testear y validar, podemos descomentar los logs recursivos
+			 *
+			 */
 
 			const items = await RNFS.readDir(dirPath);
 			let totalSize = 0;
@@ -1385,7 +1390,7 @@ export class StorageService {
 	 *
 	 */
 
-	public subscribe(event: StorageEventType | "all", callback: (data: any) => void): () => void {
+	public subscribe(event: StorageEventType | "all", callback: StorageEventCallback): () => void {
 		if (event === "all") {
 			Object.values(StorageEventType).forEach(eventType => {
 				this.eventEmitter.on(eventType, callback);
