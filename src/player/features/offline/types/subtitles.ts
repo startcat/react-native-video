@@ -1,8 +1,8 @@
+import { LogLevel } from "../../logger";
 import { SubtitleFormat } from "./download";
 
 /*
  * Tipos específicos del servicio de descargas de subtítulos
- * LogLevel se importa directamente en el servicio, no se reexporta desde tipos
  *
  */
 
@@ -47,5 +47,5 @@ export interface SubtitleServiceConfig {
 	maxRetries: number;
 	validateContent: boolean;
 	logEnabled: boolean;
-	logLevel: any; // LogLevel from logger, imported in service
+	logLevel: LogLevel;
 }
