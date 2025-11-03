@@ -33,6 +33,19 @@ export enum DownloadEventType {
 	QUEUE_REORDERED = "queue:reordered",
 }
 
+// Event data types for each download event
+export type DownloadEventData =
+	| { taskId: string; url: string; destination: string } // STARTED
+	| { taskId: string; percent: number; bytesWritten: number; totalBytes: number; downloadSpeed?: number; estimatedTimeRemaining?: number } // PROGRESS
+	| { taskId: string; filePath: string; fileSize: number; duration: number } // COMPLETED
+	| { taskId: string; error: { code: string; message: string; details: unknown; timestamp: number } } // FAILED
+	| { taskId: string } // PAUSED, RESUMED, REMOVED
+	| { taskId: string; queuePosition: number } // QUEUED
+	| { taskId: string; progress?: { bytesWritten: number; totalBytes: number; percent: number } } // CANCELLED
+	| void; // QUEUE_CLEARED, QUEUE_REORDERED
+
+export type DownloadEventCallback = (data?: DownloadEventData) => void;
+
 export enum DownloadErrorCode {
 	NETWORK_ERROR = "NETWORK_ERROR",
 	INSUFFICIENT_SPACE = "INSUFFICIENT_SPACE",
