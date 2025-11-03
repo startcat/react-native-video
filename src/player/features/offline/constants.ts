@@ -98,7 +98,7 @@ export const VALID_STATE_TRANSITIONS: Record<string, string[]> = {
 } as const;
 
 export const PATTERNS = {
-	URL: /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/,
+	URL: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/,
 	FILENAME: /^[a-zA-Z0-9._\- ]+$/,
 	VIDEO_URL: /\.(mp4|mkv|avi|mov|webm)(\?.*)?$/i,
 	AUDIO_URL: /\.(mp3|aac|wav|flac|m4a)(\?.*)?$/i,
