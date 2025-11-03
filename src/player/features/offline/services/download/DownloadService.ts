@@ -13,12 +13,16 @@ import { DEFAULT_CONFIG_DOWNLOAD_SERVICE, LOGGER_DEFAULTS } from "../../defaultC
 import {
 	ActiveBinaryDownload,
 	ActiveStreamDownload,
+	BinaryDownloadServiceConfig,
 	BinaryDownloadTask,
+	DownloadEventCallback,
+	DownloadEventData,
 	DownloadEventType,
 	DownloadServiceConfig,
 	DownloadStrategy,
 	DownloadStrategyFactory,
 	DownloadType,
+	StreamDownloadServiceConfig,
 	StreamDownloadTask,
 	ValidationResult,
 } from "../../types";
@@ -35,7 +39,7 @@ class BinaryDownloadStrategy implements DownloadStrategy {
 		this.service = BinaryDownloadService.getInstance();
 	}
 
-	async initialize(config?: any): Promise<void> {
+	async initialize(config?: Partial<BinaryDownloadServiceConfig>): Promise<void> {
 		return this.service.initialize(config);
 	}
 
@@ -67,7 +71,7 @@ class BinaryDownloadStrategy implements DownloadStrategy {
 		return this.service.getStats();
 	}
 
-	subscribe(event: DownloadEventType | "all", callback: (data: any) => void): () => void {
+	subscribe(event: DownloadEventType | "all", callback: DownloadEventCallback): () => void {
 		return this.service.subscribe(event, callback);
 	}
 
@@ -84,7 +88,7 @@ class StreamDownloadStrategy implements DownloadStrategy {
 		this.service = StreamDownloadService.getInstance();
 	}
 
-	async initialize(config?: any): Promise<void> {
+	async initialize(config?: Partial<StreamDownloadServiceConfig>): Promise<void> {
 		return this.service.initialize(config);
 	}
 
@@ -116,7 +120,7 @@ class StreamDownloadStrategy implements DownloadStrategy {
 		return this.service.getStats();
 	}
 
-	subscribe(event: DownloadEventType | "all", callback: (data: any) => void): () => void {
+	subscribe(event: DownloadEventType | "all", callback: DownloadEventCallback): () => void {
 		return this.service.subscribe(event, callback);
 	}
 
@@ -281,20 +285,23 @@ export class DownloadService {
 				const unsubscribers: (() => void)[] = [];
 
 				Object.values(DownloadEventType).forEach(eventType => {
-					const unsub = binaryStrategy.subscribe(eventType, (data: any) => {
-						// Emitir con prefijo para identificación
-						this.eventEmitter.emit(`binary:${eventType}`, {
-							...data,
-							type: eventType,
-							sourceType: DownloadType.BINARY,
-						});
-						// También emitir evento genérico con tipo correcto
-						this.eventEmitter.emit(eventType, {
-							...data,
-							type: eventType,
-							sourceType: DownloadType.BINARY,
-						});
-					});
+					const unsub = binaryStrategy.subscribe(
+						eventType,
+						(data?: DownloadEventData) => {
+							// Emitir con prefijo para identificación
+							this.eventEmitter.emit(`binary:${eventType}`, {
+								...data,
+								type: eventType,
+								sourceType: DownloadType.BINARY,
+							});
+							// También emitir evento genérico con tipo correcto
+							this.eventEmitter.emit(eventType, {
+								...data,
+								type: eventType,
+								sourceType: DownloadType.BINARY,
+							});
+						}
+					);
 					unsubscribers.push(unsub);
 				});
 
@@ -314,20 +321,23 @@ export class DownloadService {
 				const unsubscribers: (() => void)[] = [];
 
 				Object.values(DownloadEventType).forEach(eventType => {
-					const unsub = streamStrategy.subscribe(eventType, (data: any) => {
-						// Emitir con prefijo para identificación
-						this.eventEmitter.emit(`stream:${eventType}`, {
-							...data,
-							type: eventType,
-							sourceType: DownloadType.STREAM,
-						});
-						// También emitir evento genérico con tipo correcto
-						this.eventEmitter.emit(eventType, {
-							...data,
-							type: eventType,
-							sourceType: DownloadType.STREAM,
-						});
-					});
+					const unsub = streamStrategy.subscribe(
+						eventType,
+						(data?: DownloadEventData) => {
+							// Emitir con prefijo para identificación
+							this.eventEmitter.emit(`stream:${eventType}`, {
+								...data,
+								type: eventType,
+								sourceType: DownloadType.STREAM,
+							});
+							// También emitir evento genérico con tipo correcto
+							this.eventEmitter.emit(eventType, {
+								...data,
+								type: eventType,
+								sourceType: DownloadType.STREAM,
+							});
+						}
+					);
 					unsubscribers.push(unsub);
 				});
 
@@ -489,8 +499,8 @@ export class DownloadService {
 
 	public getUnifiedStats() {
 		const stats = {
-			binary: null as any,
-			stream: null as any,
+			binary: null as ReturnType<BinaryDownloadService["getStats"]> | null,
+			stream: null as ReturnType<StreamDownloadService["getStats"]> | null,
 			combined: {
 				totalActiveDownloads: 0,
 				totalQueuedDownloads: 0,
@@ -504,9 +514,9 @@ export class DownloadService {
 			try {
 				const binaryStrategy = this.strategyFactory.createStrategy(DownloadType.BINARY);
 				stats.binary = binaryStrategy.getStats();
-				stats.combined.totalActiveDownloads += stats.binary.activeDownloads || 0;
-				stats.combined.totalQueuedDownloads += stats.binary.queuedDownloads || 0;
-				stats.combined.totalBytesDownloaded += stats.binary.totalDownloaded || 0;
+				stats.combined.totalActiveDownloads += stats.binary?.activeDownloads || 0;
+				stats.combined.totalQueuedDownloads += stats.binary?.queuedDownloads || 0;
+				stats.combined.totalBytesDownloaded += stats.binary?.totalDownloaded || 0;
 			} catch (error) {
 				this.currentLogger.warn(TAG, "Failed to get binary stats", error);
 			}
@@ -517,9 +527,9 @@ export class DownloadService {
 			try {
 				const streamStrategy = this.strategyFactory.createStrategy(DownloadType.STREAM);
 				stats.stream = streamStrategy.getStats();
-				stats.combined.totalActiveDownloads += stats.stream.activeDownloads || 0;
-				stats.combined.totalQueuedDownloads += stats.stream.queuedDownloads || 0;
-				stats.combined.totalBytesDownloaded += stats.stream.totalDownloaded || 0;
+				stats.combined.totalActiveDownloads += stats.stream?.activeDownloads || 0;
+				stats.combined.totalQueuedDownloads += stats.stream?.queuedDownloads || 0;
+				stats.combined.totalBytesDownloaded += stats.stream?.totalDownloaded || 0;
 			} catch (error) {
 				this.currentLogger.warn(TAG, "Failed to get stream stats", error);
 			}
@@ -542,7 +552,7 @@ export class DownloadService {
 
 	public subscribe(
 		event: DownloadEventType | "all" | string,
-		callback: (data: any) => void
+		callback: DownloadEventCallback
 	): () => void {
 		this.eventEmitter.on(event, callback);
 		return () => this.eventEmitter.off(event, callback);
