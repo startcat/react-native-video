@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlayerError } from "../../../core/errors";
 import { queueManager } from "../managers/QueueManager";
-import { DownloadItemMetadata, DownloadStates, DownloadType } from "../types";
+import { DownloadItem, DownloadItemMetadata, DownloadStates, DownloadType } from "../types";
 import { calculateRemainingTime, generateDownloadIdFromUri, isValidUri } from "../utils";
 
 interface UseDownloadsProgressReturn {
@@ -74,6 +74,44 @@ export function useDownloadsProgress(
 	const [hookState, setHookState] = useState<UseDownloadsProgressReturn>(() =>
 		createInitialState()
 	);
+
+	// Implementación de acciones (declaradas antes de getCurrentState)
+	const pauseDownload = useCallback(async (id: string) => {
+		try {
+			await queueManager.pauseDownload(id);
+		} catch (error) {
+			console.error("Failed to pause download:", error);
+		}
+	}, []);
+
+	const resumeDownload = useCallback(async (id: string) => {
+		try {
+			await queueManager.resumeDownload(id);
+		} catch (error) {
+			console.error("Failed to resume download:", error);
+		}
+	}, []);
+
+	const cancelDownload = useCallback(async (id: string) => {
+		try {
+			await queueManager.removeDownload(id);
+		} catch (error) {
+			console.error("Failed to cancel download:", error);
+		}
+	}, []);
+
+	const retryDownload = useCallback(async (id: string) => {
+		try {
+			// Obtener el item actual
+			const item = queueManager.getDownload(id);
+			if (item && item.state === DownloadStates.FAILED) {
+				// Cambiar estado a QUEUED para reintentarlo
+				await queueManager.resumeDownload(id);
+			}
+		} catch (error) {
+			console.error("Failed to retry download:", error);
+		}
+	}, []);
 
 	// Memoizar getCurrentState para evitar recrear la función en cada render
 	// Solo se recrea cuando downloadId cambia
@@ -147,45 +185,7 @@ export function useDownloadsProgress(
 			networkType: stats.networkType,
 			streamQuality: stats.streamQuality,
 		};
-	}, [downloadId]);
-
-	// Implementación de acciones
-	const pauseDownload = useCallback(async (id: string) => {
-		try {
-			await queueManager.pauseDownload(id);
-		} catch (error) {
-			console.error("Failed to pause download:", error);
-		}
-	}, []);
-
-	const resumeDownload = useCallback(async (id: string) => {
-		try {
-			await queueManager.resumeDownload(id);
-		} catch (error) {
-			console.error("Failed to resume download:", error);
-		}
-	}, []);
-
-	const cancelDownload = useCallback(async (id: string) => {
-		try {
-			await queueManager.removeDownload(id);
-		} catch (error) {
-			console.error("Failed to cancel download:", error);
-		}
-	}, []);
-
-	const retryDownload = useCallback(async (id: string) => {
-		try {
-			// Obtener el item actual
-			const item = queueManager.getDownload(id);
-			if (item && item.state === DownloadStates.FAILED) {
-				// Cambiar estado a QUEUED para reintentarlo
-				await queueManager.resumeDownload(id);
-			}
-		} catch (error) {
-			console.error("Failed to retry download:", error);
-		}
-	}, []);
+	}, [downloadId, pauseDownload, resumeDownload, cancelDownload, retryDownload]);
 
 	// Actualizar estado cuando cambia el downloadId
 	useEffect(() => {
@@ -314,7 +314,7 @@ function createNotDownloadedState(): UseDownloadsProgressReturn {
  *
  */
 
-function createMetadataFromDownloadItem(downloadItem: any): DownloadItemMetadata | null {
+function createMetadataFromDownloadItem(downloadItem: DownloadItem): DownloadItemMetadata | null {
 	if (!downloadItem || !downloadItem.id) {
 		return null;
 	}
