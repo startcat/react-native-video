@@ -9,6 +9,14 @@ import { DownloadEventType, NetworkPolicy, NetworkStatus } from "../types";
  *
  */
 
+// Tipo auxiliar para acceder a propiedades internas del NetworkService
+type NetworkServiceWithEventEmitter = {
+	eventEmitter: {
+		on: (event: string, handler: (data: unknown) => void) => void;
+		off: (event: string, handler: (data: unknown) => void) => void;
+	};
+};
+
 export interface UseNetworkStatusReturn {
 	// Estado actual
 	isOnline: boolean;
@@ -76,9 +84,11 @@ export function useNetworkStatus(): UseNetworkStatusReturn {
 		});
 
 		// Suscribirse a cambios de política y descargas usando eventEmitter interno
-		const eventEmitter = (networkService as any).eventEmitter;
+		const serviceWithEmitter = networkService as unknown as NetworkServiceWithEventEmitter;
+		const eventEmitter = serviceWithEmitter.eventEmitter;
 
-		const handlePolicyChange = (newPolicy: NetworkPolicy) => {
+		const handlePolicyChange = (data: unknown) => {
+			const newPolicy = data as NetworkPolicy;
 			setPolicy(newPolicy);
 			updateDerivedStates();
 		};
