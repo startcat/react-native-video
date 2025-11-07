@@ -180,6 +180,25 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		};
 	}, []);
 
+	const handleChangePreferences = (preferences: any) => {
+		currentLogger.current?.info(`[Player] handleChangePreferences called with: ${JSON.stringify(preferences)}`);
+		
+		// Actualizar estados internos cuando se aplican preferencias
+		if (typeof preferences?.audioIndex === "number") {
+			currentLogger.current?.info(`[Player] Setting currentAudioIndex to ${preferences.audioIndex}`);
+			setCurrentAudioIndex(preferences.audioIndex);
+		}
+		if (typeof preferences?.subtitleIndex === "number") {
+			currentLogger.current?.info(`[Player] Setting currentSubtitleIndex to ${preferences.subtitleIndex}`);
+			setCurrentSubtitleIndex(preferences.subtitleIndex);
+		}
+
+		// Llamar al callback del usuario
+		if (props.events?.onChangePreferences) {
+			props.events.onChangePreferences(preferences);
+		}
+	};
+
 	/*
 	 *  Función para guardar los cambios en el estado entre flavours
 	 *
@@ -309,6 +328,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 					events={{
 						...props.events,
 						onChangeCommonData: handleChangeCommonData,
+						onChangePreferences: handleChangePreferences,
 					}}
 					// Player Features
 					features={props.features}
@@ -355,6 +375,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 					events={{
 						...props.events,
 						onChangeCommonData: handleChangeCommonData,
+						onChangePreferences: handleChangePreferences,
 					}}
 					// Features
 					features={props.features}
