@@ -43,4 +43,17 @@ export interface IPlayerHooks {
 		loadedData: Array<MediaTrack> | undefined,
 		languagesMapping?: ILanguagesMapping
 	) => Array<IPlayerMenuData>;
+	applyPreferencesFromMenuData?: (
+		menuData: Array<IPlayerMenuData>,
+		preferences?: { preferedAudio?: string; preferedSubtitle?: string }
+	) => {
+		audioIndex?: number;
+		subtitleIndex?: number;
+		audioLabel?: string;
+		subtitleLabel?: string;
+	};
+	getUserAudioSubtitlePreferences?: () => {
+		preferedAudio?: string;
+		preferedSubtitle?: string;
+	};
 }

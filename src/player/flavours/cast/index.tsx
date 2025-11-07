@@ -709,14 +709,16 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 					// Calcular startingPoint según el tipo de contenido
 					let startingPoint: number;
-					
+
 					if (sourceRef.current?.isLive) {
 						// Para Live/DVR: usar 0 para que Cast empiece en el live edge
 						// Cast maneja automáticamente el posicionamiento en el live edge cuando startTime es 0
 						startingPoint = 0;
 					} else {
 						// Para VOD: usar startPosition del source (viene en milisegundos, convertir a segundos)
-						startingPoint = data.source.startPosition ? data.source.startPosition / 1000 : 0;
+						startingPoint = data.source.startPosition
+							? data.source.startPosition / 1000
+							: 0;
 					}
 
 					currentLogger.current?.debug(
