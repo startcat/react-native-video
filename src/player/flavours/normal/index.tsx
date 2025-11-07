@@ -114,6 +114,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
 
+	// Track current audio/subtitle indices (para el menú)
+	const currentAudioIndexRef = useRef<number | undefined>(props.audioIndex);
+	const currentSubtitleIndexRef = useRef<number | undefined>(props.subtitleIndex);
+
 	// Control para evitar mezcla de sources
 	const currentSourceType = useRef<"tudum" | "content" | null>(null);
 	const pendingContentSource = useRef<onSourceChangedProps | null>(null);
@@ -908,6 +912,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				data.audioIndex = id === CONTROL_ACTION.AUDIO_INDEX ? value : undefined;
 				data.subtitleIndex = id === CONTROL_ACTION.SUBTITLE_INDEX ? value : undefined;
 
+				// Actualizar refs locales cuando el usuario cambia desde el menú
+				if (id === CONTROL_ACTION.AUDIO_INDEX) {
+					currentAudioIndexRef.current = value;
+				} else if (id === CONTROL_ACTION.SUBTITLE_INDEX) {
+					currentSubtitleIndexRef.current = value;
+				}
+
 				const audioTrack = menuData?.find(
 					(item: IPlayerMenuData) =>
 						item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === value
@@ -982,36 +993,91 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 			let generatedMenuData: any;
 			if (props.hooks?.mergeMenuData && typeof props.hooks.mergeMenuData === "function") {
-				generatedMenuData = props.hooks.mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH);
-				setMenuData(generatedMenuData);
+				generatedMenuData = props.hooks.mergeMenuData(
+					e,
+					props.languagesMapping,
+					sourceRef.current?.isDASH
+				);
 			} else {
-				generatedMenuData = mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH);
-				setMenuData(generatedMenuData);
+				generatedMenuData = mergeMenuData(
+					e,
+					props.languagesMapping,
+					sourceRef.current?.isDASH
+				);
 			}
+
+			currentLogger.current?.info(
+				`handleOnLoad - Checking preferences (contenido sin datos de API, como directos): audioIndex=${props.audioIndex}, subtitleIndex=${props.subtitleIndex}, generatedMenuData=${!!generatedMenuData}, hasHooks=${!!props.hooks?.getUserAudioSubtitlePreferences}`
+			);
 
 			// Aplicar preferencias del usuario si no hay defaultAudioIndex/defaultSubtitlesIndex
 			// (contenido sin datos de API, como directos)
-			if ((props.audioIndex === undefined || props.subtitleIndex === undefined) && generatedMenuData) {
-				if (props.hooks?.getUserAudioSubtitlePreferences && props.hooks?.applyPreferencesFromMenuData) {
+			// Nota: -1 es el valor por defecto cuando no hay datos de API
+			let finalAudioIndex = props.audioIndex;
+			let finalSubtitleIndex = props.subtitleIndex;
+
+			if (
+				(props.audioIndex === undefined ||
+					props.audioIndex === -1 ||
+					props.subtitleIndex === undefined ||
+					props.subtitleIndex === -1) &&
+				generatedMenuData
+			) {
+				currentLogger.current?.info(
+					`handleOnLoad - Checking preferences: audioIndex=${props.audioIndex}, subtitleIndex=${props.subtitleIndex}, hasHooks=${!!props.hooks?.getUserAudioSubtitlePreferences}`
+				);
+
+				if (
+					props.hooks?.getUserAudioSubtitlePreferences &&
+					props.hooks?.applyPreferencesFromMenuData
+				) {
 					const userPreferences = props.hooks.getUserAudioSubtitlePreferences();
+					currentLogger.current?.info(
+						`handleOnLoad - User preferences: ${JSON.stringify(userPreferences)}`
+					);
+
 					const appliedPreferences = props.hooks.applyPreferencesFromMenuData(
 						generatedMenuData,
 						userPreferences
 					);
 
-					if (appliedPreferences && (appliedPreferences.audioIndex !== undefined || appliedPreferences.subtitleIndex !== undefined)) {
+					if (
+						appliedPreferences &&
+						(appliedPreferences.audioIndex !== undefined ||
+							appliedPreferences.subtitleIndex !== undefined)
+					) {
 						currentLogger.current?.info(
 							`handleOnLoad - Applying user preferences from menuData: ${JSON.stringify(appliedPreferences)}`
 						);
+						// Actualizar los refs locales para que el menú reciba los valores correctos
+						if (appliedPreferences.audioIndex !== undefined) {
+							currentAudioIndexRef.current = appliedPreferences.audioIndex;
+						}
+						if (appliedPreferences.subtitleIndex !== undefined) {
+							currentSubtitleIndexRef.current = appliedPreferences.subtitleIndex;
+						}
+						// Actualizar los índices finales con las preferencias aplicadas
+						if (appliedPreferences.audioIndex !== undefined) {
+							finalAudioIndex = appliedPreferences.audioIndex;
+						}
+						if (appliedPreferences.subtitleIndex !== undefined) {
+							finalSubtitleIndex = appliedPreferences.subtitleIndex;
+						}
 						props.events?.onChangePreferences?.(appliedPreferences);
+					} else {
+						currentLogger.current?.debug(
+							`handleOnLoad - No preferences to apply: ${JSON.stringify(appliedPreferences)}`
+						);
 					}
+				} else {
+					currentLogger.current?.warn(
+						`handleOnLoad - Missing hooks for applying preferences`
+					);
 				}
 			}
 
-			if (props.events?.onStart) {
-				props.events.onStart();
-			}
-
+			// Establecer menuData DESPUÉS de aplicar preferencias para que refleje la selección correcta
+			setMenuData(generatedMenuData);
 			// Seek inicial al cargar un live con DVR
 			if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
 				try {
@@ -1296,8 +1362,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					isContentLoaded={isContentLoaded}
 					menuData={menuData}
 					videoIndex={videoQualityIndex.current}
-					audioIndex={props.audioIndex}
-					subtitleIndex={props.subtitleIndex}
+					audioIndex={currentAudioIndexRef.current ?? props.audioIndex}
+					subtitleIndex={currentSubtitleIndexRef.current ?? props.subtitleIndex}
 					speedRate={speedRate}
 					// Nuevas Props Agrupadas
 					playerMetadata={props.playerMetadata}
