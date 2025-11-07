@@ -373,7 +373,10 @@ export function useCastManager(
 
 	// Acción: Stop
 	const stop = useCallback(async (): Promise<boolean> => {
-		if (!canPerformAction()) {
+		// Stop es más permisivo - solo requiere nativeClient, no conexión activa
+		// Esto permite detener durante desconexión o estados transitorios
+		if (!nativeClient) {
+			currentLogger.current?.warn("Stop called but nativeClient not available");
 			return handleActionError("action", new PlayerError("PLAYER_CAST_NOT_READY"), {
 				action: "stop",
 			});
@@ -385,6 +388,7 @@ export function useCastManager(
 			await nativeClient.stop();
 			lastLoadedContentRef.current = null;
 			completeAction("stop");
+			currentLogger.current?.debug("Stop completed successfully");
 			return true;
 		} catch (error) {
 			return handleActionError(
@@ -395,7 +399,7 @@ export function useCastManager(
 				{ action: "stop" }
 			);
 		}
-	}, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
+	}, [handleActionError, startAction, completeAction, nativeClient]);
 
 	// Acción: Mute
 	const mute = useCallback(async (): Promise<boolean> => {

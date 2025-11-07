@@ -881,14 +881,20 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			}
 
 			if (id === CONTROL_ACTION.CLOSE_AUDIO_PLAYER) {
+				// Intentar detener Cast, pero no bloquear el cierre si falla
 				try {
 					await castManagerRef.current?.stop();
-					if (props.events?.onClose) {
-						props.events.onClose();
-					}
+					currentLogger.current?.debug("Cast stopped successfully on close");
 				} catch (error: any) {
-					currentLogger.current?.error(`Stop operation failed: ${error?.message}`);
-					handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
+					// Log pero no propagar error - el cierre debe continuar
+					currentLogger.current?.warn(
+						`Cast stop failed on close (non-critical): ${error?.message || error}`
+					);
+				}
+
+				// Siempre cerrar el audio player, independientemente del estado Cast
+				if (props.events?.onClose) {
+					props.events.onClose();
 				}
 			}
 
