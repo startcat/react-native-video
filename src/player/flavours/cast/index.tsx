@@ -597,6 +597,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					isLive: false,
 					isDVR: false,
 					startPosition: 0,
+					mediaType: "video", // Cast flavour siempre reproduce video
 				},
 			});
 
@@ -734,6 +735,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 							isLive: !!props.playerProgress?.isLive,
 							isDVR: sourceRef.current?.isDVR,
 							startPosition: startingPoint,
+							mediaType: "video",
 						},
 					});
 
