@@ -707,15 +707,21 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 						);
 					}
 
-					let startingPoint = props.playerProgress?.currentTime || 0;
-
-					if (
-						sourceRef.current?.isLive &&
-						sourceRef.current?.isDVR &&
-						sourceRef.current?.dvrWindowSeconds
-					) {
-						startingPoint = sourceRef.current.dvrWindowSeconds;
+					// Calcular startingPoint según el tipo de contenido
+					let startingPoint: number;
+					
+					if (sourceRef.current?.isLive) {
+						// Para Live/DVR: usar 0 para que Cast empiece en el live edge
+						// Cast maneja automáticamente el posicionamiento en el live edge cuando startTime es 0
+						startingPoint = 0;
+					} else {
+						// Para VOD: usar startPosition del source (viene en milisegundos, convertir a segundos)
+						startingPoint = data.source.startPosition ? data.source.startPosition / 1000 : 0;
 					}
+
+					currentLogger.current?.debug(
+						`loadContentWithCastManager - startingPoint: ${startingPoint}s, isLive: ${sourceRef.current?.isLive}, isDVR: ${sourceRef.current?.isDVR}, sourceStartPosition: ${data.source.startPosition}ms`
+					);
 
 					const success = await castManagerRef.current?.loadContent({
 						source: data.source,
@@ -819,22 +825,39 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			);
 			// Usar la función existente de Cast para cambiar tracks
 			if (castManager && menuData) {
-				if (typeof audioIndex === "number") {
-					activeTracks.push(getTrackId("audio", audioIndex, menuData)!);
+				// Validar y añadir track de audio solo si existe en menuData
+				if (typeof audioIndex === "number" && audioIndex >= 0) {
+					const audioTrackId = getTrackId("audio", audioIndex, menuData);
+					if (audioTrackId !== undefined && audioTrackId !== null) {
+						activeTracks.push(audioTrackId);
+					} else {
+						currentLogger.current?.warn(
+							`handleTrackChanges - Audio track not found for index ${audioIndex}`
+						);
+					}
 				}
 
+				// Validar y añadir track de subtítulos solo si existe en menuData
 				if (typeof subtitleIndex === "number" && subtitleIndex !== -1) {
-					activeTracks.push(getTrackId("text", subtitleIndex, menuData)!);
+					const textTrackId = getTrackId("text", subtitleIndex, menuData);
+					if (textTrackId !== undefined && textTrackId !== null) {
+						activeTracks.push(textTrackId);
+					} else {
+						currentLogger.current?.warn(
+							`handleTrackChanges - Text track not found for index ${subtitleIndex}`
+						);
+					}
 				}
 
-				if (activeTracks.length) {
+				// Solo establecer tracks si hay IDs válidos
+				if (activeTracks.length > 0) {
 					currentLogger.current?.debug(
-						`handleTrackChanges ${JSON.stringify(activeTracks)}`
+						`handleTrackChanges - Setting active tracks: ${JSON.stringify(activeTracks)}`
 					);
 					castManager.setActiveTrackIds(activeTracks);
 				} else {
 					currentLogger.current?.warn(
-						`handleTrackChanges empty ids... ${JSON.stringify(activeTracks)}`
+						`handleTrackChanges - No valid track IDs to set (audio: ${audioIndex}, subtitle: ${subtitleIndex})`
 					);
 				}
 			} else {
