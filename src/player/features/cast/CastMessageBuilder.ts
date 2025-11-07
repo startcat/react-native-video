@@ -97,9 +97,13 @@ export class CastMessageBuilder {
 
 			// Agregar información adicional
 			if (message && message.mediaInfo) {
+				// Determinar el tipo de contenido multimedia
+				const mediaType = this.getMediaType(config.source.uri, config.metadata.mediaType);
+
 				message.mediaInfo.contentId = contentId;
-				message.mediaInfo.contentType = this.getMimeType(config.source.uri);
+				message.mediaInfo.contentType = this.getMimeType(config.source.uri, mediaType);
 				message.mediaInfo.streamType = streamType;
+				message.mediaInfo.mediaType = mediaType;
 
 				// Agregar metadata personalizada
 				message.mediaInfo.customData = {
@@ -110,6 +114,7 @@ export class CastMessageBuilder {
 					streamType: streamType,
 					contentType: this.getMimeType(config.source.uri),
 					type: this.getContentType(config.metadata),
+					mediaType: mediaType,
 					buildTimestamp: Date.now(),
 					builderVersion: "1.0.0",
 				};
@@ -205,6 +210,7 @@ export class CastMessageBuilder {
 			isLive: metadata.isLive || false,
 			isDVR: metadata.isDVR || false,
 			startPosition: metadata.startPosition || this.config.defaultStartPosition || 0,
+			mediaType: metadata.mediaType,
 		};
 	}
 
@@ -243,18 +249,18 @@ export class CastMessageBuilder {
 	 *
 	 */
 
-	private getMimeType(uri: string): string {
+	private getMimeType(uri: string, mediaType?: "video" | "audio"): string {
 		const url = uri.toLowerCase();
 
-		if (url.includes(".m3u8") || url.includes("hls")) {
+		if (mediaType !== "audio" && (url.includes(".m3u8") || url.includes("hls"))) {
 			return SUPPORTED_MIME_TYPES.HLS;
 		}
 
-		if (url.includes(".mpd") || url.includes("dash")) {
+		if (mediaType !== "audio" && (url.includes(".mpd") || url.includes("dash"))) {
 			return SUPPORTED_MIME_TYPES.DASH;
 		}
 
-		if (url.includes(".mp3")) {
+		if (url.includes(".mp3") || mediaType === "audio") {
 			return SUPPORTED_MIME_TYPES.MP3;
 		}
 
@@ -290,11 +296,34 @@ export class CastMessageBuilder {
 
 	private isValidUrl(url: string): boolean {
 		try {
-			new URL(url);
 			return url.startsWith("http://") || url.startsWith("https://");
 		} catch {
 			return false;
 		}
+	}
+
+	/*
+	 *  Determina el tipo de contenido multimedia (audio/video)
+	 *
+	 */
+
+	private getMediaType(uri: string, explicitMediaType?: "video" | "audio"): "video" | "audio" {
+		// Si se especifica explícitamente, usar ese valor
+		if (explicitMediaType) {
+			return explicitMediaType;
+		}
+
+		// Detectar automáticamente basándose en el MIME type
+		const mimeType = this.getMimeType(uri);
+
+		// Los MP3 son claramente audio
+		if (mimeType === SUPPORTED_MIME_TYPES.MP3) {
+			return "audio";
+		}
+
+		// Para streams DASH/HLS, por defecto asumir video a menos que se especifique
+		// El receptor de cast puede usar esta información para renderizar correctamente
+		return "video";
 	}
 
 	/*

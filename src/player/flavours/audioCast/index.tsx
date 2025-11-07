@@ -553,6 +553,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 							isLive: !!props.playerProgress?.isLive,
 							isDVR: sourceRef.current?.isDVR,
 							startPosition: startingPoint,
+							mediaType: "audio", // AudioCast flavour siempre reproduce audio
 						},
 					});
 
@@ -614,6 +615,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 					isLive: false,
 					isDVR: false,
 					startPosition: 0,
+					mediaType: "audio", // AudioCast flavour siempre reproduce audio
 				},
 			});
 

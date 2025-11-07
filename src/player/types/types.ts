@@ -142,6 +142,7 @@ export interface ICastMetadata {
 	hasNext?: boolean;
 
 	startPosition?: number;
+	mediaType?: "video" | "audio"; // Tipo de contenido multimedia
 }
 
 export interface ITimeMarkers {

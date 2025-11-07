@@ -79,3 +79,13 @@ export enum CastStreamType {
 	LIVE = "live",
 	NONE = "none",
 }
+
+/*
+ *  Tipo de contenido multimedia
+ *
+ */
+
+export enum CastMediaType {
+	VIDEO = "video",
+	AUDIO = "audio",
+}

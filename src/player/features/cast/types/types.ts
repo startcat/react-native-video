@@ -122,6 +122,7 @@ export interface CastContentInfo {
 		isLive?: boolean;
 		isDVR?: boolean;
 		startPosition?: number; // Posición inicial en segundos
+		mediaType?: "video" | "audio"; // Tipo de contenido multimedia
 	};
 }
 
@@ -183,6 +184,7 @@ export interface CastContentMetadata {
 	isLive?: boolean;
 	isDVR?: boolean;
 	startPosition?: number;
+	mediaType?: "video" | "audio"; // Tipo de contenido multimedia
 }
 
 export interface CastMessageConfig {
