@@ -44,6 +44,8 @@ export interface ICommonData {
 	subtitleIndex?: number;
 	audioLabel?: string;
 	subtitleLabel?: string;
+	audioCode?: string;
+	subtitleCode?: string;
 	playbackRate?: number;
 }
 
@@ -54,6 +56,8 @@ export interface IPreferencesCommonData {
 	subtitleIndex?: number;
 	audioLabel?: string;
 	subtitleLabel?: string;
+	audioCode?: string;
+	subtitleCode?: string;
 	playbackRate?: number;
 }
 

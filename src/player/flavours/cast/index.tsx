@@ -888,16 +888,20 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			}
 
 			data.audioIndex = audioDefaultIndex;
-			data.audioLabel = menuData?.find(
+			const audioTrack = menuData?.find(
 				(item: IPlayerMenuData) =>
 					item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === audioDefaultIndex
-			)?.label;
+			);
+			data.audioLabel = audioTrack?.label;
+			data.audioCode = audioTrack?.code;
 
 			data.subtitleIndex = textDefaultIndex;
-			data.subtitleLabel = menuData?.find(
+			const subtitleTrack = menuData?.find(
 				(item: IPlayerMenuData) =>
 					item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === textDefaultIndex
-			)?.label;
+			);
+			data.subtitleLabel = subtitleTrack?.label;
+			data.subtitleCode = subtitleTrack?.code;
 
 			currentLogger.current?.debug(`handleMenuDataReady ${JSON.stringify(data)}`);
 
