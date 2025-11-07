@@ -236,6 +236,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			setCurrentAudioIndex(data.audioIndex);
 			preferencesData.audioIndex = data.audioIndex;
 			preferencesData.audioLabel = data.audioLabel;
+			preferencesData.audioCode = data.audioCode;
 
 			if (props.events?.onChangeAudioIndex) {
 				props.events.onChangeAudioIndex(data?.audioIndex, data?.audioLabel);
@@ -246,6 +247,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			setCurrentSubtitleIndex(data.subtitleIndex);
 			preferencesData.subtitleIndex = data.subtitleIndex;
 			preferencesData.subtitleLabel = data.subtitleLabel;
+			preferencesData.subtitleCode = data.subtitleCode;
 
 			if (props.events?.onChangeSubtitleIndex) {
 				props.events.onChangeSubtitleIndex(data?.subtitleIndex, data?.subtitleLabel);
