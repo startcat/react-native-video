@@ -907,14 +907,20 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				data.volume = id === CONTROL_ACTION.VOLUME ? value : undefined;
 				data.audioIndex = id === CONTROL_ACTION.AUDIO_INDEX ? value : undefined;
 				data.subtitleIndex = id === CONTROL_ACTION.SUBTITLE_INDEX ? value : undefined;
-				data.audioLabel = menuData?.find(
+
+				const audioTrack = menuData?.find(
 					(item: IPlayerMenuData) =>
 						item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === value
-				)?.label;
-				data.subtitleLabel = menuData?.find(
+				);
+				data.audioLabel = audioTrack?.label;
+				data.audioCode = audioTrack?.code;
+
+				const subtitleTrack = menuData?.find(
 					(item: IPlayerMenuData) =>
 						item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.index === value
-				)?.label;
+				);
+				data.subtitleLabel = subtitleTrack?.label;
+				data.subtitleCode = subtitleTrack?.code;
 			}
 
 			props.events?.onChangeCommonData(data);
