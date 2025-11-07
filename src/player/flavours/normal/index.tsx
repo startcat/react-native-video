@@ -974,12 +974,32 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			isChangingSource.current = false;
 			setIsContentLoaded(true);
 
+			let generatedMenuData: any;
 			if (props.hooks?.mergeMenuData && typeof props.hooks.mergeMenuData === "function") {
-				setMenuData(
-					props.hooks.mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH)
-				);
+				generatedMenuData = props.hooks.mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH);
+				setMenuData(generatedMenuData);
 			} else {
-				setMenuData(mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH));
+				generatedMenuData = mergeMenuData(e, props.languagesMapping, sourceRef.current?.isDASH);
+				setMenuData(generatedMenuData);
+			}
+
+			// Aplicar preferencias del usuario si no hay defaultAudioIndex/defaultSubtitlesIndex
+			// (contenido sin datos de API, como directos)
+			if ((props.audioIndex === undefined || props.subtitleIndex === undefined) && generatedMenuData) {
+				if (props.hooks?.getUserAudioSubtitlePreferences && props.hooks?.applyPreferencesFromMenuData) {
+					const userPreferences = props.hooks.getUserAudioSubtitlePreferences();
+					const appliedPreferences = props.hooks.applyPreferencesFromMenuData(
+						generatedMenuData,
+						userPreferences
+					);
+
+					if (appliedPreferences && (appliedPreferences.audioIndex !== undefined || appliedPreferences.subtitleIndex !== undefined)) {
+						currentLogger.current?.info(
+							`handleOnLoad - Applying user preferences from menuData: ${JSON.stringify(appliedPreferences)}`
+						);
+						props.events?.onChangePreferences?.(appliedPreferences);
+					}
+				}
 			}
 
 			if (props.events?.onStart) {
