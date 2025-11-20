@@ -32,6 +32,7 @@ export interface IDrm {
 		loadedLicenseUrl: string
 	) => void;
 	drmScheme?: string;
+	drmMessage?: string; // Token/mensaje DRM requerido por Axinom para descargas offline
 }
 
 export interface ICommonData {

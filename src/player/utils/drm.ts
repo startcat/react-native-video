@@ -1,4 +1,4 @@
-import { IManifest, IDrm, DRM_TYPE } from "../types";
+import { DRM_TYPE, IDrm, IManifest } from "../types";
 import { getAbsoluteUri } from "./siteUrl";
 
 const LOG_ENABLED = true;
@@ -56,6 +56,10 @@ export const setOfflineExpirationDate = (drm: IDrm | undefined): IDrm | undefine
 			licenseServer += `${drm?.licenseServer}?offline=true`;
 		}
 
+		// Extract drmMessage from licenseServer URL for Axinom offline downloads
+		// The drmMessage is typically the entire license URL with parameters
+		const drmMessage = licenseServer || drm.licenseServer || "";
+
 		newDrm = {
 			type: drm.type,
 			headers: drm.headers,
@@ -65,6 +69,7 @@ export const setOfflineExpirationDate = (drm: IDrm | undefined): IDrm | undefine
 			base64Certificate: drm.base64Certificate,
 			getLicense: drm.getLicense,
 			drmScheme: drm.drmScheme,
+			drmMessage: drmMessage, // Add drmMessage for offline downloads
 		};
 
 		log(`DRM with expiration: ${JSON.stringify(newDrm)}`);
