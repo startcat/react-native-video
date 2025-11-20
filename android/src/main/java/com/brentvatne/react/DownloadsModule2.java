@@ -113,6 +113,9 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     
     // Track quality setting per download
     private Map<String, String> activeDownloadQuality = new ConcurrentHashMap<>();
+    
+    // Track DRM message per download for offline license acquisition
+    private Map<String, String> activeDrmMessages = new ConcurrentHashMap<>();
 
     public DownloadsModule2(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -1084,6 +1087,17 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 }
             }
         }
+        
+        // Store drmMessage if present (needed for Axinom offline downloads)
+        if (drm.hasKey("drmMessage")) {
+            String drmMessage = drm.getString("drmMessage");
+            if (drmMessage != null && !drmMessage.trim().isEmpty()) {
+                // We'll store it temporarily and retrieve it in downloadLicenseForItem
+                // Since we don't have the download ID here, we'll use the licenseServer as key
+                activeDrmMessages.put(licenseServer, drmMessage);
+                Log.d(TAG, "Stored DRM message for license server: " + licenseServer);
+            }
+        }
 
         return drmBuilder.build();
     }
@@ -1355,12 +1369,42 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     private void downloadLicenseForItem(MediaItem mediaItem) {
         MediaItem.DrmConfiguration drmConfig = Utility.getDrmConfiguration(mediaItem);
         if (drmConfig != null && mLicenseManager != null) {
+            String licenseServerUrl = String.valueOf(drmConfig.licenseUri);
+            
+            // Try to get drmMessage from our stored map (set in createDrmConfiguration)
+            String drmMessage = activeDrmMessages.get(licenseServerUrl);
+            
+            // If not found in map, try to get from request headers
+            if (drmMessage == null || drmMessage.trim().isEmpty()) {
+                if (drmConfig.licenseRequestHeaders != null && !drmConfig.licenseRequestHeaders.isEmpty()) {
+                    // Try to get drmMessage from headers (common key names)
+                    if (drmConfig.licenseRequestHeaders.containsKey("X-AxDRM-Message")) {
+                        drmMessage = drmConfig.licenseRequestHeaders.get("X-AxDRM-Message");
+                    } else if (drmConfig.licenseRequestHeaders.containsKey("drmMessage")) {
+                        drmMessage = drmConfig.licenseRequestHeaders.get("drmMessage");
+                    } else if (drmConfig.licenseRequestHeaders.containsKey("axDrmMessage")) {
+                        drmMessage = drmConfig.licenseRequestHeaders.get("axDrmMessage");
+                    }
+                }
+            }
+            
+            // If still empty, use the license URL itself as drmMessage (Axinom pattern)
+            if (drmMessage == null || drmMessage.trim().isEmpty()) {
+                Log.i(TAG, "Using license URL as DRM message for Axinom offline download");
+                drmMessage = licenseServerUrl;
+            }
+            
+            Log.d(TAG, "Downloading license with drmMessage length: " + drmMessage.length());
+            
             mLicenseManager.downloadLicenseWithResult(
-                    String.valueOf(drmConfig.licenseUri),
+                    licenseServerUrl,
                     String.valueOf(Utility.getPlaybackProperties(mediaItem).uri),
-                    "",
+                    drmMessage,
                     true
             );
+            
+            // Clean up the stored drmMessage after use
+            activeDrmMessages.remove(licenseServerUrl);
         }
     }
 
