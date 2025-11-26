@@ -181,15 +181,21 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	}, []);
 
 	const handleChangePreferences = (preferences: any) => {
-		currentLogger.current?.info(`[Player] handleChangePreferences called with: ${JSON.stringify(preferences)}`);
-		
+		currentLogger.current?.info(
+			`[Player] handleChangePreferences called with: ${JSON.stringify(preferences)}`
+		);
+
 		// Actualizar estados internos cuando se aplican preferencias
 		if (typeof preferences?.audioIndex === "number") {
-			currentLogger.current?.info(`[Player] Setting currentAudioIndex to ${preferences.audioIndex}`);
+			currentLogger.current?.info(
+				`[Player] Setting currentAudioIndex to ${preferences.audioIndex}`
+			);
 			setCurrentAudioIndex(preferences.audioIndex);
 		}
 		if (typeof preferences?.subtitleIndex === "number") {
-			currentLogger.current?.info(`[Player] Setting currentSubtitleIndex to ${preferences.subtitleIndex}`);
+			currentLogger.current?.info(
+				`[Player] Setting currentSubtitleIndex to ${preferences.subtitleIndex}`
+			);
 			setCurrentSubtitleIndex(preferences.subtitleIndex);
 		}
 

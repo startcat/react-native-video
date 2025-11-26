@@ -957,8 +957,13 @@ class DownloadsModule2: RCTEventEmitter {
     }
     
     private func setupContentKeySession() {
-        contentKeySession = AVContentKeySession(keySystem: .fairPlayStreaming)
-        contentKeySession?.setDelegate(self, queue: downloadQueue)
+        #if targetEnvironment(simulator)
+        	print("⚠️ [DownloadsModule2] FairPlay no está disponible en simulador; se omite AVContentKeySession")
+        	contentKeySession = nil
+        #else
+        	contentKeySession = AVContentKeySession(keySystem: .fairPlayStreaming)
+        	contentKeySession?.setDelegate(self, queue: downloadQueue)
+        #endif
     }
     
     private func setupNetworkMonitoring() {
@@ -1086,8 +1091,19 @@ class DownloadsModule2: RCTEventEmitter {
     }
     
     private func setupDRMForAsset(_ asset: AVURLAsset, config: NSDictionary, contentId: String) throws {
-        // Implementation for DRM setup
-        contentKeySession?.addContentKeyRecipient(asset)
+        #if targetEnvironment(simulator)
+        print("⚠️ [DownloadsModule2] Saltando setup DRM en simulador para \(contentId)")
+        return
+        #else
+        guard let contentKeySession else {
+            throw NSError(
+                domain: "DownloadsModule2",
+                code: -3,
+                userInfo: [NSLocalizedDescriptionKey: "ContentKeySession no inicializada"]
+            )
+        }
+        contentKeySession.addContentKeyRecipient(asset)
+        #endif
     }
     
     private func removeDownloadedFiles(for downloadId: String) throws {
