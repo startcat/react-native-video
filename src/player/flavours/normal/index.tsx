@@ -991,6 +991,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			isChangingSource.current = false;
 			setIsContentLoaded(true);
 
+			if (props.events?.onStart) {
+				props.events.onStart();
+			}
+
 			let generatedMenuData: any;
 			if (props.hooks?.mergeMenuData && typeof props.hooks.mergeMenuData === "function") {
 				generatedMenuData = props.hooks.mergeMenuData(
