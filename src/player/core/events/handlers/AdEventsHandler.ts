@@ -3,7 +3,6 @@
  *
  */
 
-import { PlayerError } from "../../../core/errors";
 import { PlayerAnalyticsEvents } from "../../../features/analytics";
 
 import type { OnReceiveAdEventData } from "../../../../types/events";
@@ -20,79 +19,99 @@ export class AdEventsHandler {
 	}
 
 	handleAdEvent = (data: OnReceiveAdEventData) => {
-		try {
-			switch (data.event) {
-				case "STARTED":
-					this.handleAdStarted(data);
-					break;
+		switch (data.event) {
+			case "STARTED":
+				this.handleAdStarted(data);
+				break;
 
-				case "COMPLETED":
-					this.handleAdCompleted();
-					break;
+			case "COMPLETED":
+				this.handleAdCompleted();
+				break;
 
-				case "SKIPPED":
-					this.handleAdSkipped();
-					break;
+			case "SKIPPED":
+				this.handleAdSkipped();
+				break;
 
-				case "PAUSED":
-					this.handleAdPaused();
-					break;
+			case "PAUSED":
+				this.handleAdPaused();
+				break;
 
-				case "RESUMED":
-					this.handleAdResumed();
-					break;
+			case "RESUMED":
+				this.handleAdResumed();
+				break;
 
-				case "ERROR":
-					this.handleAdError();
-					break;
+			case "ERROR":
+				this.handleAdError();
+				break;
 
-				case "AD_BREAK_STARTED":
-					this.handleAdBreakStarted(data);
-					break;
+			case "AD_BREAK_STARTED":
+				this.handleAdBreakStarted(data);
+				break;
 
-				case "AD_BREAK_ENDED":
-					this.handleAdBreakEnded();
-					break;
+			case "AD_BREAK_ENDED":
+				this.handleAdBreakEnded();
+				break;
 
-				case "ALL_ADS_COMPLETED":
-					this.handleAllAdsCompleted();
-					break;
+			case "ALL_ADS_COMPLETED":
+				this.handleAllAdsCompleted();
+				break;
 
-				case "CONTENT_PAUSE_REQUESTED":
-					// El contenido debe pausarse para mostrar un anuncio
-					break;
+			case "CONTENT_PAUSE_REQUESTED":
+				// El contenido debe pausarse para mostrar un anuncio
+				break;
 
-				case "CONTENT_RESUME_REQUESTED":
-					this.handleContentResumeRequested();
-					break;
+			case "CONTENT_RESUME_REQUESTED":
+				this.handleContentResumeRequested();
+				break;
 
-				case "FIRST_QUARTILE":
-				case "MIDPOINT":
-				case "THIRD_QUARTILE":
-					this.handleAdProgress(data);
-					break;
+			case "FIRST_QUARTILE":
+			case "MIDPOINT":
+			case "THIRD_QUARTILE":
+			case "AD_PROGRESS":
+				this.handleAdProgress(data);
+				break;
 
-				case "CLICK":
-				case "TAPPED":
-					this.handleAdClick(data);
-					break;
+			case "CLICK":
+			case "TAPPED":
+				this.handleAdClick(data);
+				break;
 
-				case "LOADED":
-					this.handleAdLoaded(data);
-					break;
+			case "LOADED":
+				this.handleAdLoaded(data);
+				break;
 
-				case "IMPRESSION":
-					this.handleAdImpression(data);
-					break;
+			case "IMPRESSION":
+				this.handleAdImpression(data);
+				break;
 
-				default:
-					console.log(`[AdEventsHandler] Unhandled ad event: ${data.event}`);
-					throw new PlayerError("PLAYER_AD_EVENT_PROCESSING_ERROR", {
-						event: data.event,
-					});
-			}
-		} catch (error) {
-			throw error;
+			// Android-only eventos informativos que no requieren acción
+			case "AD_BUFFERING":
+			case "AD_CAN_PLAY":
+			case "AD_METADATA":
+			case "DURATION_CHANGE":
+			case "INTERACTION":
+			case "LINEAR_CHANGED":
+			case "LOG":
+			case "SKIPPABLE_STATE_CHANGED":
+			case "USER_CLOSE":
+			case "VIDEO_CLICKED":
+			case "VIDEO_ICON_CLICKED":
+			case "VOLUME_CHANGED":
+			case "VOLUME_MUTED":
+			// iOS-only eventos informativos
+			// eslint-disable-next-line no-fallthrough
+			case "AD_PERIOD_ENDED":
+			case "AD_PERIOD_STARTED":
+			case "AD_BREAK_READY":
+			case "CUEPOINTS_CHANGED":
+			case "STREAM_LOADED":
+			case "UNKNOWN":
+				// Eventos informativos - no requieren acción, solo log en debug
+				break;
+
+			default:
+				// Solo log warning para eventos desconocidos, no lanzar error
+				console.warn(`[AdEventsHandler] Unknown ad event: ${data.event}`);
 		}
 	};
 
