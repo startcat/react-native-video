@@ -1132,6 +1132,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 							targetOffsetMs: 25000,
 						},
 					}}
+					adTagUrl={props?.playerAds?.adTagUrl}
 					allowsExternalPlayback={true}
 					//volume={10}
 					controls={false}
