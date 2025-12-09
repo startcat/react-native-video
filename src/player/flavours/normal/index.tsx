@@ -1163,7 +1163,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	};
 
 	const handleOnReceiveAdEvent = (e: OnReceiveAdEventData) => {
+		currentLogger.current?.debug(`[ADS] onReceiveAdEvent: ${e.event}`, {
+			event: e.event,
+			data: e.data,
+		});
+
 		if (e.event === "STARTED") {
+			currentLogger.current?.info("[ADS] Ad started");
 			setIsPlayingAd(true);
 			onAdStarted(e);
 		} else if (
@@ -1172,8 +1178,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			e.event === "SKIPPED" ||
 			e.event === "USER_CLOSE"
 		) {
+			currentLogger.current?.info(`[ADS] Ad finished: ${e.event}`);
 			setIsPlayingAd(false);
 		} else if (e.event === "ERROR") {
+			currentLogger.current?.error("[ADS] Ad error", { data: e.data });
 		}
 	};
 

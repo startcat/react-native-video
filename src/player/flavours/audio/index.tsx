@@ -8,6 +8,7 @@ import {
 	type OnBufferData,
 	type OnLoadData,
 	type OnProgressData,
+	type OnReceiveAdEventData,
 	type OnVideoErrorData,
 	type ProgressUpdateData,
 	type SliderValues,
@@ -954,6 +955,26 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		setBuffering(false);
 	};
 
+	const handleOnReceiveAdEvent = (e: OnReceiveAdEventData) => {
+		currentLogger.current?.debug(`[ADS] onReceiveAdEvent: ${e.event}`, {
+			event: e.event,
+			data: e.data,
+		});
+
+		if (e.event === "STARTED") {
+			currentLogger.current?.info("[ADS] Ad started");
+		} else if (
+			e.event === "COMPLETED" ||
+			e.event === "ALL_ADS_COMPLETED" ||
+			e.event === "SKIPPED" ||
+			e.event === "USER_CLOSE"
+		) {
+			currentLogger.current?.info(`[ADS] Ad finished: ${e.event}`);
+		} else if (e.event === "ERROR") {
+			currentLogger.current?.error("[ADS] Ad error", { data: e.data });
+		}
+	};
+
 	const handleOnProgress = (e: OnProgressData) => {
 		currentLogger.current?.debug(
 			`handleOnProgress - currentSourceType: ${currentSourceType.current}, currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
@@ -1160,7 +1181,10 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 						handleOnReadyForDisplay,
 						videoEvents.onReadyForDisplay
 					)}
-					onReceiveAdEvent={videoEvents.onReceiveAdEvent}
+					onReceiveAdEvent={combineEventHandlers(
+						handleOnReceiveAdEvent,
+						videoEvents.onReceiveAdEvent
+					)}
 					onBuffer={combineEventHandlers(handleOnBuffer, videoEvents.onBuffer)}
 					onSeek={videoEvents.onSeek}
 					onPlaybackStateChanged={videoEvents.onPlaybackStateChanged}
