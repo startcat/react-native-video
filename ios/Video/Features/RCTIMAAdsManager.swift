@@ -10,6 +10,8 @@
         private var adsLoader: IMAAdsLoader!
         /* Main point of interaction with the SDK. Created by the SDK as the result of an ad request. */
         private var adsManager: IMAAdsManager!
+        /* Track if adsManager.start() has been called to avoid calling it multiple times for ad pods */
+        private var adsManagerStarted: Bool = false
 
         init(video: RCTVideo!, pipEnabled: @escaping () -> Bool) {
             _video = video
@@ -19,7 +21,10 @@
         }
 
         func setUpAdsLoader() {
-            adsLoader = IMAAdsLoader(settings: nil)
+            let settings = IMASettings()
+            // Use the device's preferred language for IMA SDK UI elements (e.g., "Skip Ad" button)
+            settings.language = Locale.preferredLanguages.first ?? "en"
+            adsLoader = IMAAdsLoader(settings: settings)
             adsLoader.delegate = self
         }
 
@@ -52,6 +57,7 @@
             adsManager.volume = 0
             adsManager.pause()
             adsManager.destroy()
+            adsManagerStarted = false
         }
 
         // MARK: - Getters
@@ -97,11 +103,20 @@
                 adsManager.volume = 0
             }
             // Play each ad once it has been loaded
+            // Only call start() once - the IMA SDK handles subsequent ads in a pod automatically
             if event.type == IMAAdEventType.LOADED {
                 if _pipEnabled() {
                     return
                 }
-                adsManager.start()
+                if !adsManagerStarted {
+                    adsManagerStarted = true
+                    adsManager.start()
+                }
+            }
+            
+            // Reset the flag when all ads are completed so next ad request works correctly
+            if event.type == IMAAdEventType.ALL_ADS_COMPLETED {
+                adsManagerStarted = false
             }
 
             if _video.onReceiveAdEvent != nil {
