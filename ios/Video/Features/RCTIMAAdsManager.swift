@@ -82,6 +82,8 @@
             let adsRenderingSettings = IMAAdsRenderingSettings()
             adsRenderingSettings.linkOpenerDelegate = self
             adsRenderingSettings.linkOpenerPresentingController = _video.reactViewController()
+            // Prioritize MP4 format for better compatibility
+            adsRenderingSettings.mimeTypes = ["video/mp4"]
 
             adsManager.initialize(with: adsRenderingSettings)
         }
