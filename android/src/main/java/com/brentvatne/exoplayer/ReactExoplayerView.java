@@ -41,6 +41,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
+import androidx.media3.common.MimeTypes;
 import androidx.media3.common.Format;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
@@ -887,6 +888,8 @@ public class ReactExoplayerView extends FrameLayout implements
                 .Builder(themedReactContext)
                 .setAdEventListener(this)
                 .setAdErrorListener(this)
+                // Prioritize MP4 format for better compatibility
+                .setAdMediaMimeTypes(java.util.Collections.singletonList(MimeTypes.VIDEO_MP4))
                 .build();
         DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(mediaDataSourceFactory);
         if (useCache) {
@@ -2713,6 +2716,13 @@ public class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onAdEvent(AdEvent adEvent) {
+        DebugLog.d(TAG, "Ad Event: " + adEvent.getType().name());
+        if (adEvent.getAd() != null) {
+            DebugLog.d(TAG, "  Ad ID: " + adEvent.getAd().getAdId());
+            DebugLog.d(TAG, "  Ad System: " + adEvent.getAd().getAdSystem());
+            DebugLog.d(TAG, "  Content Type: " + adEvent.getAd().getContentType());
+            DebugLog.d(TAG, "  Duration: " + adEvent.getAd().getDuration());
+        }
         if (adEvent.getAdData() != null) {
             eventEmitter.receiveAdEvent(adEvent.getType().name(), adEvent.getAdData());
         } else {
@@ -2723,6 +2733,17 @@ public class ReactExoplayerView extends FrameLayout implements
     @Override
     public void onAdError(AdErrorEvent adErrorEvent) {
         AdError error = adErrorEvent.getError();
+        // Enhanced logging for ad errors
+        DebugLog.e(TAG, "=== AD ERROR ===");
+        DebugLog.e(TAG, "Error Code: " + error.getErrorCode());
+        DebugLog.e(TAG, "Error Code Number: " + error.getErrorCodeNumber());
+        DebugLog.e(TAG, "Error Type: " + error.getErrorType());
+        DebugLog.e(TAG, "Message: " + error.getMessage());
+        if (error.getCause() != null) {
+            DebugLog.e(TAG, "Cause: " + error.getCause().toString());
+            error.getCause().printStackTrace();
+        }
+        DebugLog.e(TAG, "================");
         eventEmitter.receiveAdErrorEvent(error.getMessage(), String.valueOf(error.getErrorCode()), String.valueOf(error.getErrorType()));
     }
 
