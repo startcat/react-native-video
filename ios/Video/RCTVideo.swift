@@ -568,6 +568,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         if let maxBitRate = _maxBitRate {
             _playerItem?.preferredPeakBitRate = Double(maxBitRate)
         }
+        
+        // Apply accessibility caption styles when using AVPlayerLayer (controls = false)
+        // This ensures iOS accessibility subtitle settings are respected
+        if !_controls {
+            RCTCaptionStyleUtils.applyAccessibilityCaptionStyles(to: _playerItem)
+        }
 
         if _player == nil {
             _player = AVPlayer()
