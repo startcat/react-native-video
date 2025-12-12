@@ -4,15 +4,18 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	type OnBufferData,
-	type OnLoadData,
 	type OnProgressData,
-	type OnReceiveAdEventData,
 	type OnVideoErrorData,
+} from "../../../specs/VideoNativeComponent";
+
+import { type OnLoadData, type OnReceiveAdEventData } from "../../../types/events";
+
+import {
 	type SelectedTrack,
 	type SelectedVideoTrack,
 	SelectedTrackType,
 	SelectedVideoTrackType,
-} from "../../../types";
+} from "../../../types/video";
 import Video, { type VideoRef } from "../../../Video";
 import { Overlay } from "../../components/overlay";
 import {
