@@ -4,11 +4,11 @@ import { EventRegister } from "react-native-event-listeners";
 import Animated, { useSharedValue } from "react-native-reanimated";
 import {
 	type OnBufferData,
-	type OnLoadData,
 	type OnProgressData,
-	type OnReceiveAdEventData,
 	type OnVideoErrorData,
-} from "../../../types";
+} from "../../../specs/VideoNativeComponent";
+
+import { type OnLoadData, type OnReceiveAdEventData } from "../../../types/events";
 
 import Video, { type VideoRef } from "../../../Video";
 import {
