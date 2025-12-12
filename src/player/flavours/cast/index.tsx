@@ -17,10 +17,11 @@ import {
 	type IDrm,
 	type IMappedYoubora,
 	type IPlayerMenuData,
+	type IPlayerProgress,
 	type LoggerConfigBasic,
+	type ProgressUpdateData,
+	type SliderValues,
 } from "../../types";
-
-import { type IPlayerProgress, type ProgressUpdateData, type SliderValues } from "../../../types";
 
 import {
 	DVRProgressManagerClass,
@@ -72,7 +73,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const playerProgressRef = useRef<IPlayerProgress>();
 	const youboraForVideo = useRef<IMappedYoubora>();
 	const drm = useRef<IDrm>();
-	
+
 	// Track current audio/subtitle indices (para el menú)
 	const currentAudioIndexRef = useRef<number>(props.audioIndex!);
 	const currentSubtitleIndexRef = useRef<number>(props.subtitleIndex!);
@@ -1348,14 +1349,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					data.volume = id === CONTROL_ACTION.VOLUME ? value : undefined;
 					data.audioIndex = id === CONTROL_ACTION.AUDIO_INDEX ? value : undefined;
 					data.subtitleIndex = id === CONTROL_ACTION.SUBTITLE_INDEX ? value : undefined;
-					
+
 					// Actualizar refs locales cuando el usuario cambia desde el menú
 					if (id === CONTROL_ACTION.AUDIO_INDEX) {
 						currentAudioIndexRef.current = value;
 					} else if (id === CONTROL_ACTION.SUBTITLE_INDEX) {
 						currentSubtitleIndexRef.current = value;
 					}
-					
+
 					data.audioLabel = menuData?.find(
 						(item: IPlayerMenuData) =>
 							item.type === PLAYER_MENU_DATA_TYPE.AUDIO && item.index === value
