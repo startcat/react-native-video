@@ -16,7 +16,7 @@ import {
 	DVR_PLAYBACK_TYPE,
 	SelectedTrackType,
 	SelectedVideoTrackType,
-} from "../../../types";
+} from "../../types";
 import Video, { type VideoRef } from "../../../Video";
 import { Overlay } from "../../components/overlay";
 const BackgroundPoster = React.lazy(() => import("../../components/poster"));
