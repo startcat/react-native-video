@@ -1,7 +1,12 @@
 import React, { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EventRegister } from "react-native-event-listeners";
 import Animated, { useSharedValue } from "react-native-reanimated";
-import { type AudioControlsProps, type IPlayerProgress, type SliderValues } from "../../../types";
+import {
+	type AudioControlsProps,
+	type IPlayerProgress,
+	type ProgressUpdateData,
+	type SliderValues,
+} from "../../types";
 
 import {
 	useCastConnected,
@@ -42,7 +47,6 @@ import {
 	type LoggerConfigBasic,
 	CONTROL_ACTION,
 	LogLevel,
-	ProgressUpdateData,
 	YOUBORA_FORMAT,
 } from "../../types";
 

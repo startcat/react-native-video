@@ -3,22 +3,24 @@ import { useAirplayConnectivity } from "react-airplay";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-	type IPlayerProgress,
 	type OnBufferData,
 	type OnLoadData,
 	type OnProgressData,
 	type OnReceiveAdEventData,
 	type OnVideoErrorData,
-	type ProgressUpdateData,
 	type SelectedTrack,
 	type SelectedVideoTrack,
-	type SliderValues,
-	DVR_PLAYBACK_TYPE,
 	SelectedTrackType,
 	SelectedVideoTrackType,
-} from "../../types";
+} from "../../../types";
 import Video, { type VideoRef } from "../../../Video";
 import { Overlay } from "../../components/overlay";
+import {
+	type IPlayerProgress,
+	type ProgressUpdateData,
+	type SliderValues,
+	DVR_PLAYBACK_TYPE,
+} from "../../types";
 const BackgroundPoster = React.lazy(() => import("../../components/poster"));
 
 import { PlayerError, handleErrorException, mapVideoErrorToPlayerError } from "../../core/errors";

@@ -3,17 +3,20 @@ import BackgroundTimer from "react-native-background-timer";
 import { EventRegister } from "react-native-event-listeners";
 import Animated, { useSharedValue } from "react-native-reanimated";
 import {
-	type AudioControlsProps,
-	type IPlayerProgress,
 	type OnBufferData,
 	type OnLoadData,
 	type OnProgressData,
 	type OnReceiveAdEventData,
 	type OnVideoErrorData,
+} from "../../../types";
+
+import Video, { type VideoRef } from "../../../Video";
+import {
+	type AudioControlsProps,
+	type IPlayerProgress,
 	type ProgressUpdateData,
 	type SliderValues,
-} from "../../../types";
-import Video, { type VideoRef } from "../../../Video";
+} from "../../types";
 
 import { PlayerError, handleErrorException, mapVideoErrorToPlayerError } from "../../core/errors";
 
