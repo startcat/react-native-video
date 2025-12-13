@@ -326,6 +326,8 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 					playerAnalytics={props.playerAnalytics}
 					playerTimeMarkers={props.playerTimeMarkers}
 					playerAds={props.playerAds}
+					// Custom data for Cast receiver
+					customDataForCast={props.customDataForCast}
 					// Custom Components
 					components={props.components}
 					// Hooks

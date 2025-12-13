@@ -124,6 +124,9 @@ export interface CastContentInfo {
 		startPosition?: number; // Posición inicial en segundos
 		mediaType?: "video" | "audio"; // Tipo de contenido multimedia
 	};
+
+	// Custom data adicional para el receptor de Cast
+	customDataForCast?: Record<string, unknown>;
 }
 
 export interface CastManagerCallbacks {
@@ -193,6 +196,7 @@ export interface CastMessageConfig {
 	drm?: IDrm;
 	youbora?: IMappedYoubora;
 	metadata: CastContentMetadata;
+	customDataForCast?: Record<string, unknown>;
 }
 
 export interface CastMessage {

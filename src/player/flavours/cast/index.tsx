@@ -750,6 +750,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 							startPosition: startingPoint,
 							mediaType: "video",
 						},
+						customDataForCast: props.customDataForCast,
 					});
 
 					if (!success) {

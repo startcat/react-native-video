@@ -67,6 +67,8 @@ export class CastMessageBuilder {
 			})}`
 		);
 
+		console.log(`Building cast message from config ${JSON.stringify(config)}`);
+
 		try {
 			// Validar configuración
 			this.validateConfig(config);
@@ -106,8 +108,8 @@ export class CastMessageBuilder {
 				message.mediaInfo.mediaType = mediaType;
 
 				// Agregar metadata personalizada
-				message.mediaInfo.customData = {
-					...message.mediaInfo.customData,
+				message.customData = {
+					...message.customData,
 					sourceDescription: {
 						metadata: metadata,
 					},
@@ -117,9 +119,16 @@ export class CastMessageBuilder {
 					mediaType: mediaType,
 					buildTimestamp: Date.now(),
 					builderVersion: "1.0.0",
+					manifest: {
+						url: config.manifest.manifestURL,
+						licenseServer: config.manifest?.drmConfig?.licenseAcquisitionURL,
+						certificateUrl: config.manifest?.drmConfig?.certificateURL,
+					},
+					...config.customDataForCast,
 				};
 			}
 
+			console.log(`[CastMessageBuilder] Final enriched message: ${JSON.stringify(message)}`);
 			this.currentLogger?.debug(`Cast message built successfully ${JSON.stringify(message)}`);
 
 			return message;
