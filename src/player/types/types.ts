@@ -534,6 +534,9 @@ export interface AudioFlavourProps extends ICommonPlayerProps, ICommonFlavourPro
 	// Extra data
 	extraData?: any;
 
+	// Custom data for Cast receiver
+	customDataForCast?: Record<string, unknown>;
+
 	// Style
 	backgroundColor?: string;
 	topDividerColor?: string;
@@ -555,6 +558,9 @@ export interface AudioCastFlavourProps extends ICommonPlayerProps, ICommonFlavou
 
 	// Extra data
 	extraData?: any;
+
+	// Custom data for Cast receiver
+	customDataForCast?: Record<string, unknown>;
 
 	// Style
 	backgroundColor?: string;
@@ -598,6 +604,9 @@ export interface CastFlavourProps extends ICommonPlayerProps, ICommonFlavourProp
 
 	avoidTimelineThumbnails?: boolean;
 
+	// Custom data for Cast receiver
+	customDataForCast?: Record<string, unknown>;
+
 	// Custom Components
 	components?: IPlayerCustomVideoComponents;
 }
@@ -618,6 +627,9 @@ export interface PlayerProps extends ICommonPlayerProps, ICommonFlavourProps {
 	avoidTimelineThumbnails?: boolean;
 	avoidRotation?: boolean;
 	avoidDownloadsManagement?: boolean;
+
+	// Custom data for Cast receiver
+	customDataForCast?: Record<string, unknown>;
 
 	// Custom Components
 	components?: IPlayerCustomVideoComponents;

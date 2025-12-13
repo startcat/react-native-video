@@ -559,6 +559,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 							startPosition: startingPoint,
 							mediaType: "audio", // AudioCast flavour siempre reproduce audio
 						},
+						customDataForCast: props.customDataForCast,
 					});
 
 					if (!success) {

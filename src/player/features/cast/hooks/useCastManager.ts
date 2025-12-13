@@ -206,6 +206,7 @@ export function useCastManager(
 					drm: content.drm,
 					youbora: content.youbora,
 					metadata: content.metadata,
+					customDataForCast: content.customDataForCast,
 				});
 
 				if (!castMessage || !castMessage.mediaInfo) {
