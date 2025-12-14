@@ -32,7 +32,7 @@ import {
 
 import { ComponentLogger } from "../../features/logger";
 
-import { getTrackId, mergeCastMenuData } from "../../utils";
+import { getTrackId, getTrackIndex, mergeCastMenuData } from "../../utils";
 
 import { useIsBuffering } from "../../core/buffering";
 import { SourceClass, type onSourceChangedProps } from "../../modules/source";
@@ -68,6 +68,13 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const [sliderValuesUpdate, setSliderValuesUpdate] = useState<number>(0);
 	const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
 
+	// Estado para metadatos sincronizados desde Cast (para contenido cargado desde otro dispositivo)
+	const [syncedMetadata, setSyncedMetadata] = useState(props.playerMetadata);
+	// Referencia para trackear la URL que nosotros cargamos localmente
+	const localLoadedUrlRef = useRef<string | null>(null);
+	// Referencia para indicar si estamos mostrando contenido remoto (cargado desde otro dispositivo)
+	const isRemoteContentRef = useRef<boolean>(false);
+
 	const isChangingSource = useRef<boolean>(true);
 	const sliderValues = useRef<SliderValues>();
 	const playerProgressRef = useRef<IPlayerProgress>();
@@ -77,6 +84,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// Track current audio/subtitle indices (para el menú)
 	const currentAudioIndexRef = useRef<number>(props.audioIndex!);
 	const currentSubtitleIndexRef = useRef<number>(props.subtitleIndex!);
+
+	// Ref para evitar bucle infinito en sincronización de tracks remotos
+	const isLocalTrackChangeRef = useRef<boolean>(false);
 
 	const castLoggerConfig: LoggerConfigBasic = {
 		enabled: props.logger?.cast?.enabled ?? true,
@@ -285,6 +295,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			}
 		},
 		onTextTrackChange: (track: CastTrackInfo | null) => {
+			currentLogger.current?.info(
+				`Cast Monitor onTextTrackChange - track: ${JSON.stringify(track)}, menuData available: ${!!menuData}`
+			);
 			if (menuData) {
 				// Si track es null, significa que se desactivaron los subtítulos
 				const newIndex =
@@ -293,7 +306,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 						: -1;
 
 				currentLogger.current?.info(
-					`Cast Monitor onTextTrackChange - track: ${JSON.stringify(track)}, newIndex: ${newIndex}`
+					`Cast Monitor onTextTrackChange - newIndex: ${newIndex}, current subtitleIndex: ${subtitleIndex}`
 				);
 
 				// Sincronizar índice de subtítulos cuando cambia desde el Chromecast
@@ -357,7 +370,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, [props.subtitleIndex]);
 
 	// Effect para manejar cambios en tracks
+	// IMPORTANTE: No enviar cambios al Chromecast si el cambio viene de sincronización remota
 	useEffect(() => {
+		if (isLocalTrackChangeRef.current) {
+			currentLogger.current?.debug(
+				`[CAST_SYNC] Skipping handleTrackChanges - change from remote sync`
+			);
+			return;
+		}
 		handleTrackChanges();
 	}, [audioIndex, subtitleIndex, menuData]);
 
@@ -399,6 +419,194 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			handleOnEnd();
 		}
 	}, [castMedia.isIdle, isContentLoaded]);
+
+	// Sincronizar metadatos cuando el contenido cambia desde otro dispositivo
+	useEffect(() => {
+		// Si tenemos una URL en el Cast y es diferente a la que nosotros cargamos localmente
+		if (
+			castConnected &&
+			castMedia.url &&
+			localLoadedUrlRef.current &&
+			castMedia.url !== localLoadedUrlRef.current
+		) {
+			currentLogger.current?.info(
+				`[CAST_SYNC] Content changed from another device! Local URL: ${localLoadedUrlRef.current}, Cast URL: ${castMedia.url}`
+			);
+
+			// Extraer el ID del contenido del customData o de la URL
+			let remoteContentId = castMedia.customData?.sourceDescription?.metadata?.id;
+
+			// Fallback: extraer el ID de la URL del manifest (formato: /v1/{id}/)
+			if (!remoteContentId && castMedia.url) {
+				const urlMatch = castMedia.url.match(/\/v1\/(\d+)\//);
+				if (urlMatch && urlMatch[1]) {
+					remoteContentId = urlMatch[1];
+					currentLogger.current?.info(
+						`[CAST_SYNC] Extracted content ID from URL: ${remoteContentId}`
+					);
+				}
+			}
+
+			currentLogger.current?.info(
+				`[CAST_SYNC] Remote content ID: ${remoteContentId}, customData: ${JSON.stringify(castMedia.customData?.sourceDescription?.metadata)}`
+			);
+
+			// Si tenemos un ID válido del contenido remoto, notificar al PlayerScreen para que recargue
+			if (remoteContentId && props.events?.onRemoteContentChange) {
+				currentLogger.current?.info(
+					`[CAST_SYNC] Calling onRemoteContentChange with contentId: ${remoteContentId}`
+				);
+				props.events.onRemoteContentChange({
+					contentId: remoteContentId,
+					title: castMedia.title,
+					subtitle: castMedia.subtitle,
+					poster: castMedia.imageUrl,
+					customData: castMedia.customData,
+				});
+
+				// Actualizar la URL local para evitar llamadas repetidas
+				localLoadedUrlRef.current = castMedia.url;
+				return;
+			}
+
+			// Fallback: Si no hay onRemoteContentChange, actualizar metadatos localmente
+			isRemoteContentRef.current = true;
+
+			// Actualizar la URL local para evitar bucle infinito
+			localLoadedUrlRef.current = castMedia.url;
+
+			const fallbackId = Date.now();
+
+			currentLogger.current?.info(
+				`[CAST_SYNC] Fallback: Updating syncedMetadata with fallbackId: ${fallbackId}, title: ${castMedia.title}, subtitle: ${castMedia.subtitle}, poster: ${castMedia.imageUrl}`
+			);
+
+			setSyncedMetadata(prev => {
+				if (!prev) return prev;
+				const newMetadata = {
+					...prev,
+					id: fallbackId,
+					title: castMedia.title || prev.title,
+					subtitle: castMedia.subtitle || prev.subtitle,
+					poster: castMedia.imageUrl || prev.poster,
+					raw: {
+						...prev.raw,
+						id: fallbackId,
+						isRemoteContent: true,
+						title: castMedia.title,
+						description: castMedia.subtitle,
+					},
+				};
+				currentLogger.current?.info(
+					`[CAST_SYNC] New syncedMetadata: id=${newMetadata.id}, title=${newMetadata.title}, raw.id=${newMetadata.raw?.id}, raw.title=${newMetadata.raw?.title}`
+				);
+				return newMetadata;
+			});
+
+			// Resetear estados para el nuevo contenido remoto
+			setMenuData(undefined);
+			setIsContentLoaded(true);
+			isChangingSource.current = false;
+		}
+	}, [
+		castConnected,
+		castMedia.url,
+		castMedia.title,
+		castMedia.subtitle,
+		castMedia.imageUrl,
+		castMedia.customData,
+		props.events,
+	]);
+
+	// Sincronizar metadatos cuando cambian las props (contenido local)
+	// Solo sincronizar si NO estamos mostrando contenido remoto
+	useEffect(() => {
+		if (!isRemoteContentRef.current) {
+			setSyncedMetadata(props.playerMetadata);
+		}
+	}, [props.playerMetadata]);
+
+	// Sincronizar subtítulos cuando activeTrackIds cambia desde otro dispositivo
+	// Usamos menuData para mapear los IDs de tracks a índices
+	// IMPORTANTE: Solo sincronizar si el cambio NO fue iniciado por este dispositivo
+	const prevActiveTrackIdsRef = useRef<number[]>([]);
+
+	useEffect(() => {
+		if (!menuData || !castMedia.activeTrackIds) return;
+
+		// Ignorar si el cambio fue iniciado localmente
+		if (isLocalTrackChangeRef.current) {
+			currentLogger.current?.debug(
+				`[CAST_SYNC] Ignoring activeTrackIds change - local change in progress`
+			);
+			prevActiveTrackIdsRef.current = [...castMedia.activeTrackIds];
+			return;
+		}
+
+		const currentIds = castMedia.activeTrackIds;
+		const prevIds = prevActiveTrackIdsRef.current;
+
+		// Verificar si activeTrackIds ha cambiado
+		const hasChanged =
+			currentIds.length !== prevIds.length || currentIds.some((id, i) => id !== prevIds[i]);
+
+		if (!hasChanged) return;
+
+		prevActiveTrackIdsRef.current = [...currentIds];
+
+		// Buscar el track de texto activo en menuData usando el ID
+		const textMenuItems = menuData.filter(
+			item => item.type === "text" && item.id !== undefined
+		);
+		const activeTextTrack = textMenuItems.find(item => currentIds.includes(item.id!));
+
+		if (activeTextTrack) {
+			// Hay un subtítulo activo
+			if (activeTextTrack.index !== subtitleIndex) {
+				currentLogger.current?.info(
+					`[CAST_SYNC] Syncing subtitle from activeTrackIds: ${subtitleIndex} -> ${activeTextTrack.index} (trackId: ${activeTextTrack.id})`
+				);
+				// Marcar como cambio local para evitar bucle
+				isLocalTrackChangeRef.current = true;
+				setSubtitleIndex(activeTextTrack.index);
+				currentSubtitleIndexRef.current = activeTextTrack.index;
+				if (props.events?.onChangeCommonData) {
+					props.events.onChangeCommonData({
+						subtitleIndex: activeTextTrack.index,
+						subtitleLabel: activeTextTrack.label,
+						subtitleCode: activeTextTrack.code,
+					});
+				}
+				// Reset después de un tiempo
+				setTimeout(() => {
+					isLocalTrackChangeRef.current = false;
+				}, 2000);
+			}
+		} else {
+			// No hay subtítulo activo (solo audio en activeTrackIds)
+			const hasNoTextTrack = !textMenuItems.some(item => currentIds.includes(item.id!));
+			if (hasNoTextTrack && subtitleIndex !== -1) {
+				currentLogger.current?.info(
+					`[CAST_SYNC] Syncing subtitle OFF from activeTrackIds: ${subtitleIndex} -> -1`
+				);
+				// Marcar como cambio local para evitar bucle
+				isLocalTrackChangeRef.current = true;
+				setSubtitleIndex(-1);
+				currentSubtitleIndexRef.current = -1;
+				if (props.events?.onChangeCommonData) {
+					props.events.onChangeCommonData({
+						subtitleIndex: -1,
+						subtitleLabel: undefined,
+						subtitleCode: "none",
+					});
+				}
+				// Reset después de un tiempo
+				setTimeout(() => {
+					isLocalTrackChangeRef.current = false;
+				}, 2000);
+			}
+		}
+	}, [castMedia.activeTrackIds, menuData, subtitleIndex, props.events]);
 
 	// Procesar media tracks cuando estén disponibles (independiente de onLoad)
 	useEffect(() => {
@@ -769,6 +977,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					currentLogger.current?.debug(
 						`loadContentWithCastManager - startingPoint: ${startingPoint}s, isLive: ${sourceRef.current?.isLive}, isDVR: ${sourceRef.current?.isDVR}, sourceStartPosition: ${data.source.startPosition}ms`
 					);
+
+					// Guardar la URL que estamos cargando localmente para detectar cambios remotos
+					localLoadedUrlRef.current = data.source.uri;
+					// Resetear el flag de contenido remoto ya que estamos cargando contenido local
+					isRemoteContentRef.current = false;
 
 					const success = await castManagerRef.current?.loadContent({
 						source: data.source,
@@ -1424,7 +1637,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	return (
 		<View style={styles.container}>
-			<BackgroundPoster poster={props.playerMetadata?.poster} />
+			<BackgroundPoster poster={syncedMetadata?.poster} />
 
 			{!tudumRef.current?.isPlaying ? (
 				<Overlay
@@ -1438,7 +1651,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					audioIndex={currentAudioIndexRef.current ?? audioIndex}
 					subtitleIndex={currentSubtitleIndexRef.current ?? subtitleIndex}
 					// Nuevas Props Agrupadas
-					playerMetadata={props.playerMetadata}
+					playerMetadata={syncedMetadata}
 					playerProgress={{
 						...props.playerProgress,
 						currentTime: currentTime,

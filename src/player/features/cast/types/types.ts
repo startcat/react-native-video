@@ -43,6 +43,8 @@ export interface CastMediaInfo {
 	availableAudioTracks: CastTrackInfo[];
 	availableTextTracks: CastTrackInfo[];
 	mediaTracks: MediaTrack[];
+	customData: any | null; // Custom data from Cast message (includes sourceDescription.metadata.id)
+	activeTrackIds: number[]; // IDs of currently active tracks from Chromecast
 }
 
 export interface CastVolumeInfo {
