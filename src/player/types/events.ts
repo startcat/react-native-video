@@ -29,6 +29,14 @@ export interface IPlayerEvents {
 	onError?: (error: PlayerError) => void;
 }
 
+export interface IRemoteContentChangeData {
+	contentId: string;
+	title?: string | null;
+	subtitle?: string | null;
+	poster?: string | null;
+	customData?: any;
+}
+
 export interface IInnerPlayerEvents extends IPlayerEvents {
 	onChangeCommonData?: (data: ICommonData) => void;
 	onPress?: (id: Enums.CONTROL_ACTION, value?: any) => void;
@@ -36,4 +44,5 @@ export interface IInnerPlayerEvents extends IPlayerEvents {
 	onSlidingMove?: (value: number) => void;
 	onSlidingComplete?: (value: number) => void;
 	onClose?: () => void;
+	onRemoteContentChange?: (data: IRemoteContentChangeData) => void;
 }

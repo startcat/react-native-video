@@ -38,6 +38,8 @@ export function createInitialCastState(): CastStateCustom {
 			availableAudioTracks: [],
 			availableTextTracks: [],
 			mediaTracks: [],
+			customData: null,
+			activeTrackIds: [],
 		},
 		volume: {
 			level: 0.5,
@@ -210,6 +212,8 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 						availableAudioTracks: [],
 						availableTextTracks: [],
 						mediaTracks: [],
+						customData: null,
+						activeTrackIds: [],
 					};
 				}
 
@@ -291,6 +295,10 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 					availableAudioTracks: tracksInfo.availableAudioTracks,
 					availableTextTracks: tracksInfo.availableTextTracks,
 					mediaTracks: tracksInfo.mediaTracks,
+					// customData puede estar en mediaInfo o en el nivel raíz del MediaStatus
+					customData:
+						mediaInfo?.customData || (nativeMediaStatus as any)?.customData || null,
+					activeTrackIds: nativeMediaStatus.activeTrackIds || [],
 				};
 
 				currentLogger?.debug(
