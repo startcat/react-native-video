@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreMedia
 import MediaAccessibility
 import UIKit
 
@@ -27,15 +28,15 @@ enum RCTCaptionStyleUtils {
         var styleDict: [String: Any] = [:]
         
         // 1. Font Style
-        if let fontDescriptor = MACaptionAppearanceCopyFontDescriptorForStyle(
+        let fontDescriptorRef = MACaptionAppearanceCopyFontDescriptorForStyle(
             .user,
             nil,
             .default
-        )?.takeRetainedValue() {
-            // Get font name from descriptor
-            if let fontName = fontDescriptor.fontAttributes[.name] as? String {
-                styleDict[kCMTextMarkupAttribute_BaseFontFamilyName as String] = fontName
-            }
+        )
+        let ctFontDescriptor = fontDescriptorRef.takeRetainedValue()
+        // Get font family name from CTFontDescriptor
+        if let fontFamilyName = CTFontDescriptorCopyAttribute(ctFontDescriptor, kCTFontFamilyNameAttribute) as? String {
+            styleDict[kCMTextMarkupAttribute_FontFamilyName as String] = fontFamilyName
         }
         
         // 2. Font Size (relative size)
@@ -47,13 +48,12 @@ enum RCTCaptionStyleUtils {
         }
         
         // 3. Foreground (Text) Color
-        if let fgColor = MACaptionAppearanceCopyForegroundColor(.user, nil)?.takeRetainedValue() {
-            let uiColor = UIColor(cgColor: fgColor)
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-            
-            styleDict[kCMTextMarkupAttribute_ForegroundColorARGB as String] = [alpha, red, green, blue]
-        }
+        let fgColorRef = MACaptionAppearanceCopyForegroundColor(.user, nil)
+        let fgColor = fgColorRef.takeRetainedValue()
+        let fgUIColor = UIColor(cgColor: fgColor)
+        var fgRed: CGFloat = 0, fgGreen: CGFloat = 0, fgBlue: CGFloat = 0, fgAlpha: CGFloat = 0
+        fgUIColor.getRed(&fgRed, green: &fgGreen, blue: &fgBlue, alpha: &fgAlpha)
+        styleDict[kCMTextMarkupAttribute_ForegroundColorARGB as String] = [fgAlpha, fgRed, fgGreen, fgBlue]
         
         // 4. Foreground Opacity
         var fgOpacityBehavior: MACaptionAppearanceBehavior = .useValue
@@ -67,13 +67,12 @@ enum RCTCaptionStyleUtils {
         }
         
         // 5. Background Color
-        if let bgColor = MACaptionAppearanceCopyBackgroundColor(.user, nil)?.takeRetainedValue() {
-            let uiColor = UIColor(cgColor: bgColor)
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-            
-            styleDict[kCMTextMarkupAttribute_BackgroundColorARGB as String] = [alpha, red, green, blue]
-        }
+        let bgColorRef = MACaptionAppearanceCopyBackgroundColor(.user, nil)
+        let bgColor = bgColorRef.takeRetainedValue()
+        let bgUIColor = UIColor(cgColor: bgColor)
+        var bgRed: CGFloat = 0, bgGreen: CGFloat = 0, bgBlue: CGFloat = 0, bgAlpha: CGFloat = 0
+        bgUIColor.getRed(&bgRed, green: &bgGreen, blue: &bgBlue, alpha: &bgAlpha)
+        styleDict[kCMTextMarkupAttribute_BackgroundColorARGB as String] = [bgAlpha, bgRed, bgGreen, bgBlue]
         
         // 6. Background Opacity
         var bgOpacityBehavior: MACaptionAppearanceBehavior = .useValue
@@ -86,22 +85,20 @@ enum RCTCaptionStyleUtils {
         }
         
         // 7. Window Color (the box behind the text background)
-        if let windowColor = MACaptionAppearanceCopyWindowColor(.user, nil)?.takeRetainedValue() {
-            let uiColor = UIColor(cgColor: windowColor)
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-            
-            // Window opacity
-            var windowOpacityBehavior: MACaptionAppearanceBehavior = .useValue
-            let windowOpacity = MACaptionAppearanceGetWindowOpacity(.user, &windowOpacityBehavior)
-            let finalAlpha = windowOpacityBehavior == .useValue ? windowOpacity : alpha
-            
-            // Note: There's no direct window color attribute in CMTextMarkup,
-            // but we can use it as a fallback for background if background is not set
-            if styleDict[kCMTextMarkupAttribute_BackgroundColorARGB as String] == nil {
-                styleDict[kCMTextMarkupAttribute_BackgroundColorARGB as String] = [finalAlpha, red, green, blue]
-            }
-        }
+        let windowColorRef = MACaptionAppearanceCopyWindowColor(.user, nil)
+        let windowColor = windowColorRef.takeRetainedValue()
+        let windowUIColor = UIColor(cgColor: windowColor)
+        var windowRed: CGFloat = 0, windowGreen: CGFloat = 0, windowBlue: CGFloat = 0, windowAlpha: CGFloat = 0
+        windowUIColor.getRed(&windowRed, green: &windowGreen, blue: &windowBlue, alpha: &windowAlpha)
+        
+        // Window opacity
+        var windowOpacityBehavior: MACaptionAppearanceBehavior = .useValue
+        let windowOpacity = MACaptionAppearanceGetWindowOpacity(.user, &windowOpacityBehavior)
+        let finalWindowAlpha = windowOpacityBehavior == .useValue ? windowOpacity : windowAlpha
+        
+        // Note: There's no direct window color attribute in CMTextMarkup,
+        // Store window color info for potential use
+        _ = [finalWindowAlpha, windowRed, windowGreen, windowBlue]
         
         // 8. Text Edge Style (outline, shadow, etc.)
         let textEdgeStyle = MACaptionAppearanceGetTextEdgeStyle(.user, nil)
@@ -109,8 +106,9 @@ enum RCTCaptionStyleUtils {
         case .none:
             break // No edge style
         case .raised:
-            // Simulate raised effect with a light shadow
-            styleDict[kCMTextMarkupAttribute_TextDecoration as String] = kCMTextMarkupTextDecoration_Underline
+            // Simulate raised effect - no direct text decoration constant available
+            // Using bold as a visual indicator instead
+            styleDict[kCMTextMarkupAttribute_BoldStyle as String] = true
         case .depressed:
             // Simulate depressed effect
             break
@@ -125,18 +123,13 @@ enum RCTCaptionStyleUtils {
         }
         
         // 9. Bold/Italic from font descriptor
-        if let fontDescriptor = MACaptionAppearanceCopyFontDescriptorForStyle(
-            .user,
-            nil,
-            .default
-        )?.takeRetainedValue() {
-            let traits = fontDescriptor.symbolicTraits
-            if traits.contains(.traitBold) {
-                styleDict[kCMTextMarkupAttribute_BoldStyle as String] = true
-            }
-            if traits.contains(.traitItalic) {
-                styleDict[kCMTextMarkupAttribute_ItalicStyle as String] = true
-            }
+        let symbolicTraits = CTFontDescriptorCopyAttribute(ctFontDescriptor, kCTFontSymbolicTrait) as? UInt32 ?? 0
+        let traitsValue = CTFontSymbolicTraits(rawValue: symbolicTraits)
+        if traitsValue.contains(.traitBold) {
+            styleDict[kCMTextMarkupAttribute_BoldStyle as String] = true
+        }
+        if traitsValue.contains(.traitItalic) {
+            styleDict[kCMTextMarkupAttribute_ItalicStyle as String] = true
         }
         
         // Only create style rule if we have any custom settings
