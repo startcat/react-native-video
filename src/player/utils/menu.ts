@@ -28,6 +28,17 @@ export const getTrackId = (type: string, index: number, menuData?: Array<IPlayer
 	return item?.id;
 };
 
+// Función inversa a getTrackId: dado un trackId, devuelve el index correspondiente en menuData
+export const getTrackIndex = (
+	type: string,
+	trackId: number,
+	menuData?: Array<IPlayerMenuData>
+): number | undefined => {
+	const item = menuData?.find(menuItem => menuItem.type === type && menuItem.id === trackId);
+
+	return item?.index;
+};
+
 export const mergeMenuData = (
 	loadedData: OnLoadData,
 	languagesMapping?: ILanguagesMapping,

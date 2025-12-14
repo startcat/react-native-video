@@ -261,17 +261,57 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			handleOnError(error);
 		},
 		onAudioTrackChange: (track: CastTrackInfo | null) => {
-			if (track !== null) {
+			if (track !== null && menuData) {
 				currentLogger.current?.info(
 					`Cast Monitor onAudioTrackChange ${JSON.stringify(track)}`
 				);
+				// Sincronizar índice de audio cuando cambia desde el Chromecast
+				const newIndex = getTrackIndex(PLAYER_MENU_DATA_TYPE.AUDIO, track.id, menuData);
+				if (newIndex !== undefined && newIndex !== audioIndex) {
+					currentLogger.current?.debug(
+						`Syncing audio index from Chromecast: ${audioIndex} -> ${newIndex}`
+					);
+					setAudioIndex(newIndex);
+					currentAudioIndexRef.current = newIndex;
+					// Notificar al componente padre
+					if (props.events?.onChangeCommonData) {
+						props.events.onChangeCommonData({
+							audioIndex: newIndex,
+							audioLabel: track.name,
+							audioCode: track.language ?? undefined,
+						});
+					}
+				}
 			}
 		},
 		onTextTrackChange: (track: CastTrackInfo | null) => {
-			if (track !== null) {
+			if (menuData) {
+				// Si track es null, significa que se desactivaron los subtítulos
+				const newIndex =
+					track !== null
+						? (getTrackIndex(PLAYER_MENU_DATA_TYPE.TEXT, track.id, menuData) ?? -1)
+						: -1;
+
 				currentLogger.current?.info(
-					`Cast Monitor onTextTrackChange ${JSON.stringify(track)}`
+					`Cast Monitor onTextTrackChange - track: ${JSON.stringify(track)}, newIndex: ${newIndex}`
 				);
+
+				// Sincronizar índice de subtítulos cuando cambia desde el Chromecast
+				if (newIndex !== subtitleIndex) {
+					currentLogger.current?.debug(
+						`Syncing subtitle index from Chromecast: ${subtitleIndex} -> ${newIndex}`
+					);
+					setSubtitleIndex(newIndex);
+					currentSubtitleIndexRef.current = newIndex;
+					// Notificar al componente padre
+					if (props.events?.onChangeCommonData) {
+						props.events.onChangeCommonData({
+							subtitleIndex: newIndex,
+							subtitleLabel: track?.name,
+							subtitleCode: track?.language ?? undefined,
+						});
+					}
+				}
 			}
 		},
 	});
