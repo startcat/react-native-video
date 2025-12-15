@@ -361,10 +361,10 @@ export class SourceClass {
 	}
 
 	private calculateStartingPosition(): number {
-		let startPosition = 0;
+		let startPosition = this._startPosition || 0;
 
-		if (!this._isLive && this._startPosition && this._startPosition > 0) {
-			startPosition = this._startPosition * 1000;
+		if (!this._isLive && !!startPosition && startPosition > 0) {
+			startPosition = startPosition * 1000;
 		}
 
 		return startPosition;
