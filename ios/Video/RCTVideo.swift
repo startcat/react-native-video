@@ -261,6 +261,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         // Dani Youbora
         _videoAdapter?.playerAdapter.fireStop()
         
+        // Stop player and release resources
+        _player?.pause()
+        _player = nil
+        
+        #if RNUSE_GOOGLE_IMA
+            _imaAdsManager?.releaseAds()
+        #endif
+        
         NotificationCenter.default.removeObserver(self)
         self.removePlayerLayer()
         _playerObserver.clearPlayer()
