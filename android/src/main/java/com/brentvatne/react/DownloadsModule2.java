@@ -1545,22 +1545,116 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         
         // Añadir información detallada del error si la descarga falló
         if (state == Download.STATE_FAILED && exception != null) {
-            params.putString("errorMessage", exception.getMessage() != null ? exception.getMessage() : "Unknown error");
-            params.putString("errorClass", exception.getClass().getName());
+            String errorMessage = exception.getMessage() != null ? exception.getMessage() : "Unknown error";
+            String errorClass = exception.getClass().getName();
+            String errorCause = null;
             
-            // Incluir causa del error si existe
             if (exception.getCause() != null) {
-                params.putString("errorCause", exception.getCause().getMessage() != null ? 
-                    exception.getCause().getMessage() : exception.getCause().getClass().getName());
+                errorCause = exception.getCause().getMessage() != null ? 
+                    exception.getCause().getMessage() : exception.getCause().getClass().getName();
             }
             
-            // Log detallado para React Native
+            // Check for "No space left on device" error
+            boolean isNoSpaceError = isNoSpaceLeftError(exception);
+            
             Log.e(TAG, "Emitting download error for ID: " + id);
-            Log.e(TAG, "Error: " + exception.getMessage());
-            Log.e(TAG, "Error class: " + exception.getClass().getName());
+            Log.e(TAG, "Error: " + errorMessage);
+            Log.e(TAG, "Error class: " + errorClass);
+            Log.e(TAG, "Is no space error: " + isNoSpaceError);
+            
+            if (isNoSpaceError) {
+                // Emit specific NO_SPACE_LEFT error
+                Log.e(TAG, "❌ NO SPACE LEFT ON DEVICE - Emitting specific error");
+                
+                // Get current progress for this download
+                int progress = 0;
+                Download download = findDownloadById(id);
+                if (download != null) {
+                    progress = (int) download.getPercentDownloaded();
+                }
+                
+                WritableMap errorParams = Arguments.createMap();
+                errorParams.putString("id", id);
+                errorParams.putInt("progress", progress);
+                
+                WritableMap errorDetails = Arguments.createMap();
+                errorDetails.putString("code", "NO_SPACE_LEFT");
+                errorDetails.putString("message", "No hay espacio disponible en el dispositivo");
+                errorDetails.putString("domain", "AndroidStorageError");
+                errorDetails.putInt("errorCode", 28); // ENOSPC
+                errorParams.putMap("error", errorDetails);
+                
+                sendEvent("overonDownloadError", errorParams);
+                return; // Don't send the generic state changed event
+            }
+            
+            // For other errors, include details in the state change event
+            params.putString("errorMessage", errorMessage);
+            params.putString("errorClass", errorClass);
+            if (errorCause != null) {
+                params.putString("errorCause", errorCause);
+            }
         }
         
         sendEvent("overonDownloadStateChanged", params);
+    }
+    
+    /**
+     * Check if the exception is a "No space left on device" error
+     */
+    private boolean isNoSpaceLeftError(Exception exception) {
+        if (exception == null) return false;
+        
+        String message = exception.getMessage();
+        if (message != null) {
+            String lowerMessage = message.toLowerCase();
+            if (lowerMessage.contains("no space left") || 
+                lowerMessage.contains("enospc") ||
+                lowerMessage.contains("not enough space") ||
+                lowerMessage.contains("insufficient storage") ||
+                lowerMessage.contains("disk full") ||
+                lowerMessage.contains("no queda espacio")) {
+                return true;
+            }
+        }
+        
+        // Check cause recursively
+        Throwable cause = exception.getCause();
+        while (cause != null) {
+            String causeMessage = cause.getMessage();
+            if (causeMessage != null) {
+                String lowerCauseMessage = causeMessage.toLowerCase();
+                if (lowerCauseMessage.contains("no space left") || 
+                    lowerCauseMessage.contains("enospc") ||
+                    lowerCauseMessage.contains("not enough space") ||
+                    lowerCauseMessage.contains("insufficient storage") ||
+                    lowerCauseMessage.contains("disk full") ||
+                    lowerCauseMessage.contains("no queda espacio")) {
+                    return true;
+                }
+            }
+            
+            // Check for ErrnoException with ENOSPC (error code 28)
+            if (cause instanceof android.system.ErrnoException) {
+                android.system.ErrnoException errnoException = (android.system.ErrnoException) cause;
+                if (errnoException.errno == 28) { // ENOSPC
+                    return true;
+                }
+            }
+            
+            cause = cause.getCause();
+        }
+        
+        // Check for IOException with specific error codes
+        if (exception instanceof java.io.IOException) {
+            // Some IOExceptions may wrap ENOSPC errors
+            String className = exception.getClass().getName();
+            if (className.contains("DiskFullException") || className.contains("NoSpaceException")) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     @Override

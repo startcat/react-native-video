@@ -443,7 +443,14 @@ export class NativeManager {
 	private handleDownloadError(data: unknown): void {
 		const eventData = data as {
 			id: string;
-			error?: { code?: string; message?: string; details?: unknown };
+			progress?: number;
+			error?: {
+				code?: string;
+				message?: string;
+				details?: unknown;
+				domain?: string;
+				errorCode?: number;
+			};
 			errorCode?: string;
 			errorMessage?: string;
 			errorDetails?: unknown;
@@ -455,11 +462,40 @@ export class NativeManager {
 			? (errorCode as DownloadErrorCode)
 			: DownloadErrorCode.UNKNOWN;
 
+		const errorMessage = eventData.error?.message || eventData.errorMessage || "Unknown error";
+
+		// Check for NO_SPACE_LEFT error and create PlayerError
+		if (mappedCode === DownloadErrorCode.NO_SPACE_LEFT || errorCode === "NO_SPACE_LEFT") {
+			this.currentLogger.error(
+				TAG,
+				`❌ NO SPACE LEFT ON DEVICE for download: ${eventData.id}`
+			);
+
+			// Create and emit PlayerError for no space left
+			const playerError = new PlayerError("DOWNLOAD_NO_SPACE", {
+				downloadId: eventData.id,
+				progress: eventData.progress,
+				originalError: eventData.error,
+				domain: eventData.error?.domain,
+				errorCode: eventData.error?.errorCode,
+			});
+
+			// Emit module_error with PlayerError for consumers that listen to errors
+			this.eventEmitter.emit("module_error", {
+				event: "download_error",
+				data: eventData,
+				error: playerError,
+			});
+		}
+
 		const errorEvent: DownloadFailedEvent = {
 			downloadId: eventData.id,
 			error: {
-				code: mappedCode,
-				message: eventData.error?.message || eventData.errorMessage || "Unknown error",
+				code:
+					mappedCode === DownloadErrorCode.UNKNOWN && errorCode === "NO_SPACE_LEFT"
+						? DownloadErrorCode.NO_SPACE_LEFT
+						: mappedCode,
+				message: errorMessage,
 				details: eventData.error?.details || eventData.errorDetails,
 				timestamp: Date.now(),
 			},
