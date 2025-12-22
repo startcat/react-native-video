@@ -62,6 +62,163 @@ struct DownloadInfo {
 @objc(DownloadsModule2)
 class DownloadsModule2: RCTEventEmitter {
     
+    // MARK: - Singleton for offline playback access
+    private static var sharedInstance: DownloadsModule2?
+    
+    /// Get the shared instance (may be nil if module not initialized)
+    @objc static var shared: DownloadsModule2? {
+        return sharedInstance
+    }
+    
+    /// Get the asset path for a download by ID (for offline playback)
+    /// Returns the path if the download is completed and the file exists
+    @objc func getOfflineAssetPath(forId downloadId: String) -> String? {
+        // First check activeDownloads in memory
+        if let downloadInfo = activeDownloads[downloadId],
+           downloadInfo.state == .completed,
+           let assetPath = downloadInfo.assetPath {
+            // Try original path first (iOS uses /.nofollow prefix for symlinks)
+            if FileManager.default.fileExists(atPath: assetPath) {
+                return assetPath
+            }
+            // Try without /.nofollow prefix
+            if assetPath.hasPrefix("/.nofollow") {
+                let cleanPath = String(assetPath.dropFirst("/.nofollow".count))
+                if FileManager.default.fileExists(atPath: cleanPath) {
+                    return cleanPath
+                }
+            }
+        }
+        
+        // Try bookmark data (survives sandbox UUID changes)
+        if let resolvedURL = resolveAssetBookmark(forDownloadId: downloadId) {
+            let resolvedPath = resolvedURL.path
+            if FileManager.default.fileExists(atPath: resolvedPath) {
+                return resolvedPath
+            }
+        }
+        
+        // Fallback to UserDefaults paths (may be stale after recompile)
+        let assetPathsKey = "com.downloads.assetPaths"
+        if let assetPaths = UserDefaults.standard.dictionary(forKey: assetPathsKey) as? [String: String],
+           let assetPath = assetPaths[downloadId] {
+            // Try original path first
+            if FileManager.default.fileExists(atPath: assetPath) {
+                return assetPath
+            }
+            // Try without /.nofollow prefix
+            if assetPath.hasPrefix("/.nofollow") {
+                let cleanPath = String(assetPath.dropFirst("/.nofollow".count))
+                if FileManager.default.fileExists(atPath: cleanPath) {
+                    return cleanPath
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Static method to get offline asset path without needing instance
+    @objc static func getOfflineAssetPathStatic(forId downloadId: String) -> String? {
+        // First try shared instance
+        if let path = sharedInstance?.getOfflineAssetPath(forId: downloadId) {
+            return path
+        }
+        
+        // Try bookmark data directly (survives sandbox UUID changes)
+        let bookmarksKey = "com.downloads.assetBookmarks"
+        if let bookmarks = UserDefaults.standard.dictionary(forKey: bookmarksKey) as? [String: Data],
+           let bookmarkData = bookmarks[downloadId] {
+            var bookmarkDataIsStale = false
+            do {
+                let url = try URL(resolvingBookmarkData: bookmarkData, bookmarkDataIsStale: &bookmarkDataIsStale)
+                if FileManager.default.fileExists(atPath: url.path) {
+                    return url.path
+                }
+            } catch {
+                // Bookmark resolution failed
+            }
+        }
+        
+        // Fallback to direct UserDefaults paths
+        let assetPathsKey = "com.downloads.assetPaths"
+        if let assetPaths = UserDefaults.standard.dictionary(forKey: assetPathsKey) as? [String: String],
+           let assetPath = assetPaths[downloadId] {
+            if FileManager.default.fileExists(atPath: assetPath) {
+                return assetPath
+            }
+            // Try without /.nofollow prefix
+            if assetPath.hasPrefix("/.nofollow") {
+                let cleanPath = String(assetPath.dropFirst("/.nofollow".count))
+                if FileManager.default.fileExists(atPath: cleanPath) {
+                    return cleanPath
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    /// Static method to get offline asset URL directly (preferred for HLS offline playback)
+    /// Uses bookmarks as primary source (survives sandbox changes), falls back to paths
+    static func getOfflineAssetURLStatic(forId downloadId: String) -> URL? {
+        // Helper to check path and create URL
+        func tryPath(_ path: String) -> URL? {
+            if FileManager.default.fileExists(atPath: path) {
+                let fileURLString = "file://" + path
+                if let url = URL(string: fileURLString) {
+                    return url
+                }
+            }
+            // Try without /.nofollow prefix
+            if path.hasPrefix("/.nofollow") {
+                let cleanPath = String(path.dropFirst("/.nofollow".count))
+                if FileManager.default.fileExists(atPath: cleanPath) {
+                    let fileURLString = "file://" + cleanPath
+                    if let url = URL(string: fileURLString) {
+                        return url
+                    }
+                }
+            }
+            return nil
+        }
+        
+        // PRIORITY 1: Try bookmark data (survives sandbox UUID changes)
+        let bookmarksKey = "com.downloads.assetBookmarks"
+        if let bookmarks = UserDefaults.standard.dictionary(forKey: bookmarksKey) as? [String: Data],
+           let bookmarkData = bookmarks[downloadId] {
+            var isStale = false
+            do {
+                let resolvedURL = try URL(resolvingBookmarkData: bookmarkData, bookmarkDataIsStale: &isStale)
+                if FileManager.default.fileExists(atPath: resolvedURL.path) {
+                    return resolvedURL
+                }
+            } catch {
+                // Bookmark resolution failed, try other methods
+            }
+        }
+        
+        // PRIORITY 2: Try sharedInstance's in-memory activeDownloads
+        if let downloadInfo = sharedInstance?.activeDownloads[downloadId],
+           downloadInfo.state == .completed,
+           let assetPath = downloadInfo.assetPath {
+            if let url = tryPath(assetPath) {
+                return url
+            }
+        }
+        
+        // PRIORITY 3: Try UserDefaults saved paths (fallback)
+        let assetPathsKey = "com.downloads.assetPaths"
+        if let assetPaths = UserDefaults.standard.dictionary(forKey: assetPathsKey) as? [String: String],
+           let assetPath = assetPaths[downloadId] {
+            if let url = tryPath(assetPath) {
+                return url
+            }
+        }
+        
+        return nil
+    }
+    
     // MARK: - Properties
     private var downloadsSession: AVAssetDownloadURLSession?
     private var activeDownloads: [String: DownloadInfo] = [:]
@@ -82,6 +239,10 @@ class DownloadsModule2: RCTEventEmitter {
     private var isInitialized: Bool = false
     private let downloadQueue = DispatchQueue(label: "com.downloads.queue", qos: .background)
     
+    // Track completion state - delegates can arrive in any order
+    private var pendingLocations: [String: URL] = [:]  // Location from didFinishDownloadingTo
+    private var completedWithoutError: Set<String> = []  // Downloads that completed without error
+    
     // Cache para downloadSpace (evitar cálculos costosos)
     private var cachedDownloadSpace: Int64 = 0
     private var downloadSpaceCacheTime: Date?
@@ -90,6 +251,7 @@ class DownloadsModule2: RCTEventEmitter {
     
     // Persistencia de asset paths para recuperar después de restart
     private let ASSET_PATHS_KEY = "com.downloads.assetPaths"
+    private let ASSET_BOOKMARKS_KEY = "com.downloads.assetBookmarks" // NEW: Use bookmarkData for persistence
     private let ACTIVE_DOWNLOADS_KEY = "com.downloads.activeStates" // NUEVO: Persistir descargas en progreso
     
     // Speed tracking
@@ -130,6 +292,9 @@ class DownloadsModule2: RCTEventEmitter {
     
     // MARK: - Initialization Methods
     @objc func moduleInit(_ config: NSDictionary?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        // Set shared instance for offline playback access
+        DownloadsModule2.sharedInstance = self
+        
         downloadQueue.async { [weak self] in
             guard let self = self else { return }
             
@@ -228,9 +393,7 @@ class DownloadsModule2: RCTEventEmitter {
             }
             
             do {
-                print("📥 [DownloadsModule2] Step 1: Validating config")
                 guard self.validateDownloadConfig(config) else {
-                    print("❌ [DownloadsModule2] Config validation failed")
                     DispatchQueue.main.async {
                         reject("INVALID_CONFIG", "Invalid download configuration", nil)
                     }
@@ -240,16 +403,10 @@ class DownloadsModule2: RCTEventEmitter {
                 let id = config["id"] as! String
                 let uri = config["uri"] as! String
                 let title = config["title"] as! String
-                print("📥 [DownloadsModule2] Step 2: Config validated - ID: \(id), URI: \(uri)")
-                
                 // Check if download already exists (puede haber sido restaurado)
                 if let existingDownload = self.activeDownloads[id] {
-                    print("ℹ️ [DownloadsModule2] Download already exists: \(id) - State: \(existingDownload.state.stringValue)")
-                    
                     // Si la descarga está pausada, intentar reanudarla
                     if existingDownload.state == .paused {
-                        print("▶️ [DownloadsModule2] Resuming paused download: \(id)")
-                        
                         // Si hay una tarea asociada, reanudarla
                         if let downloadTask = self.downloadTasks[id] {
                             downloadTask.resume()
@@ -263,15 +420,11 @@ class DownloadsModule2: RCTEventEmitter {
                                 "state": downloadInfo.state.stringValue
                             ])
                             
-                            print("✅ [DownloadsModule2] Resumed existing download: \(id)")
                             DispatchQueue.main.async {
                                 resolve(nil)
                             }
                             return
                         } else {
-                            print("⚠️ [DownloadsModule2] No task found for paused download, will recreate")
-                            print("⚠️ [DownloadsModule2] WARNING: HLS downloads cannot resume partial progress - will restart from 0%")
-                            
                             // Emitir evento para informar a JavaScript
                             self.sendEvent(withName: "overonDownloadResumeDeferred", body: [
                                 "id": id,
@@ -286,7 +439,6 @@ class DownloadsModule2: RCTEventEmitter {
                     }
                     // Si ya está descargando o completada, simplemente devolver éxito
                     else if existingDownload.state == .downloading || existingDownload.state == .completed {
-                        print("✅ [DownloadsModule2] Download already \(existingDownload.state.stringValue): \(id)")
                         DispatchQueue.main.async {
                             resolve(nil)
                         }
@@ -294,18 +446,13 @@ class DownloadsModule2: RCTEventEmitter {
                     }
                     // Si está en otro estado (failed, etc), permitir recrear
                     else {
-                        print("🔄 [DownloadsModule2] Download in state \(existingDownload.state.stringValue), will recreate")
                         // Limpiar descarga existente
                         self.activeDownloads.removeValue(forKey: id)
                         self.downloadTasks.removeValue(forKey: id)
                     }
                 }
-                print("📥 [DownloadsModule2] Step 3: Creating new download")
                 
-                // Create download info
-                print("📥 [DownloadsModule2] Step 4: Creating download info")
-                
-                // Verificar si había una descarga previa restaurada (para preservar progreso)
+                // Create download info - Verificar si había una descarga previa restaurada (para preservar progreso)
                 let restoredDownload = self.activeDownloads[id]
                 
                 var downloadInfo = DownloadInfo(
@@ -326,17 +473,10 @@ class DownloadsModule2: RCTEventEmitter {
                     assetPath: restoredDownload?.assetPath
                 )
                 
-                if restoredDownload != nil {
-                    print("🔄 [DownloadsModule2] Preserving progress from restored download: \(Int(downloadInfo.progress * 100))% (\(downloadInfo.downloadedBytes) bytes)")
-                }
-                
                 self.activeDownloads[id] = downloadInfo
-                print("📥 [DownloadsModule2] Active downloads: \(self.activeDownloads.count)")
                 
                 // Create AVURLAsset
-                print("📥 [DownloadsModule2] Step 5: Creating AVURLAsset")
                 guard let url = URL(string: uri) else {
-                    print("❌ [DownloadsModule2] Invalid URI: \(uri)")
                     DispatchQueue.main.async {
                         reject("INVALID_URI", "Invalid download URI", nil)
                     }
@@ -346,44 +486,36 @@ class DownloadsModule2: RCTEventEmitter {
                 // Configurar opciones del asset con headers HTTP si están presentes
                 var assetOptions: [String: Any] = [:]
                 
-                // Agregar headers HTTP si están configurados
-                if let headers = config["headers"] as? [String: String], !headers.isEmpty {
+                // Agregar headers HTTP - incluir User-Agent por defecto si no está configurado
+                var headers = config["headers"] as? [String: String] ?? [:]
+                if headers["User-Agent"] == nil {
+                    // Use Safari User-Agent to avoid server blocking
+                    headers["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                }
+                if !headers.isEmpty {
                     assetOptions["AVURLAssetHTTPHeaderFieldsKey"] = headers
-                    print("📥 [DownloadsModule2] Adding HTTP headers: \(headers.keys.joined(separator: ", "))")
                 }
                 
                 // Agregar cookies HTTP
                 if let cookies = HTTPCookieStorage.shared.cookies {
                     assetOptions[AVURLAssetHTTPCookiesKey] = cookies
-                    print("📥 [DownloadsModule2] Adding \(cookies.count) HTTP cookies")
                 }
                 
                 let asset = AVURLAsset(url: url, options: assetOptions)
-                print("📥 [DownloadsModule2] AVURLAsset created successfully with options")
                 
                 // Handle DRM if present
                 if let drmConfig = config["drm"] as? NSDictionary {
-                    print("📥 [DownloadsModule2] Step 6: Processing DRM configuration")
                     try self.setupDRMForAsset(asset, config: drmConfig, contentId: id)
-                } else {
-                    print("📥 [DownloadsModule2] Step 6: No DRM, skipping")
                 }
                 
-                // Create download task
-                print("📥 [DownloadsModule2] Step 7: Creating download task for ID: \(id)")
-                print("📥 [DownloadsModule2] Active tasks before: \(self.downloadTasks.count)")
-                
-                // Clean up any existing task for this ID (safety check)
+                // Create download task - Clean up any existing task for this ID
                 if let existingTask = self.downloadTasks[id] {
-                    print("⚠️ [DownloadsModule2] Found existing task for ID: \(id), cancelling it")
                     existingTask.cancel()
                     self.downloadTasks.removeValue(forKey: id)
                 }
                 
                 let downloadTask = try self.createDownloadTask(for: asset, with: downloadInfo)
                 self.downloadTasks[id] = downloadTask
-                print("📥 [DownloadsModule2] Step 8: Download task created and stored")
-                print("📥 [DownloadsModule2] Active tasks after: \(self.downloadTasks.count)")
                 
                 // Update state and start download
                 downloadInfo.state = .queued
@@ -391,18 +523,12 @@ class DownloadsModule2: RCTEventEmitter {
                 
                 // Persistir estado
                 self.persistDownloadState()
-                
-                print("📥 [DownloadsModule2] Step 9: Starting download if possible")
                 self.startDownloadIfPossible(id)
-                
-                print("📥 [DownloadsModule2] Step 10: Download added successfully, resolving promise")
                 DispatchQueue.main.async {
                     resolve(nil)
                 }
                 
             } catch {
-                print("❌ [DownloadsModule2] Error adding download: \(error.localizedDescription)")
-                print("❌ [DownloadsModule2] Error details: \(error)")
                 DispatchQueue.main.async {
                     reject("ADD_DOWNLOAD_FAILED", "Failed to add download: \(error.localizedDescription)", error)
                 }
@@ -414,22 +540,16 @@ class DownloadsModule2: RCTEventEmitter {
         downloadQueue.async { [weak self] in
             guard let self = self else { return }
             
-            print("📥 [DownloadsModule2] Removing download: \(downloadId)")
             do {
                 // Cancel download task if active
                 if let downloadTask = self.downloadTasks[downloadId] {
-                    print("📥 [DownloadsModule2] Cancelling download task for: \(downloadId)")
                     downloadTask.cancel()
                     self.downloadTasks.removeValue(forKey: downloadId)
-                    print("📥 [DownloadsModule2] Task removed. Remaining tasks: \(self.downloadTasks.count)")
-                } else {
-                    print("⚠️ [DownloadsModule2] No active task found for: \(downloadId)")
                 }
                 
                 // Remove download info
                 self.activeDownloads.removeValue(forKey: downloadId)
                 self.lastProgressUpdate.removeValue(forKey: downloadId)
-                print("📥 [DownloadsModule2] Download info removed. Remaining downloads: \(self.activeDownloads.count)")
                 
                 // Remove asset path from UserDefaults (IMPORTANTE para cálculo de espacio)
                 self.removeAssetPath(forDownloadId: downloadId)
@@ -446,13 +566,11 @@ class DownloadsModule2: RCTEventEmitter {
                 // Release license if DRM
                 self.releaseLicenseForDownload(downloadId)
                 
-                print("✅ [DownloadsModule2] Download removed successfully: \(downloadId)")
                 DispatchQueue.main.async {
                     resolve(nil)
                 }
                 
             } catch {
-                print("❌ [DownloadsModule2] Error removing download \(downloadId): \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     reject("REMOVE_DOWNLOAD_FAILED", "Failed to remove download: \(error.localizedDescription)", error)
                 }
@@ -908,34 +1026,33 @@ class DownloadsModule2: RCTEventEmitter {
     
     // MARK: - Private Helper Methods
     private func initializeDownloadSession() throws {
-        let config = URLSessionConfiguration.background(withIdentifier: "com.downloads.background")
+        // Use bundle identifier for unique session ID
+        let bundleId = Bundle.main.bundleIdentifier ?? "com.downloads"
+        let sessionId = "\(bundleId).assetdownload"
+        
+        let config = URLSessionConfiguration.background(withIdentifier: sessionId)
         config.isDiscretionary = false
         config.sessionSendsLaunchEvents = true
+        config.allowsCellularAccess = allowCellularDownloads
+        config.httpMaximumConnectionsPerHost = 4
+        
+        // Allow connections to any host
+        config.tlsMinimumSupportedProtocolVersion = .TLSv12
         
         downloadsSession = AVAssetDownloadURLSession(
             configuration: config,
             assetDownloadDelegate: self,
-            delegateQueue: OperationQueue()
+            delegateQueue: OperationQueue.main  // Use main queue for delegate callbacks
         )
         
         // SOLUCIÓN 2: Recuperar tareas pendientes del sistema
-        print("🔄 [DownloadsModule2] Checking for pending download tasks from iOS...")
+        // Recover pending tasks from iOS
         downloadsSession?.getAllTasks { [weak self] tasks in
             guard let self = self else { return }
-            
-            print("📥 [DownloadsModule2] Found \(tasks.count) pending tasks in URLSession")
-            
             for task in tasks {
                 if let assetTask = task as? AVAssetDownloadTask {
-                    print("   📦 Pending task: \(assetTask.taskIdentifier), state: \(assetTask.state.rawValue)")
-                    
-                    // Intentar recuperar del estado persistido
                     self.recoverPendingTask(assetTask)
                 }
-            }
-            
-            if tasks.isEmpty {
-                print("⚠️ [DownloadsModule2] No pending tasks found - downloads may have been cancelled by iOS")
             }
         }
         
@@ -958,11 +1075,10 @@ class DownloadsModule2: RCTEventEmitter {
     
     private func setupContentKeySession() {
         #if targetEnvironment(simulator)
-        	print("⚠️ [DownloadsModule2] FairPlay no está disponible en simulador; se omite AVContentKeySession")
-        	contentKeySession = nil
+        contentKeySession = nil
         #else
-        	contentKeySession = AVContentKeySession(keySystem: .fairPlayStreaming)
-        	contentKeySession?.setDelegate(self, queue: downloadQueue)
+        contentKeySession = AVContentKeySession(keySystem: .fairPlayStreaming)
+        contentKeySession?.setDelegate(self, queue: downloadQueue)
         #endif
     }
     
@@ -991,7 +1107,6 @@ class DownloadsModule2: RCTEventEmitter {
     
     private func createDownloadTask(for asset: AVURLAsset, with downloadInfo: DownloadInfo) throws -> AVAssetDownloadTask {
         guard let session = downloadsSession else {
-            print("❌ [DownloadsModule2] Download session not initialized")
             throw NSError(domain: "DownloadsModule2", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download session not initialized"])
         }
         
@@ -999,35 +1114,27 @@ class DownloadsModule2: RCTEventEmitter {
         let minBitrate: Int
         switch downloadInfo.quality {
         case "low":
-            minBitrate = 1_500_000 // 1.5 Mbps - SD quality
-            print("📥 [DownloadsModule2] Using LOW quality: \(minBitrate) bps")
+            minBitrate = 1_500_000
         case "medium":
-            minBitrate = 2_500_000 // 2.5 Mbps - HD ready
-            print("📥 [DownloadsModule2] Using MEDIUM quality: \(minBitrate) bps")
+            minBitrate = 2_500_000
         case "high":
-            minBitrate = 5_000_000 // 5 Mbps - Full HD
-            print("📥 [DownloadsModule2] Using HIGH quality: \(minBitrate) bps")
+            minBitrate = 5_000_000
         default:
-            minBitrate = 2_000_000 // 2 Mbps - Default to medium-low
-            print("📥 [DownloadsModule2] Using DEFAULT quality: \(minBitrate) bps")
+            minBitrate = 2_000_000
         }
         
-        print("📥 [DownloadsModule2] Creating download task for: \(downloadInfo.title)")
-        
-        // No especificar bitrate mínimo para permitir cualquier variante disponible
-        // Esto evita errores HTTP 500 cuando el manifest no tiene la calidad solicitada
+        // Use makeAssetDownloadTask with minimum bitrate option
+        let options: [String: Any] = [
+            AVAssetDownloadTaskMinimumRequiredMediaBitrateKey: minBitrate
+        ]
         let downloadTask = session.makeAssetDownloadTask(
             asset: asset,
             assetTitle: downloadInfo.title,
             assetArtworkData: nil,
-            options: nil  // Dejar que iOS elija la mejor variante disponible
+            options: options
         )
         
-        print("📥 [DownloadsModule2] Download task created without bitrate restriction (iOS will auto-select)")
-        
-        // Safe unwrap instead of force unwrap to prevent crashes
         guard let task = downloadTask else {
-            print("❌ [DownloadsModule2] Failed to create download task for asset")
             throw NSError(
                 domain: "DownloadsModule2",
                 code: -2,
@@ -1035,43 +1142,27 @@ class DownloadsModule2: RCTEventEmitter {
             )
         }
         
-        print("✅ [DownloadsModule2] Download task created successfully")
         return task
     }
     
     private func startDownloadIfPossible(_ downloadId: String) {
         let activeCount = activeDownloads.values.filter { $0.state == .downloading }.count
-        print("📥 [DownloadsModule2] Checking if can start download \(downloadId) (active: \(activeCount)/\(maxConcurrentDownloads))")
         
         if activeCount < maxConcurrentDownloads {
             if let downloadTask = downloadTasks[downloadId] {
-                print("📥 [DownloadsModule2] Starting download task: \(downloadId)")
-                print("📥 [DownloadsModule2] Task state before resume: \(downloadTask.state.rawValue)")
-                
                 downloadTask.resume()
-                
-                print("📥 [DownloadsModule2] Task state after resume: \(downloadTask.state.rawValue)")
-                print("📥 [DownloadsModule2] Task description: \(downloadTask.taskDescription ?? "nil")")
-                print("📥 [DownloadsModule2] Task identifier: \(downloadTask.taskIdentifier)")
                 
                 if var downloadInfo = activeDownloads[downloadId] {
                     downloadInfo.state = .downloading
                     activeDownloads[downloadId] = downloadInfo
-                    
-                    // Persistir estado al iniciar
                     persistDownloadState()
                     
                     sendEvent(withName: "overonDownloadStateChanged", body: [
                         "id": downloadId,
                         "state": downloadInfo.state.stringValue
                     ])
-                    print("✅ [DownloadsModule2] Download started: \(downloadId)")
                 }
-            } else {
-                print("⚠️ [DownloadsModule2] No task found for download: \(downloadId)")
             }
-        } else {
-            print("⚠️ [DownloadsModule2] Max concurrent downloads reached (\(maxConcurrentDownloads)), queuing: \(downloadId)")
         }
     }
     
@@ -1092,7 +1183,7 @@ class DownloadsModule2: RCTEventEmitter {
     
     private func setupDRMForAsset(_ asset: AVURLAsset, config: NSDictionary, contentId: String) throws {
         #if targetEnvironment(simulator)
-        print("⚠️ [DownloadsModule2] Saltando setup DRM en simulador para \(contentId)")
+        // DRM not available in simulator
         return
         #else
         guard let contentKeySession else {
@@ -1110,24 +1201,14 @@ class DownloadsModule2: RCTEventEmitter {
         let fileManager = FileManager.default
         
         guard let downloadInfo = activeDownloads[downloadId] else {
-            print("⚠️ [DownloadsModule2] No download info found for: \(downloadId)")
             return
         }
         
         // If asset path exists, delete the downloaded asset
         if let assetPath = downloadInfo.assetPath {
             let assetURL = URL(fileURLWithPath: assetPath)
-            
             if fileManager.fileExists(atPath: assetPath) {
-                do {
-                    try fileManager.removeItem(at: assetURL)
-                    print("✅ [DownloadsModule2] Deleted asset at: \(assetPath)")
-                } catch {
-                    print("❌ [DownloadsModule2] Error deleting asset: \(error.localizedDescription)")
-                    throw error
-                }
-            } else {
-                print("⚠️ [DownloadsModule2] Asset file not found at: \(assetPath)")
+                try fileManager.removeItem(at: assetURL)
             }
         }
         
@@ -1141,15 +1222,12 @@ class DownloadsModule2: RCTEventEmitter {
             
             for item in contents {
                 let itemName = item.lastPathComponent
-                // Check if the name contains the downloadId
                 if itemName.contains(downloadId) {
                     try fileManager.removeItem(at: item)
-                    print("✅ [DownloadsModule2] Deleted download file/folder: \(itemName)")
                 }
             }
         } catch {
-            print("⚠️ [DownloadsModule2] Error cleaning download directory: \(error.localizedDescription)")
-            // Don't throw - partial cleanup is acceptable
+            // Partial cleanup is acceptable
         }
         
         // Also check in subdirectories (Binaries, Streams, etc.) for downloads
@@ -1162,15 +1240,12 @@ class DownloadsModule2: RCTEventEmitter {
                     
                     for item in contents {
                         let itemName = item.lastPathComponent
-                        // Check if the name matches or contains the downloadId
                         if itemName == downloadId || itemName.contains(downloadId) {
                             try fileManager.removeItem(at: item)
-                            print("✅ [DownloadsModule2] Deleted file in \(subdirName): \(itemName)")
                         }
                     }
                 } catch {
-                    print("⚠️ [DownloadsModule2] Error cleaning \(subdirName) directory: \(error.localizedDescription)")
-                    // Don't throw - partial cleanup is acceptable
+                    // Partial cleanup is acceptable
                 }
             }
         }
@@ -1257,7 +1332,7 @@ class DownloadsModule2: RCTEventEmitter {
                 "isCellularConnected": false // Get from network monitoring
             ]
         } catch {
-            print("❌ [DownloadsModule2] Error getting storage info: \(error.localizedDescription)")
+            // Error getting storage info
             return [
                 "downloadDirectory": downloadPath,
                 "tempDirectory": tempPath
@@ -1282,158 +1357,35 @@ class DownloadsModule2: RCTEventEmitter {
         ]
     }
 }
-
-// MARK: - AVAssetDownloadDelegate
 extension DownloadsModule2: AVAssetDownloadDelegate {
     
     func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask, didFinishDownloadingTo location: URL) {
-        // Handle download completion
-        print("📥 [DownloadsModule2] Download finished, finding ID...")
-        if let downloadId = findDownloadId(for: assetDownloadTask) {
-            print("✅ [DownloadsModule2] Download completed: \(downloadId)")
-            print("📥 [DownloadsModule2] Location: \(location.path)")
-            
-            // Calculate actual file size of the downloaded asset
-            let actualSize = calculateAssetSize(at: location)
-            print("📥 [DownloadsModule2] Actual file size: \(actualSize) bytes (\(Double(actualSize) / 1024.0 / 1024.0) MB)")
-            
-            var downloadInfo = activeDownloads[downloadId]!
-            downloadInfo.state = .completed
-            downloadInfo.completionTime = Date()
-            downloadInfo.totalBytes = actualSize
-            downloadInfo.downloadedBytes = actualSize
-            downloadInfo.progress = 1.0
-            downloadInfo.assetPath = location.path
-            activeDownloads[downloadId] = downloadInfo
-            
-            // Persistir asset path para recuperarlo después de restart
-            saveAssetPath(location.path, forDownloadId: downloadId)
-            
-            // Persistir estado completo
-            persistDownloadState()
-            
-            // Invalidar cache de downloadSpace
-            invalidateDownloadSpaceCache()
-            
-            sendEvent(withName: "overonDownloadCompleted", body: [
-                "id": downloadId,
-                "path": location.path,
-                "totalBytes": actualSize,
-                "duration": Date().timeIntervalSince(downloadInfo.startTime!)
-            ])
-        } else {
-            print("⚠️ [DownloadsModule2] Could not find download ID for completed task")
-        }
-    }
-    
-    func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask, didLoad timeRange: CMTimeRange, totalTimeRangesLoaded loadedTimeRanges: [NSValue], timeRangeExpectedToLoad: CMTimeRange) {
-        // Handle progress updates
-        print("📥 [DownloadsModule2] Progress delegate called")
+        guard let downloadId = findDownloadId(for: assetDownloadTask) else { return }
         
-        if let downloadId = findDownloadId(for: assetDownloadTask) {
-            print("📥 [DownloadsModule2] Progress for download: \(downloadId)")
-            
-            let totalDuration = CMTimeGetSeconds(timeRangeExpectedToLoad.duration)
-            let loadedDuration = loadedTimeRanges.reduce(0.0) { total, value in
-                let timeRange = value.timeRangeValue
-                return total + CMTimeGetSeconds(timeRange.duration)
-            }
-            
-            let progress = Float(loadedDuration / totalDuration)
-            print("📥 [DownloadsModule2] Progress: \(progress * 100)% (\(loadedDuration)/\(totalDuration))")
-            
-            if var downloadInfo = activeDownloads[downloadId] {
-                // Estimate bytes based on duration and bitrate
-                // For HLS with quality "low", estimate ~1.5 Mbps (1,500,000 bits/sec = 187,500 bytes/sec)
-                // For other qualities, use higher estimate
-                let estimatedBitrate: Double
-                switch downloadInfo.quality {
-                case "low":
-                    estimatedBitrate = 187_500 // ~1.5 Mbps in bytes/sec
-                case "medium":
-                    estimatedBitrate = 312_500 // ~2.5 Mbps in bytes/sec
-                case "high":
-                    estimatedBitrate = 625_000 // ~5 Mbps in bytes/sec
-                default:
-                    estimatedBitrate = 300_000 // ~2.4 Mbps default
-                }
-                
-                let totalBytes = Int64(totalDuration * estimatedBitrate)
-                let downloadedBytes = Int64(loadedDuration * estimatedBitrate)
-                
-                // Calculate speed based on previous progress update
-                let now = Date()
-                var speed: Double = 0
-                var remainingTime: Int = 0
-                
-                if let lastUpdate = lastProgressUpdate[downloadId] {
-                    let timeDiff = now.timeIntervalSince(lastUpdate.time)
-                    if timeDiff > 0 {
-                        let bytesDiff = downloadedBytes - lastUpdate.bytes
-                        speed = Double(bytesDiff) / timeDiff // bytes per second
-                        
-                        // Calculate remaining time
-                        let remainingBytes = totalBytes - downloadedBytes
-                        if speed > 0 {
-                            remainingTime = Int(Double(remainingBytes) / speed)
-                        }
-                    }
-                }
-                
-                // Update last progress tracking
-                lastProgressUpdate[downloadId] = (bytes: downloadedBytes, time: now)
-                
-                // Update downloadInfo
-                downloadInfo.progress = progress
-                downloadInfo.totalBytes = totalBytes
-                downloadInfo.downloadedBytes = downloadedBytes
-                downloadInfo.speed = speed
-                downloadInfo.remainingTime = remainingTime
-                activeDownloads[downloadId] = downloadInfo
-                
-                // Persistir estado cada 10% de progreso
-                let currentProgressInt = Int(progress * 100)
-                let previousProgressInt = Int((downloadInfo.progress - 0.1) * 100)
-                if currentProgressInt % 10 == 0 && currentProgressInt != previousProgressInt {
-                    persistDownloadState()
-                }
-                
-                print("📥 [DownloadsModule2] Sending progress event: \(Int(progress * 100))%, \(downloadedBytes) / \(totalBytes) bytes, \(Int(speed)) bytes/s")
-                sendEvent(withName: "overonDownloadProgress", body: [
-                    "id": downloadId,
-                    "progress": Int(progress * 100),
-                    "bytesDownloaded": downloadedBytes,
-                    "totalBytes": totalBytes,
-                    "speed": speed,
-                    "remainingTime": remainingTime
-                ])
-            } else {
-                print("⚠️ [DownloadsModule2] Download info not found for: \(downloadId)")
-            }
+        // Check if didCompleteWithError already confirmed success
+        if completedWithoutError.contains(downloadId) {
+            completedWithoutError.remove(downloadId)
+            finalizeDownload(downloadId: downloadId, location: location)
         } else {
-            print("⚠️ [DownloadsModule2] Could not find download ID for progress update")
-            print("⚠️ [DownloadsModule2] Active tasks: \(downloadTasks.keys)")
+            // Store location and wait for didCompleteWithError
+            pendingLocations[downloadId] = location
         }
     }
     
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        print("📥 [DownloadsModule2] Task completed delegate called")
+        guard let downloadId = findDownloadId(for: task as! AVAssetDownloadTask) else { return }
         
         if let error = error {
-            print("❌ [DownloadsModule2] Download task completed with error: \(error.localizedDescription)")
-            print("❌ [DownloadsModule2] Error domain: \((error as NSError).domain), code: \((error as NSError).code)")
+            // Clean up any pending state
+            pendingLocations.removeValue(forKey: downloadId)
+            completedWithoutError.remove(downloadId)
             
-            if let downloadId = findDownloadId(for: task as! AVAssetDownloadTask) {
-                print("❌ [DownloadsModule2] Download failed: \(downloadId)")
-                var downloadInfo = activeDownloads[downloadId]!
+            if var downloadInfo = activeDownloads[downloadId] {
                 downloadInfo.state = .failed
                 downloadInfo.error = error
                 activeDownloads[downloadId] = downloadInfo
                 
-                // Persistir estado de fallo
                 persistDownloadState()
-                
-                // Invalidar cache de downloadSpace
                 invalidateDownloadSpaceCache()
                 
                 sendEvent(withName: "overonDownloadError", body: [
@@ -1443,12 +1395,46 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                         "message": error.localizedDescription
                     ]
                 ])
-            } else {
-                print("⚠️ [DownloadsModule2] Could not find download ID for failed task")
             }
         } else {
-            print("✅ [DownloadsModule2] Task completed successfully without error")
+            // Check if didFinishDownloadingTo already provided the location
+            if let location = pendingLocations.removeValue(forKey: downloadId) {
+                finalizeDownload(downloadId: downloadId, location: location)
+            } else {
+                // Store success state and wait for didFinishDownloadingTo
+                completedWithoutError.insert(downloadId)
+            }
         }
+    }
+    
+    private func finalizeDownload(downloadId: String, location: URL) {
+        let actualSize = calculateAssetSize(at: location)
+        
+        guard var downloadInfo = activeDownloads[downloadId] else { return }
+        
+        downloadInfo.state = .completed
+        downloadInfo.completionTime = Date()
+        downloadInfo.totalBytes = actualSize
+        downloadInfo.downloadedBytes = actualSize
+        downloadInfo.progress = 1.0
+        downloadInfo.assetPath = location.path
+        activeDownloads[downloadId] = downloadInfo
+        
+        // Persist - save both path and bookmark
+        // Bookmark survives sandbox UUID changes (important for development/recompiles)
+        saveAssetPath(location.path, forDownloadId: downloadId)
+        saveAssetBookmark(for: location, downloadId: downloadId)
+        persistDownloadState()
+        invalidateDownloadSpaceCache()
+        
+        let duration: TimeInterval = downloadInfo.startTime.map { Date().timeIntervalSince($0) } ?? 0
+        sendEvent(withName: "overonDownloadCompleted", body: [
+            "id": downloadId,
+            "path": location.path,
+            "totalBytes": NSNumber(value: actualSize),
+            "duration": NSNumber(value: duration)
+        ])
+        
     }
     
     private func findDownloadId(for task: AVAssetDownloadTask) -> String? {
@@ -1466,23 +1452,16 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             
             // Verificar si el archivo existe con el path original
             if fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) {
-                print("✅ [DownloadsModule2] File exists at original path: \(url.path)")
                 pathToUse = url.path
-            } 
-            // Si no existe y tiene prefijo /.nofollow, intentar sin él
-            else if url.path.hasPrefix("/.nofollow") {
+            } else if url.path.hasPrefix("/.nofollow") {
+                // Si no existe y tiene prefijo /.nofollow, intentar sin él
                 let cleanPath = String(url.path.dropFirst("/.nofollow".count))
                 if fileManager.fileExists(atPath: cleanPath, isDirectory: &isDirectory) {
-                    print("✅ [DownloadsModule2] File exists at cleaned path: \(cleanPath)")
                     pathToUse = cleanPath
                 } else {
-                    print("❌ [DownloadsModule2] File not found at original path: \(url.path)")
-                    print("❌ [DownloadsModule2] File not found at cleaned path: \(cleanPath)")
-                    print("⚠️ [DownloadsModule2] Path does not exist in either location")
                     return 0
                 }
             } else {
-                print("⚠️ [DownloadsModule2] Path does not exist: \(url.path)")
                 return 0
             }
             
@@ -1507,133 +1486,117 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                                     }
                                 }
                             } catch {
-                                print("⚠️ [DownloadsModule2] Error getting file size for: \(fileURL.path) - \(error.localizedDescription)")
+                                // Skip files that can't be read
                             }
                         }
-                        
-                        if fileCount > 0 {
-                            print("📊 [DownloadsModule2] Calculated size for directory \(workingURL.lastPathComponent): \(totalSize) bytes from \(fileCount) files")
-                        } else {
-                            print("⚠️ [DownloadsModule2] No files found in directory: \(pathToUse)")
-                        }
-                    } else {
-                        print("⚠️ [DownloadsModule2] Could not create enumerator for: \(pathToUse)")
                     }
                 } else {
                     // Single file
                     let resourceValues = try workingURL.resourceValues(forKeys: [.fileSizeKey])
                     if let fileSize = resourceValues.fileSize {
                         totalSize = Int64(fileSize)
-                        print("📊 [DownloadsModule2] Calculated size for file \(workingURL.lastPathComponent): \(totalSize) bytes")
                     }
                 }
             }
         } catch {
-            print("❌ [DownloadsModule2] Error calculating asset size: \(error.localizedDescription)")
+            // Error calculating size
         }
         
         return totalSize
     }
     
     private func calculateTotalDownloadsSize() -> Int64 {
-        // Verificar cache
+        // Check cache
         if let cacheTime = downloadSpaceCacheTime {
             let age = Date().timeIntervalSince(cacheTime)
             if age < DOWNLOAD_SPACE_CACHE_TTL {
-                print("✅ [DownloadsModule2] Using cached download space (age: \(String(format: "%.1f", age))s)")
                 return cachedDownloadSpace
             }
         }
         
-		print("🔄 [DownloadsModule2] Calculating download space (cache miss or expired)")
-		print("📊 [DownloadsModule2] Total activeDownloads count: \(activeDownloads.count)")
-		print("🔍 [DownloadsModule2] DEBUG: activeDownloads keys: \(Array(activeDownloads.keys))")
-		var totalSize: Int64 = 0
-        
-        // OPCIÓN 1: Calcular tamaño de activeDownloads (descargas activas en memoria)
-		var activeDownloadsSize: Int64 = 0
-		var completedCount = 0
-		var downloadingCount = 0
-		var pausedCount = 0
+        var totalSize: Int64 = 0
+        var activeDownloadsSize: Int64 = 0
+        let fileManager = FileManager.default
 
-		for (downloadId, downloadInfo) in activeDownloads {
-			print("   📦 Download '\(downloadId)': state=\(downloadInfo.state.stringValue), hasPath=\(downloadInfo.assetPath != nil), bytes=\(downloadInfo.downloadedBytes)")
-			
-			if downloadInfo.state == .completed, let assetPath = downloadInfo.assetPath {
-				completedCount += 1
-				let assetURL = URL(fileURLWithPath: assetPath)
-				let size = calculateAssetSize(at: assetURL)
-				activeDownloadsSize += size
-				print("   ✅ Completed download: \(Double(size) / 1024.0 / 1024.0) MB at \(assetPath)")
-				
-				// MIGRACIÓN: Si esta descarga completada no está en savedPaths, guardarla ahora
-				var currentSavedPaths = loadAssetPaths()
-				if currentSavedPaths[downloadId] == nil {
-					print("   🔄 Migrating asset path to UserDefaults for \(downloadId)")
-					saveAssetPath(assetPath, forDownloadId: downloadId)
-				}
-			} else if downloadInfo.state == .downloading || downloadInfo.state == .paused {
-				if downloadInfo.state == .downloading { downloadingCount += 1 }
-				if downloadInfo.state == .paused { pausedCount += 1 }
-				activeDownloadsSize += downloadInfo.downloadedBytes
-				print("   ⏳ In-progress download: \(Double(downloadInfo.downloadedBytes) / 1024.0 / 1024.0) MB downloaded")
-			}
-		}
-		
-		print("📊 [DownloadsModule2] Active downloads summary: completed=\(completedCount), downloading=\(downloadingCount), paused=\(pausedCount)")
-		
-        // OPCIÓN 2: Calcular tamaño REAL de los assets persistidos
-        // iOS AVAssetDownloadTask guarda assets en ubicación del sistema, no en /Documents
-        // Usamos los paths persistidos que guardamos al completar cada descarga
+        // Calculate size from activeDownloads
+        for (downloadId, downloadInfo) in activeDownloads {
+            if downloadInfo.state == .completed, let assetPath = downloadInfo.assetPath {
+                var actualPath = assetPath
+                
+                if !fileManager.fileExists(atPath: assetPath) {
+                    if assetPath.hasPrefix("/.nofollow") {
+                        let cleanPath = String(assetPath.dropFirst("/.nofollow".count))
+                        if fileManager.fileExists(atPath: cleanPath) {
+                            actualPath = cleanPath
+                        }
+                    }
+                    
+                    if !fileManager.fileExists(atPath: actualPath) {
+                        if let resolvedURL = resolveAssetBookmark(forDownloadId: downloadId) {
+                            if fileManager.fileExists(atPath: resolvedURL.path) {
+                                actualPath = resolvedURL.path
+                                var updatedInfo = downloadInfo
+                                updatedInfo.assetPath = actualPath
+                                activeDownloads[downloadId] = updatedInfo
+                            }
+                        }
+                    }
+                }
+                
+                let assetURL = URL(fileURLWithPath: actualPath)
+                let size = calculateAssetSize(at: assetURL)
+                activeDownloadsSize += size
+                
+                // Migrate to savedPaths if not already there
+                let currentSavedPaths = loadAssetPaths()
+                if currentSavedPaths[downloadId] == nil {
+                    saveAssetPath(actualPath, forDownloadId: downloadId)
+                }
+            } else if downloadInfo.state == .downloading || downloadInfo.state == .paused {
+                activeDownloadsSize += downloadInfo.downloadedBytes
+            }
+        }
+        
+        // Calculate size from persisted assets
         var persistedAssetsSize: Int64 = 0
         let savedPaths = loadAssetPaths()
         
-        print("📂 [DownloadsModule2] Found \(savedPaths.count) persisted asset paths in UserDefaults")
-
-		if savedPaths.isEmpty {
-			print("⚠️ [DownloadsModule2] No persisted asset paths found - this is normal for fresh install or if downloads haven't completed yet")
-		}
+        for (downloadId, assetPath) in savedPaths {
+            var pathToCheck = assetPath
+            var fileExists = fileManager.fileExists(atPath: assetPath)
+            
+            if !fileExists && assetPath.hasPrefix("/.nofollow") {
+                let cleanPath = String(assetPath.dropFirst("/.nofollow".count))
+                fileExists = fileManager.fileExists(atPath: cleanPath)
+                if fileExists {
+                    pathToCheck = cleanPath
+                }
+            }
+            
+            if !fileExists {
+                if let resolvedURL = resolveAssetBookmark(forDownloadId: downloadId) {
+                    fileExists = fileManager.fileExists(atPath: resolvedURL.path)
+                    if fileExists {
+                        pathToCheck = resolvedURL.path
+                    }
+                }
+            }
+            
+            if fileExists {
+                let assetURL = URL(fileURLWithPath: pathToCheck)
+                let size = calculateAssetSize(at: assetURL)
+                persistedAssetsSize += size
+            }
+        }
         
-		for (downloadId, assetPath) in savedPaths {
-			let assetURL = URL(fileURLWithPath: assetPath)
-			let fileManager = FileManager.default
-			
-			print("   🔍 Checking persisted asset '\(downloadId)' at: \(assetPath)")
-			
-			if fileManager.fileExists(atPath: assetPath) {
-				let size = calculateAssetSize(at: assetURL)
-				persistedAssetsSize += size
-				print("   ✅ Asset exists: \(Double(size) / 1024.0 / 1024.0) MB")
-			} else {
-				print("   ❌ Asset file not found (may have been deleted by iOS or user)")
-				// Limpiar path que ya no existe
-				removeAssetPath(forDownloadId: downloadId)
-			}
-		}
+        // Use the larger value (more conservative)
+        totalSize = max(activeDownloadsSize, persistedAssetsSize)
         
-		print("📁 [DownloadsModule2] Persisted assets total: \(persistedAssetsSize) bytes (\(Double(persistedAssetsSize) / 1024.0 / 1024.0) MB)")
-		
-		// Usar el MAYOR de los dos valores (más conservador y preciso)
-		totalSize = max(activeDownloadsSize, persistedAssetsSize)
-		
-		print("📥 [DownloadsModule2] Active downloads: \(activeDownloadsSize) bytes (\(Double(activeDownloadsSize) / 1024.0 / 1024.0) MB)")
-		print("📥 [DownloadsModule2] Persisted assets: \(persistedAssetsSize) bytes (\(Double(persistedAssetsSize) / 1024.0 / 1024.0) MB)")
-		print("📥 [DownloadsModule2] Total (max): \(totalSize) bytes (\(Double(totalSize) / 1024.0 / 1024.0) MB)")
-		
-		if totalSize == 0 {
-			print("⚠️ [DownloadsModule2] WARNING: Total download size is 0!")
-			print("   Possible reasons:")
-			print("   1. No downloads have completed yet (activeDownloads.count: \(activeDownloads.count))")
-			print("   2. Completed downloads have no assetPath saved")
-			print("   3. UserDefaults has no persisted paths (savedPaths.count: \(savedPaths.count))")
-			print("   4. Asset files were deleted by iOS or user")
-		}
-		
-		// Actualizar cache
-		cachedDownloadSpace = totalSize
-		downloadSpaceCacheTime = Date()
-		
-		return totalSize
+        // Update cache
+        cachedDownloadSpace = totalSize
+        downloadSpaceCacheTime = Date()
+        
+        return totalSize
     }
     
     // Helper para calcular tamaño de directorio recursivamente
@@ -1654,7 +1617,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                     }
                 }
             } catch {
-                print("⚠️ [DownloadsModule2] Error getting file size: \(error.localizedDescription)")
+                // Skip files that can't be read
             }
         }
         
@@ -1664,7 +1627,6 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     // Invalidar cache cuando cambia el estado de las descargas
     private func invalidateDownloadSpaceCache() {
         downloadSpaceCacheTime = nil
-        print("🗑️ [DownloadsModule2] Download space cache invalidated")
     }
     
     // MARK: - Download State Persistence (SOLUCIÓN 3)
@@ -1692,24 +1654,19 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         
         UserDefaults.standard.set(downloadStates, forKey: ACTIVE_DOWNLOADS_KEY)
         UserDefaults.standard.synchronize()
-        print("💾 [DownloadsModule2] Persisted \(downloadStates.count) download states")
     }
     
     /// Restaurar estado de descargas desde UserDefaults
     private func restoreDownloadStates() {
         guard let savedStates = UserDefaults.standard.array(forKey: ACTIVE_DOWNLOADS_KEY) as? [[String: Any]] else {
-            print("ℹ️ [DownloadsModule2] No saved download states found")
             return
         }
-        
-        print("🔄 [DownloadsModule2] Restoring \(savedStates.count) download states...")
         
         for state in savedStates {
             guard let id = state["id"] as? String,
                   let uri = state["uri"] as? String,
                   let title = state["title"] as? String,
                   let stateString = state["state"] as? String else {
-                print("⚠️ [DownloadsModule2] Invalid state data, skipping")
                 continue
             }
             
@@ -1735,10 +1692,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             )
             
             activeDownloads[id] = downloadInfo
-            print("✅ [DownloadsModule2] Restored download: \(id) - \(title) (\(downloadState.stringValue))")
         }
-        
-        print("✅ [DownloadsModule2] Restored \(activeDownloads.count) downloads")
     }
     
     /// Recuperar una tarea pendiente de iOS y reconectarla con activeDownloads
@@ -1753,8 +1707,6 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         // Buscar download que coincida con esta URL
         for (downloadId, downloadInfo) in activeDownloads {
             if downloadInfo.uri == taskURL {
-                print("✅ [DownloadsModule2] Matched pending task to download: \(downloadId)")
-                
                 // Reconectar task con downloadId
                 downloadTasks[downloadId] = task
                 
@@ -1769,12 +1721,9 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                     activeDownloads[downloadId] = info
                 }
                 
-                print("🔗 [DownloadsModule2] Reconnected task \(task.taskIdentifier) to download \(downloadId)")
                 return
             }
         }
-        
-        print("⚠️ [DownloadsModule2] Could not match pending task to any saved download")
     }
     
     // MARK: - Asset Path Persistence Helpers
@@ -1785,7 +1734,6 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         paths[downloadId] = path
         UserDefaults.standard.set(paths, forKey: ASSET_PATHS_KEY)
         UserDefaults.standard.synchronize()
-        print("💾 [DownloadsModule2] Saved asset path for \(downloadId): \(path)")
     }
     
     /// Cargar todos los asset paths guardados
@@ -1799,14 +1747,63 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         paths.removeValue(forKey: downloadId)
         UserDefaults.standard.set(paths, forKey: ASSET_PATHS_KEY)
         UserDefaults.standard.synchronize()
-        print("🗑️ [DownloadsModule2] Removed asset path for \(downloadId)")
     }
     
     /// Limpiar todos los asset paths (útil para debugging o reset completo)
     private func clearAllAssetPaths() {
         UserDefaults.standard.removeObject(forKey: ASSET_PATHS_KEY)
         UserDefaults.standard.synchronize()
-        print("🗑️ [DownloadsModule2] Cleared all asset paths")
+    }
+    
+    // MARK: - Bookmark Data Persistence (survives sandbox UUID changes)
+    
+    /// Save bookmark data for a downloaded asset URL
+    private func saveAssetBookmark(for url: URL, downloadId: String) {
+        do {
+            let bookmarkData = try url.bookmarkData()
+            var bookmarks = loadAssetBookmarks()
+            bookmarks[downloadId] = bookmarkData
+            UserDefaults.standard.set(bookmarks, forKey: ASSET_BOOKMARKS_KEY)
+            UserDefaults.standard.synchronize()
+        } catch {
+            // Failed to create bookmark
+        }
+    }
+    
+    /// Load all saved bookmarks
+    private func loadAssetBookmarks() -> [String: Data] {
+        return UserDefaults.standard.dictionary(forKey: ASSET_BOOKMARKS_KEY) as? [String: Data] ?? [:]
+    }
+    
+    /// Resolve a bookmark to get the current URL (handles sandbox UUID changes)
+    func resolveAssetBookmark(forDownloadId downloadId: String) -> URL? {
+        let bookmarks = loadAssetBookmarks()
+        guard let bookmarkData = bookmarks[downloadId] else {
+            return nil
+        }
+        
+        var bookmarkDataIsStale = false
+        do {
+            let url = try URL(resolvingBookmarkData: bookmarkData, bookmarkDataIsStale: &bookmarkDataIsStale)
+            
+            if bookmarkDataIsStale {
+                // Update stale bookmark
+                saveAssetBookmark(for: url, downloadId: downloadId)
+            }
+            return url
+        } catch {
+            // Remove invalid bookmark
+            removeAssetBookmark(forDownloadId: downloadId)
+            return nil
+        }
+    }
+    
+    /// Remove bookmark for a specific download
+    private func removeAssetBookmark(forDownloadId downloadId: String) {
+        var bookmarks = loadAssetBookmarks()
+        bookmarks.removeValue(forKey: downloadId)
+        UserDefaults.standard.set(bookmarks, forKey: ASSET_BOOKMARKS_KEY)
+        UserDefaults.standard.synchronize()
     }
 }
 

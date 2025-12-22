@@ -1063,6 +1063,20 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		currentLogger.current?.error(
 			`handleOnVideoError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`
 		);
+
+		// [OFFLINE] Ignore network errors when playing offline content
+		// Error code -1009 is NSURLErrorNotConnectedToInternet
+		// These errors come from analytics/thumbnails trying to connect, not from the video itself
+		const isNetworkError = e.error?.code === -1009 || e.error?.domain === "NSURLErrorDomain";
+		const isOfflinePlayback = props.playOffline || sourceRef.current?.isDownloaded;
+
+		if (isNetworkError && isOfflinePlayback) {
+			currentLogger.current?.warn(
+				`[OFFLINE] Ignoring network error during offline playback: ${e.error?.localizedDescription}`
+			);
+			return null; // Don't propagate network errors during offline playback
+		}
+
 		const playerError = mapVideoErrorToPlayerError(e);
 
 		if (props.events?.onError && typeof props.events.onError === "function") {

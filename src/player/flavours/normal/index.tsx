@@ -545,6 +545,35 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			currentLogger.current?.info(
 				`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`
 			);
+
+			// [OFFLINE DEBUG] Log offline playback info
+			const effectivePlayOffline = props.playOffline || sourceRef.current?.isDownloaded;
+			console.log(`[Player] (Normal Flavour) [OFFLINE DEBUG] setPlayerSource:`);
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - props.playOffline: ${props.playOffline}`
+			);
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - sourceRef.current?.isDownloaded: ${sourceRef.current?.isDownloaded}`
+			);
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - effectivePlayOffline (sent to Video): ${effectivePlayOffline}`
+			);
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - source.uri: "${data.source?.uri}"`
+			);
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - source.title: "${data.source?.title}"`
+			);
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - source.id: ${data.source?.id}`
+			);
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - isDownloaded: ${sourceRef.current?.isDownloaded}`
+			);
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - isBinary: ${sourceRef.current?.isBinary}`
+			);
+
 			setVideoSource(data.source!);
 		} else if (sourceRef.current?.isReady) {
 			currentLogger.current?.debug("setPlayerSource - Using sourceRef");
@@ -1223,6 +1252,20 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		currentLogger.current?.error(
 			`handleOnVideoError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`
 		);
+
+		// [OFFLINE] Ignore network errors when playing offline content
+		// Error code -1009 is NSURLErrorNotConnectedToInternet
+		// These errors come from analytics/thumbnails trying to connect, not from the video itself
+		const isNetworkError = e.error?.code === -1009 || e.error?.domain === "NSURLErrorDomain";
+		const isOfflinePlayback = props.playOffline || sourceRef.current?.isDownloaded;
+
+		if (isNetworkError && isOfflinePlayback) {
+			currentLogger.current?.warn(
+				`[OFFLINE] Ignoring network error during offline playback: ${e.error?.localizedDescription}`
+			);
+			return null; // Don't propagate network errors during offline playback
+		}
+
 		const playerError = mapVideoErrorToPlayerError(e);
 
 		if (props.events?.onError && typeof props.events.onError === "function") {
@@ -1275,7 +1318,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						drm={drm.current}
 						// @ts-ignore
 						youbora={youboraForVideo.current}
-						playOffline={props.playOffline}
+						playOffline={props.playOffline || sourceRef.current?.isDownloaded}
 						multiSession={props.playerProgress?.liveValues?.multiSession}
 						disableDisconnectError={true}
 						debug={{
