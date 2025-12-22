@@ -42,7 +42,14 @@ struct VideoSource {
         self.uri = json["uri"] as? String
 
         // Dani - Añadimos campos para el offline
-        self.id = json["id"] as? String
+        // Handle id as either String or Int
+        if let idString = json["id"] as? String {
+            self.id = idString
+        } else if let idInt = json["id"] as? Int {
+            self.id = String(idInt)
+        } else {
+            self.id = nil
+        }
         self.title = json["title"] as? String
         // Fin
 
