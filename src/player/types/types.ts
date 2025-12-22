@@ -528,7 +528,6 @@ export interface AudioFlavourProps extends ICommonPlayerProps, ICommonFlavourPro
 	manifests?: Array<IManifest>;
 	headers?: Headers;
 	showExternalTudum?: boolean;
-	playOffline?: boolean;
 	languagesMapping?: ILanguagesMapping;
 
 	// Extra data
@@ -552,7 +551,6 @@ export interface AudioCastFlavourProps extends ICommonPlayerProps, ICommonFlavou
 	manifests?: Array<IManifest>;
 	headers?: Headers;
 	showExternalTudum?: boolean;
-	playOffline?: boolean;
 
 	languagesMapping?: ILanguagesMapping;
 
@@ -577,7 +575,6 @@ export interface NormalFlavourProps extends ICommonPlayerProps, ICommonFlavourPr
 	manifests?: Array<IManifest>;
 	headers?: Headers;
 	showExternalTudum?: boolean;
-	playOffline?: boolean;
 
 	audioIndex?: number;
 	subtitleIndex?: number;
@@ -596,7 +593,6 @@ export interface CastFlavourProps extends ICommonPlayerProps, ICommonFlavourProp
 	manifests?: Array<IManifest>;
 	headers?: Headers;
 	showExternalTudum?: boolean;
-	playOffline?: boolean;
 
 	audioIndex?: number;
 	subtitleIndex?: number;
@@ -615,7 +611,6 @@ export interface PlayerProps extends ICommonPlayerProps, ICommonFlavourProps {
 	manifests?: Array<IManifest>;
 	showExternalTudum?: boolean;
 	headers?: Headers;
-	playOffline?: boolean;
 	liveStartDate?: string;
 	isAutoNext?: boolean;
 
@@ -638,7 +633,6 @@ export interface PlayerProps extends ICommonPlayerProps, ICommonFlavourProps {
 export interface AudioPlayerContentsDpo extends ICommonPlayerProps, ICommonFlavourProps {
 	collection: Enums.COLLECTION;
 	showExternalTudum?: boolean;
-	playOffline?: boolean;
 	manifests?: Array<IManifest>;
 	headers?: Headers;
 	extraData?: any;

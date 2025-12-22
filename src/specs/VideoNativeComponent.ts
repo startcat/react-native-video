@@ -326,7 +326,6 @@ export interface VideoNativeProps extends ViewProps {
 	src?: VideoSrc;
 	drm?: Drm;
 	youbora?: Youbora;
-	playOffline?: boolean;
 	multiSession?: boolean;
 	adTagUrl?: string;
 	allowsExternalPlayback?: boolean; // ios, true

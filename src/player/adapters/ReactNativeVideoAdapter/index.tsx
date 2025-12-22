@@ -372,7 +372,6 @@ export const ReactNativeVideoAdapter = forwardRef<
 			drm={props.contentInfo.drm}
 			youbora={props.contentInfo.youbora}
 			// Configuración básica
-			playOffline={props.playOffline}
 			multiSession={props.multiSession}
 			allowsExternalPlayback={props.allowsExternalPlayback}
 			playInBackground={props.playInBackground}

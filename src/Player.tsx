@@ -361,7 +361,6 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 					headers={props.headers}
 					languagesMapping={props.languagesMapping}
 					showExternalTudum={props.showExternalTudum}
-					playOffline={props.playOffline}
 					liveStartDate={props.liveStartDate}
 					audioIndex={currentAudioIndex}
 					subtitleIndex={currentSubtitleIndex}

@@ -9,8 +9,6 @@ import {
 import { getBestManifest, getDRM, getManifestSourceType, getVideoSourceUri } from "../../utils";
 
 import { PlayerError } from "../../core/errors";
-import { downloadsManager } from "../../features/offline/managers/DownloadsManager";
-import { DownloadStates, DownloadType } from "../../features/offline/types";
 
 export interface onSourceChangedProps {
 	id?: number;
@@ -57,10 +55,6 @@ export interface SourceClassProps {
 
 const LOG_TAG = "[SourceClass]";
 
-// [OFFLINE DEBUG] Flag para forzar la detección de contenido offline para testing
-// Cambiar a true para simular que el contenido está descargado
-const FORCE_OFFLINE_PLAYBACK_DEBUG = false;
-
 export class SourceClass {
 	private _currentManifest: IManifest | undefined = undefined;
 	private _drm: IDrm | undefined = undefined;
@@ -78,8 +72,6 @@ export class SourceClass {
 	private _isHLS: boolean = false;
 	private _isDASH: boolean = false;
 	private _isReady: boolean = false;
-	private _isDownloaded: boolean = false;
-	private _isBinary: boolean = false;
 	private _isFakeVOD: boolean = false;
 
 	private _getBestManifest: (
@@ -121,8 +113,6 @@ export class SourceClass {
 		this._isHLS = false;
 		this._isDASH = false;
 		this._isReady = false;
-		this._isDownloaded = false;
-		this._isBinary = false;
 		this._isFakeVOD = false;
 	}
 
@@ -157,58 +147,6 @@ export class SourceClass {
 
 		// Marcamos si es DASH
 		this._isDASH = this._currentManifest?.type === STREAM_FORMAT_TYPE.DASH;
-
-		// Revisamos si se trata de un Binario descargado
-		let downloadItem = null;
-		if (props.id) {
-			console.log(`${LOG_TAG} [OFFLINE DEBUG] Checking download for id: ${props.id}`);
-			console.log(
-				`${LOG_TAG} [OFFLINE DEBUG] FORCE_OFFLINE_PLAYBACK_DEBUG: ${FORCE_OFFLINE_PLAYBACK_DEBUG}`
-			);
-
-			downloadItem = downloadsManager.getDownload(props.id?.toString() || "");
-
-			if (downloadItem) {
-				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] Download item found:`,
-					JSON.stringify(
-						{
-							id: downloadItem.id,
-							title: downloadItem.title,
-							state: downloadItem.state,
-							type: downloadItem.type,
-							fileUri: downloadItem.fileUri,
-							uri: downloadItem.uri,
-						},
-						null,
-						2
-					)
-				);
-
-				// Está descargado si el estado es COMPLETED (o forzado para debug)
-				this._isDownloaded =
-					downloadItem.state === DownloadStates.COMPLETED || FORCE_OFFLINE_PLAYBACK_DEBUG;
-
-				// Es binario si el tipo es BINARY
-				this._isBinary = downloadItem.type === DownloadType.BINARY;
-
-				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] isDownloaded: ${this._isDownloaded}, isBinary: ${this._isBinary}`
-				);
-
-				if (FORCE_OFFLINE_PLAYBACK_DEBUG) {
-					console.log(
-						`${LOG_TAG} [OFFLINE DEBUG] ⚠️ FORCED OFFLINE MODE ENABLED FOR TESTING`
-					);
-				}
-			} else {
-				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] No download item found for id: ${props.id}`
-				);
-				this._isDownloaded = false;
-				this._isBinary = false;
-			}
-		}
 
 		// Marcamos si es Live
 		this._isLive = !!props.isLive;
@@ -248,72 +186,6 @@ export class SourceClass {
 				imageUri: props.squaredPoster || props.poster,
 			},
 		};
-
-		// Manejo de contenido descargado
-		if (downloadItem && this._isDownloaded) {
-			console.log(`${LOG_TAG} [OFFLINE DEBUG] changeSource -> isDownloaded: true`);
-			console.log(`${LOG_TAG} [OFFLINE DEBUG] downloadItem.type: "${downloadItem.type}"`);
-			console.log(
-				`${LOG_TAG} [OFFLINE DEBUG] downloadItem.fileUri: "${downloadItem.fileUri}"`
-			);
-			console.log(
-				`${LOG_TAG} [OFFLINE DEBUG] downloadItem full data:`,
-				JSON.stringify(downloadItem, null, 2)
-			);
-
-			if (this._isBinary) {
-				// BINARY downloads: usar fileUri directamente
-				console.log(`${LOG_TAG} [OFFLINE DEBUG] Processing BINARY download`);
-
-				if (!downloadItem.fileUri) {
-					console.error(
-						`${LOG_TAG} [OFFLINE DEBUG] ERROR: fileUri is empty or undefined for BINARY download!`
-					);
-					console.error(
-						`${LOG_TAG} [OFFLINE DEBUG] Available properties:`,
-						Object.keys(downloadItem)
-					);
-					throw new PlayerError("PLAYER_SOURCE_OFFLINE_FILE_URI_INVALID", {
-						contentId: props.id,
-						offlineData: downloadItem,
-					});
-				}
-
-				// Construir URI para reproducción offline binaria
-				const offlineUri = downloadItem.fileUri.startsWith("file://")
-					? downloadItem.fileUri
-					: `file://${downloadItem.fileUri}`;
-
-				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] Constructed BINARY offline URI: "${offlineUri}"`
-				);
-				this._videoSource.uri = offlineUri;
-			} else {
-				// STREAM downloads (HLS/DASH): el nativo maneja la reproducción offline
-				// usando el título para buscar el asset descargado
-				console.log(`${LOG_TAG} [OFFLINE DEBUG] Processing STREAM download`);
-				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] STREAM download will be handled by native layer using title: "${props.title}"`
-				);
-
-				// Para STREAM, necesitamos una URI para que el nativo no aborte
-				// Usamos la URI original del manifest o la del downloadItem
-				// El nativo usará playOffline=true y buscará por título/ID
-				const streamUri = downloadItem.uri || this._currentManifest?.manifestURL;
-				if (streamUri && !this._videoSource.uri) {
-					console.log(
-						`${LOG_TAG} [OFFLINE DEBUG] Setting STREAM URI for native: "${streamUri}"`
-					);
-					this._videoSource.uri = streamUri;
-				}
-
-				if (downloadItem.fileUri) {
-					console.log(
-						`${LOG_TAG} [OFFLINE DEBUG] STREAM has fileUri (unexpected): "${downloadItem.fileUri}"`
-					);
-				}
-			}
-		}
 
 		this._isReady = true;
 		console.log(`${LOG_TAG} changeSource finished (isReady ${!!this._isReady})`);
@@ -482,8 +354,6 @@ export class SourceClass {
 			isDVR: this._isDVR,
 			isHLS: this._isHLS,
 			isDASH: this._isDASH,
-			isDownloaded: this._isDownloaded,
-			isBinary: this._isBinary,
 			isFakeVOD: this._isFakeVOD,
 			isReady: this._isReady,
 			needsLiveInitialSeek: this._needsLiveInitialSeek,
@@ -532,14 +402,6 @@ export class SourceClass {
 
 	get isDASH(): boolean {
 		return !!this._isDASH;
-	}
-
-	get isDownloaded(): boolean {
-		return this._isDownloaded;
-	}
-
-	get isBinary(): boolean {
-		return this._isBinary;
 	}
 
 	get isFakeVOD(): boolean {

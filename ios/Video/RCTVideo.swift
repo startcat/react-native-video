@@ -23,7 +23,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     /* DRM */
     private var _drm: DRMParams?
-    private var _playOffline:Bool = false
 
     private var _localSourceEncryptionKeyScheme: String?
     
@@ -116,8 +115,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         private var _pip: RCTPictureInPicture?
     #endif
     
-    // Asset downloader
-    fileprivate var downloader: AssetDownloader = AssetDownloader.sharedDownloader
 
     // Events
     @objc var onVideoLoadStart: RCTDirectEventBlock?
@@ -451,53 +448,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             )
         }
 
-        // OFFLINE PLAYBACK: Try to find downloaded asset
-        if _playOffline == true {
-            // Method 1: Try AssetDownloader (uses title as key) - for DRM content
-            if let title = source.title,
-               let downloadedAsset = downloader.downloadedAsset(withName: title) {
-                RCTLog("[OFFLINE] Found asset via AssetDownloader for title: \(title)")
-                
-                ContentKeyManager.sharedManager.createContentKeySession()
-                ContentKeyManager.sharedManager.downloadRequestedByUser = true
-                
-                let localAsset = downloadedAsset
-                localAsset.createUrlAsset()
-                
-                if _drm != nil {
-                    localAsset.addAsContentKeyRecipient()
-                    
-                    if let licenseServer = _drm?.licenseServer,
-                       let certificateUrl = _drm?.certificateUrl {
-                        ContentKeyManager.sharedManager.licensingServiceUrl = licenseServer
-                        ContentKeyManager.sharedManager.licensingToken = ""
-                        ContentKeyManager.sharedManager.fpsCertificateUrl = certificateUrl
-                        ContentKeyManager.sharedManager.asset = localAsset
-                        ContentKeyManager.sharedManager.requestPersistableContentKeys(forAsset: localAsset)
-                    }
-                }
-                
-                guard let urlAsset = localAsset.urlAsset else {
-                    throw VideoError.invalidAsset
-                }
-                return AVPlayerItem(asset: urlAsset)
-            }
-            
-            // Method 2: Try DownloadsModule2 (uses ID as key) - for non-DRM content
-            if let contentId = source.id,
-               let assetURL = DownloadsModule2.getOfflineAssetURLStatic(forId: contentId) {
-                RCTLog("[OFFLINE] Found asset via DownloadsModule2 for ID: \(contentId)")
-                RCTLog("[OFFLINE] Asset URL: \(assetURL)")
-                
-                // Use the URL directly from bookmark resolution for proper security-scoped access
-                let offlineAsset = AVURLAsset(url: assetURL)
-                RCTLog("[OFFLINE] Created AVURLAsset for offline playback")
-                return AVPlayerItem(asset: offlineAsset)
-            }
-            
-            RCTLog("[OFFLINE] No offline asset found, falling back to online playback")
-        }
-
         return await playerItemPrepareText(asset: asset, assetOptions: assetOptions, uri: source.uri ?? "")
     }
 
@@ -690,17 +640,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     /*
       Begin Modification
-      DANI: Youbora & Offline
+      DANI: Youbora
      */
 
     @objc
     func setYoubora(_ youbora:NSDictionary) {
         _youbora = YouboraParams(youbora)
-    }
-
-    @objc
-    func setPlayOffline(_ playOffline:Bool) {
-        _playOffline = playOffline
     }
 
     /*

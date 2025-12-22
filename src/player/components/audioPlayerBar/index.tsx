@@ -306,7 +306,6 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 					playerContext={playerContext.current}
 					manifests={dpoData.manifests}
 					headers={dpoData.headers}
-					playOffline={dpoData.playOffline}
 					showExternalTudum={dpoData.showExternalTudum}
 					// Extra Data
 					extraData={dpoData.extraData}

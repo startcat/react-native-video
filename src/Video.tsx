@@ -1,23 +1,24 @@
 import React, {
-	useState,
+	forwardRef,
 	useCallback,
+	useImperativeHandle,
 	useMemo,
 	useRef,
-	forwardRef,
-	useImperativeHandle,
+	useState,
 	type ComponentRef,
 } from "react";
 import {
-	View,
-	StyleSheet,
 	Image,
 	Platform,
-	type StyleProp,
+	StyleSheet,
+	View,
 	type ImageStyle,
 	type NativeSyntheticEvent,
+	type StyleProp,
 } from "react-native";
 
 import NativeVideoComponent, {
+	VideoManager,
 	type OnAudioFocusChangedData,
 	type OnAudioTracksData,
 	type OnBandwidthUpdateData,
@@ -37,9 +38,8 @@ import NativeVideoComponent, {
 	type VideoComponentType,
 	type VideoSrc,
 } from "./specs/VideoNativeComponent";
+import type { OnLoadData, OnReceiveAdEventData, OnTextTracksData, ReactVideoProps } from "./types";
 import { generateHeaderForNative, getReactTag, resolveAssetSourceForVideo } from "./utils";
-import { VideoManager } from "./specs/VideoNativeComponent";
-import type { OnLoadData, OnTextTracksData, OnReceiveAdEventData, ReactVideoProps } from "./types";
 
 export type VideoSaveData = {
 	uri: string;
@@ -68,7 +68,6 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 			fullscreen,
 			drm,
 			youbora,
-			playOffline,
 			multiSession,
 			textTracks,
 			selectedVideoTrack,
@@ -213,13 +212,6 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 				extraparam10: youbora.extraparam10?.toString(),
 			};
 		}, [youbora]);
-
-		const _playOffline = useMemo(() => {
-			if (!playOffline) {
-				return false;
-			}
-			return !!playOffline;
-		}, [playOffline]);
 
 		const _multiSession = useMemo(() => {
 			if (!multiSession) {
@@ -578,7 +570,6 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 					src={src}
 					youbora={_youbora}
 					drm={_drm}
-					playOffline={_playOffline}
 					multiSession={_multiSession}
 					style={StyleSheet.absoluteFill}
 					resizeMode={resizeMode}

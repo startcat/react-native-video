@@ -456,7 +456,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			});
 		}
 
-		if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
+		if (shouldPlayTudum && tudumRef.current?.isReady) {
 			currentLogger.current?.debug("Will play tudum first, then content");
 			currentSourceType.current = "tudum";
 			loadTudumSource();
@@ -481,7 +481,6 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 				isMuted: muted,
 				isLive: sourceRef.current?.isLive,
 				isDVR: sourceRef.current?.isDVR,
-				isBinary: sourceRef.current?.isBinary,
 				isChangingSource: isChangingSource.current,
 				sliderValues: sliderValues.current,
 				currentProgram: playerProgressRef.current?.currentProgram,
@@ -711,11 +710,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			);
 			currentLogger.current?.debug(`onSourceChanged - data: ${JSON.stringify(data)}`);
 
-			if (
-				!sourceRef.current?.isLive &&
-				!sourceRef.current?.isDownloaded &&
-				currentSourceType.current === "tudum"
-			) {
+			if (!sourceRef.current?.isLive && currentSourceType.current === "tudum") {
 				// Si estamos reproduciendo tudum, guardar el source del contenido para después
 				currentLogger.current?.debug("Saving content source for later (tudum is playing)");
 				pendingContentSource.current = data;

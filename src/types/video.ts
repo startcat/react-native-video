@@ -1,9 +1,9 @@
-import type { ISO639_1 } from "./language";
-import type { ReactVideoEvents } from "./events";
-import type { StyleProp, ViewProps, ViewStyle, ImageSourcePropType } from "react-native";
-import type VideoResizeMode from "./ResizeMode";
-import type FilterType from "./FilterType";
+import type { StyleProp, ViewProps, ViewStyle } from "react-native";
 import type { Headers } from "../player/types";
+import type { ReactVideoEvents } from "./events";
+import type FilterType from "./FilterType";
+import type { ISO639_1 } from "./language";
+import type VideoResizeMode from "./ResizeMode";
 
 export type EnumValues<T extends string | number> = T extends string ? `${T}` | T : T;
 
@@ -231,7 +231,6 @@ export interface ReactVideoProps extends ReactVideoEvents, ViewProps {
 	source?: ReactVideoSource;
 	drm?: Drm;
 	youbora?: Youbora;
-	playOffline?: boolean;
 	multiSession?: boolean; // android
 	style?: StyleProp<ViewStyle>;
 	adTagUrl?: string;

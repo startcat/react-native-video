@@ -10,17 +10,17 @@ Tudum es la animación de introducción que se reproduce antes del contenido pri
 
 ### `getTudumManifest`
 
-| Prop | Tipo | Requerido | Descripción |
-|------|------|-----------|-------------|
-| `getTudumManifest` | () => IManifest \| null \| undefined | No | Función que retorna el manifiesto para la animación Tudum |
+| Prop               | Tipo                                 | Requerido | Descripción                                               |
+| ------------------ | ------------------------------------ | --------- | --------------------------------------------------------- |
+| `getTudumManifest` | () => IManifest \| null \| undefined | No        | Función que retorna el manifiesto para la animación Tudum |
 
 Esta función debe retornar un objeto `IManifest` con la configuración necesaria para reproducir la animación Tudum. El formato del manifiesto es exactamente el mismo que se utiliza para el contenido principal. Para más detalles sobre la estructura del objeto `IManifest`, consulta la [documentación sobre source y DRM](./source_drm.md). Si retorna `null` o `undefined`, no se mostrará la animación.
 
 ### `showExternalTudum`
 
-| Prop | Tipo | Requerido | Valor predeterminado | Descripción |
-|------|------|-----------|---------------------|-------------|
-| `showExternalTudum` | boolean | No | `false` | Indica si el Tudum debe mostrarse como un vídeo externo antes del contenido principal |
+| Prop                | Tipo    | Requerido | Valor predeterminado | Descripción                                                                           |
+| ------------------- | ------- | --------- | -------------------- | ------------------------------------------------------------------------------------- |
+| `showExternalTudum` | boolean | No        | `false`              | Indica si el Tudum debe mostrarse como un vídeo externo antes del contenido principal |
 
 ## Lógica de visualización
 
@@ -37,27 +37,26 @@ La animación Tudum se mostrará solo cuando se cumplen **todas** estas condicio
 - Cuando `getTudumManifest` retorna `null` o `undefined`
 - Cuando `startPosition` tiene un valor mayor a 0 (se está reanudando la reproducción)
 - Cuando es contenido en vivo (`isLive` es `true`)
-- Cuando se está reproduciendo en modo offline (`playOffline` es `true`)
 
 ## Implementación
 
 ```javascript
 // Ejemplo de implementación de getTudumManifest
 const getTudumAnimation = () => {
-  return {
-    manifestURL: 'https://ejemplo.com/tudum-animation.mp4',
-    type: STREAM_FORMAT_TYPE.MP4,
-    // No es necesario configurar DRM para el Tudum en la mayoría de los casos
-  };
+	return {
+		manifestURL: "https://ejemplo.com/tudum-animation.mp4",
+		type: STREAM_FORMAT_TYPE.MP4,
+		// No es necesario configurar DRM para el Tudum en la mayoría de los casos
+	};
 };
 
 // Uso en el componente Player
 <Player
-  manifests={manifests}
-  getTudumManifest={getTudumAnimation}
-  showExternalTudum={true}
-  {...otrosProps}
-/>
+	manifests={manifests}
+	getTudumManifest={getTudumAnimation}
+	showExternalTudum={true}
+	{...otrosProps}
+/>;
 ```
 
 ## Consideraciones de rendimiento
@@ -66,10 +65,10 @@ Para evitar re-renderizados innecesarios, se recomienda utilizar `useCallback` a
 
 ```javascript
 const getTudumAnimation = useCallback(() => {
-  return {
-    manifestURL: 'https://ejemplo.com/tudum-animation.mp4',
-    type: STREAM_FORMAT_TYPE.MP4,
-  };
+	return {
+		manifestURL: "https://ejemplo.com/tudum-animation.mp4",
+		type: STREAM_FORMAT_TYPE.MP4,
+	};
 }, []); // Sin dependencias si la URL es estática
 ```
 

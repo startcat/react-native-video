@@ -15,7 +15,6 @@ export interface ReactNativeVideoAdapterProps {
 	rate?: number;
 	maxBitrate?: number;
 	resizeMode?: "contain" | "cover" | "stretch" | "center";
-	playOffline?: boolean;
 	multiSession?: boolean;
 	allowsExternalPlayback?: boolean;
 	playInBackground?: boolean;

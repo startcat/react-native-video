@@ -805,7 +805,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			});
 		}
 
-		if (shouldPlayTudum && tudumRef.current?.isReady && !sourceRef.current?.isDownloaded) {
+		if (shouldPlayTudum && tudumRef.current?.isReady) {
 			currentLogger.current?.debug("Will play tudum first, then content");
 			currentSourceType.current = "tudum";
 			loadTudumSource();
@@ -1039,11 +1039,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			);
 			currentLogger.current?.debug(`onSourceChanged - data: ${JSON.stringify(data)}`);
 
-			if (
-				!sourceRef.current?.isLive &&
-				!sourceRef.current?.isDownloaded &&
-				currentSourceType.current === "tudum"
-			) {
+			if (!sourceRef.current?.isLive && currentSourceType.current === "tudum") {
 				// Si estamos reproduciendo tudum, guardar el source del contenido para después
 				currentLogger.current?.debug("Saving content source for later (tudum is playing)");
 				pendingContentSource.current = data;
