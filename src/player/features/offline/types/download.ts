@@ -59,6 +59,7 @@ export type DownloadEventCallback = (data?: DownloadEventData) => void;
 export enum DownloadErrorCode {
 	NETWORK_ERROR = "NETWORK_ERROR",
 	INSUFFICIENT_SPACE = "INSUFFICIENT_SPACE",
+	NO_SPACE_LEFT = "NO_SPACE_LEFT", // Código específico enviado por módulos nativos iOS/Android
 	FILE_SYSTEM_ERROR = "FILE_SYSTEM_ERROR",
 	DRM_ERROR = "DRM_ERROR",
 	INVALID_URL = "INVALID_URL",

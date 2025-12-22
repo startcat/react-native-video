@@ -1256,8 +1256,11 @@ export class QueueManager {
 		const currentRetries = this.retryTracker.get(downloadId) || 0;
 		const retryCount = currentRetries + 1;
 
-		if (retryCount >= this.config.maxRetries) {
-			// Límite de reintentos alcanzado - marcar como fallida
+		// Check if this is a non-retryable error (like NO_SPACE_LEFT)
+		const isNonRetryableError = this.isNonRetryableError(error);
+
+		if (isNonRetryableError || retryCount >= this.config.maxRetries) {
+			// Non-retryable error or retry limit reached - mark as failed immediately
 			this.retryTracker.delete(downloadId);
 			await this.updateDownloadState(downloadId, DownloadStates.FAILED);
 
@@ -1267,10 +1270,18 @@ export class QueueManager {
 				error,
 			});
 
-			this.currentLogger.error(
-				TAG,
-				`Download failed after ${retryCount} retries: ${item.title || downloadId}`
-			);
+			if (isNonRetryableError) {
+				this.currentLogger.error(
+					TAG,
+					`Download failed with non-retryable error: ${item.title || downloadId}`,
+					error
+				);
+			} else {
+				this.currentLogger.error(
+					TAG,
+					`Download failed after ${retryCount} retries: ${item.title || downloadId}`
+				);
+			}
 		} else {
 			// Actualizar contador de reintentos
 			this.retryTracker.set(downloadId, retryCount);
@@ -1284,6 +1295,38 @@ export class QueueManager {
 				);
 			}, 5000);
 		}
+	}
+
+	/**
+	 * Check if an error is non-retryable (should fail immediately without retries)
+	 */
+	private isNonRetryableError(error: unknown): boolean {
+		if (!error) {
+			return false;
+		}
+
+		// Check for NO_SPACE_LEFT error code
+		const errorObj = error as { code?: string; errorCode?: string; message?: string };
+		const errorCode = errorObj?.code || errorObj?.errorCode || "";
+		const errorMessage = errorObj?.message || "";
+
+		// NO_SPACE_LEFT errors should not be retried
+		if (errorCode === "NO_SPACE_LEFT" || errorCode === "DOWNLOAD_NO_SPACE") {
+			return true;
+		}
+
+		// Check message for space-related errors
+		const lowerMessage = errorMessage.toLowerCase();
+		if (
+			lowerMessage.includes("no space left") ||
+			lowerMessage.includes("no hay espacio") ||
+			lowerMessage.includes("insufficient storage") ||
+			lowerMessage.includes("disk full")
+		) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/*

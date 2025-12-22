@@ -1359,6 +1359,89 @@ class DownloadsModule2: RCTEventEmitter {
 }
 extension DownloadsModule2: AVAssetDownloadDelegate {
     
+    // MARK: - Progress Tracking
+    
+    /// Called periodically to report download progress
+    func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask,
+                    didLoad timeRange: CMTimeRange, totalTimeRangesLoaded loadedTimeRanges: [NSValue],
+                    timeRangeExpectedToLoad: CMTimeRange) {
+        
+        guard let downloadId = findDownloadId(for: assetDownloadTask) else {
+            print("📥 [DownloadsModule2] Progress update - could not find downloadId for task")
+            return
+        }
+        
+        // Calculate progress percentage
+        var percentComplete: Double = 0.0
+        for value in loadedTimeRanges {
+            let loadedTimeRange: CMTimeRange = value.timeRangeValue
+            let loadedDuration = CMTimeGetSeconds(loadedTimeRange.duration)
+            let expectedDuration = CMTimeGetSeconds(timeRangeExpectedToLoad.duration)
+            if expectedDuration > 0 {
+                percentComplete += loadedDuration / expectedDuration
+            }
+        }
+        
+        // Clamp to 0-1 range
+        percentComplete = min(max(percentComplete, 0.0), 1.0)
+        
+        // Update download info
+        guard var downloadInfo = activeDownloads[downloadId] else { return }
+        
+        let previousProgress = downloadInfo.progress
+        downloadInfo.progress = Float(percentComplete)
+        downloadInfo.state = .downloading
+        
+        // Calculate speed based on time difference
+        let now = Date()
+        var speed: Double = 0.0
+        var remainingTime: Int = 0
+        
+        // Estimate bytes based on progress (we don't have exact byte counts from HLS)
+        // Use a rough estimate: assume 1GB for a full download as baseline
+        let estimatedTotalBytes: Int64 = downloadInfo.totalBytes > 0 ? downloadInfo.totalBytes : 500_000_000 // 500MB default
+        let estimatedDownloadedBytes = Int64(Double(estimatedTotalBytes) * percentComplete)
+        
+        if let lastUpdate = lastProgressUpdate[downloadId] {
+            let timeDiff = now.timeIntervalSince(lastUpdate.time)
+            if timeDiff > 0 {
+                let bytesDiff = estimatedDownloadedBytes - lastUpdate.bytes
+                speed = Double(bytesDiff) / timeDiff // bytes per second
+                
+                // Calculate remaining time
+                if speed > 0 {
+                    let remainingBytes = estimatedTotalBytes - estimatedDownloadedBytes
+                    remainingTime = Int(Double(remainingBytes) / speed)
+                }
+            }
+        }
+        
+        downloadInfo.downloadedBytes = estimatedDownloadedBytes
+        downloadInfo.totalBytes = estimatedTotalBytes
+        downloadInfo.speed = speed
+        downloadInfo.remainingTime = remainingTime
+        
+        activeDownloads[downloadId] = downloadInfo
+        lastProgressUpdate[downloadId] = (bytes: estimatedDownloadedBytes, time: now)
+        
+        // Only emit progress event if progress changed significantly (avoid flooding)
+        let progressDiff = abs(downloadInfo.progress - previousProgress)
+        if progressDiff >= 0.01 || previousProgress == 0 { // 1% change threshold
+            print("📥 [DownloadsModule2] Progress: \(downloadId) - \(Int(percentComplete * 100))%")
+            
+            sendEvent(withName: "overonDownloadProgress", body: [
+                "id": downloadId,
+                "progress": Int(percentComplete * 100),
+                "downloadedBytes": NSNumber(value: estimatedDownloadedBytes),
+                "totalBytes": NSNumber(value: estimatedTotalBytes),
+                "speed": speed,
+                "remainingTime": remainingTime
+            ])
+        }
+    }
+    
+    // MARK: - Completion Handling
+    
     func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask, didFinishDownloadingTo location: URL) {
         guard let downloadId = findDownloadId(for: assetDownloadTask) else { return }
         
@@ -1376,7 +1459,91 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         guard let downloadId = findDownloadId(for: task as! AVAssetDownloadTask) else { return }
         
         if let error = error {
-            // Clean up any pending state
+            let nsError = error as NSError
+            
+            // Check if we have enough progress to consider it successful despite the error
+            // HLS manifests may reference chunks that don't exist (especially at lower qualities)
+            // or the CDN may return 404 for some chunks near the end
+            let downloadInfo = activeDownloads[downloadId]
+            let currentProgress = downloadInfo?.progress ?? 0.0
+            let progressThreshold: Float = 0.70 // 70% threshold
+            
+            // Check if this is a 404 error or similar recoverable error
+            let is404Error = nsError.domain == NSURLErrorDomain && 
+                (nsError.code == NSURLErrorFileDoesNotExist || 
+                 nsError.code == NSURLErrorResourceUnavailable ||
+                 nsError.code == -1100) // NSURLErrorFileDoesNotExist
+            
+            let isHTTP404 = (nsError.userInfo[NSUnderlyingErrorKey] as? NSError)?.code == 404 ||
+                            error.localizedDescription.contains("404") ||
+                            error.localizedDescription.contains("not found")
+            
+            let isRecoverableError = is404Error || isHTTP404
+            
+            // Check for "No space left on device" error (POSIX error 28 or CoreMedia error 28)
+            let isNoSpaceError = nsError.code == 28 || // POSIX/CoreMedia error code for ENOSPC
+                (nsError.domain == "CoreMediaErrorDomain" && nsError.code == 28) ||
+                (nsError.domain == NSPOSIXErrorDomain && nsError.code == 28) ||
+                error.localizedDescription.lowercased().contains("no space") ||
+                error.localizedDescription.lowercased().contains("no queda espacio")
+            
+            print("📥 [DownloadsModule2] Download error for \(downloadId): \(error.localizedDescription)")
+            print("📥 [DownloadsModule2] Progress: \(Int(currentProgress * 100))%, isRecoverable: \(isRecoverableError), isNoSpace: \(isNoSpaceError)")
+            print("📥 [DownloadsModule2] Error domain: \(nsError.domain), code: \(nsError.code)")
+            
+            // Handle "No space left on device" error immediately - this is critical
+            if isNoSpaceError {
+                print("📥 [DownloadsModule2] ❌ NO SPACE LEFT ON DEVICE - Emitting error immediately")
+                
+                // Clean up any pending state
+                pendingLocations.removeValue(forKey: downloadId)
+                completedWithoutError.remove(downloadId)
+                
+                if var downloadInfo = activeDownloads[downloadId] {
+                    downloadInfo.state = .failed
+                    downloadInfo.error = error
+                    activeDownloads[downloadId] = downloadInfo
+                    
+                    // Don't try to persist - we have no space!
+                    invalidateDownloadSpaceCache()
+                    
+                    sendEvent(withName: "overonDownloadError", body: [
+                        "id": downloadId,
+                        "progress": Int(currentProgress * 100),
+                        "error": [
+                            "code": "NO_SPACE_LEFT",
+                            "message": "No hay espacio disponible en el dispositivo",
+                            "domain": nsError.domain,
+                            "errorCode": nsError.code
+                        ]
+                    ])
+                }
+                return
+            }
+            
+            // If progress >= 70% and it's a recoverable error (like 404), treat as success
+            if currentProgress >= progressThreshold && isRecoverableError {
+                print("📥 [DownloadsModule2] Progress >= 70% with recoverable error - treating as successful download")
+                
+                // Check if we have a pending location from didFinishDownloadingTo
+                if let location = pendingLocations.removeValue(forKey: downloadId) {
+                    finalizeDownload(downloadId: downloadId, location: location)
+                } else {
+                    // Mark as completed without error, wait for didFinishDownloadingTo
+                    completedWithoutError.insert(downloadId)
+                    
+                    // Also emit a warning event so the app knows it was partial
+                    sendEvent(withName: "overonDownloadCompleted", body: [
+                        "id": downloadId,
+                        "partial": true,
+                        "progress": Int(currentProgress * 100),
+                        "warning": "Download completed with \(Int(currentProgress * 100))% - some chunks were unavailable"
+                    ])
+                }
+                return
+            }
+            
+            // Clean up any pending state for actual failures
             pendingLocations.removeValue(forKey: downloadId)
             completedWithoutError.remove(downloadId)
             
@@ -1390,9 +1557,12 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 
                 sendEvent(withName: "overonDownloadError", body: [
                     "id": downloadId,
+                    "progress": Int(currentProgress * 100),
                     "error": [
                         "code": "DOWNLOAD_FAILED",
-                        "message": error.localizedDescription
+                        "message": error.localizedDescription,
+                        "domain": nsError.domain,
+                        "errorCode": nsError.code
                     ]
                 ])
             }

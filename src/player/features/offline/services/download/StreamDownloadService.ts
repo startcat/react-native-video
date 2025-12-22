@@ -335,13 +335,30 @@ export class StreamDownloadService {
 	private handleErrorEvent(data: unknown): void {
 		const { downloadId, error } = data as {
 			downloadId: string;
-			error?: { message?: string };
+			error?: { code?: string; message?: string };
 		};
 
-		if (this.activeDownloads.has(downloadId)) {
+		const activeDownload = this.activeDownloads.get(downloadId);
+		if (activeDownload) {
+			// Update internal state to FAILED
+			activeDownload.state = DownloadStates.FAILED;
+			activeDownload.error = {
+				code: (error?.code as DownloadErrorCode) || DownloadErrorCode.UNKNOWN,
+				message: error?.message || "Native download error",
+				timestamp: Date.now(),
+			};
+			this.activeDownloads.set(downloadId, activeDownload);
+
+			this.currentLogger.error(TAG, `Download failed: ${downloadId}`, {
+				errorCode: error?.code,
+				errorMessage: error?.message,
+			});
+
+			// Emit FAILED event for consumers
 			this.eventEmitter.emit(DownloadEventType.FAILED, {
 				taskId: downloadId,
 				error: error?.message || "Native download error",
+				errorCode: error?.code,
 			});
 		}
 	}
