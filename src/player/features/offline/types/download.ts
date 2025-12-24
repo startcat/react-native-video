@@ -9,6 +9,7 @@ export enum DownloadStates {
 	REMOVING = "REMOVING",
 	STOPPED = "STOPPED",
 	DOWNLOADING = "DOWNLOADING",
+	DOWNLOADING_ASSETS = "DOWNLOADING_ASSETS", // Descargando subtítulos/audio adicional
 	NOT_DOWNLOADED = "NOT_DOWNLOADED",
 	COMPLETED = "COMPLETED",
 	QUEUED = "QUEUED",
@@ -27,6 +28,7 @@ export enum DownloadEventType {
 	CANCELLED = "download:cancelled",
 	QUEUED = "download:queued",
 	REMOVED = "download:removed",
+	STATE_CHANGE = "download:state_change", // Cambio de estado genérico (ej: DOWNLOADING_ASSETS)
 
 	// Eventos de gestión de cola
 	QUEUE_CLEARED = "queue:cleared",

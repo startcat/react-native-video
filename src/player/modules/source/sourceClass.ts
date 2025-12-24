@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import {
 	type Headers,
 	type IDrm,
@@ -10,7 +11,8 @@ import { getBestManifest, getDRM, getManifestSourceType, getVideoSourceUri } fro
 
 import { PlayerError } from "../../core/errors";
 import { downloadsManager } from "../../features/offline/managers/DownloadsManager";
-import { DownloadStates, DownloadType } from "../../features/offline/types";
+import { nativeManager } from "../../features/offline/managers/NativeManager";
+import { DownloadStates, DownloadType, DownloadedSubtitleItem } from "../../features/offline/types";
 
 export interface onSourceChangedProps {
 	id?: number;
@@ -81,6 +83,7 @@ export class SourceClass {
 	private _isDownloaded: boolean = false;
 	private _isBinary: boolean = false;
 	private _isFakeVOD: boolean = false;
+	private _offlineSubtitles: DownloadedSubtitleItem[] = [];
 
 	private _getBestManifest: (
 		manifests: Array<IManifest>,
@@ -124,6 +127,7 @@ export class SourceClass {
 		this._isDownloaded = false;
 		this._isBinary = false;
 		this._isFakeVOD = false;
+		this._offlineSubtitles = [];
 	}
 
 	public changeSource(props: SourceClassProps) {
@@ -179,6 +183,7 @@ export class SourceClass {
 							type: downloadItem.type,
 							fileUri: downloadItem.fileUri,
 							uri: downloadItem.uri,
+							subtitlesCount: downloadItem.subtitles?.length || 0,
 						},
 						null,
 						2
@@ -311,6 +316,22 @@ export class SourceClass {
 					console.log(
 						`${LOG_TAG} [OFFLINE DEBUG] STREAM has fileUri (unexpected): "${downloadItem.fileUri}"`
 					);
+				}
+			}
+
+			// Store offline subtitles if available
+			if (downloadItem.subtitles && downloadItem.subtitles.length > 0) {
+				this._offlineSubtitles = downloadItem.subtitles;
+				console.log(
+					`${LOG_TAG} [OFFLINE DEBUG] Found ${downloadItem.subtitles.length} offline subtitles`
+				);
+				downloadItem.subtitles.forEach((sub: DownloadedSubtitleItem) => {
+					console.log(`${LOG_TAG} [OFFLINE DEBUG]   - ${sub.language}: ${sub.localPath}`);
+				});
+
+				// On iOS, resolve subtitle paths from bookmarks (survives sandbox UUID changes)
+				if (Platform.OS === "ios" && downloadItem.id) {
+					this.resolveIOSSubtitlePaths(downloadItem.id, downloadItem.subtitles);
 				}
 			}
 		}
@@ -546,6 +567,10 @@ export class SourceClass {
 		return this._isFakeVOD;
 	}
 
+	get offlineSubtitles(): DownloadedSubtitleItem[] {
+		return this._offlineSubtitles;
+	}
+
 	get isReady(): boolean {
 		return this._isReady;
 	}
@@ -560,5 +585,62 @@ export class SourceClass {
 
 	public clearLiveStartProgramTimestamp() {
 		this._liveStartProgramTimestamp = undefined;
+	}
+
+	/**
+	 * Resolve iOS subtitle paths from bookmarks (survives sandbox UUID changes)
+	 * This runs asynchronously and updates _offlineSubtitles with resolved paths
+	 */
+	private async resolveIOSSubtitlePaths(
+		downloadId: string,
+		subtitles: DownloadedSubtitleItem[]
+	): Promise<void> {
+		try {
+			console.log(
+				`${LOG_TAG} [OFFLINE DEBUG] Resolving iOS subtitle paths from bookmarks for ${subtitles.length} subtitles`
+			);
+
+			// Build list of subtitles to resolve
+			const toResolve = subtitles.map(sub => ({
+				downloadId,
+				language: sub.language,
+			}));
+
+			// Batch resolve all subtitle paths
+			const resolvedPaths = await nativeManager.resolveSubtitlePaths(toResolve);
+
+			// Update subtitle paths with resolved values
+			let updatedCount = 0;
+			const updatedSubtitles = subtitles.map(sub => {
+				const key = `${downloadId}:${sub.language}`;
+				const resolvedPath = resolvedPaths.get(key);
+
+				if (resolvedPath) {
+					console.log(
+						`${LOG_TAG} [OFFLINE DEBUG] Resolved ${sub.language}: ${sub.localPath} -> ${resolvedPath}`
+					);
+					updatedCount++;
+					return { ...sub, localPath: resolvedPath };
+				} else {
+					console.log(
+						`${LOG_TAG} [OFFLINE DEBUG] No bookmark found for ${sub.language}, keeping original path: ${sub.localPath}`
+					);
+					return sub;
+				}
+			});
+
+			// Update internal state with resolved paths
+			this._offlineSubtitles = updatedSubtitles;
+
+			console.log(
+				`${LOG_TAG} [OFFLINE DEBUG] Resolved ${updatedCount}/${subtitles.length} iOS subtitle paths from bookmarks`
+			);
+		} catch (error) {
+			console.error(
+				`${LOG_TAG} [OFFLINE DEBUG] Failed to resolve iOS subtitle paths:`,
+				error
+			);
+			// Keep original paths as fallback
+		}
 	}
 }

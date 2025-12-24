@@ -507,6 +507,16 @@ export class DownloadsManager {
 					break;
 				}
 
+				case DownloadEventType.STATE_CHANGE: {
+					const stateData = data as { state: string; message?: string };
+					await queueManager.notifyDownloadStateChange(downloadId, stateData.state);
+					this.currentLogger.info(
+						TAG,
+						`Notified QueueManager of state change: ${downloadId} -> ${stateData.state}`
+					);
+					break;
+				}
+
 				// Otros eventos no requieren notificación al QueueManager
 				default:
 					break;

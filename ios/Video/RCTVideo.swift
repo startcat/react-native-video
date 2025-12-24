@@ -480,6 +480,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 guard let urlAsset = localAsset.urlAsset else {
                     throw VideoError.invalidAsset
                 }
+                // Para contenido offline con DRM, los subtítulos se manejan vía setSelectedTextTrack/setSideloadedText
                 return AVPlayerItem(asset: urlAsset)
             }
             
@@ -489,9 +490,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 RCTLog("[OFFLINE] Found asset via DownloadsModule2 for ID: \(contentId)")
                 RCTLog("[OFFLINE] Asset URL: \(assetURL)")
                 
-                // Use the URL directly from bookmark resolution for proper security-scoped access
                 let offlineAsset = AVURLAsset(url: assetURL)
                 RCTLog("[OFFLINE] Created AVURLAsset for offline playback")
+                // Para contenido offline sin DRM, los subtítulos se manejan vía setSelectedTextTrack/setSideloadedText
                 return AVPlayerItem(asset: offlineAsset)
             }
             
@@ -1080,7 +1081,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         _selectedTextTrackCriteria = selectedTextTrack
         if _textTracks != nil { // sideloaded text tracks
             RCTPlayerOperations.setSideloadedText(player: _player, textTracks: _textTracks!, criteria: _selectedTextTrackCriteria)
-        } else { // text tracks included in the HLS playlist§
+        } else { // text tracks included in the HLS playlist
             Task {
                 await RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player: _player, characteristic: AVMediaCharacteristic.legible,
                                                                                   criteria: _selectedTextTrackCriteria)
@@ -1090,7 +1091,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     @objc
     func setTextTracks(_ textTracks: [NSDictionary]?) {
-        setTextTracks(textTracks?.map { TextTrack($0) })
+        // Asignamos índices a los textTracks sideloaded si no los tienen
+        setTextTracks(textTracks?.enumerated().map { (index, dict) in
+            if dict["index"] != nil {
+                return TextTrack(dict)
+            } else {
+                return TextTrack(dict, index: index)
+            }
+        })
     }
 
     func setTextTracks(_ textTracks: [TextTrack]?) {

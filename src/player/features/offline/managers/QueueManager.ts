@@ -1239,6 +1239,44 @@ export class QueueManager {
 	}
 
 	/*
+	 * Notifica un cambio de estado genérico (ej: DOWNLOADING_ASSETS)
+	 *
+	 */
+
+	public async notifyDownloadStateChange(downloadId: string, newState: string): Promise<void> {
+		const item = this.downloadQueue.get(downloadId);
+		if (!item) {
+			this.currentLogger.warn(
+				TAG,
+				`Cannot notify state change: download not found: ${downloadId}`
+			);
+			return;
+		}
+
+		// Mapear el string a DownloadStates si es válido
+		const mappedState = Object.values(DownloadStates).includes(newState as DownloadStates)
+			? (newState as DownloadStates)
+			: null;
+
+		if (!mappedState) {
+			this.currentLogger.warn(TAG, `Invalid state: ${newState}`);
+			return;
+		}
+
+		// Actualizar estado
+		await this.updateDownloadState(downloadId, mappedState);
+
+		// Emitir evento de cambio de estado
+		this.eventEmitter.emit(DownloadEventType.STATE_CHANGE, {
+			downloadId,
+			item,
+			state: mappedState,
+		});
+
+		this.currentLogger.info(TAG, `Download state changed: ${downloadId} -> ${mappedState}`);
+	}
+
+	/*
 	 * MÉTODOS PRIVADOS PARA MANEJO INTERNO
 	 *
 	 */
@@ -1286,6 +1324,12 @@ export class QueueManager {
 			// Actualizar contador de reintentos
 			this.retryTracker.set(downloadId, retryCount);
 
+			// Log del error para debugging
+			console.log(
+				`[QueueManager] Download failed, will retry (${retryCount}/${this.config.maxRetries}): ${item.title || downloadId}`,
+				error
+			);
+
 			// Programar reintento
 			setTimeout(async () => {
 				await this.updateDownloadState(downloadId, DownloadStates.QUEUED);
@@ -1293,6 +1337,8 @@ export class QueueManager {
 					TAG,
 					`Retrying download (${retryCount}/${this.config.maxRetries}): ${item.title || downloadId}`
 				);
+				// Forzar procesamiento de la cola
+				this.processQueue();
 			}, 5000);
 		}
 	}
@@ -1342,10 +1388,18 @@ export class QueueManager {
 		const item = this.downloadQueue.get(downloadId);
 		if (item) {
 			const previousState = item.state;
-			item.state = state;
+
+			// Recargar desde persistencia para obtener cambios hechos por otros servicios
+			// (ej: subtítulos descargados por StreamDownloadService)
+			const persistedDownloads = await persistenceService.loadDownloadState();
+			const persistedItem = persistedDownloads.get(downloadId);
+
+			// Merge: usar item persistido como base, actualizar con cambios locales
+			const mergedItem = persistedItem ? { ...persistedItem } : { ...item };
+			mergedItem.state = state;
 
 			if (fileUri) {
-				item.fileUri = fileUri;
+				mergedItem.fileUri = fileUri;
 			}
 
 			// Establecer timestamps según el estado
@@ -1354,14 +1408,14 @@ export class QueueManager {
 				previousState !== DownloadStates.DOWNLOADING
 			) {
 				// Iniciar descarga - establecer startedAt si no existe
-				if (!item.stats.startedAt) {
-					item.stats.startedAt = Date.now();
+				if (!mergedItem.stats.startedAt) {
+					mergedItem.stats.startedAt = Date.now();
 				}
 			} else if (state === DownloadStates.COMPLETED) {
-				item.stats.downloadedAt = Date.now();
+				mergedItem.stats.downloadedAt = Date.now();
 			}
 
-			this.downloadQueue.set(downloadId, item);
+			this.downloadQueue.set(downloadId, mergedItem);
 
 			// Persistir cambios usando PersistenceService
 			await persistenceService.saveDownloadState(this.downloadQueue);
