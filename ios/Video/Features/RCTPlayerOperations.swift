@@ -39,7 +39,8 @@ enum RCTPlayerOperations {
             let selectedValue = criteria?.value as? String
             for i in 0 ..< textTracks.count {
                 let currentTextTrack = textTracks[i]
-                if selectedValue == currentTextTrack.title {
+                // Buscar por title o por uri (para subtítulos offline)
+                if selectedValue == currentTextTrack.title || selectedValue == currentTextTrack.uri {
                     selectedTrackIndex = i
                     break
                 }

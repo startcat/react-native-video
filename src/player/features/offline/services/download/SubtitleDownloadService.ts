@@ -4,11 +4,13 @@
  */
 
 import { EventEmitter } from "eventemitter3";
+import { Platform } from "react-native";
 import RNFS from "react-native-fs";
 import { PlayerError } from "../../../../core/errors";
 import { Logger } from "../../../logger";
 import { LOG_TAGS } from "../../constants";
 import { DEFAULT_CONFIG_SUBTITLE, LOGGER_DEFAULTS } from "../../defaultConfigs";
+import { nativeManager } from "../../managers/NativeManager";
 import {
 	DownloadedSubtitleItem,
 	SubtitleDownloadEventType,
@@ -111,36 +113,45 @@ export class SubtitleDownloadService {
 		downloadId: string,
 		subtitles: SubtitleDownloadTask[]
 	): Promise<DownloadedSubtitleItem[]> {
+		console.log(
+			`[SubtitleDownloadService] downloadSubtitles called for ${downloadId} with ${subtitles?.length || 0} subtitles`
+		);
+
 		if (!subtitles || subtitles.length === 0) {
 			this.currentLogger.debug(TAG, `No subtitles to download for ${downloadId}`);
 			return [];
 		}
 
 		this.currentLogger.info(TAG, `Downloading ${subtitles.length} subtitles for ${downloadId}`);
+		console.log(
+			"[SubtitleDownloadService] Subtitles URIs:",
+			subtitles.map(s => s.uri)
+		);
 
 		const results: DownloadedSubtitleItem[] = [];
 
-		// Descargar subtítulos en paralelo (son archivos pequeños)
-		const downloadPromises = subtitles.map(subtitle => this.downloadSingleSubtitle(subtitle));
+		// Descargar subtítulos SECUENCIALMENTE para evitar OOM con muchos segmentos HLS
+		console.log("[SubtitleDownloadService] Starting sequential downloads to avoid OOM...");
 
-		const settled = await Promise.allSettled(downloadPromises);
-
-		// Procesar resultados
-		for (let i = 0; i < settled.length; i++) {
-			const result = settled[i];
+		for (let i = 0; i < subtitles.length; i++) {
 			const subtitle = subtitles[i];
 
-			if (!result || !subtitle) {
+			if (!subtitle) {
 				continue;
 			}
 
-			if (result.status === "fulfilled") {
-				results.push(result.value);
+			console.log(
+				`[SubtitleDownloadService] Downloading subtitle ${i + 1}/${subtitles.length}: ${subtitle.language}`
+			);
+
+			try {
+				const downloadedItem = await this.downloadSingleSubtitle(subtitle);
+				results.push(downloadedItem);
 				this.currentLogger.info(
 					TAG,
 					`Subtitle downloaded: ${subtitle.language} (${subtitle.id})`
 				);
-			} else {
+			} catch (downloadError) {
 				// Crear item fallido
 				const failedItem: DownloadedSubtitleItem = {
 					id: subtitle.id,
@@ -151,7 +162,7 @@ export class SubtitleDownloadService {
 					uri: subtitle.uri,
 					format: subtitle.format,
 					encoding: subtitle.encoding,
-					error: result.reason,
+					error: downloadError as PlayerError,
 					retryCount: this.config.maxRetries,
 				};
 				results.push(failedItem);
@@ -159,10 +170,12 @@ export class SubtitleDownloadService {
 				this.currentLogger.error(
 					TAG,
 					`Subtitle download failed: ${subtitle.language}`,
-					result.reason
+					downloadError
 				);
 			}
 		}
+
+		console.log(`[SubtitleDownloadService] All downloads completed: ${results.length} results`);
 
 		// Guardar resultados
 		this.downloadedSubtitles.set(downloadId, results);
@@ -178,6 +191,10 @@ export class SubtitleDownloadService {
 	private async downloadSingleSubtitle(
 		task: SubtitleDownloadTask
 	): Promise<DownloadedSubtitleItem> {
+		this.currentLogger.info(
+			TAG,
+			`[Single] Starting download for ${task.language}: ${task.uri}`
+		);
 		const abortController = new AbortController();
 		this.activeDownloads.set(task.id, abortController);
 
@@ -235,6 +252,28 @@ export class SubtitleDownloadService {
 						retryCount: attempt,
 					};
 
+					// Save bookmark for iOS (survives sandbox UUID changes)
+					if (Platform.OS === "ios") {
+						try {
+							await nativeManager.saveSubtitleBookmark(
+								task.downloadId,
+								task.language,
+								localPath
+							);
+							this.currentLogger.debug(
+								TAG,
+								`Saved iOS bookmark for subtitle ${task.language}`
+							);
+						} catch (bookmarkError) {
+							// Non-fatal: log but don't fail the download
+							this.currentLogger.warn(
+								TAG,
+								`Failed to save iOS bookmark for subtitle ${task.language}`,
+								bookmarkError
+							);
+						}
+					}
+
 					// Emitir evento de completado
 					this.eventEmitter.emit(SubtitleDownloadEventType.COMPLETED, {
 						subtitleId: task.id,
@@ -286,65 +325,228 @@ export class SubtitleDownloadService {
 		signal: AbortSignal
 	): Promise<SubtitleDownloadResult> {
 		try {
-			// Timeout promise
-			const timeoutPromise = new Promise<never>((_, reject) =>
-				setTimeout(() => reject(new Error("Download timeout")), this.config.requestTimeout)
-			);
+			// Detectar si es una playlist HLS de subtítulos
+			const isHLSPlaylist = uri.toLowerCase().includes(".m3u8");
+			this.currentLogger.info(TAG, `[downloadFile] URI: ${uri}, isHLS: ${isHLSPlaylist}`);
 
-			// Fetch promise
-			const fetchPromise = fetch(uri, {
-				signal,
-				headers: {
-					"User-Agent": "react-native-video-offline-subtitles/1.0",
-				},
-			});
-
-			// Race entre timeout y fetch
-			const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			if (isHLSPlaylist) {
+				return await this.downloadHLSSubtitle(uri, localPath, task, signal);
 			}
 
-			// Obtener tamaño total
-			const totalBytes = parseInt(response.headers.get("content-length") || "0", 10);
-
-			// Leer contenido
-			const text = await response.text();
-			const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-			const bytesDownloaded = blob.size;
-
-			// Emitir progreso
-			this.eventEmitter.emit(SubtitleDownloadEventType.PROGRESS, {
-				subtitleId: task.id,
-				downloadId: task.downloadId,
-				bytesDownloaded,
-				totalBytes: totalBytes || bytesDownloaded,
-				percent: 100,
-			});
-
-			// Guardar archivo
-			await RNFS.writeFile(localPath, text, "utf8");
-
-			this.currentLogger.debug(
-				TAG,
-				`Subtitle downloaded: ${task.language} (${bytesDownloaded} bytes)`
-			);
-
-			return {
-				subtitleId: task.id,
-				downloadId: task.downloadId,
-				localPath,
-				fileSize: bytesDownloaded,
-				format: task.format,
-				downloadedAt: Date.now(),
-			};
+			// Descarga directa para archivos .vtt, .srt, etc.
+			return await this.downloadDirectSubtitle(uri, localPath, task, signal);
 		} catch (error: unknown) {
+			this.currentLogger.error(
+				TAG,
+				`[downloadFile] Error downloading ${task.language}:`,
+				error
+			);
 			if ((error as { name?: string })?.name === "AbortError") {
 				throw new Error("Download cancelled");
 			}
 			throw error;
 		}
+	}
+
+	/*
+	 * Descarga un subtítulo HLS (playlist .m3u8 con segmentos .vtt)
+	 * Escribe directamente al archivo para evitar OOM con muchos segmentos
+	 */
+	private async downloadHLSSubtitle(
+		playlistUri: string,
+		localPath: string,
+		task: SubtitleDownloadTask,
+		signal: AbortSignal
+	): Promise<SubtitleDownloadResult> {
+		this.currentLogger.info(
+			TAG,
+			`[HLS] Downloading subtitle playlist: ${task.language} - ${playlistUri}`
+		);
+
+		// 1. Descargar la playlist
+		const playlistResponse = await fetch(playlistUri, {
+			signal,
+			headers: { "User-Agent": "react-native-video-offline-subtitles/1.0" },
+		});
+
+		if (!playlistResponse.ok) {
+			throw new Error(`HTTP ${playlistResponse.status}: ${playlistResponse.statusText}`);
+		}
+
+		const playlistContent = await playlistResponse.text();
+
+		// 2. Extraer URLs de segmentos VTT de la playlist
+		const baseUrl = playlistUri.substring(0, playlistUri.lastIndexOf("/") + 1);
+		const segmentUrls = this.parseHLSSubtitlePlaylist(playlistContent, baseUrl);
+
+		if (segmentUrls.length === 0) {
+			throw new Error("No VTT segments found in HLS subtitle playlist");
+		}
+
+		this.currentLogger.info(
+			TAG,
+			`[HLS] Found ${segmentUrls.length} VTT segments for ${task.language}`
+		);
+
+		// 3. Escribir header VTT al archivo
+		await RNFS.writeFile(localPath, "WEBVTT\n\n", "utf8");
+		let totalBytes = 7; // "WEBVTT\n\n".length
+
+		// 4. Descargar SOLO el primer segmento
+		// En HLS de subtítulos, cada "segmento" suele ser el archivo VTT completo
+		// con diferentes offsets de tiempo. Solo necesitamos el primero (offset 0).
+		const firstSegmentUrl = segmentUrls[0];
+
+		if (!firstSegmentUrl) {
+			throw new Error("No segment URL found");
+		}
+
+		this.currentLogger.info(
+			TAG,
+			`[HLS] Downloading first segment (full VTT): ${firstSegmentUrl}`
+		);
+
+		const response = await fetch(firstSegmentUrl, {
+			signal,
+			headers: { "User-Agent": "react-native-video-offline-subtitles/1.0" },
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+		}
+
+		const content = await response.text();
+
+		this.currentLogger.info(
+			TAG,
+			`[HLS] First segment size: ${content.length} bytes for ${task.language}`
+		);
+
+		// Escribir el contenido completo (ya tiene header WEBVTT)
+		// Sobrescribir el archivo inicial
+		await RNFS.writeFile(localPath, content, "utf8");
+		totalBytes = content.length;
+
+		this.eventEmitter.emit(SubtitleDownloadEventType.PROGRESS, {
+			subtitleId: task.id,
+			downloadId: task.downloadId,
+			bytesDownloaded: totalBytes,
+			totalBytes: totalBytes,
+			percent: 100,
+		});
+
+		this.currentLogger.info(
+			TAG,
+			`[HLS] Subtitle downloaded: ${task.language} (${segmentUrls.length} segments, ${totalBytes} bytes)`
+		);
+
+		return {
+			subtitleId: task.id,
+			downloadId: task.downloadId,
+			localPath,
+			fileSize: totalBytes,
+			format: SubtitleFormat.VTT,
+			downloadedAt: Date.now(),
+		};
+	}
+
+	/*
+	 * Parsea una playlist HLS de subtítulos y extrae las URLs de los segmentos VTT
+	 */
+	private parseHLSSubtitlePlaylist(playlistContent: string, baseUrl: string): string[] {
+		const segmentUrls: string[] = [];
+		const lines = playlistContent.split("\n");
+
+		for (const line of lines) {
+			const trimmedLine = line.trim();
+			// Ignorar líneas vacías y comentarios/tags HLS
+			if (!trimmedLine || trimmedLine.startsWith("#")) {
+				continue;
+			}
+
+			// Es una URL de segmento
+			let segmentUrl = trimmedLine;
+
+			// Resolver URL relativa
+			if (!segmentUrl.startsWith("http://") && !segmentUrl.startsWith("https://")) {
+				if (segmentUrl.startsWith("/")) {
+					// URL relativa al dominio
+					const urlObj = new URL(baseUrl);
+					segmentUrl = `${urlObj.protocol}//${urlObj.host}${segmentUrl}`;
+				} else {
+					// URL relativa al directorio
+					segmentUrl = baseUrl + segmentUrl;
+				}
+			}
+
+			segmentUrls.push(segmentUrl);
+		}
+
+		return segmentUrls;
+	}
+
+	/*
+	 * Descarga directa de un archivo de subtítulos (.vtt, .srt, etc.)
+	 */
+	private async downloadDirectSubtitle(
+		uri: string,
+		localPath: string,
+		task: SubtitleDownloadTask,
+		signal: AbortSignal
+	): Promise<SubtitleDownloadResult> {
+		// Timeout promise
+		const timeoutPromise = new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error("Download timeout")), this.config.requestTimeout)
+		);
+
+		// Fetch promise
+		const fetchPromise = fetch(uri, {
+			signal,
+			headers: {
+				"User-Agent": "react-native-video-offline-subtitles/1.0",
+			},
+		});
+
+		// Race entre timeout y fetch
+		const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+		}
+
+		// Obtener tamaño total
+		const totalBytes = parseInt(response.headers.get("content-length") || "0", 10);
+
+		// Leer contenido
+		const text = await response.text();
+		const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+		const bytesDownloaded = blob.size;
+
+		// Emitir progreso
+		this.eventEmitter.emit(SubtitleDownloadEventType.PROGRESS, {
+			subtitleId: task.id,
+			downloadId: task.downloadId,
+			bytesDownloaded,
+			totalBytes: totalBytes || bytesDownloaded,
+			percent: 100,
+		});
+
+		// Guardar archivo
+		await RNFS.writeFile(localPath, text, "utf8");
+
+		this.currentLogger.debug(
+			TAG,
+			`Subtitle downloaded: ${task.language} (${bytesDownloaded} bytes)`
+		);
+
+		return {
+			subtitleId: task.id,
+			downloadId: task.downloadId,
+			localPath,
+			fileSize: bytesDownloaded,
+			format: task.format,
+			downloadedAt: Date.now(),
+		};
 	}
 
 	/*

@@ -47,6 +47,7 @@ export class NativeManager {
 	// Estado interno
 	private systemInfo: SystemInfo | null = null;
 	private eventBuffer: Array<{ event: string; data: unknown; timestamp: number }> = [];
+	private lastProgressByDownload: Map<string, number> = new Map();
 
 	private constructor() {
 		// Configuración por defecto del manager
@@ -380,7 +381,11 @@ export class NativeManager {
 		}
 
 		// No reenviar eventos estáticos repetitivos (sin cambios y sin actividad)
-		if (speed === 0 && eventData.remainingTime === 0 && percent < 100) {
+		// PERO permitir eventos si el progreso ha cambiado significativamente
+		const lastProgress = this.lastProgressByDownload?.get(eventData.id) || 0;
+		const progressChanged = Math.abs(percent - lastProgress) >= 1; // Al menos 1% de cambio
+
+		if (speed === 0 && eventData.remainingTime === 0 && percent < 100 && !progressChanged) {
 			// Solo log ocasional para debug, no spam
 			if (Math.random() < 0.02) {
 				// 2% de los eventos
@@ -391,6 +396,9 @@ export class NativeManager {
 			}
 			return;
 		}
+
+		// Actualizar último progreso conocido
+		this.lastProgressByDownload.set(eventData.id, percent);
 
 		const progressEvent: DownloadProgressEvent = {
 			downloadId: eventData.id,
@@ -1046,6 +1054,113 @@ export class NativeManager {
 				originalError: error,
 				config,
 			});
+		}
+	}
+
+	/*
+	 * Subtitle Bookmark Management (iOS only - survives sandbox UUID changes)
+	 *
+	 */
+
+	/**
+	 * Save a bookmark for a subtitle file (iOS only)
+	 * This allows the path to survive sandbox UUID changes between app sessions
+	 */
+	public async saveSubtitleBookmark(
+		downloadId: string,
+		language: string,
+		filePath: string
+	): Promise<boolean> {
+		if (Platform.OS !== "ios") {
+			// Android doesn't need bookmarks - paths are stable
+			return true;
+		}
+
+		this.validateInitialized();
+
+		try {
+			const result = await this.nativeModule.saveSubtitleBookmarkFromPath(
+				downloadId,
+				language,
+				filePath
+			);
+			this.currentLogger.debug(TAG, `Saved subtitle bookmark for ${downloadId}:${language}`);
+			return result === true;
+		} catch (error) {
+			this.currentLogger.error(
+				TAG,
+				`Failed to save subtitle bookmark for ${downloadId}:${language}`,
+				error
+			);
+			return false;
+		}
+	}
+
+	/**
+	 * Resolve a subtitle bookmark to get the current valid path (iOS only)
+	 * Returns the resolved path or null if bookmark doesn't exist
+	 */
+	public async resolveSubtitlePath(downloadId: string, language: string): Promise<string | null> {
+		if (Platform.OS !== "ios") {
+			// Android doesn't need resolution - paths are stable
+			return null;
+		}
+
+		this.validateInitialized();
+
+		try {
+			const resolvedPath = await this.nativeModule.resolveSubtitlePath(downloadId, language);
+			if (resolvedPath && typeof resolvedPath === "string") {
+				this.currentLogger.debug(
+					TAG,
+					`Resolved subtitle path for ${downloadId}:${language}: ${resolvedPath}`
+				);
+				return resolvedPath;
+			}
+			return null;
+		} catch (error) {
+			this.currentLogger.error(
+				TAG,
+				`Failed to resolve subtitle path for ${downloadId}:${language}`,
+				error
+			);
+			return null;
+		}
+	}
+
+	/**
+	 * Resolve multiple subtitle bookmarks at once (iOS only)
+	 * More efficient than calling resolveSubtitlePath multiple times
+	 */
+	public async resolveSubtitlePaths(
+		subtitles: Array<{ downloadId: string; language: string }>
+	): Promise<Map<string, string>> {
+		const results = new Map<string, string>();
+
+		if (Platform.OS !== "ios") {
+			// Android doesn't need resolution - paths are stable
+			return results;
+		}
+
+		this.validateInitialized();
+
+		try {
+			const resolved = await this.nativeModule.resolveSubtitlePaths(subtitles);
+			if (resolved && typeof resolved === "object") {
+				for (const [key, path] of Object.entries(resolved)) {
+					if (path && typeof path === "string") {
+						results.set(key, path);
+					}
+				}
+			}
+			this.currentLogger.debug(
+				TAG,
+				`Resolved ${results.size}/${subtitles.length} subtitle paths`
+			);
+			return results;
+		} catch (error) {
+			this.currentLogger.error(TAG, "Failed to resolve subtitle paths", error);
+			return results;
 		}
 	}
 

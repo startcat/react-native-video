@@ -99,6 +99,12 @@ RCT_EXTERN_METHOD(removeSubtitles : (NSString*)downloadId languages : (NSArray*)
 
 RCT_EXTERN_METHOD(getSubtitles : (NSString*)downloadId resolver : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(saveSubtitleBookmarkFromPath : (NSString*)downloadId language : (NSString*)language filePath : (NSString*)filePath resolver : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(resolveSubtitlePath : (NSString*)downloadId language : (NSString*)language resolver : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
+
+RCT_EXTERN_METHOD(resolveSubtitlePaths : (NSArray*)subtitles resolver : (RCTPromiseResolveBlock)resolve rejecter : (RCTPromiseRejectBlock)reject)
+
 // =============================================================================
 // RECOVERY AND CLEANUP METHODS
 // =============================================================================

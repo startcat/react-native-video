@@ -13,8 +13,10 @@ import { type OnLoadData, type OnReceiveAdEventData } from "../../../types/event
 import {
 	type SelectedTrack,
 	type SelectedVideoTrack,
+	type TextTracks,
 	SelectedTrackType,
 	SelectedVideoTrackType,
+	TextTrackType,
 } from "../../../types/video";
 import Video, { type VideoRef } from "../../../Video";
 import { Overlay } from "../../components/overlay";
@@ -89,6 +91,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		type: SelectedVideoTrackType.AUTO,
 	});
 	const [maxBitRate, setMaxBitRate] = useState<number>(0);
+	const [offlineTextTracks, setOfflineTextTracks] = useState<TextTracks | undefined>(undefined);
 
 	const refVideoPlayer = useRef<VideoRef>(null);
 	const videoQualityIndex = useRef<number>(-1);
@@ -371,7 +374,27 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	useEffect(() => {
 		// Montamos el selector de pista de Subtítulo
-		if (typeof props.subtitleIndex === "number" && props.subtitleIndex > -1) {
+		// Soporta tanto índices numéricos como objetos con uri/language para subtítulos sideloaded (offline)
+		if (typeof props.subtitleIndex === "object" && props.subtitleIndex !== null) {
+			// Subtítulo sideloaded (offline) - seleccionar por idioma
+			const subtitleData = props.subtitleIndex as {
+				index?: number;
+				uri?: string;
+				language?: string;
+			};
+			if (subtitleData.language) {
+				setSelectedTextTrack({
+					value: subtitleData.language,
+					type: SelectedTrackType.LANGUAGE,
+				});
+			} else if (subtitleData.uri) {
+				// Fallback: usar título si no hay idioma
+				setSelectedTextTrack({
+					value: subtitleData.uri,
+					type: SelectedTrackType.TITLE,
+				});
+			}
+		} else if (typeof props.subtitleIndex === "number" && props.subtitleIndex > -1) {
 			setSelectedTextTrack({
 				value: props.subtitleIndex,
 				type: SelectedTrackType.INDEX,
@@ -382,6 +405,44 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			});
 		}
 	}, [props.subtitleIndex]);
+
+	// Configure offline textTracks when sourceRef has offline subtitles available
+	// This runs after SourceClass has finished processing the download state
+	useEffect(() => {
+		if (
+			videoSource &&
+			sourceRef.current?.isDownloaded &&
+			sourceRef.current?.offlineSubtitles?.length > 0
+		) {
+			const offlineSubs = sourceRef.current.offlineSubtitles;
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG] useEffect: Converting ${offlineSubs.length} offline subtitles to textTracks`
+			);
+
+			const convertedTracks = offlineSubs
+				.filter(sub => sub.localPath && sub.state === "COMPLETED")
+				.map(sub => ({
+					title: sub.label,
+					language: sub.language,
+					type: TextTrackType.VTT,
+					uri: sub.localPath!.startsWith("file://")
+						? sub.localPath!
+						: `file://${sub.localPath}`,
+				})) as TextTracks;
+
+			if (convertedTracks.length > 0) {
+				console.log(
+					`[Player] (Normal Flavour) [OFFLINE DEBUG] useEffect: Setting ${convertedTracks.length} offline textTracks`
+				);
+				convertedTracks.forEach(track => {
+					console.log(
+						`[Player] (Normal Flavour) [OFFLINE DEBUG]   - ${track.language}: ${track.uri}`
+					);
+				});
+				setOfflineTextTracks(convertedTracks);
+			}
+		}
+	}, [videoSource]);
 
 	useEffect(() => {
 		if (menuData && props.events?.onChangeCommonData) {
@@ -517,6 +578,37 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
 			dvrProgressManagerRef.current?.reset();
 		}
+
+		// Configure offline textTracks when source is ready and has offline subtitles
+		if (sourceRef.current?.isDownloaded && sourceRef.current?.offlineSubtitles?.length > 0) {
+			const offlineSubs = sourceRef.current.offlineSubtitles;
+			console.log(
+				`[Player] (Normal Flavour) [OFFLINE DEBUG] onSourceChanged: Converting ${offlineSubs.length} offline subtitles to textTracks`
+			);
+
+			const convertedTracks = offlineSubs
+				.filter(sub => sub.localPath && sub.state === "COMPLETED")
+				.map(sub => ({
+					title: sub.label,
+					language: sub.language,
+					type: TextTrackType.VTT,
+					uri: sub.localPath!.startsWith("file://")
+						? sub.localPath!
+						: `file://${sub.localPath}`,
+				})) as TextTracks;
+
+			if (convertedTracks.length > 0) {
+				console.log(
+					`[Player] (Normal Flavour) [OFFLINE DEBUG] onSourceChanged: Setting ${convertedTracks.length} offline textTracks`
+				);
+				convertedTracks.forEach(track => {
+					console.log(
+						`[Player] (Normal Flavour) [OFFLINE DEBUG]   - ${track.language}: ${track.uri}`
+					);
+				});
+				setOfflineTextTracks(convertedTracks);
+			}
+		}
 	};
 
 	const setPlayerSource = (data?: onSourceChangedProps) => {
@@ -573,6 +665,39 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			console.log(
 				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - isBinary: ${sourceRef.current?.isBinary}`
 			);
+
+			// Configure offline subtitles if available
+			if (
+				sourceRef.current?.isDownloaded &&
+				sourceRef.current?.offlineSubtitles?.length > 0
+			) {
+				const offlineSubs = sourceRef.current.offlineSubtitles;
+				console.log(
+					`[Player] (Normal Flavour) [OFFLINE DEBUG] Converting ${offlineSubs.length} offline subtitles to textTracks`
+				);
+
+				// Convert DownloadedSubtitleItem[] to TextTracks format
+				const convertedTracks = offlineSubs
+					.filter(sub => sub.localPath && sub.state === "COMPLETED")
+					.map(sub => ({
+						title: sub.label,
+						language: sub.language,
+						type: TextTrackType.VTT,
+						uri: sub.localPath!.startsWith("file://")
+							? sub.localPath!
+							: `file://${sub.localPath}`,
+					})) as TextTracks;
+
+				if (convertedTracks.length > 0) {
+					console.log(
+						`[Player] (Normal Flavour) [OFFLINE DEBUG] Setting ${convertedTracks.length} offline textTracks`
+					);
+					setOfflineTextTracks(convertedTracks);
+				}
+			} else {
+				// Clear offline tracks if not in offline mode
+				setOfflineTextTracks(undefined);
+			}
 
 			setVideoSource(data.source!);
 		} else if (sourceRef.current?.isReady) {
@@ -727,7 +852,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	 *
 	 */
 
-	const handleOnControlsPress = (id: CONTROL_ACTION, value?: number | boolean) => {
+	const handleOnControlsPress = (id: CONTROL_ACTION, value?: number | boolean | object) => {
 		const COMMON_DATA_FIELDS = [
 			"time",
 			"volume",
@@ -746,6 +871,58 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 		if (id === CONTROL_ACTION.MUTE) {
 			setMuted(!!value);
+		}
+
+		// Cambio de audio
+		if (id === CONTROL_ACTION.AUDIO_INDEX && typeof value === "number") {
+			if (value === -1) {
+				setSelectedAudioTrack({
+					type: SelectedTrackType.DISABLED,
+				});
+			} else {
+				setSelectedAudioTrack({
+					type: SelectedTrackType.INDEX,
+					value: value,
+				});
+			}
+		}
+
+		// Cambio de subtítulo
+		if (id === CONTROL_ACTION.SUBTITLE_INDEX) {
+			if (typeof value === "object" && value !== null) {
+				// Subtítulo sideloaded (offline) - usar URI directamente
+				const subtitleData = value as {
+					index?: number;
+					uri?: string;
+					language?: string;
+					label?: string;
+				};
+				currentLogger.current?.info(
+					`handleOnControlsPress: Setting sideloaded subtitle - uri: ${subtitleData.uri}, language: ${subtitleData.language}`
+				);
+				if (subtitleData.uri) {
+					setSelectedTextTrack({
+						type: SelectedTrackType.TITLE,
+						value: subtitleData.uri,
+					});
+				} else if (typeof subtitleData.index === "number") {
+					setSelectedTextTrack({
+						type: SelectedTrackType.INDEX,
+						value: subtitleData.index,
+					});
+				}
+			} else if (typeof value === "number") {
+				if (value === -1) {
+					setSelectedTextTrack({
+						type: SelectedTrackType.DISABLED,
+					});
+				} else {
+					setSelectedTextTrack({
+						type: SelectedTrackType.INDEX,
+						value: value,
+					});
+				}
+			}
 		}
 
 		if (id === CONTROL_ACTION.NEXT && props.events?.onNext) {
@@ -876,7 +1053,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR) {
 			try {
 				// Hacer seek en DVR
-				dvrProgressManagerRef.current?.seekToTime(value);
+				dvrProgressManagerRef.current?.seekToTime(value as number);
 			} catch (error: any) {
 				currentLogger.current?.error(`DVR seekToTime failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -886,7 +1063,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR) {
 			try {
 				// Hacer seek en DVR
-				dvrProgressManagerRef.current?.skipForward(value);
+				dvrProgressManagerRef.current?.skipForward(value as number);
 			} catch (error: any) {
 				currentLogger.current?.error(`DVR skipForward failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -896,7 +1073,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR) {
 			try {
 				// Hacer seek en DVR
-				dvrProgressManagerRef.current?.skipBackward(value);
+				dvrProgressManagerRef.current?.skipBackward(value as number);
 			} catch (error: any) {
 				currentLogger.current?.error(`DVR skipBackward failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -906,7 +1083,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.SEEK && !sourceRef.current?.isLive) {
 			try {
 				// Hacer seek en VOD
-				vodProgressManagerRef.current?.seekToTime(value);
+				vodProgressManagerRef.current?.seekToTime(value as number);
 			} catch (error: any) {
 				currentLogger.current?.error(`VOD seekToTime failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -916,7 +1093,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.FORWARD && !sourceRef.current?.isLive) {
 			try {
 				// Hacer seek en VOD
-				vodProgressManagerRef.current?.skipForward(value);
+				vodProgressManagerRef.current?.skipForward(value as number);
 			} catch (error: any) {
 				currentLogger.current?.error(`VOD skipForward failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -926,7 +1103,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.BACKWARD && !sourceRef.current?.isLive) {
 			try {
 				// Hacer seek en VOD
-				vodProgressManagerRef.current?.skipBackward(value);
+				vodProgressManagerRef.current?.skipBackward(value as number);
 			} catch (error: any) {
 				currentLogger.current?.error(`VOD skipBackward failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -941,6 +1118,24 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				data.muted = !!value;
 			} else if (id === CONTROL_ACTION.PAUSE) {
 				data.paused = !!value;
+			} else if (
+				id === CONTROL_ACTION.SUBTITLE_INDEX &&
+				typeof value === "object" &&
+				value !== null
+			) {
+				// Subtítulo sideloaded (offline) - pasar objeto completo con uri/language
+				const subtitleData = value as {
+					index?: number;
+					uri?: string;
+					language?: string;
+					label?: string;
+				};
+				data.subtitleIndex = subtitleData;
+				data.subtitleLabel = subtitleData.label;
+				data.subtitleCode = subtitleData.language;
+				if (typeof subtitleData.index === "number") {
+					currentSubtitleIndexRef.current = subtitleData.index;
+				}
 			} else if (typeof value === "number") {
 				data.volume = id === CONTROL_ACTION.VOLUME ? value : undefined;
 				data.audioIndex = id === CONTROL_ACTION.AUDIO_INDEX ? value : undefined;
@@ -1370,6 +1565,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 								: selectedTextTrack
 						}
 						subtitleStyle={props.subtitleStyle}
+						textTracks={offlineTextTracks}
 						// Eventos combinados: originales + analytics
 						onLoadStart={videoEvents.onLoadStart}
 						onLoad={combineEventHandlers(handleOnLoad, videoEvents.onLoad)}

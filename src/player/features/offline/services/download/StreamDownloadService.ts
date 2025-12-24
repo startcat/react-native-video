@@ -27,6 +27,7 @@ import {
 	ValidationResult,
 } from "../../types";
 import { networkService } from "../network/NetworkService";
+import { persistenceService } from "../storage/PersistenceService";
 import { subtitleDownloadService } from "./SubtitleDownloadService";
 
 const TAG = LOG_TAGS.STREAM_DOWNLOADER;
@@ -248,11 +249,9 @@ export class StreamDownloadService {
 			// Emitir eventos específicos según el estado
 			switch (mappedState) {
 				case DownloadStates.COMPLETED:
-					this.eventEmitter.emit(DownloadEventType.COMPLETED, {
-						taskId: downloadId,
-						progress: activeDownload.progress.percent,
-					});
-					break;
+					// Delegar a handleCompletedEvent para descargar subtítulos
+					this.handleCompletedEvent({ downloadId });
+					return; // handleCompletedEvent emitirá el evento COMPLETED
 				case DownloadStates.FAILED:
 					this.eventEmitter.emit(DownloadEventType.FAILED, {
 						taskId: downloadId,
@@ -278,6 +277,17 @@ export class StreamDownloadService {
 
 			// Descargar subtítulos si existen
 			if (activeDownload?.task.subtitles && activeDownload.task.subtitles.length > 0) {
+				// Transicionar a DOWNLOADING_ASSETS antes de descargar subtítulos
+				activeDownload.state = DownloadStates.DOWNLOADING_ASSETS;
+				this.activeDownloads.set(downloadId, activeDownload);
+
+				// Emitir evento de cambio de estado para que la UI se actualice
+				this.eventEmitter.emit(DownloadEventType.STATE_CHANGE, {
+					taskId: downloadId,
+					state: DownloadStates.DOWNLOADING_ASSETS,
+					message: "Descargando subtítulos...",
+				});
+
 				this.currentLogger.info(
 					TAG,
 					`Starting subtitle downloads for ${downloadId} (${activeDownload.task.subtitles.length} subtitles)`
@@ -299,12 +309,31 @@ export class StreamDownloadService {
 					);
 
 					// Descargar subtítulos (en paralelo, sin cola)
-					await subtitleDownloadService.downloadSubtitles(downloadId, subtitleTasks);
+					const downloadedSubtitles = await subtitleDownloadService.downloadSubtitles(
+						downloadId,
+						subtitleTasks
+					);
 
 					this.currentLogger.info(
 						TAG,
-						`Subtitles downloaded successfully for ${downloadId}`
+						`Subtitles downloaded successfully for ${downloadId}: ${downloadedSubtitles.length} items`
 					);
+
+					// Persistir subtítulos descargados en el downloadItem
+					if (downloadedSubtitles.length > 0) {
+						try {
+							await persistenceService.updateDownloadItem(downloadId, {
+								subtitles: downloadedSubtitles,
+							});
+							this.currentLogger.info(TAG, `Subtitles persisted for ${downloadId}`);
+						} catch (persistError) {
+							this.currentLogger.error(
+								TAG,
+								`Failed to persist subtitles for ${downloadId}`,
+								persistError
+							);
+						}
+					}
 				} catch (error) {
 					this.currentLogger.error(
 						TAG,

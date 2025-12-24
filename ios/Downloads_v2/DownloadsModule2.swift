@@ -163,21 +163,17 @@ class DownloadsModule2: RCTEventEmitter {
     /// Uses bookmarks as primary source (survives sandbox changes), falls back to paths
     static func getOfflineAssetURLStatic(forId downloadId: String) -> URL? {
         // Helper to check path and create URL
+        // IMPORTANT: Use URL(fileURLWithPath:) instead of URL(string:) to handle special characters correctly
         func tryPath(_ path: String) -> URL? {
             if FileManager.default.fileExists(atPath: path) {
-                let fileURLString = "file://" + path
-                if let url = URL(string: fileURLString) {
-                    return url
-                }
+                // Use fileURLWithPath to properly handle spaces, apostrophes, and other special characters
+                return URL(fileURLWithPath: path)
             }
-            // Try without /.nofollow prefix
+            // Try without /.nofollow prefix (iOS symlink prefix)
             if path.hasPrefix("/.nofollow") {
                 let cleanPath = String(path.dropFirst("/.nofollow".count))
                 if FileManager.default.fileExists(atPath: cleanPath) {
-                    let fileURLString = "file://" + cleanPath
-                    if let url = URL(string: fileURLString) {
-                        return url
-                    }
+                    return URL(fileURLWithPath: cleanPath)
                 }
             }
             return nil
@@ -252,6 +248,7 @@ class DownloadsModule2: RCTEventEmitter {
     // Persistencia de asset paths para recuperar después de restart
     private let ASSET_PATHS_KEY = "com.downloads.assetPaths"
     private let ASSET_BOOKMARKS_KEY = "com.downloads.assetBookmarks" // NEW: Use bookmarkData for persistence
+    private let SUBTITLE_BOOKMARKS_KEY = "com.downloads.subtitleBookmarks" // Bookmarks for subtitle files (survives sandbox UUID changes)
     private let ACTIVE_DOWNLOADS_KEY = "com.downloads.activeStates" // NUEVO: Persistir descargas en progreso
     
     // Speed tracking
@@ -514,7 +511,7 @@ class DownloadsModule2: RCTEventEmitter {
                     self.downloadTasks.removeValue(forKey: id)
                 }
                 
-                let downloadTask = try self.createDownloadTask(for: asset, with: downloadInfo)
+                let downloadTask = try self.createDownloadTask(for: asset, with: downloadInfo, downloadId: id)
                 self.downloadTasks[id] = downloadTask
                 
                 // Update state and start download
@@ -878,6 +875,56 @@ class DownloadsModule2: RCTEventEmitter {
         resolve([])
     }
     
+    /// Save a bookmark for a subtitle file path (survives sandbox UUID changes)
+    /// Called from TypeScript after downloading a subtitle file
+    @objc func saveSubtitleBookmarkFromPath(_ downloadId: String, language: String, filePath: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        let url = URL(fileURLWithPath: filePath)
+        
+        // Verify file exists before saving bookmark
+        guard FileManager.default.fileExists(atPath: filePath) else {
+            reject("SUBTITLE_NOT_FOUND", "Subtitle file not found at path: \(filePath)", nil)
+            return
+        }
+        
+        saveSubtitleBookmark(for: url, downloadId: downloadId, language: language)
+        resolve(true)
+    }
+    
+    /// Resolve a subtitle bookmark to get the current valid path
+    /// Returns the resolved path or null if bookmark doesn't exist or file is missing
+    @objc func resolveSubtitlePath(_ downloadId: String, language: String, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        if let resolvedURL = resolveSubtitleBookmark(forDownloadId: downloadId, language: language) {
+            resolve(resolvedURL.path)
+        } else {
+            // Return null instead of rejecting - caller can handle fallback
+            resolve(NSNull())
+        }
+    }
+    
+    /// Resolve multiple subtitle bookmarks at once (batch operation for efficiency)
+    /// Input: Array of {downloadId, language} objects
+    /// Output: Dictionary mapping "downloadId:language" to resolved path (or null if not found)
+    @objc func resolveSubtitlePaths(_ subtitles: NSArray, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        var results: [String: Any] = [:]
+        
+        for item in subtitles {
+            guard let dict = item as? [String: String],
+                  let downloadId = dict["downloadId"],
+                  let language = dict["language"] else {
+                continue
+            }
+            
+            let key = "\(downloadId):\(language)"
+            if let resolvedURL = resolveSubtitleBookmark(forDownloadId: downloadId, language: language) {
+                results[key] = resolvedURL.path
+            } else {
+                results[key] = NSNull()
+            }
+        }
+        
+        resolve(results)
+    }
+    
     // MARK: - Recovery and Cleanup Methods
     @objc func recoverDownloads(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
         downloadQueue.async { [weak self] in
@@ -1105,7 +1152,7 @@ class DownloadsModule2: RCTEventEmitter {
         return config["id"] != nil && config["uri"] != nil && config["title"] != nil
     }
     
-    private func createDownloadTask(for asset: AVURLAsset, with downloadInfo: DownloadInfo) throws -> AVAssetDownloadTask {
+    private func createDownloadTask(for asset: AVURLAsset, with downloadInfo: DownloadInfo, downloadId: String) throws -> AVAssetDownloadTask {
         guard let session = downloadsSession else {
             throw NSError(domain: "DownloadsModule2", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download session not initialized"])
         }
@@ -1127,9 +1174,13 @@ class DownloadsModule2: RCTEventEmitter {
         let options: [String: Any] = [
             AVAssetDownloadTaskMinimumRequiredMediaBitrateKey: minBitrate
         ]
+        
+        // Use downloadId as assetTitle to avoid special characters in filename
+        // iOS uses assetTitle to generate the .movpkg filename
+        // Using ID ensures clean filenames without spaces, apostrophes, or other problematic characters
         let downloadTask = session.makeAssetDownloadTask(
             asset: asset,
-            assetTitle: downloadInfo.title,
+            assetTitle: downloadId,
             assetArtworkData: nil,
             options: options
         )
@@ -1138,7 +1189,7 @@ class DownloadsModule2: RCTEventEmitter {
             throw NSError(
                 domain: "DownloadsModule2",
                 code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to create download task for asset: \(downloadInfo.title)"]
+                userInfo: [NSLocalizedDescriptionKey: "Failed to create download task for ID: \(downloadId)"]
             )
         }
         
@@ -1464,9 +1515,11 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             // Check if we have enough progress to consider it successful despite the error
             // HLS manifests may reference chunks that don't exist (especially at lower qualities)
             // or the CDN may return 404 for some chunks near the end
+            // NOTE: Using 98% threshold to ensure almost complete downloads
+            // Lower thresholds (70%) caused playback issues with incomplete .movpkg files
             let downloadInfo = activeDownloads[downloadId]
             let currentProgress = downloadInfo?.progress ?? 0.0
-            let progressThreshold: Float = 0.70 // 70% threshold
+            let progressThreshold: Float = 0.98 // 98% threshold - must be almost complete
             
             // Check if this is a 404 error or similar recoverable error
             let is404Error = nsError.domain == NSURLErrorDomain && 
@@ -1521,9 +1574,9 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 return
             }
             
-            // If progress >= 70% and it's a recoverable error (like 404), treat as success
+            // If progress >= 98% and it's a recoverable error (like 404), treat as success
             if currentProgress >= progressThreshold && isRecoverableError {
-                print("📥 [DownloadsModule2] Progress >= 70% with recoverable error - treating as successful download")
+                print("📥 [DownloadsModule2] Progress >= 98% with recoverable error - treating as successful download")
                 
                 // Check if we have a pending location from didFinishDownloadingTo
                 if let location = pendingLocations.removeValue(forKey: downloadId) {
@@ -1973,6 +2026,85 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         var bookmarks = loadAssetBookmarks()
         bookmarks.removeValue(forKey: downloadId)
         UserDefaults.standard.set(bookmarks, forKey: ASSET_BOOKMARKS_KEY)
+        UserDefaults.standard.synchronize()
+    }
+    
+    // MARK: - Subtitle Bookmark Data Persistence (survives sandbox UUID changes)
+    
+    /// Save bookmark data for a downloaded subtitle file
+    /// Key format: "downloadId:language" to support multiple subtitles per download
+    func saveSubtitleBookmark(for url: URL, downloadId: String, language: String) {
+        do {
+            let bookmarkData = try url.bookmarkData()
+            var bookmarks = loadSubtitleBookmarks()
+            let key = "\(downloadId):\(language)"
+            bookmarks[key] = bookmarkData
+            UserDefaults.standard.set(bookmarks, forKey: SUBTITLE_BOOKMARKS_KEY)
+            UserDefaults.standard.synchronize()
+            RCTLog("[Native Downloads] (DownloadsModule2) Saved subtitle bookmark for \(key)")
+        } catch {
+            RCTLog("[Native Downloads] (DownloadsModule2) Failed to create subtitle bookmark for \(downloadId):\(language): \(error)")
+        }
+    }
+    
+    /// Load all saved subtitle bookmarks
+    private func loadSubtitleBookmarks() -> [String: Data] {
+        return UserDefaults.standard.dictionary(forKey: SUBTITLE_BOOKMARKS_KEY) as? [String: Data] ?? [:]
+    }
+    
+    /// Resolve a subtitle bookmark to get the current URL (handles sandbox UUID changes)
+    func resolveSubtitleBookmark(forDownloadId downloadId: String, language: String) -> URL? {
+        let bookmarks = loadSubtitleBookmarks()
+        let key = "\(downloadId):\(language)"
+        guard let bookmarkData = bookmarks[key] else {
+            RCTLog("[Native Downloads] (DownloadsModule2) No subtitle bookmark found for \(key)")
+            return nil
+        }
+        
+        var bookmarkDataIsStale = false
+        do {
+            let url = try URL(resolvingBookmarkData: bookmarkData, bookmarkDataIsStale: &bookmarkDataIsStale)
+            
+            if bookmarkDataIsStale {
+                // Update stale bookmark
+                saveSubtitleBookmark(for: url, downloadId: downloadId, language: language)
+                RCTLog("[Native Downloads] (DownloadsModule2) Updated stale subtitle bookmark for \(key)")
+            }
+            
+            // Verify file exists
+            if FileManager.default.fileExists(atPath: url.path) {
+                RCTLog("[Native Downloads] (DownloadsModule2) Resolved subtitle bookmark for \(key): \(url.path)")
+                return url
+            } else {
+                RCTLog("[Native Downloads] (DownloadsModule2) Subtitle file not found at resolved path: \(url.path)")
+                return nil
+            }
+        } catch {
+            RCTLog("[Native Downloads] (DownloadsModule2) Failed to resolve subtitle bookmark for \(key): \(error)")
+            // Remove invalid bookmark
+            removeSubtitleBookmark(forDownloadId: downloadId, language: language)
+            return nil
+        }
+    }
+    
+    /// Remove bookmark for a specific subtitle
+    func removeSubtitleBookmark(forDownloadId downloadId: String, language: String) {
+        var bookmarks = loadSubtitleBookmarks()
+        let key = "\(downloadId):\(language)"
+        bookmarks.removeValue(forKey: key)
+        UserDefaults.standard.set(bookmarks, forKey: SUBTITLE_BOOKMARKS_KEY)
+        UserDefaults.standard.synchronize()
+    }
+    
+    /// Remove all subtitle bookmarks for a download
+    func removeAllSubtitleBookmarks(forDownloadId downloadId: String) {
+        var bookmarks = loadSubtitleBookmarks()
+        let prefix = "\(downloadId):"
+        let keysToRemove = bookmarks.keys.filter { $0.hasPrefix(prefix) }
+        for key in keysToRemove {
+            bookmarks.removeValue(forKey: key)
+        }
+        UserDefaults.standard.set(bookmarks, forKey: SUBTITLE_BOOKMARKS_KEY)
         UserDefaults.standard.synchronize()
     }
 }

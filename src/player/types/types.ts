@@ -35,6 +35,13 @@ export interface IDrm {
 	drmMessage?: string; // Token/mensaje DRM requerido por Axinom para descargas offline
 }
 
+export type SideloadedSubtitleSelection = {
+	index?: number;
+	uri?: string;
+	language?: string;
+	label?: string;
+};
+
 export interface ICommonData {
 	time?: number;
 	duration?: number;
@@ -42,7 +49,7 @@ export interface ICommonData {
 	paused?: boolean;
 	muted?: boolean;
 	audioIndex?: number;
-	subtitleIndex?: number;
+	subtitleIndex?: number | SideloadedSubtitleSelection;
 	audioLabel?: string;
 	subtitleLabel?: string;
 	audioCode?: string;
@@ -125,6 +132,8 @@ export interface IPlayerMenuData {
 	index: number;
 	code?: string;
 	label: string;
+	// Para subtítulos offline (sideloaded) - URI del archivo local
+	uri?: string;
 }
 
 export interface ILanguagesMapping {

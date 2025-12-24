@@ -11,6 +11,8 @@ import { PlayerError } from "../../../core/errors";
 import { downloadsManager } from "../managers/DownloadsManager";
 import { profileManager } from "../managers/ProfileManager";
 import { queueManager } from "../managers/QueueManager";
+import { dashManifestParser } from "../services/manifest/DASHManifestParser";
+import { hlsManifestParser } from "../services/manifest/HLSManifestParser";
 import { storageService } from "../services/storage/StorageService";
 import {
 	BinaryDownloadTask,
@@ -118,6 +120,7 @@ export function useDownloadsManager(
 		const statePriority: Record<DownloadStates, number> = {
 			// Activas (prioridad 1)
 			[DownloadStates.DOWNLOADING]: 1,
+			[DownloadStates.DOWNLOADING_ASSETS]: 1, // Descargando subtítulos/audio
 			[DownloadStates.PREPARING]: 1,
 			// En cola (prioridad 2)
 			[DownloadStates.QUEUED]: 2,
@@ -244,6 +247,13 @@ export function useDownloadsManager(
 		// Eventos de progreso y cambios
 		unsubscribers.push(
 			downloadsManager.subscribe(DownloadEventType.PROGRESS, () => {
+				updateState();
+			})
+		);
+
+		// Evento de cambio de estado (ej: DOWNLOADING_ASSETS)
+		unsubscribers.push(
+			downloadsManager.subscribe(DownloadEventType.STATE_CHANGE, () => {
 				updateState();
 			})
 		);
@@ -409,6 +419,86 @@ export function useDownloadsManager(
 						resumable: true,
 					} as BinaryDownloadTask;
 				} else if (itemWithId.type === DownloadType.STREAM) {
+					// Determinar subtítulos: usar los proporcionados (si tienen URI) o extraer del manifest
+					let subtitlesForTask = itemWithId.subtitles
+						?.filter(sub => sub.uri && sub.uri.length > 0) // Solo subtítulos con URI válida
+						.map(sub => ({
+							id: sub.id,
+							uri: sub.uri || "",
+							language: sub.language,
+							label: sub.label,
+							format: sub.format,
+							isDefault: sub.isDefault,
+							encoding: sub.encoding,
+						}));
+
+					// Si no hay subtítulos con URI válida, extraerlos del manifest (HLS o DASH)
+					const hasValidSubtitles = subtitlesForTask && subtitlesForTask.length > 0;
+					if (!hasValidSubtitles) {
+						const isHLS = itemWithId.uri.includes(".m3u8");
+						const isDASH = itemWithId.uri.includes(".mpd");
+
+						if (isHLS) {
+							console.log(
+								"[useDownloadsManager] No subtitles with valid URI, extracting from HLS manifest..."
+							);
+							try {
+								const manifestSubtitles = await hlsManifestParser.extractSubtitles(
+									itemWithId.uri,
+									itemWithId.headers
+								);
+								if (manifestSubtitles.length > 0) {
+									console.log(
+										`[useDownloadsManager] Extracted ${manifestSubtitles.length} subtitles from HLS manifest`
+									);
+									subtitlesForTask = manifestSubtitles.map(sub => ({
+										id: sub.id,
+										uri: sub.uri,
+										language: sub.language,
+										label: sub.label,
+										format: sub.format,
+										isDefault: sub.isDefault,
+										encoding: undefined,
+									}));
+								}
+							} catch (manifestError) {
+								console.warn(
+									"[useDownloadsManager] Failed to extract subtitles from HLS manifest:",
+									manifestError
+								);
+							}
+						} else if (isDASH) {
+							console.log(
+								"[useDownloadsManager] No subtitles with valid URI, extracting from DASH manifest..."
+							);
+							try {
+								const manifestSubtitles = await dashManifestParser.extractSubtitles(
+									itemWithId.uri,
+									itemWithId.headers
+								);
+								if (manifestSubtitles.length > 0) {
+									console.log(
+										`[useDownloadsManager] Extracted ${manifestSubtitles.length} subtitles from DASH manifest`
+									);
+									subtitlesForTask = manifestSubtitles.map(sub => ({
+										id: sub.id,
+										uri: sub.uri,
+										language: sub.language,
+										label: sub.label,
+										format: sub.format,
+										isDefault: sub.isDefault,
+										encoding: undefined,
+									}));
+								}
+							} catch (manifestError) {
+								console.warn(
+									"[useDownloadsManager] Failed to extract subtitles from DASH manifest:",
+									manifestError
+								);
+							}
+						}
+					}
+
 					task = {
 						id: itemWithId.id,
 						manifestUrl: itemWithId.uri,
@@ -419,6 +509,8 @@ export function useDownloadsManager(
 							quality: "auto",
 							drm: itemWithId.drm,
 						},
+						// Pasar subtítulos para descarga offline (proporcionados o extraídos)
+						subtitles: subtitlesForTask,
 					} as StreamDownloadTask;
 				} else {
 					throw new PlayerError("DOWNLOAD_FAILED", {
@@ -429,7 +521,10 @@ export function useDownloadsManager(
 				}
 
 				console.log(
-					`[useDownloadsManager] Download task created: ${itemWithId.title} (${itemWithId.id}) ${JSON.stringify(task)}`
+					`[useDownloadsManager] Download task created: ${itemWithId.title} (${itemWithId.id})`
+				);
+				console.log(
+					`[useDownloadsManager] Task subtitles: ${(task as StreamDownloadTask).subtitles?.length || 0} items`
 				);
 
 				// 9. Iniciar la descarga a través del DownloadsManager
