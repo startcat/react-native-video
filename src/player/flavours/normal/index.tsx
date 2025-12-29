@@ -1,6 +1,6 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useAirplayConnectivity } from "react-airplay";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	type OnBufferData,
@@ -35,6 +35,8 @@ import { useIsLandscape } from "../common/hooks";
 import { useIsBuffering } from "../../core/buffering";
 
 import { mergeMenuData, onAdStarted } from "../../utils";
+
+import { nativeManager } from "../../features/offline/managers/NativeManager";
 
 import { type onSourceChangedProps, SourceClass } from "../../modules/source";
 
@@ -408,6 +410,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	// Configure offline textTracks when sourceRef has offline subtitles available
 	// This runs after SourceClass has finished processing the download state
+	// On iOS, we need to resolve bookmark paths first (async) to handle sandbox UUID changes
 	useEffect(() => {
 		if (
 			videoSource &&
@@ -415,32 +418,70 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			sourceRef.current?.offlineSubtitles?.length > 0
 		) {
 			const offlineSubs = sourceRef.current.offlineSubtitles;
+			const downloadId = String(videoSource.id);
 			console.log(
 				`[Player] (Normal Flavour) [OFFLINE DEBUG] useEffect: Converting ${offlineSubs.length} offline subtitles to textTracks`
 			);
 
-			const convertedTracks = offlineSubs
-				.filter(sub => sub.localPath && sub.state === "COMPLETED")
-				.map(sub => ({
-					title: sub.label,
-					language: sub.language,
-					type: TextTrackType.VTT,
-					uri: sub.localPath!.startsWith("file://")
-						? sub.localPath!
-						: `file://${sub.localPath}`,
-				})) as TextTracks;
+			// On iOS, resolve paths from bookmarks first (handles sandbox UUID changes)
+			const processSubtitles = async () => {
+				let resolvedSubs = offlineSubs;
 
-			if (convertedTracks.length > 0) {
-				console.log(
-					`[Player] (Normal Flavour) [OFFLINE DEBUG] useEffect: Setting ${convertedTracks.length} offline textTracks`
-				);
-				convertedTracks.forEach(track => {
+				if (Platform.OS === "ios" && downloadId) {
+					try {
+						console.log(
+							`[Player] (Normal Flavour) [OFFLINE DEBUG] iOS: Resolving subtitle paths from bookmarks`
+						);
+						const toResolve = offlineSubs.map(sub => ({
+							downloadId,
+							language: sub.language,
+						}));
+						const resolvedPaths = await nativeManager.resolveSubtitlePaths(toResolve);
+
+						resolvedSubs = offlineSubs.map(sub => {
+							const key = `${downloadId}:${sub.language}`;
+							const resolvedPath = resolvedPaths.get(key);
+							if (resolvedPath) {
+								console.log(
+									`[Player] (Normal Flavour) [OFFLINE DEBUG] iOS: Resolved ${sub.language}: ${resolvedPath}`
+								);
+								return { ...sub, localPath: resolvedPath };
+							}
+							return sub;
+						});
+					} catch (error) {
+						console.error(
+							`[Player] (Normal Flavour) [OFFLINE DEBUG] iOS: Failed to resolve bookmark paths`,
+							error
+						);
+					}
+				}
+
+				const convertedTracks = resolvedSubs
+					.filter(sub => sub.localPath && sub.state === "COMPLETED")
+					.map(sub => ({
+						title: sub.label,
+						language: sub.language,
+						type: TextTrackType.VTT,
+						uri: sub.localPath!.startsWith("file://")
+							? sub.localPath!
+							: `file://${sub.localPath}`,
+					})) as TextTracks;
+
+				if (convertedTracks.length > 0) {
 					console.log(
-						`[Player] (Normal Flavour) [OFFLINE DEBUG]   - ${track.language}: ${track.uri}`
+						`[Player] (Normal Flavour) [OFFLINE DEBUG] useEffect: Setting ${convertedTracks.length} offline textTracks`
 					);
-				});
-				setOfflineTextTracks(convertedTracks);
-			}
+					convertedTracks.forEach(track => {
+						console.log(
+							`[Player] (Normal Flavour) [OFFLINE DEBUG]   - ${track.language}: ${track.uri}`
+						);
+					});
+					setOfflineTextTracks(convertedTracks);
+				}
+			};
+
+			processSubtitles();
 		}
 	}, [videoSource]);
 
@@ -897,19 +938,69 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					language?: string;
 					label?: string;
 				};
-				currentLogger.current?.info(
-					`handleOnControlsPress: Setting sideloaded subtitle - uri: ${subtitleData.uri}, language: ${subtitleData.language}`
-				);
-				if (subtitleData.uri) {
-					setSelectedTextTrack({
-						type: SelectedTrackType.TITLE,
-						value: subtitleData.uri,
-					});
-				} else if (typeof subtitleData.index === "number") {
-					setSelectedTextTrack({
-						type: SelectedTrackType.INDEX,
-						value: subtitleData.index,
-					});
+
+				// iOS OFFLINE HLS: Los subtítulos están embebidos en el .movpkg descargado con
+				// AVAggregateAssetDownloadTask. NO usamos VTT sideloaded - usamos el índice
+				// para que AVPlayer seleccione el subtítulo via AVMediaSelection.
+				// Solo Android usa VTT sideloaded para offline.
+				const isIOSOfflineHLS =
+					Platform.OS === "ios" &&
+					sourceRef.current?.isDownloaded &&
+					sourceRef.current?.isHLS;
+
+				if (isIOSOfflineHLS) {
+					// Para iOS offline HLS, usar índice para seleccionar subtítulo embebido
+					if (typeof subtitleData.index === "number") {
+						currentLogger.current?.info(
+							`handleOnControlsPress: iOS offline HLS - Using embedded subtitle index: ${subtitleData.index}, language: ${subtitleData.language}`
+						);
+						if (subtitleData.index === -1) {
+							setSelectedTextTrack({
+								type: SelectedTrackType.DISABLED,
+							});
+						} else {
+							setSelectedTextTrack({
+								type: SelectedTrackType.INDEX,
+								value: subtitleData.index,
+							});
+						}
+					}
+				} else {
+					// Android o iOS online: usar VTT sideloaded con URI
+					// On iOS offline playback (non-HLS), use the resolved path from offlineTextTracks
+					// instead of the menuData path (which may have stale UUID)
+					let resolvedUri = subtitleData.uri;
+					if (
+						Platform.OS === "ios" &&
+						offlineTextTracks &&
+						offlineTextTracks.length > 0 &&
+						subtitleData.language
+					) {
+						const resolvedTrack = offlineTextTracks.find(
+							track => track.language === subtitleData.language
+						);
+						if (resolvedTrack?.uri) {
+							console.log(
+								`[Player] (Normal Flavour) [OFFLINE DEBUG] Using resolved iOS path for ${subtitleData.language}: ${resolvedTrack.uri}`
+							);
+							resolvedUri = resolvedTrack.uri;
+						}
+					}
+
+					currentLogger.current?.info(
+						`handleOnControlsPress: Setting sideloaded subtitle - uri: ${resolvedUri}, language: ${subtitleData.language}`
+					);
+					if (resolvedUri) {
+						setSelectedTextTrack({
+							type: SelectedTrackType.TITLE,
+							value: resolvedUri,
+						});
+					} else if (typeof subtitleData.index === "number") {
+						setSelectedTextTrack({
+							type: SelectedTrackType.INDEX,
+							value: subtitleData.index,
+						});
+					}
 				}
 			} else if (typeof value === "number") {
 				if (value === -1) {
@@ -1565,7 +1656,19 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 								: selectedTextTrack
 						}
 						subtitleStyle={props.subtitleStyle}
-						textTracks={offlineTextTracks}
+						textTracks={
+							// iOS OFFLINE HLS SUBTITLES:
+							// For iOS offline HLS content (.movpkg), we DON'T pass sideloaded textTracks.
+							// Instead, subtitles are embedded within the HLS asset during download using
+							// AVAggregateAssetDownloadTask with allMediaSelections (see DownloadsModule2.swift).
+							// The native player selects embedded subtitles via AVMediaSelection.
+							// See: Apple WWDC 2020 Session 10655 "Discover how to download and play HLS offline"
+							//
+							// For Android and iOS online playback, we use sideloaded VTT files (offlineTextTracks).
+							Platform.OS === "ios" && sourceRef.current?.isDownloaded
+								? undefined
+								: offlineTextTracks
+						}
 						// Eventos combinados: originales + analytics
 						onLoadStart={videoEvents.onLoadStart}
 						onLoad={combineEventHandlers(handleOnLoad, videoEvents.onLoad)}

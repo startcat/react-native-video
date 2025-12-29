@@ -218,9 +218,9 @@ class DownloadsModule2: RCTEventEmitter {
     // MARK: - Properties
     private var downloadsSession: AVAssetDownloadURLSession?
     private var activeDownloads: [String: DownloadInfo] = [:]
-    private var downloadTasks: [String: AVAssetDownloadTask] = [:]
+    private var downloadTasks: [String: AVAggregateAssetDownloadTask] = [:]
     private var contentKeySession: AVContentKeySession?
-    
+
     // Configuration
     private var downloadDirectory: String = "Downloads"
     private var tempDirectory: String = "Temp"
@@ -1093,11 +1093,16 @@ class DownloadsModule2: RCTEventEmitter {
         )
         
         // SOLUCIÓN 2: Recuperar tareas pendientes del sistema
-        // Recover pending tasks from iOS
+        // Recover pending tasks from iOS - handles both aggregate (new) and regular (legacy) tasks
         downloadsSession?.getAllTasks { [weak self] tasks in
             guard let self = self else { return }
             for task in tasks {
-                if let assetTask = task as? AVAssetDownloadTask {
+                // Try aggregate task first (new implementation)
+                if let aggregateTask = task as? AVAggregateAssetDownloadTask {
+                    self.recoverPendingTask(aggregateTask)
+                }
+                // Fallback to regular asset task (legacy downloads)
+                else if let assetTask = task as? AVAssetDownloadTask {
                     self.recoverPendingTask(assetTask)
                 }
             }
@@ -1152,7 +1157,7 @@ class DownloadsModule2: RCTEventEmitter {
         return config["id"] != nil && config["uri"] != nil && config["title"] != nil
     }
     
-    private func createDownloadTask(for asset: AVURLAsset, with downloadInfo: DownloadInfo, downloadId: String) throws -> AVAssetDownloadTask {
+    private func createDownloadTask(for asset: AVURLAsset, with downloadInfo: DownloadInfo, downloadId: String) throws -> AVAggregateAssetDownloadTask {
         guard let session = downloadsSession else {
             throw NSError(domain: "DownloadsModule2", code: -1, userInfo: [NSLocalizedDescriptionKey: "Download session not initialized"])
         }
@@ -1170,16 +1175,24 @@ class DownloadsModule2: RCTEventEmitter {
             minBitrate = 2_000_000
         }
         
-        // Use makeAssetDownloadTask with minimum bitrate option
+        // Use aggregateAssetDownloadTask to download video + all media selections (subtitles, audio tracks)
+        // This is the Apple-recommended way to download HLS with embedded subtitles
+        // See: WWDC 2020 - Session 10655 "Discover how to download and play HLS offline"
         let options: [String: Any] = [
             AVAssetDownloadTaskMinimumRequiredMediaBitrateKey: minBitrate
         ]
         
+        // Get all available media selections (includes subtitles and alternative audio)
+        let mediaSelections = asset.allMediaSelections
+        
+        RCTLog("[DownloadsModule2] Creating aggregate download task with \(mediaSelections.count) media selections for ID: \(downloadId)")
+        
         // Use downloadId as assetTitle to avoid special characters in filename
         // iOS uses assetTitle to generate the .movpkg filename
         // Using ID ensures clean filenames without spaces, apostrophes, or other problematic characters
-        let downloadTask = session.makeAssetDownloadTask(
-            asset: asset,
+        let downloadTask = session.aggregateAssetDownloadTask(
+            with: asset,
+            mediaSelections: mediaSelections,
             assetTitle: downloadId,
             assetArtworkData: nil,
             options: options
@@ -1189,7 +1202,7 @@ class DownloadsModule2: RCTEventEmitter {
             throw NSError(
                 domain: "DownloadsModule2",
                 code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "Failed to create download task for ID: \(downloadId)"]
+                userInfo: [NSLocalizedDescriptionKey: "Failed to create aggregate download task for ID: \(downloadId)"]
             )
         }
         
@@ -1412,12 +1425,12 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     
     // MARK: - Progress Tracking
     
-    /// Called periodically to report download progress
-    func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask,
+    /// Called periodically to report download progress for aggregate tasks
+    func urlSession(_ session: URLSession, aggregateAssetDownloadTask: AVAggregateAssetDownloadTask,
                     didLoad timeRange: CMTimeRange, totalTimeRangesLoaded loadedTimeRanges: [NSValue],
-                    timeRangeExpectedToLoad: CMTimeRange) {
+                    timeRangeExpectedToLoad: CMTimeRange, for mediaSelection: AVMediaSelection) {
         
-        guard let downloadId = findDownloadId(for: assetDownloadTask) else {
+        guard let downloadId = findDownloadId(for: aggregateAssetDownloadTask) else {
             print("📥 [DownloadsModule2] Progress update - could not find downloadId for task")
             return
         }
@@ -1493,21 +1506,60 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     
     // MARK: - Completion Handling
     
-    func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask, didFinishDownloadingTo location: URL) {
-        guard let downloadId = findDownloadId(for: assetDownloadTask) else { return }
+    /// Called when the aggregate download task determines the location for the downloaded asset
+    func urlSession(_ session: URLSession, aggregateAssetDownloadTask: AVAggregateAssetDownloadTask,
+                    willDownloadTo location: URL) {
+        guard let downloadId = findDownloadId(for: aggregateAssetDownloadTask) else { return }
         
-        // Check if didCompleteWithError already confirmed success
-        if completedWithoutError.contains(downloadId) {
-            completedWithoutError.remove(downloadId)
-            finalizeDownload(downloadId: downloadId, location: location)
-        } else {
-            // Store location and wait for didCompleteWithError
-            pendingLocations[downloadId] = location
+        RCTLog("[DownloadsModule2] Aggregate task will download to: \(location.path)")
+        
+        // Store the location - this is where the .movpkg will be saved
+        pendingLocations[downloadId] = location
+    }
+    
+    /// Called when a child download task completes for each media selection (subtitles, audio tracks)
+    func urlSession(_ session: URLSession, aggregateAssetDownloadTask: AVAggregateAssetDownloadTask,
+                    didCompleteFor mediaSelection: AVMediaSelection) {
+        guard let downloadId = findDownloadId(for: aggregateAssetDownloadTask) else { return }
+        
+        // Log which media selection completed (for debugging)
+        if let asset = mediaSelection.asset {
+            var selectionInfo = ""
+            for characteristic in asset.availableMediaCharacteristicsWithMediaSelectionOptions {
+                if let group = asset.mediaSelectionGroup(forMediaCharacteristic: characteristic),
+                   let option = mediaSelection.selectedMediaOption(in: group) {
+                    selectionInfo += "\(option.displayName) "
+                }
+            }
+            RCTLog("[DownloadsModule2] Media selection completed for \(downloadId): \(selectionInfo)")
         }
     }
     
+    // Legacy method for AVAssetDownloadTask (kept for compatibility)
+    func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask, didFinishDownloadingTo location: URL) {
+        // This is called for non-aggregate tasks - we now use aggregate tasks
+        // but keep this for backwards compatibility
+        RCTLog("[DownloadsModule2] Legacy didFinishDownloadingTo called - this should not happen with aggregate tasks")
+    }
+    
+    // Legacy progress method for AVAssetDownloadTask (kept for compatibility)
+    func urlSession(_ session: URLSession, assetDownloadTask: AVAssetDownloadTask,
+                    didLoad timeRange: CMTimeRange, totalTimeRangesLoaded loadedTimeRanges: [NSValue],
+                    timeRangeExpectedToLoad: CMTimeRange) {
+        // This is called for non-aggregate tasks - we now use aggregate tasks
+        RCTLog("[DownloadsModule2] Legacy progress callback called - this should not happen with aggregate tasks")
+    }
+    
+    // Completion handler for all URLSession tasks
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard let downloadId = findDownloadId(for: task as! AVAssetDownloadTask) else { return }
+        // Try to find download ID - handle both aggregate and regular tasks
+        var downloadId: String?
+        
+        if let aggregateTask = task as? AVAggregateAssetDownloadTask {
+            downloadId = findDownloadId(for: aggregateTask)
+        }
+        
+        guard let downloadId = downloadId else { return }
         
         if let error = error {
             let nsError = error as NSError
@@ -1660,7 +1712,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         
     }
     
-    private func findDownloadId(for task: AVAssetDownloadTask) -> String? {
+    private func findDownloadId(for task: AVAggregateAssetDownloadTask) -> String? {
         return downloadTasks.first { $0.value == task }?.key
     }
     
@@ -1919,32 +1971,52 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     }
     
     /// Recuperar una tarea pendiente de iOS y reconectarla con activeDownloads
-    private func recoverPendingTask(_ task: AVAssetDownloadTask) {
-        // Buscar en activeDownloads si tenemos información de esta descarga
-        // Como no tenemos un mapeo directo de taskIdentifier a downloadId,
-        // intentamos emparejar por URL del asset
-        
-        let urlAsset = task.urlAsset
-        let taskURL = urlAsset.url.absoluteString
-        
-        // Buscar download que coincida con esta URL
-        for (downloadId, downloadInfo) in activeDownloads {
-            if downloadInfo.uri == taskURL {
-                // Reconectar task con downloadId
-                downloadTasks[downloadId] = task
-                
-                // Si la tarea está en estado suspendido, mantener el estado pausado
-                if task.state == .suspended {
-                    var info = downloadInfo
-                    info.state = .paused
-                    activeDownloads[downloadId] = info
-                } else if task.state == .running {
-                    var info = downloadInfo
-                    info.state = .downloading
-                    activeDownloads[downloadId] = info
+    /// Now handles both AVAggregateAssetDownloadTask (new) and AVAssetDownloadTask (legacy)
+    private func recoverPendingTask(_ task: URLSessionTask) {
+        // Handle aggregate tasks (new implementation)
+        if let aggregateTask = task as? AVAggregateAssetDownloadTask {
+            let urlAsset = aggregateTask.urlAsset
+            let taskURL = urlAsset.url.absoluteString
+            
+            for (downloadId, downloadInfo) in activeDownloads {
+                if downloadInfo.uri == taskURL {
+                    downloadTasks[downloadId] = aggregateTask
+                    
+                    if task.state == .suspended {
+                        var info = downloadInfo
+                        info.state = .paused
+                        activeDownloads[downloadId] = info
+                    } else if task.state == .running {
+                        var info = downloadInfo
+                        info.state = .downloading
+                        activeDownloads[downloadId] = info
+                    }
+                    return
                 }
-                
-                return
+            }
+        }
+        // Legacy: Handle non-aggregate tasks (for backwards compatibility with existing downloads)
+        else if let assetTask = task as? AVAssetDownloadTask {
+            let urlAsset = assetTask.urlAsset
+            let taskURL = urlAsset.url.absoluteString
+            
+            for (downloadId, downloadInfo) in activeDownloads {
+                if downloadInfo.uri == taskURL {
+                    // Legacy task - cannot add to new downloadTasks dictionary
+                    // Just update state, the task will continue but won't be tracked
+                    RCTLog("[DownloadsModule2] Found legacy AVAssetDownloadTask for \(downloadId) - will complete but not tracked")
+                    
+                    if task.state == .suspended {
+                        var info = downloadInfo
+                        info.state = .paused
+                        activeDownloads[downloadId] = info
+                    } else if task.state == .running {
+                        var info = downloadInfo
+                        info.state = .downloading
+                        activeDownloads[downloadId] = info
+                    }
+                    return
+                }
             }
         }
     }

@@ -492,7 +492,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 
                 let offlineAsset = AVURLAsset(url: assetURL)
                 RCTLog("[OFFLINE] Created AVURLAsset for offline playback")
-                // Para contenido offline sin DRM, los subtítulos se manejan vía setSelectedTextTrack/setSideloadedText
+                // For offline HLS content, sideloaded subtitles are handled via setSelectedTextTrack/setSideloadedText
+                // Note: AVMutableComposition doesn't work with HLS .movpkg assets
                 return AVPlayerItem(asset: offlineAsset)
             }
             
