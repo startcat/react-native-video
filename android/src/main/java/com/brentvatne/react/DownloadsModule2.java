@@ -1691,10 +1691,12 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             Log.d(TAG, "Applying track selection for quality: " + quality);
             
             if (!"auto".equals(quality)) {
-                // Select specific quality variant
+                // Select specific quality variant (also selects all audio tracks)
                 selectQualityTracks(helper, quality);
             } else {
-                Log.d(TAG, "Using auto quality - all tracks will be downloaded");
+                // Auto quality: select all audio tracks to ensure all languages are available offline
+                Log.d(TAG, "Using auto quality - selecting all audio tracks for offline playback");
+                selectAllAudioTracks(helper);
             }
 
             // Create download request from the prepared helper with our custom ID
@@ -1826,15 +1828,12 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                     if (trackType == C.TRACK_TYPE_VIDEO) {
                         // Video track - select based on bitrate
                         selectVideoTrackByBitrate(helper, mappedTrackInfo, periodIndex, rendererIndex, maxBitrate);
+                    } else if (trackType == C.TRACK_TYPE_AUDIO) {
+                        // Audio tracks - select ALL track groups explicitly
+                        selectAllTracksForRenderer(helper, mappedTrackInfo, periodIndex, rendererIndex, "AUDIO");
                     } else {
-                        // Audio and text tracks - select all
-                        helper.addTrackSelectionForSingleRenderer(
-                            periodIndex,
-                            rendererIndex,
-                            androidx.media3.exoplayer.offline.DownloadHelper.getDefaultTrackSelectorParameters(reactContext),
-                            new ArrayList<>()  // Empty list = select all tracks for this renderer
-                        );
-                        Log.d(TAG, "Period " + periodIndex + ", Renderer " + rendererIndex + " (type " + trackType + "): selecting all tracks");
+                        // Text and other tracks - select all
+                        selectAllTracksForRenderer(helper, mappedTrackInfo, periodIndex, rendererIndex, "TEXT");
                     }
                 }
             }
@@ -1843,6 +1842,110 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             
         } catch (Exception e) {
             Log.e(TAG, "Error selecting quality tracks: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Select ALL track groups for a specific renderer by extracting languages and using
+     * the Media3 convenience methods.
+     */
+    private void selectAllTracksForRenderer(DownloadHelper helper,
+                                           androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo mappedTrackInfo,
+                                           int periodIndex,
+                                           int rendererIndex,
+                                           String trackTypeName) {
+        try {
+            androidx.media3.exoplayer.source.TrackGroupArray trackGroups = mappedTrackInfo.getTrackGroups(rendererIndex);
+            Log.d(TAG, "Period " + periodIndex + ", Renderer " + rendererIndex + " (" + trackTypeName + "): found " + trackGroups.length + " track groups");
+            
+            // Collect all languages from the track groups
+            List<String> languages = new ArrayList<>();
+            for (int groupIndex = 0; groupIndex < trackGroups.length; groupIndex++) {
+                androidx.media3.common.TrackGroup trackGroup = trackGroups.get(groupIndex);
+                for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
+                    androidx.media3.common.Format format = trackGroup.getFormat(trackIndex);
+                    Log.d(TAG, "  " + trackTypeName + " track: group=" + groupIndex + ", track=" + trackIndex + 
+                        ", language=" + format.language + ", label=" + format.label);
+                    if (format.language != null && !languages.contains(format.language)) {
+                        languages.add(format.language);
+                    }
+                }
+            }
+            
+            Log.d(TAG, "Period " + periodIndex + ", Renderer " + rendererIndex + " (" + trackTypeName + "): found " + languages.size() + " languages: " + languages);
+            
+            // Use the convenience methods to add all languages
+            if ("AUDIO".equals(trackTypeName) && !languages.isEmpty()) {
+                String[] langArray = languages.toArray(new String[0]);
+                helper.addAudioLanguagesToSelection(langArray);
+                Log.d(TAG, "Added " + langArray.length + " audio languages to selection");
+            } else if ("TEXT".equals(trackTypeName) && !languages.isEmpty()) {
+                String[] langArray = languages.toArray(new String[0]);
+                helper.addTextLanguagesToSelection(true, langArray);
+                Log.d(TAG, "Added " + langArray.length + " text languages to selection");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error selecting all tracks for renderer " + rendererIndex + ": " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Select all audio tracks for download when using auto quality.
+     * This ensures all audio languages are available for offline playback.
+     * Uses Media3 convenience methods to add all audio languages.
+     */
+    private void selectAllAudioTracks(DownloadHelper helper) {
+        try {
+            Log.d(TAG, "Selecting all audio tracks for offline playback (auto quality)");
+            
+            // Collect all audio languages from all periods
+            List<String> audioLanguages = new ArrayList<>();
+            
+            for (int periodIndex = 0; periodIndex < helper.getPeriodCount(); periodIndex++) {
+                androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo mappedTrackInfo = 
+                    helper.getMappedTrackInfo(periodIndex);
+                
+                if (mappedTrackInfo == null) {
+                    Log.w(TAG, "MappedTrackInfo is null for period " + periodIndex);
+                    continue;
+                }
+                
+                // Find audio renderer and collect languages
+                for (int rendererIndex = 0; rendererIndex < mappedTrackInfo.getRendererCount(); rendererIndex++) {
+                    int trackType = mappedTrackInfo.getRendererType(rendererIndex);
+                    
+                    if (trackType == C.TRACK_TYPE_AUDIO) {
+                        androidx.media3.exoplayer.source.TrackGroupArray trackGroups = mappedTrackInfo.getTrackGroups(rendererIndex);
+                        Log.d(TAG, "Period " + periodIndex + ", Audio renderer " + rendererIndex + ": found " + trackGroups.length + " track groups");
+                        
+                        for (int groupIndex = 0; groupIndex < trackGroups.length; groupIndex++) {
+                            androidx.media3.common.TrackGroup trackGroup = trackGroups.get(groupIndex);
+                            for (int trackIndex = 0; trackIndex < trackGroup.length; trackIndex++) {
+                                androidx.media3.common.Format format = trackGroup.getFormat(trackIndex);
+                                Log.d(TAG, "  Audio track: group=" + groupIndex + ", track=" + trackIndex + 
+                                    ", language=" + format.language + ", label=" + format.label);
+                                if (format.language != null && !audioLanguages.contains(format.language)) {
+                                    audioLanguages.add(format.language);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Add all audio languages to selection
+            if (!audioLanguages.isEmpty()) {
+                String[] langArray = audioLanguages.toArray(new String[0]);
+                Log.d(TAG, "Adding " + langArray.length + " audio languages to selection: " + audioLanguages);
+                helper.addAudioLanguagesToSelection(langArray);
+                Log.d(TAG, "All audio languages added to selection");
+            } else {
+                Log.w(TAG, "No audio languages found to add");
+            }
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error selecting all audio tracks: " + e.getMessage(), e);
         }
     }
     

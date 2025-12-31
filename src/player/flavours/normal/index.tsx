@@ -966,40 +966,38 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						}
 					}
 				} else {
-					// Android o iOS online: usar VTT sideloaded con URI
-					// On iOS offline playback (non-HLS), use the resolved path from offlineTextTracks
-					// instead of the menuData path (which may have stale UUID)
-					let resolvedUri = subtitleData.uri;
-					if (
-						Platform.OS === "ios" &&
-						offlineTextTracks &&
-						offlineTextTracks.length > 0 &&
-						subtitleData.language
-					) {
-						const resolvedTrack = offlineTextTracks.find(
-							track => track.language === subtitleData.language
+					// Android offline o iOS online: usar selección por idioma para VTT sideloaded
+					// Android: ExoPlayer busca por format.language cuando usamos LANGUAGE type
+					// Los VTT sideloaded se registran con su código de idioma (ca, es, en, fr)
+					if (subtitleData.language) {
+						currentLogger.current?.info(
+							`handleOnControlsPress: Setting sideloaded subtitle by language: ${subtitleData.language}`
 						);
-						if (resolvedTrack?.uri) {
-							console.log(
-								`[Player] (Normal Flavour) [OFFLINE DEBUG] Using resolved iOS path for ${subtitleData.language}: ${resolvedTrack.uri}`
-							);
-							resolvedUri = resolvedTrack.uri;
+						if (subtitleData.index === -1) {
+							setSelectedTextTrack({
+								type: SelectedTrackType.DISABLED,
+							});
+						} else {
+							setSelectedTextTrack({
+								type: SelectedTrackType.LANGUAGE,
+								value: subtitleData.language,
+							});
 						}
-					}
-
-					currentLogger.current?.info(
-						`handleOnControlsPress: Setting sideloaded subtitle - uri: ${resolvedUri}, language: ${subtitleData.language}`
-					);
-					if (resolvedUri) {
-						setSelectedTextTrack({
-							type: SelectedTrackType.TITLE,
-							value: resolvedUri,
-						});
 					} else if (typeof subtitleData.index === "number") {
-						setSelectedTextTrack({
-							type: SelectedTrackType.INDEX,
-							value: subtitleData.index,
-						});
+						// Fallback a índice si no hay idioma
+						currentLogger.current?.info(
+							`handleOnControlsPress: Setting sideloaded subtitle by index: ${subtitleData.index}`
+						);
+						if (subtitleData.index === -1) {
+							setSelectedTextTrack({
+								type: SelectedTrackType.DISABLED,
+							});
+						} else {
+							setSelectedTextTrack({
+								type: SelectedTrackType.INDEX,
+								value: subtitleData.index,
+							});
+						}
 					}
 				}
 			} else if (typeof value === "number") {
