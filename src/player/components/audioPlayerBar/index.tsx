@@ -5,6 +5,7 @@ import BackgroundTimer from "react-native-background-timer";
 import { EventRegister } from "react-native-event-listeners";
 import {
 	CastState as NativeCastState,
+	useCastSession,
 	useCastState as useNativeCastState,
 } from "react-native-google-cast";
 import Animated, { useSharedValue, withSpring, withTiming } from "react-native-reanimated";
@@ -59,6 +60,38 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 	}
 
 	const nativeCastState = useNativeCastState();
+	const castSession = useCastSession();
+
+	// Ref para recordar si Cast estaba activo - evita fluctuaciones de estado en background
+	const wasCastActiveRef = useRef<boolean>(false);
+
+	// Determinar si Cast está realmente activo usando múltiples fuentes de verdad
+	// La sesión Cast es más estable que el estado nativo cuando la app va a background
+	const isCastActive =
+		nativeCastState === NativeCastState.CONNECTING ||
+		nativeCastState === NativeCastState.CONNECTED ||
+		(castSession !== null && wasCastActiveRef.current);
+
+	// Actualizar el ref cuando Cast está definitivamente conectado o desconectado
+	useEffect(() => {
+		console.log(
+			`[Audio Player Bar] Cast state check - nativeCastState: ${nativeCastState}, hasSession: ${castSession !== null}, wasCastActive: ${wasCastActiveRef.current}, isCastActive: ${isCastActive}`
+		);
+
+		if (nativeCastState === NativeCastState.CONNECTED) {
+			wasCastActiveRef.current = true;
+			console.log("[Audio Player Bar] Cast connected - marking as active");
+		} else if (nativeCastState === NativeCastState.NOT_CONNECTED && castSession === null) {
+			// Solo marcar como inactivo cuando AMBOS indican desconexión
+			wasCastActiveRef.current = false;
+			console.log("[Audio Player Bar] Cast fully disconnected - marking as inactive");
+		} else if (castSession !== null && wasCastActiveRef.current) {
+			// Cast session exists but native state changed - likely background fluctuation
+			console.log(
+				"[Audio Player Bar] Cast session still exists despite state change - keeping Cast active to prevent ad playback"
+			);
+		}
+	}, [nativeCastState, castSession, isCastActive]);
 
 	useEffect(() => {
 		const changesAudioPlayerListener = EventRegister.addEventListener(
@@ -298,10 +331,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 					)
 				: null}
 
-			{contentId?.current &&
-			dpoData &&
-			nativeCastState !== NativeCastState.CONNECTING &&
-			nativeCastState !== NativeCastState.CONNECTED ? (
+			{contentId?.current && dpoData && !isCastActive ? (
 				<AudioFlavour
 					playerContext={playerContext.current}
 					manifests={dpoData.manifests}
@@ -340,10 +370,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 				/>
 			) : null}
 
-			{contentId?.current &&
-			dpoData &&
-			(nativeCastState === NativeCastState.CONNECTING ||
-				nativeCastState === NativeCastState.CONNECTED) ? (
+			{contentId?.current && dpoData && isCastActive ? (
 				<AudioCastFlavour
 					playerContext={playerContext.current}
 					manifests={dpoData.manifests}

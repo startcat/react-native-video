@@ -5,6 +5,7 @@ import BackgroundTimer from "react-native-background-timer";
 import DeviceInfo from "react-native-device-info";
 import {
 	CastState as NativeCastState,
+	useCastSession,
 	useCastState as useNativeCastState,
 } from "react-native-google-cast";
 import Orientation, { useOrientationChange } from "react-native-orientation-locker";
@@ -77,6 +78,34 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	const [hasCorrectCastState, setCorrectCastState] = useState<boolean>(false);
 
 	const nativeCastState = useNativeCastState();
+	const castSession = useCastSession();
+
+	// Ref para recordar si Cast estaba activo - evita fluctuaciones de estado en background
+	const wasCastActiveRef = useRef<boolean>(false);
+
+	// Determinar si Cast está realmente activo usando múltiples fuentes de verdad
+	// La sesión Cast es más estable que el estado nativo cuando la app va a background
+	const isCastActive =
+		nativeCastState === NativeCastState.CONNECTING ||
+		nativeCastState === NativeCastState.CONNECTED ||
+		(castSession !== null && wasCastActiveRef.current);
+
+	// Actualizar el ref cuando Cast está definitivamente conectado o desconectado
+	React.useEffect(() => {
+		if (nativeCastState === NativeCastState.CONNECTED) {
+			wasCastActiveRef.current = true;
+			currentLogger.current?.debug("[Player] Cast connected - marking as active");
+		} else if (nativeCastState === NativeCastState.NOT_CONNECTED && castSession === null) {
+			// Solo marcar como inactivo cuando AMBOS indican desconexión
+			wasCastActiveRef.current = false;
+			currentLogger.current?.debug("[Player] Cast fully disconnected - marking as inactive");
+		} else if (castSession !== null && wasCastActiveRef.current) {
+			// Cast session exists but native state changed - likely background fluctuation
+			currentLogger.current?.debug(
+				`[Player] Cast session still exists despite state change (${nativeCastState}) - keeping Cast active to prevent ad playback`
+			);
+		}
+	}, [nativeCastState, castSession]);
 
 	if (!playerLogger.current) {
 		playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
@@ -299,12 +328,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		}
 	};
 
-	if (
-		hasRotated &&
-		hasCorrectCastState &&
-		(nativeCastState === NativeCastState.CONNECTING ||
-			nativeCastState === NativeCastState.CONNECTED)
-	) {
+	if (hasRotated && hasCorrectCastState && isCastActive) {
 		currentLogger.current?.debug("Mounting CastFlavour...");
 		isCasting.current = true;
 		return (
@@ -345,12 +369,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 				/>
 			</Suspense>
 		);
-	} else if (
-		hasRotated &&
-		hasCorrectCastState &&
-		nativeCastState !== NativeCastState.CONNECTING &&
-		nativeCastState !== NativeCastState.CONNECTED
-	) {
+	} else if (hasRotated && hasCorrectCastState && !isCastActive) {
 		currentLogger.current?.debug("Mounting NormalFlavour...");
 		isCasting.current = false;
 		return (
