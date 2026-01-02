@@ -78,34 +78,65 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	const [hasCorrectCastState, setCorrectCastState] = useState<boolean>(false);
 
 	const nativeCastState = useNativeCastState();
-	const castSession = useCastSession();
+	// castSession no se usa directamente pero useCastSession se mantiene por si se necesita en el futuro
+	useCastSession();
 
 	// Ref para recordar si Cast estaba activo - evita fluctuaciones de estado en background
 	const wasCastActiveRef = useRef<boolean>(false);
+	// Estado con delay para evitar fluctuaciones rápidas
+	const [stableCastActive, setStableCastActive] = useState<boolean>(false);
+	const disconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-	// Determinar si Cast está realmente activo usando múltiples fuentes de verdad
-	// La sesión Cast es más estable que el estado nativo cuando la app va a background
-	const isCastActive =
+	// Tiempo de gracia antes de considerar Cast como desconectado (5 segundos)
+	const CAST_DISCONNECT_GRACE_PERIOD_MS = 5000;
+
+	// Determinar si Cast está conectado según el estado nativo
+	const isNativeCastConnected =
 		nativeCastState === NativeCastState.CONNECTING ||
-		nativeCastState === NativeCastState.CONNECTED ||
-		(castSession !== null && wasCastActiveRef.current);
+		nativeCastState === NativeCastState.CONNECTED;
 
-	// Actualizar el ref cuando Cast está definitivamente conectado o desconectado
+	// Usar el estado estable para decidir qué flavour renderizar
+	const isCastActive = stableCastActive || isNativeCastConnected;
+
+	// Manejar cambios de estado de Cast con timeout de gracia
 	React.useEffect(() => {
-		if (nativeCastState === NativeCastState.CONNECTED) {
+		console.log(
+			`[Player] Cast state change - nativeCastState: ${nativeCastState}, isNativeCastConnected: ${isNativeCastConnected}, stableCastActive: ${stableCastActive}, wasCastActive: ${wasCastActiveRef.current}`
+		);
+
+		if (isNativeCastConnected) {
+			// Cast está conectado - cancelar cualquier timeout de desconexión pendiente
+			if (disconnectTimeoutRef.current) {
+				console.log("[Player] Cast connected - cancelling disconnect timeout");
+				clearTimeout(disconnectTimeoutRef.current);
+				disconnectTimeoutRef.current = null;
+			}
 			wasCastActiveRef.current = true;
-			currentLogger.current?.debug("[Player] Cast connected - marking as active");
-		} else if (nativeCastState === NativeCastState.NOT_CONNECTED && castSession === null) {
-			// Solo marcar como inactivo cuando AMBOS indican desconexión
-			wasCastActiveRef.current = false;
-			currentLogger.current?.debug("[Player] Cast fully disconnected - marking as inactive");
-		} else if (castSession !== null && wasCastActiveRef.current) {
-			// Cast session exists but native state changed - likely background fluctuation
-			currentLogger.current?.debug(
-				`[Player] Cast session still exists despite state change (${nativeCastState}) - keeping Cast active to prevent ad playback`
+			setStableCastActive(true);
+			console.log("[Player] Cast connected - marking as active");
+		} else if (wasCastActiveRef.current && !disconnectTimeoutRef.current) {
+			// Cast se desconectó pero estaba activo - iniciar timeout de gracia
+			console.log(
+				`[Player] Cast disconnected - starting ${CAST_DISCONNECT_GRACE_PERIOD_MS}ms grace period before switching to NormalFlavour`
 			);
+			disconnectTimeoutRef.current = setTimeout(() => {
+				console.log(
+					"[Player] Cast disconnect grace period ended - switching to NormalFlavour"
+				);
+				wasCastActiveRef.current = false;
+				setStableCastActive(false);
+				disconnectTimeoutRef.current = null;
+			}, CAST_DISCONNECT_GRACE_PERIOD_MS);
 		}
-	}, [nativeCastState, castSession]);
+
+		return () => {
+			// Cleanup timeout on unmount
+			if (disconnectTimeoutRef.current) {
+				clearTimeout(disconnectTimeoutRef.current);
+			}
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [nativeCastState, isNativeCastConnected]);
 
 	if (!playerLogger.current) {
 		playerLogger.current = LoggerFactory.createFromConfig(__DEV__);
