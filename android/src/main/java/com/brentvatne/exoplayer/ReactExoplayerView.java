@@ -2811,7 +2811,8 @@ public class ReactExoplayerView extends FrameLayout implements
             npawPlugin = null;
         }
 
-        currentYouboraOptions = null;
+        // No limpiar currentYouboraOptions aquí porque se necesita para el próximo videoAdapter
+        // Se actualiza en setYoubora cuando llegan nuevas opciones
 
     }
 
