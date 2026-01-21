@@ -290,6 +290,7 @@ public class ReactExoplayerView extends FrameLayout implements
     // Dani Youbora
     private NpawPlugin npawPlugin = null;
     private VideoAdapter videoAdapter = null;
+    private AnalyticsOptions currentYouboraOptions = null;
     //private ImaAdapter imaAdapter = null;
 
     // Dani Offline
@@ -1106,8 +1107,13 @@ public class ReactExoplayerView extends FrameLayout implements
             videoAdapter = npawPlugin.videoBuilder()
                     .setPlayerAdapter(new Media3ExoPlayerAdapter(this.themedReactContext, player))
                     .build();
+            
+            // Re-apply contentMetadata to videoAdapter options after creation
+            if (currentYouboraOptions != null && currentYouboraOptions.getContentMetadata() != null) {
+                videoAdapter.getOptions().setContentMetadata(currentYouboraOptions.getContentMetadata());
+            }
+            
             videoAdapter.getPlayerAdapter().fireStart();
-
         }
 
         /*
@@ -2762,17 +2768,20 @@ public class ReactExoplayerView extends FrameLayout implements
 
         if (youboraOptions != null) {
 
+            // Guardar las opciones para re-aplicar contentMetadata después
+            currentYouboraOptions = youboraOptions;
+
             if (npawPlugin != null) {
                 this.clearYoubora();
             }
 
-            if (npawPlugin == null){
+            if (npawPlugin == null) {
                 NpawPlugin.Builder builder = new NpawPlugin.Builder(
                         this.themedReactContext.getCurrentActivity(),
                         accountCode);
 
                 builder.setAnalyticsOptions(youboraOptions);
-                //builder.setLogLevel(com.npaw.core.util.extensions.Log.Level.DEBUG);
+                builder.setLogLevel(com.npaw.core.util.extensions.Log.Level.DEBUG);
 
                 NpawPluginProvider.initialize(builder);
             }
@@ -2801,6 +2810,8 @@ public class ReactExoplayerView extends FrameLayout implements
             npawPlugin.destroy();
             npawPlugin = null;
         }
+
+        currentYouboraOptions = null;
 
     }
 

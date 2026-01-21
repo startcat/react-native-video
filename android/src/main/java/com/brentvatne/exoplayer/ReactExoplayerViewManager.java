@@ -3,6 +3,7 @@ package com.brentvatne.exoplayer;
 import android.content.Context;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -21,6 +22,8 @@ import com.brentvatne.common.toolbox.DebugLog;
 import com.brentvatne.common.toolbox.ReactBridgeUtils;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.ReadableMapKeySetIterator;
+import com.facebook.react.bridge.ReadableType;
 import com.facebook.react.common.MapBuilder;
 import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.ViewGroupManager;
@@ -399,7 +402,6 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 
 	@ReactProp(name = PROP_YOUBORA)
 	public void setYoubora(final ReactExoplayerView videoView, @Nullable ReadableMap youbora) {
-
 		String accountCode = youbora.hasKey("accountCode") ? youbora.getString("accountCode") : null;
 		Map<String, String> metadata = new HashMap<String, String>();
 
@@ -462,6 +464,42 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 
 			if (youbora.hasKey("contentLanguage")) {
 				analyticsOptions.setContentLanguage(youbora.getString("contentLanguage"));
+			}
+
+			if (youbora.hasKey("contentSaga")) {
+				analyticsOptions.setContentSaga(youbora.getString("contentSaga"));
+			}
+
+			if (youbora.hasKey("contentSubtitles")) {
+				analyticsOptions.setContentSubtitles(youbora.getString("contentSubtitles"));
+			}
+
+			if (youbora.hasKey("contentDrm")) {
+				analyticsOptions.setContentDrm(youbora.getString("contentDrm"));
+			}
+
+			if (youbora.hasKey("contentStreamingProtocol")) {
+				analyticsOptions.setContentStreamingProtocol(youbora.getString("contentStreamingProtocol"));
+			}
+
+			if (youbora.hasKey("contentMetadata")) {
+				ReadableMap metadataMap = youbora.getMap("contentMetadata");
+				if (metadataMap != null) {
+					Map<String, Object> contentMetadata = new HashMap<>();
+					ReadableMapKeySetIterator iterator = metadataMap.keySetIterator();
+					while (iterator.hasNextKey()) {
+						String key = iterator.nextKey();
+						ReadableType type = metadataMap.getType(key);
+						if (type == ReadableType.String) {
+							contentMetadata.put(key, metadataMap.getString(key));
+						} else if (type == ReadableType.Number) {
+							contentMetadata.put(key, metadataMap.getDouble(key));
+						} else if (type == ReadableType.Boolean) {
+							contentMetadata.put(key, metadataMap.getBoolean(key));
+						}
+					}
+					analyticsOptions.setContentMetadata(contentMetadata);
+				}
 			}
 
 			if (youbora.hasKey("extraparam1")) {

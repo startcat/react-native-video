@@ -1,23 +1,24 @@
 import React, {
-	useState,
+	forwardRef,
 	useCallback,
+	useImperativeHandle,
 	useMemo,
 	useRef,
-	forwardRef,
-	useImperativeHandle,
+	useState,
 	type ComponentRef,
 } from "react";
 import {
-	View,
-	StyleSheet,
 	Image,
 	Platform,
-	type StyleProp,
+	StyleSheet,
+	View,
 	type ImageStyle,
 	type NativeSyntheticEvent,
+	type StyleProp,
 } from "react-native";
 
 import NativeVideoComponent, {
+	VideoManager,
 	type OnAudioFocusChangedData,
 	type OnAudioTracksData,
 	type OnBandwidthUpdateData,
@@ -37,9 +38,8 @@ import NativeVideoComponent, {
 	type VideoComponentType,
 	type VideoSrc,
 } from "./specs/VideoNativeComponent";
+import type { OnLoadData, OnReceiveAdEventData, OnTextTracksData, ReactVideoProps } from "./types";
 import { generateHeaderForNative, getReactTag, resolveAssetSourceForVideo } from "./utils";
-import { VideoManager } from "./specs/VideoNativeComponent";
-import type { OnLoadData, OnTextTracksData, OnReceiveAdEventData, ReactVideoProps } from "./types";
 
 export type VideoSaveData = {
 	uri: string;
@@ -197,10 +197,15 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 				contentTitle2: youbora.contentTitle2?.toString(),
 				contentIsLive: !!youbora.contentIsLive,
 				contentPlaybackType: youbora.contentPlaybackType?.toString(),
+				contentSaga: youbora.contentSaga?.toString(),
 				contentTvShow: youbora.contentTvShow?.toString(),
 				contentSeason: youbora.contentSeason?.toString(),
 				contentEpisodeTitle: youbora.contentEpisodeTitle?.toString(),
 				contentLanguage: youbora.contentLanguage?.toString(),
+				contentSubtitles: youbora.contentSubtitles?.toString(),
+				contentDrm: youbora.contentDrm?.toString(),
+				contentStreamingProtocol: youbora.contentStreamingProtocol?.toString(),
+				contentMetadata: youbora.contentMetadata,
 				extraparam1: youbora.extraparam1?.toString(),
 				extraparam2: youbora.extraparam2?.toString(),
 				extraparam3: youbora.extraparam3?.toString(),

@@ -14,6 +14,11 @@ struct YouboraParams {
     let contentChannel: String?
     let contentEpisodeTitle: String?
     let contentLanguage: String?
+    let contentSaga: String?
+    let contentSubtitles: String?
+    let contentDrm: String?
+    let contentStreamingProtocol: String?
+    let contentMetadata: [String: Any]?
     let extraparam1: String?
     let extraparam2: String?
     let extraparam3: String?
@@ -46,6 +51,11 @@ struct YouboraParams {
             self.contentSeason = nil
             self.contentEpisodeTitle = nil
             self.contentLanguage = nil
+            self.contentSaga = nil
+            self.contentSubtitles = nil
+            self.contentDrm = nil
+            self.contentStreamingProtocol = nil
+            self.contentMetadata = nil
           
             self.extraparam1 = nil
             self.extraparam2 = nil
@@ -76,6 +86,11 @@ struct YouboraParams {
         self.contentSeason = json["contentSeason"] as? String
         self.contentEpisodeTitle = json["contentEpisodeTitle"] as? String
         self.contentLanguage = json["contentLanguage"] as? String
+        self.contentSaga = json["contentSaga"] as? String
+        self.contentSubtitles = json["contentSubtitles"] as? String
+        self.contentDrm = json["contentDrm"] as? String
+        self.contentStreamingProtocol = json["contentStreamingProtocol"] as? String
+        self.contentMetadata = json["contentMetadata"] as? [String: Any]
       
         self.extraparam1 = json["extraparam1"] as? String
         self.extraparam2 = json["extraparam2"] as? String

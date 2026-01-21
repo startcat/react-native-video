@@ -78,6 +78,10 @@ type Youbora = Readonly<{
 	contentSeason?: string;
 	contentEpisodeTitle?: string;
 	contentLanguage?: string;
+	contentSubtitles?: string;
+	contentDrm?: string;
+	contentStreamingProtocol?: string;
+	contentMetadata?: Readonly<{ [key: string]: string }>;
 	extraparam1?: string;
 	extraparam2?: string;
 	extraparam3?: string;

@@ -543,6 +543,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             analyticsOptions.contentEpisodeTitle = self._youbora?.contentEpisodeTitle
             analyticsOptions.contentLanguage = self._youbora?.contentLanguage
             analyticsOptions.contentChannel = self._youbora?.contentChannel
+            analyticsOptions.contentSaga = self._youbora?.contentSaga
+            analyticsOptions.contentSubtitles = self._youbora?.contentSubtitles
+            analyticsOptions.contentDrm = self._youbora?.contentDrm
+            analyticsOptions.contentStreamingProtocol = self._youbora?.contentStreamingProtocol
+            
+            if let metadata = self._youbora?.contentMetadata {
+                analyticsOptions.contentMetadata = metadata
+            }
             
             analyticsOptions.contentCustomDimension1 = self._youbora?.extraparam1
             analyticsOptions.contentCustomDimension2 = self._youbora?.extraparam2
