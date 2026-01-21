@@ -1,9 +1,9 @@
-import type { ISO639_1 } from "./language";
-import type { ReactVideoEvents } from "./events";
-import type { StyleProp, ViewProps, ViewStyle, ImageSourcePropType } from "react-native";
-import type VideoResizeMode from "./ResizeMode";
-import type FilterType from "./FilterType";
+import type { StyleProp, ViewProps, ViewStyle } from "react-native";
 import type { Headers } from "../player/types";
+import type { ReactVideoEvents } from "./events";
+import type FilterType from "./FilterType";
+import type { ISO639_1 } from "./language";
+import type VideoResizeMode from "./ResizeMode";
 
 export type EnumValues<T extends string | number> = T extends string ? `${T}` | T : T;
 
@@ -84,6 +84,10 @@ export type Youbora = Readonly<{
 	contentSeason?: string;
 	contentEpisodeTitle?: string;
 	contentLanguage?: string;
+	contentSubtitles?: string;
+	contentDrm?: string;
+	contentStreamingProtocol?: string;
+	contentMetadata?: Readonly<{ [key: string]: string }>;
 	extraparam1?: string;
 	extraparam2?: string;
 	extraparam3?: string;

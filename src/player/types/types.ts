@@ -107,7 +107,12 @@ export interface IThumbnail {
 }
 
 export interface IMappedYoubora {
-	[text: string]: string | number;
+	[text: string]:
+		| string
+		| number
+		| boolean
+		| Record<string, string | number | boolean | undefined>
+		| undefined;
 }
 
 export interface IVideoSource {
@@ -179,6 +184,17 @@ type YouboraCustomDimensions = {
 	10?: string;
 };
 
+/**
+ * Metadata adicional del contenido para Youbora.
+ * Según documentación NPAW: "Object containing mixed extra information
+ * about the content like director, parental rating, device info or
+ * the audio channels. This object may store any serializable key:value info."
+ *
+ */
+export type YouboraContentMetadata = {
+	[key: string]: string | number | boolean | undefined;
+};
+
 type YouboraContent = {
 	transactionCode?: string;
 	id?: string;
@@ -192,6 +208,18 @@ type YouboraContent = {
 	episodeTitle?: string;
 	channel?: string;
 	customDimension?: YouboraCustomDimensions;
+	/** Saga o colección de películas relacionadas (contentSaga) */
+	saga?: string;
+	/** Subtítulos seleccionados (contentSubtitles) */
+	subtitles?: string;
+	/** Tecnología DRM usada (contentDrm) */
+	drm?: string;
+	/** Idioma del contenido (contentLanguage) */
+	language?: string;
+	/** Protocolo de streaming: HLS, DASH, etc. (contentStreamingProtocol) */
+	streamingProtocol?: string;
+	/** Metadata adicional del contenido (contentMetadata) */
+	metadata?: YouboraContentMetadata;
 };
 
 export type IYoubora = {
