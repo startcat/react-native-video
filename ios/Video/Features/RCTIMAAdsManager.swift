@@ -12,6 +12,8 @@
         private var adsManager: IMAAdsManager!
         /* Track if adsManager.start() has been called to avoid calling it multiple times for ad pods */
         private var adsManagerStarted: Bool = false
+        /* Reference to the ad display container to clean up views after ads */
+        private var adDisplayContainer: IMAAdDisplayContainer?
 
         init(video: RCTVideo!, pipEnabled: @escaping () -> Bool) {
             _video = video
@@ -31,12 +33,13 @@
         func requestAds() {
             guard let _video else { return }
             // Create ad display container for ad rendering.
-            let adDisplayContainer = IMAAdDisplayContainer(adContainer: _video, viewController: _video.reactViewController())
+            // Store reference to clean up views after ads finish
+            adDisplayContainer = IMAAdDisplayContainer(adContainer: _video, viewController: _video.reactViewController())
 
             let adTagUrl = _video.getAdTagUrl()
             let contentPlayhead = _video.getContentPlayhead()
 
-            if adTagUrl != nil && contentPlayhead != nil {
+            if adTagUrl != nil && contentPlayhead != nil, let adDisplayContainer = adDisplayContainer {
                 // Create an ad request with our ad tag, display container, and optional user context.
                 let request = IMAAdsRequest(
                     adTagUrl: adTagUrl!,
@@ -58,6 +61,13 @@
             adsManager.pause()
             adsManager.destroy()
             adsManagerStarted = false
+            adDisplayContainer = nil
+        }
+        
+        /// Unregister all friendly obstructions from the ad display container
+        /// This helps ensure touch events pass through after ads finish
+        func unregisterAllFriendlyObstructions() {
+            adDisplayContainer?.unregisterAllFriendlyObstructions()
         }
 
         // MARK: - Getters
@@ -172,6 +182,8 @@
             // Resume the content since the SDK is done playing ads (at least for now).
             _video?.setAdPlaying(false)
             _video?.setPaused(false)
+            // Unregister friendly obstructions to ensure touch events pass through
+            unregisterAllFriendlyObstructions()
         }
 
         // MARK: - IMALinkOpenerDelegate
