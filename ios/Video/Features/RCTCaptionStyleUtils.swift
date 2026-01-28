@@ -85,6 +85,10 @@ enum RCTCaptionStyleUtils {
         }
         
         // 7. Window Color (the box behind the text background)
+        // Note: CMTextMarkup doesn't have a direct "window" color attribute like MACaptionAppearance.
+        // The background color (kCMTextMarkupAttribute_BackgroundColorARGB) serves as the text highlight/box.
+        // For a true "window" effect (larger box behind all text), we would need custom rendering.
+        // However, we can check if user wants a window and apply it as an extended background.
         let windowColorRef = MACaptionAppearanceCopyWindowColor(.user, nil)
         let windowColor = windowColorRef.takeRetainedValue()
         let windowUIColor = UIColor(cgColor: windowColor)
@@ -96,9 +100,15 @@ enum RCTCaptionStyleUtils {
         let windowOpacity = MACaptionAppearanceGetWindowOpacity(.user, &windowOpacityBehavior)
         let finalWindowAlpha = windowOpacityBehavior == .useValue ? windowOpacity : windowAlpha
         
-        // Note: There's no direct window color attribute in CMTextMarkup,
-        // Store window color info for potential use
-        _ = [finalWindowAlpha, windowRed, windowGreen, windowBlue]
+        // If window has opacity > 0 and background opacity is 0, use window color as background
+        // This handles the case where user wants a window but no text background
+        if finalWindowAlpha > 0 {
+            if let bgColorArray = styleDict[kCMTextMarkupAttribute_BackgroundColorARGB as String] as? [CGFloat],
+               bgColorArray[0] == 0 { // Background alpha is 0
+                // Use window color as background instead
+                styleDict[kCMTextMarkupAttribute_BackgroundColorARGB as String] = [finalWindowAlpha, windowRed, windowGreen, windowBlue]
+            }
+        }
         
         // 8. Text Edge Style (outline, shadow, etc.)
         let textEdgeStyle = MACaptionAppearanceGetTextEdgeStyle(.user, nil)
@@ -132,19 +142,19 @@ enum RCTCaptionStyleUtils {
             styleDict[kCMTextMarkupAttribute_ItalicStyle as String] = true
         }
         
-        // Only create style rule if we have any custom settings
-        if !styleDict.isEmpty || hasCustomSettings {
-            // Create a style rule that applies to all text (nil selector means apply to all)
-            if let styleRule = AVTextStyleRule(textMarkupAttributes: styleDict) {
-                styleRules.append(styleRule)
-            }
-            
-            // If we have custom settings but empty dict, still return empty array
-            // to indicate we should override defaults
-            return styleRules.isEmpty && hasCustomSettings ? [] : styleRules
+        // 10. Vertical Position - Position subtitles at 85% from top to avoid being cut off
+        // This ensures subtitles stay within the safe area on devices with notch/Dynamic Island
+        // Value is percentage from top: 0% = top, 100% = bottom
+        // Using 85% to leave room for home indicator and ensure visibility
+        styleDict[kCMTextMarkupAttribute_OrthogonalLinePositionPercentageRelativeToWritingDirection as String] = 85
+        
+        // Always create style rule to ensure vertical position is applied
+        // This is critical for devices with notch/Dynamic Island where default positioning may cut off subtitles
+        if let styleRule = AVTextStyleRule(textMarkupAttributes: styleDict) {
+            styleRules.append(styleRule)
         }
         
-        return nil
+        return styleRules.isEmpty ? nil : styleRules
     }
     
     /// Applies accessibility caption styles to an AVPlayerItem
