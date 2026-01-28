@@ -1486,20 +1486,28 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			data: e.data,
 		});
 
-		if (e.event === "STARTED") {
-			currentLogger.current?.info("[ADS] Ad started");
+		// Usar AD_BREAK para manejar pods de múltiples ads correctamente
+		// AD_BREAK_STARTED se emite al inicio del pod, AD_BREAK_ENDED al final
+		if (e.event === "AD_BREAK_STARTED" || e.event === "STARTED") {
+			currentLogger.current?.info(`[ADS] Ad break/ad started: ${e.event}`);
 			setIsPlayingAd(true);
-			onAdStarted(e);
+			if (e.event === "STARTED") {
+				onAdStarted(e);
+			}
 		} else if (
-			e.event === "COMPLETED" ||
+			e.event === "AD_BREAK_ENDED" ||
 			e.event === "ALL_ADS_COMPLETED" ||
-			e.event === "SKIPPED" ||
-			e.event === "USER_CLOSE"
+			e.event === "CONTENT_RESUME_REQUESTED"
 		) {
-			currentLogger.current?.info(`[ADS] Ad finished: ${e.event}`);
+			// AD_BREAK_ENDED: fin del pod de anuncios
+			// ALL_ADS_COMPLETED: todos los anuncios han terminado
+			// CONTENT_RESUME_REQUESTED: el SDK solicita reanudar el contenido
+			currentLogger.current?.info(`[ADS] Ad break finished: ${e.event}`);
 			setIsPlayingAd(false);
 		} else if (e.event === "ERROR") {
 			currentLogger.current?.error("[ADS] Ad error", { data: e.data });
+			// En caso de error, asegurar que los controles vuelvan
+			setIsPlayingAd(false);
 		}
 	};
 

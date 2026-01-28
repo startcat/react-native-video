@@ -110,6 +110,10 @@
 
         func adsManager(_ adsManager: IMAAdsManager, didReceive event: IMAAdEvent) {
             guard let _video else { return }
+            
+            let type = convertEventToString(event: event.type)
+            print("[RCTIMAAdsManager] didReceive event: \(type) (raw: \(event.type.rawValue))")
+            
             // Mute ad if the main player is muted
             if _video.isMuted() {
                 adsManager.volume = 0
@@ -132,8 +136,6 @@
             }
 
             if _video.onReceiveAdEvent != nil {
-                let type = convertEventToString(event: event.type)
-
                 if event.adData != nil {
                     _video.onReceiveAdEvent?([
                         "event": type,
@@ -180,10 +182,20 @@
 
         func adsManagerDidRequestContentResume(_: IMAAdsManager) {
             // Resume the content since the SDK is done playing ads (at least for now).
+            print("[RCTIMAAdsManager] adsManagerDidRequestContentResume called")
             _video?.setAdPlaying(false)
             _video?.setPaused(false)
             // Unregister friendly obstructions to ensure touch events pass through
             unregisterAllFriendlyObstructions()
+            
+            // Emit CONTENT_RESUME_REQUESTED event to React Native
+            // This is critical for the JS side to know ads have finished
+            if let video = _video, video.onReceiveAdEvent != nil {
+                video.onReceiveAdEvent?([
+                    "event": "CONTENT_RESUME_REQUESTED",
+                    "target": video.reactTag!,
+                ])
+            }
         }
 
         // MARK: - IMALinkOpenerDelegate
