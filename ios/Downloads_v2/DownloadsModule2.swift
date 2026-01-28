@@ -1077,6 +1077,8 @@ class DownloadsModule2: RCTEventEmitter {
         let bundleId = Bundle.main.bundleIdentifier ?? "com.downloads"
         let sessionId = "\(bundleId).assetdownload"
         
+        print("📥 [DownloadsModule2] Initializing download session with ID: \(sessionId)")
+        
         let config = URLSessionConfiguration.background(withIdentifier: sessionId)
         config.isDiscretionary = false
         config.sessionSendsLaunchEvents = true
@@ -1085,6 +1087,11 @@ class DownloadsModule2: RCTEventEmitter {
         
         // Allow connections to any host
         config.tlsMinimumSupportedProtocolVersion = .TLSv12
+        
+        // IMPORTANT: Set waitsForConnectivity to true to wait for network instead of failing immediately
+        config.waitsForConnectivity = true
+        
+        print("📥 [DownloadsModule2] Session config: allowsCellular=\(allowCellularDownloads), isDiscretionary=false, waitsForConnectivity=true")
         
         downloadsSession = AVAssetDownloadURLSession(
             configuration: config,
@@ -1183,7 +1190,24 @@ class DownloadsModule2: RCTEventEmitter {
         ]
         
         // Get all available media selections (includes subtitles and alternative audio)
-        let mediaSelections = asset.allMediaSelections
+        // NOTE: For HLS, allMediaSelections may be empty if the asset hasn't been loaded yet
+        // The aggregate download task will still work - it will download the default renditions
+        var mediaSelections = asset.allMediaSelections
+        
+        // DEBUG: Log asset status and media selections
+        print("📥 [DownloadsModule2] Asset status for \(downloadId):")
+        print("📥 [DownloadsModule2]   - isPlayable: \(asset.isPlayable)")
+        print("📥 [DownloadsModule2]   - isExportable: \(asset.isExportable)")
+        print("📥 [DownloadsModule2]   - mediaSelections count: \(mediaSelections.count)")
+        print("📥 [DownloadsModule2]   - URL: \(asset.url)")
+        
+        // If no media selections available, create a default one
+        // This ensures the download task has at least one selection to work with
+        if mediaSelections.isEmpty {
+            print("📥 [DownloadsModule2] No media selections available, using preferredMediaSelection")
+            // Use preferredMediaSelection as fallback - this is always available
+            mediaSelections = [asset.preferredMediaSelection]
+        }
         
         RCTLog("[DownloadsModule2] Creating aggregate download task with \(mediaSelections.count) media selections for ID: \(downloadId)")
         
@@ -1212,9 +1236,17 @@ class DownloadsModule2: RCTEventEmitter {
     private func startDownloadIfPossible(_ downloadId: String) {
         let activeCount = activeDownloads.values.filter { $0.state == .downloading }.count
         
+        print("📥 [DownloadsModule2] startDownloadIfPossible: \(downloadId), activeCount=\(activeCount), maxConcurrent=\(maxConcurrentDownloads)")
+        
         if activeCount < maxConcurrentDownloads {
             if let downloadTask = downloadTasks[downloadId] {
+                // DEBUG: Log task state before resume
+                print("📥 [DownloadsModule2] Task state before resume: \(downloadTask.state.rawValue) (0=running, 1=suspended, 2=canceling, 3=completed)")
+                
                 downloadTask.resume()
+                
+                // DEBUG: Log task state after resume
+                print("📥 [DownloadsModule2] Task state after resume: \(downloadTask.state.rawValue)")
                 
                 if var downloadInfo = activeDownloads[downloadId] {
                     downloadInfo.state = .downloading
@@ -1226,7 +1258,11 @@ class DownloadsModule2: RCTEventEmitter {
                         "state": downloadInfo.state.stringValue
                     ])
                 }
+            } else {
+                print("📥 [DownloadsModule2] ERROR: No download task found for \(downloadId)")
             }
+        } else {
+            print("📥 [DownloadsModule2] Download queued (max concurrent reached): \(downloadId)")
         }
     }
     
@@ -1264,15 +1300,31 @@ class DownloadsModule2: RCTEventEmitter {
     private func removeDownloadedFiles(for downloadId: String) throws {
         let fileManager = FileManager.default
         
-        guard let downloadInfo = activeDownloads[downloadId] else {
-            return
-        }
+        // Try to get asset path from activeDownloads first
+        let downloadInfo = activeDownloads[downloadId]
         
-        // If asset path exists, delete the downloaded asset
-        if let assetPath = downloadInfo.assetPath {
+        // If asset path exists in memory, delete the downloaded asset
+        if let assetPath = downloadInfo?.assetPath {
             let assetURL = URL(fileURLWithPath: assetPath)
             if fileManager.fileExists(atPath: assetPath) {
                 try fileManager.removeItem(at: assetURL)
+            }
+        }
+        
+        // IMPORTANTE: También intentar obtener el path desde UserDefaults
+        // Esto maneja casos donde la descarga no está en activeDownloads pero sí tiene archivos
+        let assetPathsKey = "com.downloads.assetPaths"
+        if let assetPaths = UserDefaults.standard.dictionary(forKey: assetPathsKey) as? [String: String],
+           let savedAssetPath = assetPaths[downloadId] {
+            if fileManager.fileExists(atPath: savedAssetPath) {
+                try? fileManager.removeItem(atPath: savedAssetPath)
+            }
+            // Try without /.nofollow prefix
+            if savedAssetPath.hasPrefix("/.nofollow") {
+                let cleanPath = String(savedAssetPath.dropFirst("/.nofollow".count))
+                if fileManager.fileExists(atPath: cleanPath) {
+                    try? fileManager.removeItem(atPath: cleanPath)
+                }
             }
         }
         
@@ -1435,6 +1487,11 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             return
         }
         
+        // DEBUG: Log raw values to diagnose 0% progress issue
+        let expectedDurationTotal = CMTimeGetSeconds(timeRangeExpectedToLoad.duration)
+        let loadedRangeCount = loadedTimeRanges.count
+        print("📥 [DownloadsModule2] Progress DEBUG for \(downloadId): loadedRanges=\(loadedRangeCount), expectedDuration=\(expectedDurationTotal)s")
+        
         // Calculate progress percentage
         var percentComplete: Double = 0.0
         for value in loadedTimeRanges {
@@ -1444,6 +1501,8 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             if expectedDuration > 0 {
                 percentComplete += loadedDuration / expectedDuration
             }
+            // DEBUG: Log each loaded range
+            print("📥 [DownloadsModule2] Loaded range: \(loadedDuration)s / \(expectedDuration)s = \(expectedDuration > 0 ? loadedDuration/expectedDuration : 0)")
         }
         
         // Clamp to 0-1 range
@@ -2178,6 +2237,37 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         }
         UserDefaults.standard.set(bookmarks, forKey: SUBTITLE_BOOKMARKS_KEY)
         UserDefaults.standard.synchronize()
+    }
+    
+    // MARK: - URLSessionTaskDelegate
+    
+    /// Called when a task is waiting for network connectivity
+    /// This helps diagnose issues where downloads stay at 0% due to network policy
+    func urlSession(_ session: URLSession, taskIsWaitingForConnectivity task: URLSessionTask) {
+        var downloadId: String?
+        
+        if let aggregateTask = task as? AVAggregateAssetDownloadTask {
+            downloadId = findDownloadId(for: aggregateTask)
+        }
+        
+        let taskId = downloadId ?? "unknown"
+        print("📥 [DownloadsModule2] ⚠️ Task \(taskId) is WAITING FOR CONNECTIVITY")
+        print("📥 [DownloadsModule2] This usually means:")
+        print("📥 [DownloadsModule2]   - Device is on cellular but allowsCellularAccess=false")
+        print("📥 [DownloadsModule2]   - No network connection available")
+        print("📥 [DownloadsModule2]   - Network policy is blocking the download")
+        
+        // Update state to waiting for network
+        if let downloadId = downloadId, var downloadInfo = activeDownloads[downloadId] {
+            downloadInfo.state = .waitingForNetwork
+            activeDownloads[downloadId] = downloadInfo
+            
+            sendEvent(withName: "overonDownloadStateChanged", body: [
+                "id": downloadId,
+                "state": downloadInfo.state.stringValue,
+                "reason": "waiting_for_connectivity"
+            ])
+        }
     }
 }
 

@@ -16,15 +16,15 @@ import { nativeManager } from "./NativeManager";
 import { profileManager } from "./ProfileManager";
 
 import {
-	BinaryDownloadTask,
-	DownloadEventType,
-	DownloadItem,
-	DownloadStates,
-	DownloadType,
-	QueueManagerConfig,
-	QueueStats,
-	QueueStatusCallback,
-	StreamDownloadTask,
+    BinaryDownloadTask,
+    DownloadEventType,
+    DownloadItem,
+    DownloadStates,
+    DownloadType,
+    QueueManagerConfig,
+    QueueStats,
+    QueueStatusCallback,
+    StreamDownloadTask,
 } from "../types";
 
 const TAG = LOG_TAGS.QUEUE_MANAGER;
@@ -348,7 +348,13 @@ export class QueueManager {
 		try {
 			const item = this.downloadQueue.get(downloadId);
 			if (!item) {
-				throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
+				// No lanzar error si el item no existe - puede haber sido eliminado por otro proceso
+				// o nunca fue añadido correctamente (ej: falló durante preparación)
+				this.currentLogger.warn(
+					TAG,
+					`Download ${downloadId} not found in queue during force removal - may already be removed`
+				);
+				return;
 			}
 
 			this.currentLogger.warn(
@@ -1302,6 +1308,12 @@ export class QueueManager {
 			this.retryTracker.delete(downloadId);
 			await this.updateDownloadState(downloadId, DownloadStates.FAILED);
 
+			// CRITICAL: Emit FAILED event so UI can update
+			console.log(
+				`[QueueManager] 🚨 EMITTING FAILED EVENT for: ${item.title || downloadId}`,
+				{ downloadId, error }
+			);
+
 			this.eventEmitter.emit(DownloadEventType.FAILED, {
 				downloadId,
 				item,
@@ -1413,6 +1425,11 @@ export class QueueManager {
 				}
 			} else if (state === DownloadStates.COMPLETED) {
 				mergedItem.stats.downloadedAt = Date.now();
+				// Ensure stats reflect 100% completion
+				mergedItem.stats.progressPercent = 100;
+				if (mergedItem.stats.totalBytes > 0) {
+					mergedItem.stats.bytesDownloaded = mergedItem.stats.totalBytes;
+				}
 			}
 
 			this.downloadQueue.set(downloadId, mergedItem);
@@ -1757,8 +1774,11 @@ export class QueueManager {
 			}
 
 			// No procesar si el progreso no ha cambiado significativamente
+			// EXCEPCIÓN: Siempre procesar si es el primer evento (currentPercent === 0) o si percent > 0
+			// Esto evita que descargas HLS se queden en 0% cuando la velocidad aún no se ha establecido
 			const currentPercent = item.stats.progressPercent || 0;
-			if (Math.abs(percent - currentPercent) < 1 && eventData.speed === 0) {
+			const isFirstProgressEvent = currentPercent === 0 && percent > 0;
+			if (Math.abs(percent - currentPercent) < 1 && eventData.speed === 0 && !isFirstProgressEvent) {
 				// Solo log ocasional para debugging, no spam
 				if (Math.random() < 0.1) {
 					// 10% de los eventos
@@ -1770,15 +1790,17 @@ export class QueueManager {
 				return;
 			}
 
-			// FILTRO TEMPORAL: Evitar procesar eventos muy frecuentes (menos de 2 segundos de diferencia)
+			// FILTRO TEMPORAL: Evitar procesar eventos muy frecuentes (menos de 1 segundo de diferencia)
 			const now = Date.now();
 			const lastEventTime = this.lastProgressEventTime.get(downloadId) || 0;
 			const timeSinceLastEvent = now - lastEventTime;
 
-			// Solo procesar si han pasado al menos 2 segundos o hay cambio significativo de progreso/velocidad
+			// Solo procesar si han pasado al menos 1 segundo o hay cambio significativo de progreso/velocidad
+			// NOTA: Reducido de 5% a 1% para evitar que eventos iniciales de HLS se filtren
+			// cuando la velocidad aún no se ha establecido (speed=0)
 			const significantChange =
-				Math.abs(percent - currentPercent) >= 5 || (eventData.speed ?? 0) > 0;
-			if (timeSinceLastEvent < 2000 && !significantChange) {
+				Math.abs(percent - currentPercent) >= 1 || (eventData.speed ?? 0) > 0;
+			if (timeSinceLastEvent < 1000 && !significantChange) {
 				// Solo log ocasional para debugging, no spam
 				if (Math.random() < 0.05) {
 					// 5% de los eventos

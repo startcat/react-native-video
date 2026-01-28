@@ -367,9 +367,9 @@ export class StreamDownloadService {
 			error?: { code?: string; message?: string };
 		};
 
+		// Update internal state if we're tracking this download
 		const activeDownload = this.activeDownloads.get(downloadId);
 		if (activeDownload) {
-			// Update internal state to FAILED
 			activeDownload.state = DownloadStates.FAILED;
 			activeDownload.error = {
 				code: (error?.code as DownloadErrorCode) || DownloadErrorCode.UNKNOWN,
@@ -377,19 +377,21 @@ export class StreamDownloadService {
 				timestamp: Date.now(),
 			};
 			this.activeDownloads.set(downloadId, activeDownload);
-
-			this.currentLogger.error(TAG, `Download failed: ${downloadId}`, {
-				errorCode: error?.code,
-				errorMessage: error?.message,
-			});
-
-			// Emit FAILED event for consumers
-			this.eventEmitter.emit(DownloadEventType.FAILED, {
-				taskId: downloadId,
-				error: error?.message || "Native download error",
-				errorCode: error?.code,
-			});
 		}
+
+		// ALWAYS emit FAILED event, even if not in activeDownloads
+		// This ensures errors from native module are propagated to consumers
+		this.currentLogger.error(TAG, `Download failed: ${downloadId}`, {
+			errorCode: error?.code,
+			errorMessage: error?.message,
+		});
+
+		// Emit FAILED event for consumers - CRITICAL for error propagation
+		this.eventEmitter.emit(DownloadEventType.FAILED, {
+			taskId: downloadId,
+			error: error?.message || "Native download error",
+			errorCode: error?.code,
+		});
 	}
 
 	private mapNativeStateToInternal(nativeState: string): DownloadStates {

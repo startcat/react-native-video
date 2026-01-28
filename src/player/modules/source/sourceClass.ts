@@ -1,3 +1,6 @@
+import { Platform } from "react-native";
+import RNFS from "react-native-fs";
+
 import {
 	type Headers,
 	type IDrm,
@@ -282,10 +285,41 @@ export class SourceClass {
 					});
 				}
 
+				// Resolve the actual file path
+				// On iOS, the sandbox UUID in the path can change between app sessions,
+				// so we need to reconstruct the path using the current DocumentDirectoryPath
+				let resolvedFileUri = downloadItem.fileUri;
+
+				if (Platform.OS === "ios") {
+					// Extract the relative path from the stored absolute path
+					// e.g., "/var/mobile/.../Documents/Downloads/Binaries/833647" -> "Downloads/Binaries/833647"
+					const documentsMarker = "/Documents/";
+					const documentsIndex = downloadItem.fileUri.indexOf(documentsMarker);
+
+					if (documentsIndex !== -1) {
+						const relativePath = downloadItem.fileUri.substring(
+							documentsIndex + documentsMarker.length
+						);
+						resolvedFileUri = `${RNFS.DocumentDirectoryPath}/${relativePath}`;
+						console.log(
+							`${LOG_TAG} [OFFLINE DEBUG] iOS path resolved: "${downloadItem.fileUri}" -> "${resolvedFileUri}"`
+						);
+					} else {
+						// Fallback: try to extract just the filename and reconstruct
+						const filename = downloadItem.fileUri.substring(
+							downloadItem.fileUri.lastIndexOf("/") + 1
+						);
+						resolvedFileUri = `${RNFS.DocumentDirectoryPath}/Downloads/Binaries/${filename}`;
+						console.log(
+							`${LOG_TAG} [OFFLINE DEBUG] iOS path fallback: "${downloadItem.fileUri}" -> "${resolvedFileUri}"`
+						);
+					}
+				}
+
 				// Construir URI para reproducción offline binaria
-				const offlineUri = downloadItem.fileUri.startsWith("file://")
-					? downloadItem.fileUri
-					: `file://${downloadItem.fileUri}`;
+				const offlineUri = resolvedFileUri.startsWith("file://")
+					? resolvedFileUri
+					: `file://${resolvedFileUri}`;
 
 				console.log(
 					`${LOG_TAG} [OFFLINE DEBUG] Constructed BINARY offline URI: "${offlineUri}"`
