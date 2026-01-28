@@ -742,9 +742,10 @@ export class BinaryDownloadService {
 			// Validar archivo descargado
 			// skipReadTest: true porque en Android RNFS.read() falla con archivos de react-native-background-downloader
 			// debido a permisos, incluso si el archivo es válido
+			// Pass expectedSize to verify the file was fully downloaded
 			const validation = await storageService.validateFile(
 				download.task.destination,
-				undefined,
+				download.progress.totalBytes > 0 ? download.progress.totalBytes : undefined,
 				true // skipReadTest
 			);
 

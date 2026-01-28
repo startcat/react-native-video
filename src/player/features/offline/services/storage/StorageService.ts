@@ -908,7 +908,8 @@ export class StorageService {
 			}
 
 			if (expectedSize && fileInfo.size !== expectedSize) {
-				warnings.push(
+				// Size mismatch is an error, not just a warning - file is incomplete/corrupted
+				errors.push(
 					`File size mismatch. Expected: ${expectedSize}, Actual: ${fileInfo.size}`
 				);
 			}

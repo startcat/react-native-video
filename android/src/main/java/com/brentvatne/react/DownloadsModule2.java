@@ -369,13 +369,28 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             
             Log.d(TAG, "Step 2: Config validated - ID: " + id + ", URI: " + uri + ", Quality: " + quality);
 
-            // Check if download already exists
-            if (findDownloadById(id) != null) {
-                Log.e(TAG, "Download already exists: " + id);
-                promise.reject("DOWNLOAD_EXISTS", "Download with this ID already exists");
-                return;
+            // Check if download already exists in the index (including failed/stopped downloads)
+            Download existingDownload = findDownloadInIndex(id);
+            if (existingDownload != null) {
+                int state = existingDownload.state;
+                Log.d(TAG, "Found existing download in index: " + id + ", state: " + mapDownloadState(state));
+                
+                // Si está en un estado activo válido, rechazar
+                if (state == Download.STATE_DOWNLOADING || state == Download.STATE_QUEUED || 
+                    state == Download.STATE_RESTARTING || state == Download.STATE_COMPLETED) {
+                    Log.e(TAG, "Download already exists in valid state: " + id);
+                    promise.reject("DOWNLOAD_EXISTS", "Download with this ID already exists");
+                    return;
+                }
+                
+                // Si está en estado FAILED, STOPPED o REMOVING, limpiar antes de continuar
+                if (state == Download.STATE_FAILED || state == Download.STATE_STOPPED || 
+                    state == Download.STATE_REMOVING) {
+                    Log.w(TAG, "Cleaning up stale download before re-adding: " + id + " (state: " + mapDownloadState(state) + ")");
+                    forceRemoveDownloadFromIndex(id);
+                }
             }
-            Log.d(TAG, "Step 3: Download does not exist, proceeding");
+            Log.d(TAG, "Step 3: Download does not exist or was cleaned up, proceeding");
 
             // Create media item
             Log.d(TAG, "Step 4: Creating MediaItem");
@@ -452,6 +467,20 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 Log.d(TAG, "Download helper released for: " + id);
             }
 
+            // Clean up speed tracking (SIEMPRE, independientemente del estado del manager)
+            downloadStartTimes.remove(id);
+            lastBytesDownloaded.remove(id);
+            lastSpeedCheckTime.remove(id);
+            
+            // Clean up quality setting
+            activeDownloadQuality.remove(id);
+            
+            // Clean up DRM message
+            activeDrmMessages.remove(id);
+
+            // Release license if exists
+            releaseLicenseForDownload(id);
+
             // Remove from download manager
             DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
             if (manager != null) {
@@ -467,19 +496,16 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 }, 500);
                 return; // Don't resolve immediately
             } else {
-                Log.w(TAG, "DownloadManager is null, cannot remove download: " + id);
+                Log.w(TAG, "DownloadManager is null, attempting cleanup without it: " + id);
+                
+                // Intentar limpiar archivos manualmente si el manager no está disponible
+                // Esto puede ocurrir si la descarga falló antes de iniciar
+                try {
+                    forceRemoveDownloadFromIndex(id);
+                } catch (Exception cleanupError) {
+                    Log.w(TAG, "Cleanup without manager failed (may be OK if download never started): " + cleanupError.getMessage());
+                }
             }
-
-            // Clean up speed tracking
-            downloadStartTimes.remove(id);
-            lastBytesDownloaded.remove(id);
-            lastSpeedCheckTime.remove(id);
-            
-            // Clean up quality setting
-            activeDownloadQuality.remove(id);
-
-            // Release license if exists
-            releaseLicenseForDownload(id);
 
             promise.resolve(null);
         } catch (Exception e) {
@@ -715,9 +741,26 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     @ReactMethod
     public void hasDownload(String id, final Promise promise) {
         try {
-            boolean exists = findDownloadById(id) != null;
-            promise.resolve(exists);
+            // Buscar en el DownloadIndex completo, no solo en descargas activas
+            Download download = findDownloadInIndex(id);
+            
+            if (download == null) {
+                promise.resolve(false);
+                return;
+            }
+            
+            // Solo considerar que existe si está en un estado válido para reanudar
+            // Excluir REMOVING, FAILED y STOPPED ya que estas descargas no se pueden reanudar
+            boolean isValidState = download.state != Download.STATE_REMOVING 
+                && download.state != Download.STATE_FAILED
+                && download.state != Download.STATE_STOPPED;
+            
+            Log.d(TAG, "hasDownload(" + id + "): found=" + (download != null) + 
+                ", state=" + mapDownloadState(download.state) + ", isValid=" + isValidState);
+            
+            promise.resolve(isValidState);
         } catch (Exception e) {
+            Log.e(TAG, "hasDownload error for " + id, e);
             promise.reject("HAS_DOWNLOAD_FAILED", "Failed to check download existence: " + e.getMessage());
         }
     }
@@ -1137,6 +1180,60 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         } catch (Exception e) {
             Log.e(TAG, "Error finding download by ID", e);
             return null;
+        }
+    }
+    
+    /**
+     * Busca una descarga en el DownloadIndex completo (incluye descargas no activas)
+     * Esto es necesario para detectar descargas canceladas/fallidas que aún existen en el índice
+     */
+    private Download findDownloadInIndex(String id) {
+        try {
+            DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
+            if (manager == null) return null;
+            
+            DownloadIndex downloadIndex = manager.getDownloadIndex();
+            if (downloadIndex == null) return null;
+            
+            DownloadCursor cursor = downloadIndex.getDownloads();
+            while (cursor.moveToNext()) {
+                Download download = cursor.getDownload();
+                if (download != null && id.equals(download.request.id)) {
+                    cursor.close();
+                    return download;
+                }
+            }
+            cursor.close();
+            return null;
+        } catch (Exception e) {
+            Log.e(TAG, "Error finding download in index: " + id, e);
+            return null;
+        }
+    }
+    
+    /**
+     * Elimina una descarga del índice de forma síncrona y espera a que se complete
+     * Útil para limpiar descargas problemáticas antes de crear nuevas
+     */
+    private void forceRemoveDownloadFromIndex(String id) {
+        try {
+            Log.d(TAG, "Force removing download from index: " + id);
+            
+            // Primero intentar con el servicio normal
+            DownloadService.sendRemoveDownload(reactContext, AxDownloadService.class, id, false);
+            
+            // Esperar un poco para que se procese
+            Thread.sleep(300);
+            
+            // Verificar si se eliminó
+            Download stillExists = findDownloadInIndex(id);
+            if (stillExists != null) {
+                Log.w(TAG, "Download still exists after removal attempt, state: " + mapDownloadState(stillExists.state));
+            } else {
+                Log.d(TAG, "Download successfully removed from index: " + id);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error force removing download: " + id, e);
         }
     }
 

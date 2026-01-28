@@ -549,37 +549,30 @@ export class NativeManager {
 				throw new Error("nativeModule.addDownload is not a function");
 			}
 
-			// Verificar si el download ya existe antes de llamar al nativo
+			// Verificar si el download ya existe en un estado válido para reanudar
+			// hasDownload() en Android ahora devuelve false para descargas en estados inválidos
+			// (FAILED, STOPPED, REMOVING), y addDownload() las limpia automáticamente
 			try {
 				const existingDownload = await this.nativeModule.hasDownload(config.id);
 
 				if (existingDownload) {
+					// La descarga existe en un estado válido (DOWNLOADING, QUEUED, COMPLETED, etc.)
+					// Intentar reanudarla en lugar de crear una nueva
 					try {
 						await this.nativeModule.resumeDownload(config.id);
 						this.currentLogger.info(TAG, `Resumed existing download: ${config.id}`);
 						return config.id;
 					} catch (resumeError) {
-						// Si no se puede reanudar, intentar remover y re-agregar
+						// Si no se puede reanudar, el módulo nativo manejará la limpieza
 						this.currentLogger.warn(
 							TAG,
-							`Failed to resume existing download ${config.id}, attempting removal`,
+							`Failed to resume download ${config.id}, will attempt fresh download`,
 							resumeError
 						);
-						try {
-							await this.nativeModule.removeDownload(config.id);
-							this.currentLogger.debug(TAG, `Removed stale download: ${config.id}`);
-						} catch (removeError) {
-							// Log pero no fallar - intentaremos agregar de todos modos
-							this.currentLogger.warn(
-								TAG,
-								`Failed to remove stale download ${config.id}`,
-								removeError
-							);
-						}
 					}
 				}
 			} catch (checkError) {
-				// Log pero no fallar - intentaremos agregar de todos modos
+				// Log pero no fallar - el módulo nativo manejará descargas problemáticas
 				this.currentLogger.warn(
 					TAG,
 					`Failed to check existing download ${config.id}`,
@@ -587,6 +580,8 @@ export class NativeManager {
 				);
 			}
 
+			// El módulo nativo (addDownload en Android) ahora limpia automáticamente
+			// descargas en estados inválidos antes de crear nuevas
 			const result = await this.nativeModule.addDownload(config);
 			this.currentLogger.debug(TAG, `Download added: ${config.id}`);
 			return result || config.id;
