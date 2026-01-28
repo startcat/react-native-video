@@ -395,6 +395,11 @@ public class ReactExoplayerView extends FrameLayout implements
     @Override
     public void onHostResume() {
         if (!playInBackground || !isInBackground) {
+            // Si hay un anuncio reproduciéndose, el IMA SDK manejará el resume
+            // Solo necesitamos asegurar que el player esté listo para reproducir
+            if (isPlayingAd()) {
+                DebugLog.d(TAG, "onHostResume: Ad is playing, letting IMA SDK handle resume");
+            }
             setPlayWhenReady(!isPaused);
         }
         isInBackground = false;
@@ -404,7 +409,13 @@ public class ReactExoplayerView extends FrameLayout implements
     public void onHostPause() {
         isInBackground = true;
         if (playInBackground) {
+            // Si playInBackground está activo, mantener el audio (incluso durante ads)
+            DebugLog.d(TAG, "onHostPause: playInBackground enabled, keeping audio" + (isPlayingAd() ? " (ad playing)" : ""));
             return;
+        }
+        // Pausar el player - el IMA SDK detectará que el player está pausado
+        if (isPlayingAd()) {
+            DebugLog.d(TAG, "onHostPause: Pausing during ad playback");
         }
         setPlayWhenReady(false);
     }

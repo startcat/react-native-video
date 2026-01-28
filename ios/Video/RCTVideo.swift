@@ -291,6 +291,13 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
         if _playInBackground || _playWhenInactive || !_isPlaying || isExternalPlaybackActive { return }
 
+        #if RNUSE_GOOGLE_IMA
+        // Pausar el IMA SDK si hay un anuncio reproduciéndose
+        if _adPlaying {
+            _imaAdsManager.getAdsManager()?.pause()
+        }
+        #endif
+
         _player?.pause()
         _player?.rate = 0.0
     }
@@ -300,6 +307,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
         if _playInBackground || _playWhenInactive || !_isPlaying || isExternalPlaybackActive { return }
 
+        #if RNUSE_GOOGLE_IMA
+        // Resumir el IMA SDK si había un anuncio pausado y el player no está en pausa
+        if _adPlaying && !_paused {
+            _imaAdsManager.getAdsManager()?.resume()
+            return // No resumir el player principal durante ads
+        }
+        #endif
+
         // Resume the player or any other tasks that should continue when the app becomes active.
         _player?.play()
         _player?.rate = _rate
@@ -308,7 +323,19 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc
     func applicationDidEnterBackground(notification _: NSNotification!) {
         let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
-        if _playInBackground || isExternalPlaybackActive { return }
+        
+        // Si playInBackground está activo, mantener el audio del anuncio
+        if _playInBackground {
+            // Solo desconectar el video layer, mantener el audio
+            if !isExternalPlaybackActive {
+                _playerLayer?.player = nil
+                _playerViewController?.player = nil
+            }
+            return
+        }
+        
+        if isExternalPlaybackActive { return }
+        
         // Needed to play sound in background. See https://developer.apple.com/library/ios/qa/qa1668/_index.html
         _playerLayer?.player = nil
         _playerViewController?.player = nil
@@ -319,6 +346,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         self.applyModifiers()
         _playerLayer?.player = _player
         _playerViewController?.player = _player
+        
+        #if RNUSE_GOOGLE_IMA
+        // Si había un anuncio, el IMA SDK necesita reconectar su display container
+        if _adPlaying {
+            // El IMA SDK debería reconectar automáticamente, pero verificar el estado
+            _imaAdsManager.getAdsManager()?.resume()
+        }
+        #endif
     }
 
     // MARK: - Audio events
