@@ -791,6 +791,7 @@ export class BinaryDownloadService {
 			this.eventEmitter.emit(DownloadEventType.COMPLETED, {
 				taskId,
 				filePath: download.task.destination,
+				fileUri: download.task.destination, // Also emit as fileUri for DownloadsManager compatibility
 				fileSize: download.progress.totalBytes,
 				duration: Date.now() - download.startTime,
 			});
