@@ -1,3 +1,10 @@
+// Configuración unificada de progreso - FUENTE DE VERDAD
+export const PROGRESS_DEFAULTS = {
+	UPDATE_INTERVAL_MS: 1000, // 1 segundo (balance entre responsividad y performance)
+	THRESHOLD_PERCENT: 1, // 1% mínimo de cambio para emitir evento
+	PERSISTENCE_THRESHOLD: 10, // Persistir cada 10%
+} as const;
+
 export const DEFAULT_CONFIG = {
 	// Configuración de descargas
 	MAX_CONCURRENT_DOWNLOADS: 3,
@@ -5,9 +12,9 @@ export const DEFAULT_CONFIG = {
 	RETRY_DELAY_MS: 5000,
 	RETRY_BACKOFF_MULTIPLIER: 2,
 
-	// Configuración de progreso
-	PROGRESS_UPDATE_INTERVAL_MS: 500,
-	PROGRESS_THRESHOLD_PERCENT: 1, // Actualizar solo si cambia más del 1%
+	// Configuración de progreso (usa PROGRESS_DEFAULTS como fuente)
+	PROGRESS_UPDATE_INTERVAL_MS: PROGRESS_DEFAULTS.UPDATE_INTERVAL_MS,
+	PROGRESS_THRESHOLD_PERCENT: PROGRESS_DEFAULTS.THRESHOLD_PERCENT,
 
 	// Configuración de archivos
 	CHUNK_SIZE_BYTES: 1024 * 1024, // 1MB

@@ -25,6 +25,8 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.StatFs;
 import android.util.Log;
 
@@ -92,6 +94,13 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     private OfflineLicenseManager mLicenseManager;
     private AxDownloadTracker mAxDownloadTracker;
     private Map<String, DownloadHelper> activeHelpers = new ConcurrentHashMap<>();
+    
+    // Helper timeout tracking - prevents memory leaks if onPrepared is never called
+    private static final long HELPER_TIMEOUT_MS = 60000; // 60 seconds
+    private static final long HELPER_CLEANUP_INTERVAL_MS = 30000; // 30 seconds
+    private Map<String, Long> helperCreationTimes = new ConcurrentHashMap<>();
+    private Handler helperCleanupHandler;
+    private Runnable helperCleanupRunnable;
 
     // Configuration
     private Map<String, Object> moduleConfig = new HashMap<>();
@@ -151,39 +160,16 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 params.putDouble("speed", calculateDownloadSpeed(contentID));
                 params.putInt("remainingTime", estimateRemainingTime(contentID, progress));
 
-                // Obtener Download actual para incluir totalBytes y bytesDownloaded
+                // Obtener Download actual para incluir totalBytes y downloadedBytes
                 Download download = findDownloadById(contentID);
                 if (download != null) {
-                    // Calculate accurate total bytes (same logic as getDownloads/createDownloadInfoMap)
-                    long reportedBytes = download.contentLength;
-                    long estimatedBytes = 0;
-                    long totalBytes = reportedBytes;
-                    
-                    if (download.getPercentDownloaded() >= 5 && download.getBytesDownloaded() > 0) {
-                        estimatedBytes = (long) (download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
-                        
-                        if (reportedBytes == C.LENGTH_UNSET || reportedBytes <= 0) {
-                            // ContentLength is unknown - ALWAYS use estimated size
-                            totalBytes = estimatedBytes;
-                        } else if (estimatedBytes > 0) {
-                            // ContentLength is known - compare with estimated
-                            double difference = Math.abs(reportedBytes - estimatedBytes) / (double) reportedBytes;
-                            
-                            if (difference > 0.10 && estimatedBytes < reportedBytes) {
-                                totalBytes = estimatedBytes;
-                            }
-                        }
-                    } else if (reportedBytes == C.LENGTH_UNSET || reportedBytes <= 0) {
-                        // No progress yet and no reported size - use 0
-                        totalBytes = 0;
-                    }
-                    
+                    long totalBytes = calculateAccurateTotalBytes(download);
                     params.putDouble("totalBytes", (double) totalBytes);
-                    params.putDouble("bytesDownloaded", (double) download.getBytesDownloaded());
+                    params.putDouble("downloadedBytes", (double) download.getBytesDownloaded());
                 } else {
                     // Fallback si no se encuentra el download
                     params.putDouble("totalBytes", 0);
-                    params.putDouble("bytesDownloaded", 0);
+                    params.putDouble("downloadedBytes", 0);
                 }
 
                 sendEvent("overonDownloadProgress", params);
@@ -218,6 +204,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
             initOfflineManager();
             registerBroadcastReceiver();
+            initializeHelperCleanup();
 
             // Start download service
             startDownloadService();
@@ -437,6 +424,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 }
                 
                 activeHelpers.put(id, helper);
+                helperCreationTimes.put(id, System.currentTimeMillis());
                 Log.d(TAG, "Active helpers after: " + activeHelpers.size());
                 
                 Log.d(TAG, "Step 10: Calling helper.prepare() for ID: " + id);
@@ -462,6 +450,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         try {
             // Remove download helper if exists
             DownloadHelper helper = activeHelpers.remove(id);
+            helperCreationTimes.remove(id);
             if (helper != null) {
                 helper.release();
                 Log.d(TAG, "Download helper released for: " + id);
@@ -654,40 +643,8 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                     downloadInfo.putString("state", mapDownloadState(download.state));
                     downloadInfo.putInt("progress", (int) download.getPercentDownloaded());
                     
-                    // Calculate accurate total bytes (same logic as createDownloadInfoMap)
-                    long reportedBytes = download.contentLength;
-                    long estimatedBytes = 0;
-                    long totalBytes = reportedBytes;
-
-					Log.d(TAG, String.format("[getDownloads] Dani 1"));
-                    
-                    if (download.getPercentDownloaded() >= 5 && download.getBytesDownloaded() > 0) {
-                        estimatedBytes = (long) (download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
-
-						Log.d(TAG, String.format("[getDownloads] Dani 2"));
-                        
-                        if (reportedBytes == C.LENGTH_UNSET || reportedBytes <= 0) {
-                            // ContentLength is unknown - ALWAYS use estimated size
-                            totalBytes = estimatedBytes;
-                            Log.d(TAG, String.format("[getDownloads] ContentLength unknown for %s, using estimated: %.2f MB (downloaded: %.2f MB, progress: %d%%)",
-                                download.request.id,
-                                estimatedBytes / (1024.0 * 1024.0),
-                                download.getBytesDownloaded() / (1024.0 * 1024.0),
-                                (int) download.getPercentDownloaded()));
-                        } else if (estimatedBytes > 0) {
-                            // ContentLength is known - compare with estimated
-                            double difference = Math.abs(reportedBytes - estimatedBytes) / (double) reportedBytes;
-                            
-                            if (difference > 0.10 && estimatedBytes < reportedBytes) {
-                                totalBytes = estimatedBytes;
-                            }
-                        }
-                    } else if (reportedBytes == C.LENGTH_UNSET || reportedBytes <= 0) {
-                        // No progress yet and no reported size - use 0
-                        totalBytes = 0;
-                    }
-
-					Log.d(TAG, String.format("[getDownloads] Dani 3"));
+                    // Use centralized method for accurate total bytes calculation
+                    long totalBytes = calculateAccurateTotalBytes(download);
                     
                     downloadInfo.putDouble("totalBytes", (double) totalBytes);
                     downloadInfo.putDouble("downloadedBytes", (double) download.getBytesDownloaded());
@@ -1212,29 +1169,44 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     }
     
     /**
-     * Elimina una descarga del índice de forma síncrona y espera a que se complete
-     * Útil para limpiar descargas problemáticas antes de crear nuevas
+     * Elimina una descarga del índice de forma asíncrona.
+     * Útil para limpiar descargas problemáticas antes de crear nuevas.
+     * 
+     * @param id The download ID to remove
+     * @param onComplete Optional callback to run after removal attempt (can be null)
+     */
+    private void forceRemoveDownloadFromIndex(String id, @Nullable Runnable onComplete) {
+        Log.d(TAG, "Force removing download from index: " + id);
+        
+        // Send remove command to download service
+        DownloadService.sendRemoveDownload(reactContext, AxDownloadService.class, id, false);
+        
+        // Use Handler to wait asynchronously instead of blocking with Thread.sleep
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            try {
+                // Verify if it was removed
+                Download stillExists = findDownloadInIndex(id);
+                if (stillExists != null) {
+                    Log.w(TAG, "Download still exists after removal attempt, state: " + mapDownloadState(stillExists.state));
+                } else {
+                    Log.d(TAG, "Download successfully removed from index: " + id);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking download removal: " + id, e);
+            }
+            
+            // Execute callback if provided
+            if (onComplete != null) {
+                onComplete.run();
+            }
+        }, 300);
+    }
+    
+    /**
+     * Convenience overload for forceRemoveDownloadFromIndex without callback.
      */
     private void forceRemoveDownloadFromIndex(String id) {
-        try {
-            Log.d(TAG, "Force removing download from index: " + id);
-            
-            // Primero intentar con el servicio normal
-            DownloadService.sendRemoveDownload(reactContext, AxDownloadService.class, id, false);
-            
-            // Esperar un poco para que se procese
-            Thread.sleep(300);
-            
-            // Verificar si se eliminó
-            Download stillExists = findDownloadInIndex(id);
-            if (stillExists != null) {
-                Log.w(TAG, "Download still exists after removal attempt, state: " + mapDownloadState(stillExists.state));
-            } else {
-                Log.d(TAG, "Download successfully removed from index: " + id);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error force removing download: " + id, e);
-        }
+        forceRemoveDownloadFromIndex(id, null);
     }
 
     private WritableMap createDownloadInfoMap(Download download) {
@@ -1245,60 +1217,8 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         info.putString("state", mapDownloadState(download.state));
         info.putInt("progress", (int) download.getPercentDownloaded());
         
-        // ExoPlayer's contentLength may report full manifest size instead of selected tracks
-        // OR may be unknown (-1). Always try to estimate from actual progress.
-        long reportedBytes = download.contentLength;
-        long estimatedBytes = 0;
-        long totalBytes = reportedBytes;
-        
-        // If we have progress > 5%, we can estimate the real total size
-        if (download.getPercentDownloaded() >= 5 && download.getBytesDownloaded() > 0) {
-            estimatedBytes = (long) (download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
-            
-            if (reportedBytes == C.LENGTH_UNSET || reportedBytes <= 0) {
-                // ContentLength is unknown - ALWAYS use estimated size
-                totalBytes = estimatedBytes;
-                Log.d(TAG, String.format("ContentLength unknown for %s, using estimated: %.2f MB (downloaded: %.2f MB, progress: %d%%)",
-                    download.request.id,
-                    estimatedBytes / (1024.0 * 1024.0),
-                    download.getBytesDownloaded() / (1024.0 * 1024.0),
-                    (int) download.getPercentDownloaded()));
-            } else if (estimatedBytes > 0) {
-                // ContentLength is known - compare with estimated
-                double difference = Math.abs(reportedBytes - estimatedBytes) / (double) reportedBytes;
-                
-                if (difference > 0.10 && estimatedBytes < reportedBytes) {
-                    // Use estimated size as it's more accurate for selected quality
-                    totalBytes = estimatedBytes;
-                    Log.d(TAG, String.format("Using estimated size for %s: %.2f MB (reported: %.2f MB, difference: %.1f%%, progress: %d%%)",
-                        download.request.id, 
-                        estimatedBytes / (1024.0 * 1024.0),
-                        reportedBytes / (1024.0 * 1024.0),
-                        difference * 100,
-                        (int) download.getPercentDownloaded()));
-                } else {
-                    Log.d(TAG, String.format("Using reported size for %s: %.2f MB (estimated: %.2f MB, downloaded: %.2f MB, progress: %d%%)",
-                        download.request.id,
-                        reportedBytes / (1024.0 * 1024.0),
-                        estimatedBytes / (1024.0 * 1024.0),
-                        download.getBytesDownloaded() / (1024.0 * 1024.0),
-                        (int) download.getPercentDownloaded()));
-                }
-            }
-        } else if (reportedBytes != C.LENGTH_UNSET && reportedBytes > 0) {
-            // Early progress and we have reported size
-            Log.d(TAG, String.format("Early progress for %s: %.2f MB total, %.2f MB downloaded (%d%%)",
-                download.request.id,
-                reportedBytes / (1024.0 * 1024.0),
-                download.getBytesDownloaded() / (1024.0 * 1024.0),
-                (int) download.getPercentDownloaded()));
-        } else {
-            // No progress yet and no reported size - use 0
-            totalBytes = 0;
-            Log.d(TAG, String.format("No size information available yet for %s (progress: %d%%)",
-                download.request.id,
-                (int) download.getPercentDownloaded()));
-        }
+        // Use centralized method for accurate total bytes calculation (with logging enabled)
+        long totalBytes = calculateAccurateTotalBytes(download, true);
         
         info.putDouble("totalBytes", (double) totalBytes);
         info.putDouble("downloadedBytes", (double) download.getBytesDownloaded());
@@ -1317,6 +1237,93 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     private Map<String, Long> downloadStartTimes = new ConcurrentHashMap<>();
     private Map<String, Long> lastBytesDownloaded = new ConcurrentHashMap<>();
     private Map<String, Long> lastSpeedCheckTime = new ConcurrentHashMap<>();
+
+    /**
+     * Calculates the accurate total bytes for a download.
+     * 
+     * ExoPlayer's contentLength may report the full manifest size instead of the
+     * selected tracks size, or may be unknown (-1). This method estimates the real
+     * total size based on the current download progress when sufficient data is available.
+     *
+     * @param download The Download object from ExoPlayer
+     * @param enableLogging Whether to log debug information
+     * @return The estimated total bytes for the download
+     */
+    private long calculateAccurateTotalBytes(Download download, boolean enableLogging) {
+        long reportedBytes = download.contentLength;
+        long estimatedBytes = 0;
+        long totalBytes = reportedBytes;
+        
+        // If we have progress >= 5%, we can estimate the real total size
+        if (download.getPercentDownloaded() >= 5 && download.getBytesDownloaded() > 0) {
+            estimatedBytes = (long) (download.getBytesDownloaded() / (download.getPercentDownloaded() / 100.0));
+            
+            if (reportedBytes == C.LENGTH_UNSET || reportedBytes <= 0) {
+                // ContentLength is unknown - ALWAYS use estimated size
+                totalBytes = estimatedBytes;
+                if (enableLogging) {
+                    Log.d(TAG, String.format("ContentLength unknown for %s, using estimated: %.2f MB (downloaded: %.2f MB, progress: %d%%)",
+                        download.request.id,
+                        estimatedBytes / (1024.0 * 1024.0),
+                        download.getBytesDownloaded() / (1024.0 * 1024.0),
+                        (int) download.getPercentDownloaded()));
+                }
+            } else if (estimatedBytes > 0) {
+                // ContentLength is known - compare with estimated
+                double difference = Math.abs(reportedBytes - estimatedBytes) / (double) reportedBytes;
+                
+                if (difference > 0.10 && estimatedBytes < reportedBytes) {
+                    // Use estimated size as it's more accurate for selected quality
+                    totalBytes = estimatedBytes;
+                    if (enableLogging) {
+                        Log.d(TAG, String.format("Using estimated size for %s: %.2f MB (reported: %.2f MB, difference: %.1f%%, progress: %d%%)",
+                            download.request.id, 
+                            estimatedBytes / (1024.0 * 1024.0),
+                            reportedBytes / (1024.0 * 1024.0),
+                            difference * 100,
+                            (int) download.getPercentDownloaded()));
+                    }
+                } else if (enableLogging) {
+                    Log.d(TAG, String.format("Using reported size for %s: %.2f MB (estimated: %.2f MB, downloaded: %.2f MB, progress: %d%%)",
+                        download.request.id,
+                        reportedBytes / (1024.0 * 1024.0),
+                        estimatedBytes / (1024.0 * 1024.0),
+                        download.getBytesDownloaded() / (1024.0 * 1024.0),
+                        (int) download.getPercentDownloaded()));
+                }
+            }
+        } else if (reportedBytes != C.LENGTH_UNSET && reportedBytes > 0) {
+            // Early progress and we have reported size
+            if (enableLogging) {
+                Log.d(TAG, String.format("Early progress for %s: %.2f MB total, %.2f MB downloaded (%d%%)",
+                    download.request.id,
+                    reportedBytes / (1024.0 * 1024.0),
+                    download.getBytesDownloaded() / (1024.0 * 1024.0),
+                    (int) download.getPercentDownloaded()));
+            }
+        } else {
+            // No progress yet and no reported size - use 0
+            totalBytes = 0;
+            if (enableLogging) {
+                Log.d(TAG, String.format("No size information available yet for %s (progress: %d%%)",
+                    download.request.id,
+                    (int) download.getPercentDownloaded()));
+            }
+        }
+        
+        return totalBytes;
+    }
+
+    /**
+     * Calculates the accurate total bytes for a download without logging.
+     * Convenience overload for cases where logging is not needed.
+     *
+     * @param download The Download object from ExoPlayer
+     * @return The estimated total bytes for the download
+     */
+    private long calculateAccurateTotalBytes(Download download) {
+        return calculateAccurateTotalBytes(download, false);
+    }
 
     private double calculateDownloadSpeed(String downloadId) {
         try {
@@ -1463,6 +1470,75 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         return size;
     }
 
+    /**
+     * Initializes the periodic cleanup handler for stale DownloadHelpers.
+     * This prevents memory leaks if onPrepared is never called (e.g., network errors during preparation).
+     */
+    private void initializeHelperCleanup() {
+        helperCleanupHandler = new Handler(Looper.getMainLooper());
+        helperCleanupRunnable = new Runnable() {
+            @Override
+            public void run() {
+                cleanupStaleHelpers();
+                if (helperCleanupHandler != null) {
+                    helperCleanupHandler.postDelayed(this, HELPER_CLEANUP_INTERVAL_MS);
+                }
+            }
+        };
+        helperCleanupHandler.postDelayed(helperCleanupRunnable, HELPER_CLEANUP_INTERVAL_MS);
+        Log.d(TAG, "Helper cleanup handler initialized");
+    }
+
+    /**
+     * Cleans up DownloadHelpers that have been pending for longer than HELPER_TIMEOUT_MS.
+     * Emits an error event for each timed-out helper so React Native can handle the failure.
+     */
+    private void cleanupStaleHelpers() {
+        long now = System.currentTimeMillis();
+        List<String> staleIds = new ArrayList<>();
+        
+        for (Map.Entry<String, Long> entry : helperCreationTimes.entrySet()) {
+            String downloadId = entry.getKey();
+            long creationTime = entry.getValue();
+            
+            if (now - creationTime > HELPER_TIMEOUT_MS) {
+                staleIds.add(downloadId);
+            }
+        }
+        
+        for (String downloadId : staleIds) {
+            Log.w(TAG, "Cleaning up stale DownloadHelper for: " + downloadId + " (timed out after " + HELPER_TIMEOUT_MS + "ms)");
+            
+            DownloadHelper helper = activeHelpers.remove(downloadId);
+            helperCreationTimes.remove(downloadId);
+            
+            if (helper != null) {
+                try {
+                    helper.release();
+                } catch (Exception e) {
+                    Log.w(TAG, "Error releasing stale helper for " + downloadId, e);
+                }
+            }
+            
+            // Clean up associated tracking data
+            activeDownloadQuality.remove(downloadId);
+            activeDrmMessages.remove(downloadId);
+            
+            // Emit error event so React Native knows the preparation failed
+            WritableMap errorMap = Arguments.createMap();
+            errorMap.putString("id", downloadId);
+            errorMap.putString("downloadId", downloadId);
+            errorMap.putString("error", "PREPARATION_TIMEOUT");
+            errorMap.putString("message", "Download preparation timed out after 60 seconds");
+            sendEvent("overonDownloadError", errorMap);
+            sendEvent("overonDownloadPrepareError", errorMap);
+        }
+        
+        if (!staleIds.isEmpty()) {
+            Log.d(TAG, "Cleaned up " + staleIds.size() + " stale helpers. Remaining: " + activeHelpers.size());
+        }
+    }
+
     private void downloadLicenseForItem(MediaItem mediaItem) {
         MediaItem.DrmConfiguration drmConfig = Utility.getDrmConfiguration(mediaItem);
         if (drmConfig != null && mLicenseManager != null) {
@@ -1594,6 +1670,11 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         }
         pendingResumeAll = false;
 
+        // Stop helper cleanup handler
+        if (helperCleanupHandler != null && helperCleanupRunnable != null) {
+            helperCleanupHandler.removeCallbacks(helperCleanupRunnable);
+        }
+
         // Cleanup download helpers
         for (DownloadHelper helper : activeHelpers.values()) {
             try {
@@ -1603,6 +1684,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             }
         }
         activeHelpers.clear();
+        helperCreationTimes.clear();
 
         // Clear speed tracking maps
         downloadStartTimes.clear();
@@ -1821,27 +1903,28 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 manager.addDownload(downloadRequest);
                 Log.d(TAG, "Download successfully added to DownloadManager: " + downloadId);
                 
-                // Check the Download object immediately after adding
-                try {
-                    // Small delay to allow DownloadManager to process
-                    Thread.sleep(100);
-                    Download download = findDownloadById(downloadId);
-                    if (download != null) {
-                        Log.d(TAG, "========== Download Object (Immediately After Adding) ==========");
-                        Log.d(TAG, "contentLength: " + download.contentLength + 
-                            (download.contentLength == C.LENGTH_UNSET ? " (C.LENGTH_UNSET)" : " bytes"));
-                        Log.d(TAG, "bytesDownloaded: " + download.getBytesDownloaded());
-                        Log.d(TAG, "percentDownloaded: " + download.getPercentDownloaded() + "%");
-                        Log.d(TAG, "state: " + mapDownloadState(download.state));
-                        Log.d(TAG, "stopReason: " + download.stopReason);
-                        Log.d(TAG, "failureReason: " + download.failureReason);
-                        Log.d(TAG, "=================================================================");
-                    } else {
-                        Log.w(TAG, "Download object not found immediately after adding (may be processing)");
+                // Check the Download object after a small delay (non-blocking)
+                final String finalDownloadId = downloadId;
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        Download download = findDownloadById(finalDownloadId);
+                        if (download != null) {
+                            Log.d(TAG, "========== Download Object (After Adding) ==========");
+                            Log.d(TAG, "contentLength: " + download.contentLength + 
+                                (download.contentLength == C.LENGTH_UNSET ? " (C.LENGTH_UNSET)" : " bytes"));
+                            Log.d(TAG, "bytesDownloaded: " + download.getBytesDownloaded());
+                            Log.d(TAG, "percentDownloaded: " + download.getPercentDownloaded() + "%");
+                            Log.d(TAG, "state: " + mapDownloadState(download.state));
+                            Log.d(TAG, "stopReason: " + download.stopReason);
+                            Log.d(TAG, "failureReason: " + download.failureReason);
+                            Log.d(TAG, "=====================================================");
+                        } else {
+                            Log.w(TAG, "Download object not found after adding (may be processing)");
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Error checking download object: " + e.getMessage());
                     }
-                } catch (Exception e) {
-                    Log.w(TAG, "Error checking download object: " + e.getMessage());
-                }
+                }, 100);
             } else {
                 Log.e(TAG, "DownloadManager is null, cannot start download");
                 
@@ -1856,6 +1939,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             Log.d(TAG, "Releasing helper for: " + downloadId);
             helper.release();
             activeHelpers.remove(downloadId);
+            helperCreationTimes.remove(downloadId);
             // Note: Keep quality in map until download is removed, not just prepared
             Log.d(TAG, "Active helpers after removal: " + activeHelpers.size());
 
@@ -2127,6 +2211,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             Log.e(TAG, "Download preparation failed for ID: " + failedDownloadId);
             // Clean up the failed helper
             activeHelpers.remove(failedDownloadId);
+            helperCreationTimes.remove(failedDownloadId);
             Log.d(TAG, "Removed failed helper from activeHelpers. Remaining: " + activeHelpers.size());
         } else {
             Log.e(TAG, "Could not identify which download failed");

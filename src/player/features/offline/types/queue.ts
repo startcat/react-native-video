@@ -8,6 +8,7 @@ export interface QueueManagerConfig {
 	processIntervalMs: number;
 	maxConcurrentDownloads: number;
 	maxRetries: number;
+	retryDelayMs: number; // Delay base para reintentos (se aplica backoff exponencial)
 }
 
 export interface ExtendedDownloadItem extends DownloadItem {

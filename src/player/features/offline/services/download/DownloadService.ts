@@ -16,7 +16,6 @@ import {
 	BinaryDownloadServiceConfig,
 	BinaryDownloadTask,
 	DownloadEventCallback,
-	DownloadEventData,
 	DownloadEventType,
 	DownloadServiceConfig,
 	DownloadStrategy,
@@ -220,10 +219,7 @@ export class DownloadService {
 					await this.initializeStrategies();
 				}
 
-				// Configurar bridge de eventos si está habilitado
-				if (this.config.eventBridgeEnabled) {
-					this.setupEventBridge();
-				}
+				// Nota: Event bridge deshabilitado - eventos fluyen directamente desde NativeManager/BinaryDownloadService
 
 				this.isInitialized = true;
 				this.currentLogger.info(TAG, "DownloadService initialized with strategy pattern");
@@ -269,87 +265,6 @@ export class DownloadService {
 		}
 
 		await Promise.allSettled(initPromises);
-	}
-
-	/*
-	 * Configuración del bridge de eventos unificado
-	 *
-	 */
-
-	private setupEventBridge(): void {
-		// Configurar bridge para eventos de binarios si está habilitado
-		if (this.config.enableBinaryDownloads) {
-			try {
-				const binaryStrategy = this.strategyFactory.createStrategy(DownloadType.BINARY);
-				// Suscribirse a cada tipo de evento específicamente para capturar el tipo
-				const unsubscribers: (() => void)[] = [];
-
-				Object.values(DownloadEventType).forEach(eventType => {
-					const unsub = binaryStrategy.subscribe(
-						eventType,
-						(data?: DownloadEventData) => {
-							// Emitir con prefijo para identificación
-							this.eventEmitter.emit(`binary:${eventType}`, {
-								...data,
-								type: eventType,
-								sourceType: DownloadType.BINARY,
-							});
-							// También emitir evento genérico con tipo correcto
-							this.eventEmitter.emit(eventType, {
-								...data,
-								type: eventType,
-								sourceType: DownloadType.BINARY,
-							});
-						}
-					);
-					unsubscribers.push(unsub);
-				});
-
-				this.eventUnsubscribers.set(DownloadType.BINARY, () => {
-					unsubscribers.forEach(unsub => unsub());
-				});
-			} catch (error) {
-				this.currentLogger.warn(TAG, "Failed to setup binary event bridge", error);
-			}
-		}
-
-		// Configurar bridge para eventos de streams si está habilitado
-		if (this.config.enableStreamDownloads) {
-			try {
-				const streamStrategy = this.strategyFactory.createStrategy(DownloadType.STREAM);
-				// Suscribirse a cada tipo de evento específicamente para capturar el tipo
-				const unsubscribers: (() => void)[] = [];
-
-				Object.values(DownloadEventType).forEach(eventType => {
-					const unsub = streamStrategy.subscribe(
-						eventType,
-						(data?: DownloadEventData) => {
-							// Emitir con prefijo para identificación
-							this.eventEmitter.emit(`stream:${eventType}`, {
-								...data,
-								type: eventType,
-								sourceType: DownloadType.STREAM,
-							});
-							// También emitir evento genérico con tipo correcto
-							this.eventEmitter.emit(eventType, {
-								...data,
-								type: eventType,
-								sourceType: DownloadType.STREAM,
-							});
-						}
-					);
-					unsubscribers.push(unsub);
-				});
-
-				this.eventUnsubscribers.set(DownloadType.STREAM, () => {
-					unsubscribers.forEach(unsub => unsub());
-				});
-			} catch (error) {
-				this.currentLogger.warn(TAG, "Failed to setup stream event bridge", error);
-			}
-		}
-
-		this.currentLogger.debug(TAG, "Event bridge configured");
 	}
 
 	/*

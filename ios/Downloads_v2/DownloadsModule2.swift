@@ -243,7 +243,9 @@ class DownloadsModule2: RCTEventEmitter {
     private var cachedDownloadSpace: Int64 = 0
     private var downloadSpaceCacheTime: Date?
     private let DOWNLOAD_SPACE_CACHE_TTL: TimeInterval = 5.0 // 5 segundos
-    private let progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in }
+    
+    // Progress timer - only runs when there are active downloads
+    private var progressTimer: Timer?
     
     // Persistencia de asset paths para recuperar después de restart
     private let ASSET_PATHS_KEY = "com.downloads.assetPaths"
@@ -253,6 +255,8 @@ class DownloadsModule2: RCTEventEmitter {
     
     // Speed tracking
     private var lastProgressUpdate: [String: (bytes: Int64, time: Date)] = [:]
+    // Track last reported progress percentage to avoid duplicate emissions
+    private var lastReportedProgress: [String: Int] = [:]
     
     // MARK: - RCTEventEmitter Overrides
     override static func requiresMainQueueSetup() -> Bool {
@@ -411,6 +415,7 @@ class DownloadsModule2: RCTEventEmitter {
                             downloadInfo.state = .downloading
                             self.activeDownloads[id] = downloadInfo
                             self.persistDownloadState()
+                            self.startProgressTimerIfNeeded()
                             
                             self.sendEvent(withName: "overonDownloadStateChanged", body: [
                                 "id": id,
@@ -518,6 +523,9 @@ class DownloadsModule2: RCTEventEmitter {
                 downloadInfo.state = .queued
                 self.activeDownloads[id] = downloadInfo
                 
+                // Emit prepared event (consistent with Android)
+                self.emitDownloadPrepared(downloadId: id, downloadInfo: downloadInfo, asset: asset)
+                
                 // Persistir estado
                 self.persistDownloadState()
                 self.startDownloadIfPossible(id)
@@ -547,6 +555,7 @@ class DownloadsModule2: RCTEventEmitter {
                 // Remove download info
                 self.activeDownloads.removeValue(forKey: downloadId)
                 self.lastProgressUpdate.removeValue(forKey: downloadId)
+                self.lastReportedProgress.removeValue(forKey: downloadId)
                 
                 // Remove asset path from UserDefaults (IMPORTANTE para cálculo de espacio)
                 self.removeAssetPath(forDownloadId: downloadId)
@@ -624,6 +633,7 @@ class DownloadsModule2: RCTEventEmitter {
                 
                 // Persistir estado
                 self.persistDownloadState()
+                self.startProgressTimerIfNeeded()
                 
                 self.sendEvent(withName: "overonDownloadStateChanged", body: [
                     "id": downloadId,
@@ -657,6 +667,7 @@ class DownloadsModule2: RCTEventEmitter {
             
             // Persistir estado de todas las descargas pausadas
             self.persistDownloadState()
+            self.stopProgressTimerIfNotNeeded()
             
             self.sendEvent(withName: "overonDownloadsPaused", body: ["reason": "user"])
             
@@ -680,6 +691,7 @@ class DownloadsModule2: RCTEventEmitter {
             
             // Persistir estado de todas las descargas reanudadas
             self.persistDownloadState()
+            self.startProgressTimerIfNeeded()
             
             self.sendEvent(withName: "overonDownloadsResumed", body: ["reason": "user"])
             
@@ -1145,6 +1157,73 @@ class DownloadsModule2: RCTEventEmitter {
         // Implementation for network monitoring
     }
     
+    // MARK: - Progress Timer Management
+    
+    /// Starts the progress timer if there are active downloads and timer is not already running
+    private func startProgressTimerIfNeeded() {
+        // Don't create if already exists
+        guard progressTimer == nil else { return }
+        
+        // Only create if there are downloads in progress
+        let hasActiveDownloads = activeDownloads.values.contains {
+            $0.state == .downloading || $0.state == .preparing
+        }
+        
+        guard hasActiveDownloads else { return }
+        
+        print("📥 [DownloadsModule2] Starting progress timer")
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                self?.checkProgressUpdates()
+            }
+            // Ensure timer runs during scroll
+            if let timer = self?.progressTimer {
+                RunLoop.main.add(timer, forMode: .common)
+            }
+        }
+    }
+    
+    /// Stops the progress timer if there are no active downloads
+    private func stopProgressTimerIfNotNeeded() {
+        // Check if there are still active downloads
+        let hasActiveDownloads = activeDownloads.values.contains {
+            $0.state == .downloading || $0.state == .preparing
+        }
+        
+        // If no active downloads, stop the timer
+        if !hasActiveDownloads {
+            invalidateProgressTimer()
+        }
+    }
+    
+    /// Invalidates and cleans up the progress timer
+    private func invalidateProgressTimer() {
+        guard progressTimer != nil else { return }
+        
+        print("📥 [DownloadsModule2] Stopping progress timer")
+        DispatchQueue.main.async { [weak self] in
+            self?.progressTimer?.invalidate()
+            self?.progressTimer = nil
+        }
+    }
+    
+    /// Called by the timer to check for stalled downloads or other periodic tasks
+    private func checkProgressUpdates() {
+        // Check if there are still active downloads
+        let activeCount = activeDownloads.values.filter {
+            $0.state == .downloading || $0.state == .preparing
+        }.count
+        
+        if activeCount == 0 {
+            stopProgressTimerIfNotNeeded()
+            return
+        }
+        
+        // Additional periodic checks can be added here
+        // e.g., detecting stalled downloads
+    }
+    
     private func updateModuleConfig(_ config: NSDictionary) {
         if let downloadDir = config["downloadDirectory"] as? String {
             downloadDirectory = downloadDir
@@ -1170,24 +1249,36 @@ class DownloadsModule2: RCTEventEmitter {
         }
         
         // Determine bitrate based on quality setting
+        // NOTE: iOS uses AVAssetDownloadTaskMinimumRequiredMediaBitrateKey which selects the LOWEST
+        // quality that meets the minimum. To match Android behavior (which selects highest up to max),
+        // we use lower values so iOS selects similar quality levels.
+        // 
+        // Quality mapping (normalized with Android):
+        // - low:    ~480p (Android max: 1.5 Mbps, iOS min: 500 Kbps)
+        // - medium: ~720p (Android max: 3 Mbps, iOS min: 1.5 Mbps)
+        // - high:   ~1080p (Android max: 6 Mbps, iOS min: 3 Mbps)
+        // - auto:   Best available (no restriction)
         let minBitrate: Int
         switch downloadInfo.quality {
         case "low":
-            minBitrate = 1_500_000
+            minBitrate = 500_000    // 500 Kbps - will select ~480p
         case "medium":
-            minBitrate = 2_500_000
+            minBitrate = 1_500_000  // 1.5 Mbps - will select ~720p
         case "high":
-            minBitrate = 5_000_000
+            minBitrate = 3_000_000  // 3 Mbps - will select ~1080p
+        case "auto", .none:
+            minBitrate = 0          // No minimum - select best available
         default:
-            minBitrate = 2_000_000
+            minBitrate = 1_500_000  // Default to medium
         }
         
         // Use aggregateAssetDownloadTask to download video + all media selections (subtitles, audio tracks)
         // This is the Apple-recommended way to download HLS with embedded subtitles
         // See: WWDC 2020 - Session 10655 "Discover how to download and play HLS offline"
-        let options: [String: Any] = [
-            AVAssetDownloadTaskMinimumRequiredMediaBitrateKey: minBitrate
-        ]
+        var options: [String: Any] = [:]
+        if minBitrate > 0 {
+            options[AVAssetDownloadTaskMinimumRequiredMediaBitrateKey] = minBitrate
+        }
         
         // Get all available media selections (includes subtitles and alternative audio)
         // NOTE: For HLS, allMediaSelections may be empty if the asset hasn't been loaded yet
@@ -1233,6 +1324,70 @@ class DownloadsModule2: RCTEventEmitter {
         return task
     }
     
+    /// Emits the download prepared event (consistent with Android behavior)
+    /// - Parameters:
+    ///   - downloadId: The download ID
+    ///   - downloadInfo: The download info
+    ///   - asset: The AVURLAsset that was prepared
+    private func emitDownloadPrepared(downloadId: String, downloadInfo: DownloadInfo, asset: AVURLAsset) {
+        var tracks: [[String: Any]] = []
+        
+        // Get video tracks
+        for track in asset.tracks(withMediaType: .video) {
+            var trackInfo: [String: Any] = [
+                "type": "video",
+                "id": track.trackID
+            ]
+            
+            // Try to get dimensions
+            let size = track.naturalSize
+            if size.width > 0 && size.height > 0 {
+                trackInfo["width"] = Int(size.width)
+                trackInfo["height"] = Int(size.height)
+            }
+            
+            tracks.append(trackInfo)
+        }
+        
+        // Get audio tracks
+        for track in asset.tracks(withMediaType: .audio) {
+            let trackInfo: [String: Any] = [
+                "type": "audio",
+                "id": track.trackID,
+                "language": track.languageCode ?? "und"
+            ]
+            tracks.append(trackInfo)
+        }
+        
+        // Get subtitle tracks
+        for track in asset.tracks(withMediaType: .text) {
+            let trackInfo: [String: Any] = [
+                "type": "text",
+                "id": track.trackID,
+                "language": track.languageCode ?? "und"
+            ]
+            tracks.append(trackInfo)
+        }
+        
+        // Get duration (may be unknown for HLS before loading)
+        let duration = CMTimeGetSeconds(asset.duration)
+        let validDuration = duration.isNaN || duration.isInfinite ? 0 : duration
+        
+        print("📥 [DownloadsModule2] Emitting downloadPrepared for \(downloadId): \(tracks.count) tracks, duration=\(validDuration)s")
+        
+        sendEvent(withName: "overonDownloadPrepared", body: [
+            "id": downloadId,
+            "downloadId": downloadId,
+            "uri": downloadInfo.uri,
+            "title": downloadInfo.title,
+            "duration": validDuration,
+            "tracks": tracks,
+            "quality": downloadInfo.quality ?? "auto",
+            "hasDRM": downloadInfo.hasDRM,
+            "message": "Download prepared successfully"
+        ])
+    }
+    
     private func startDownloadIfPossible(_ downloadId: String) {
         let activeCount = activeDownloads.values.filter { $0.state == .downloading }.count
         
@@ -1252,6 +1407,7 @@ class DownloadsModule2: RCTEventEmitter {
                     downloadInfo.state = .downloading
                     activeDownloads[downloadId] = downloadInfo
                     persistDownloadState()
+                    startProgressTimerIfNeeded()
                     
                     sendEvent(withName: "overonDownloadStateChanged", body: [
                         "id": downloadId,
@@ -1547,14 +1703,17 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         activeDownloads[downloadId] = downloadInfo
         lastProgressUpdate[downloadId] = (bytes: estimatedDownloadedBytes, time: now)
         
-        // Only emit progress event if progress changed significantly (avoid flooding)
-        let progressDiff = abs(downloadInfo.progress - previousProgress)
-        if progressDiff >= 0.01 || previousProgress == 0 { // 1% change threshold
-            print("📥 [DownloadsModule2] Progress: \(downloadId) - \(Int(percentComplete * 100))%")
+        // Only emit progress event if percentage changed (1% increments like Android)
+        let currentPercent = Int(percentComplete * 100)
+        let lastPercent = lastReportedProgress[downloadId] ?? -1
+        
+        if currentPercent != lastPercent {
+            lastReportedProgress[downloadId] = currentPercent
+            print("📥 [DownloadsModule2] Progress: \(downloadId) - \(currentPercent)%")
             
             sendEvent(withName: "overonDownloadProgress", body: [
                 "id": downloadId,
-                "progress": Int(percentComplete * 100),
+                "progress": currentPercent,
                 "downloadedBytes": NSNumber(value: estimatedDownloadedBytes),
                 "totalBytes": NSNumber(value: estimatedTotalBytes),
                 "speed": speed,
@@ -1691,7 +1850,9 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 
                 // Check if we have a pending location from didFinishDownloadingTo
                 if let location = pendingLocations.removeValue(forKey: downloadId) {
-                    finalizeDownload(downloadId: downloadId, location: location)
+                    // Use relaxed validation for high-progress downloads with recoverable errors
+                    // The strict track validation can fail for partial downloads that are still playable
+                    finalizeDownload(downloadId: downloadId, location: location, skipStrictValidation: true)
                 } else {
                     // Mark as completed without error, wait for didFinishDownloadingTo
                     completedWithoutError.insert(downloadId)
@@ -1718,6 +1879,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
                 
                 persistDownloadState()
                 invalidateDownloadSpaceCache()
+                stopProgressTimerIfNotNeeded()
                 
                 sendEvent(withName: "overonDownloadError", body: [
                     "id": downloadId,
@@ -1741,7 +1903,39 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         }
     }
     
-    private func finalizeDownload(downloadId: String, location: URL) {
+    private func finalizeDownload(downloadId: String, location: URL, skipStrictValidation: Bool = false) {
+        // Validate asset integrity before marking as completed
+        // For high-progress downloads (>=98%) that had recoverable errors, use relaxed validation
+        let (isValid, validationError) = skipStrictValidation 
+            ? validateAssetIntegrityRelaxed(at: location)
+            : validateAssetIntegrity(at: location)
+        
+        if !isValid {
+            print("📥 [DownloadsModule2] ❌ Asset validation failed for \(downloadId): \(validationError ?? "unknown")")
+            
+            // Mark as failed instead of completed
+            if var downloadInfo = activeDownloads[downloadId] {
+                downloadInfo.state = .failed
+                downloadInfo.error = NSError(
+                    domain: "DownloadsModule2",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: validationError ?? "Asset validation failed"]
+                )
+                activeDownloads[downloadId] = downloadInfo
+                
+                persistDownloadState()
+                
+                sendEvent(withName: "overonDownloadError", body: [
+                    "id": downloadId,
+                    "error": [
+                        "code": "ASSET_VALIDATION_FAILED",
+                        "message": validationError ?? "Asset validation failed"
+                    ]
+                ])
+            }
+            return
+        }
+        
         let actualSize = calculateAssetSize(at: location)
         
         guard var downloadInfo = activeDownloads[downloadId] else { return }
@@ -1760,6 +1954,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         saveAssetBookmark(for: location, downloadId: downloadId)
         persistDownloadState()
         invalidateDownloadSpaceCache()
+        stopProgressTimerIfNotNeeded()
         
         let duration: TimeInterval = downloadInfo.startTime.map { Date().timeIntervalSince($0) } ?? 0
         sendEvent(withName: "overonDownloadCompleted", body: [
@@ -1769,6 +1964,95 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             "duration": NSNumber(value: duration)
         ])
         
+    }
+    
+    /// Validates the basic integrity of a downloaded asset (.movpkg)
+    /// - Parameter location: URL of the .movpkg directory
+    /// - Returns: Tuple with (isValid, errorMessage)
+    private func validateAssetIntegrity(at location: URL) -> (isValid: Bool, error: String?) {
+        let fileManager = FileManager.default
+        
+        // Handle /.nofollow prefix if present
+        var pathToCheck = location.path
+        if !fileManager.fileExists(atPath: pathToCheck) && pathToCheck.hasPrefix("/.nofollow") {
+            pathToCheck = String(pathToCheck.dropFirst("/.nofollow".count))
+        }
+        
+        // 1. Verify that the directory exists
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: pathToCheck, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return (false, "Asset directory does not exist")
+        }
+        
+        let workingURL = URL(fileURLWithPath: pathToCheck)
+        
+        // 2. Verify that it has content
+        guard let contents = try? fileManager.contentsOfDirectory(atPath: pathToCheck),
+              !contents.isEmpty else {
+            return (false, "Asset directory is empty")
+        }
+        
+        // 3. Verify minimum size (at least 1MB for a valid video)
+        let size = calculateAssetSize(at: workingURL)
+        if size < 1_000_000 { // 1MB minimum
+            return (false, "Asset size too small: \(size) bytes")
+        }
+        
+        // 4. Try to verify the asset is playable using AVURLAsset
+        let asset = AVURLAsset(url: workingURL)
+        
+        // Check for video or audio tracks (synchronous check for basic validation)
+        let videoTracks = asset.tracks(withMediaType: .video)
+        let audioTracks = asset.tracks(withMediaType: .audio)
+        
+        if videoTracks.isEmpty && audioTracks.isEmpty {
+            // Try checking if asset reports as playable
+            // Note: This is a basic check, full validation would require async loading
+            return (false, "No playable tracks found in asset")
+        }
+        
+        print("📥 [DownloadsModule2] ✅ Asset validation passed: size=\(size) bytes, video=\(videoTracks.count), audio=\(audioTracks.count)")
+        return (true, nil)
+    }
+    
+    /// Relaxed validation for high-progress downloads (>=98%) with recoverable errors
+    /// Only checks directory existence and minimum size, skips track validation
+    /// This is needed because AVURLAsset.tracks() can fail for partial downloads that are still playable
+    private func validateAssetIntegrityRelaxed(at location: URL) -> (isValid: Bool, error: String?) {
+        let fileManager = FileManager.default
+        
+        // Handle /.nofollow prefix if present
+        var pathToCheck = location.path
+        if !fileManager.fileExists(atPath: pathToCheck) && pathToCheck.hasPrefix("/.nofollow") {
+            pathToCheck = String(pathToCheck.dropFirst("/.nofollow".count))
+        }
+        
+        // 1. Verify that the directory exists
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: pathToCheck, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return (false, "Asset directory does not exist")
+        }
+        
+        let workingURL = URL(fileURLWithPath: pathToCheck)
+        
+        // 2. Verify that it has content
+        guard let contents = try? fileManager.contentsOfDirectory(atPath: pathToCheck),
+              !contents.isEmpty else {
+            return (false, "Asset directory is empty")
+        }
+        
+        // 3. Verify minimum size (at least 1MB for a valid video)
+        let size = calculateAssetSize(at: workingURL)
+        if size < 1_000_000 { // 1MB minimum
+            return (false, "Asset size too small: \(size) bytes")
+        }
+        
+        // Skip track validation for relaxed mode - partial downloads may not report tracks correctly
+        // but can still be playable
+        print("📥 [DownloadsModule2] ✅ Relaxed asset validation passed: size=\(size) bytes (track validation skipped)")
+        return (true, nil)
     }
     
     private func findDownloadId(for task: AVAggregateAssetDownloadTask) -> String? {

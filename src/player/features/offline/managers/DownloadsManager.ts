@@ -261,17 +261,8 @@ export class DownloadsManager {
 			this.eventUnsubscribers.push(profileUnsubscriber);
 		}
 
-		// Coordinar con DownloadService para eventos de descargas
-		// Suscribirse a cada tipo de evento específicamente
-		// IMPORTANTE: Incluir el tipo de evento en el payload ya que algunos servicios no lo incluyen
-		Object.values(DownloadEventType).forEach(eventType => {
-			const downloadUnsubscriber = downloadService.subscribe(eventType, async data => {
-				// Enriquecer el payload con el tipo de evento si no está presente
-				const enrichedData = { type: eventType, ...(data as object) };
-				await this.handleDownloadEvent(enrichedData);
-			});
-			this.eventUnsubscribers.push(downloadUnsubscriber);
-		});
+		// Nota: Suscripción a DownloadService deshabilitada - eventos fluyen directamente
+		// desde NativeManager/BinaryDownloadService -> QueueManager -> DownloadsManager
 
 		// Coordinar con NetworkService para políticas de red
 		if (this.config.networkMonitoringEnabled) {
