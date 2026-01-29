@@ -99,11 +99,13 @@ export class QueueManager {
 			});
 		});
 
-		// NOTE: Error events are NOT subscribed here to avoid double notification.
-		// The correct flow is: NativeManager → StreamDownloadService → DownloadService → DownloadsManager → QueueManager
-		// This ensures the complete error message (including HTTP 404) reaches QueueManager for proper error detection.
-		// Previously, subscribing here caused a race condition where the first notification (with generic message)
-		// would schedule a retry before the second notification (with complete message) could mark as FAILED.
+		// Suscribirse a eventos de error del NativeManager (streams HLS/DASH)
+		// FASE 2: Ahora que DownloadService ya no re-emite eventos, necesitamos suscribirnos directamente
+		nativeManager.subscribe("download_error", (data: unknown) => {
+			this.handleNativeErrorEvent(data).catch(error => {
+				this.currentLogger.error(TAG, "Failed to handle native error event", error);
+			});
+		});
 
 		// FASE 1: Suscribirse a eventos de BinaryDownloadService directamente
 		// Los binarios no pasan por NativeManager, usan @kesha-antonov/react-native-background-downloader
@@ -2256,9 +2258,57 @@ export class QueueManager {
 		}
 	}
 
-	// NOTE: handleNativeErrorEvent was removed to avoid double notification.
-	// Error events now flow through: NativeManager → StreamDownloadService → DownloadService → DownloadsManager → QueueManager
-	// This ensures the complete error message (including HTTP 404) reaches QueueManager for proper error detection.
+	/**
+	 * Maneja eventos de error nativos (streams HLS/DASH)
+	 * FASE 2: Ahora que DownloadService ya no re-emite eventos, recibimos errores directamente de NativeManager
+	 */
+	private async handleNativeErrorEvent(data: unknown): Promise<void> {
+		const eventData = data as {
+			downloadId?: string;
+			id?: string;
+			error?: { code?: string; message?: string } | string;
+			errorCode?: string;
+			errorMessage?: string;
+		};
+
+		const downloadId = eventData.downloadId || eventData.id;
+		if (!downloadId) {
+			this.currentLogger.warn(TAG, "Received error event without downloadId", eventData);
+			return;
+		}
+
+		const item = this.downloadQueue.get(downloadId);
+		if (!item) {
+			this.currentLogger.debug(TAG, `Error event for unknown download: ${downloadId}`);
+			return;
+		}
+
+		// Extraer código y mensaje de error
+		let errorCode = "UNKNOWN";
+		let errorMessage = "Download failed";
+
+		if (typeof eventData.error === "object" && eventData.error) {
+			errorCode = eventData.error.code || eventData.errorCode || "UNKNOWN";
+			errorMessage = eventData.error.message || eventData.errorMessage || "Download failed";
+		} else if (typeof eventData.error === "string") {
+			errorMessage = eventData.error;
+			errorCode = eventData.errorCode || "UNKNOWN";
+		} else {
+			errorCode = eventData.errorCode || "UNKNOWN";
+			errorMessage = eventData.errorMessage || "Download failed";
+		}
+
+		this.currentLogger.error(
+			TAG,
+			`Native error for ${downloadId}: ${errorCode} - ${errorMessage}`
+		);
+
+		await this.handleDownloadFailure(downloadId, item, {
+			code: errorCode,
+			message: errorMessage,
+			timestamp: Date.now(),
+		});
+	}
 
 	private mapNativeStateToInternal(nativeState: string): DownloadStates {
 		// Mapear estados nativos a estados internos

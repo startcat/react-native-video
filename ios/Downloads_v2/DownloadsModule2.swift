@@ -1906,7 +1906,18 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     private func finalizeDownload(downloadId: String, location: URL, skipStrictValidation: Bool = false) {
         // Validate asset integrity before marking as completed
         // For high-progress downloads (>=98%) that had recoverable errors, use relaxed validation
-        let (isValid, validationError) = skipStrictValidation 
+        // IMPORTANT: HLS .movpkg files should ALWAYS use relaxed validation because:
+        // 1. AVURLAsset.tracks(withMediaType:) is synchronous and unreliable for freshly downloaded HLS
+        // 2. iOS needs time to index the .movpkg content before tracks are available
+        // 3. The strict track validation fails for valid HLS downloads immediately after completion
+        let isHLSAsset = location.pathExtension == "movpkg"
+        let shouldUseRelaxedValidation = skipStrictValidation || isHLSAsset
+        
+        if isHLSAsset {
+            print("📥 [DownloadsModule2] HLS asset detected (.movpkg) - using relaxed validation")
+        }
+        
+        let (isValid, validationError) = shouldUseRelaxedValidation
             ? validateAssetIntegrityRelaxed(at: location)
             : validateAssetIntegrity(at: location)
         
