@@ -47,7 +47,7 @@ export class NativeManager {
 	// Estado interno
 	private systemInfo: SystemInfo | null = null;
 	private eventBuffer: Array<{ event: string; data: unknown; timestamp: number }> = [];
-	private lastProgressByDownload: Map<string, number> = new Map();
+	private completedDownloads: Set<string> = new Set(); // Tracking de descargas completadas para evitar duplicados
 
 	private constructor() {
 		// Configuración por defecto del manager
@@ -274,7 +274,10 @@ export class NativeManager {
 
 	private handleNativeEvent(eventName: string, data: unknown): void {
 		try {
-			// this.currentLogger.debug(TAG, `Received native event: ${eventName}`, data);
+			// DEBUG: Log all native events to verify they are being received
+			if (eventName === "overonDownloadProgress") {
+				console.log(`[NativeManager] 📥 Received native progress event:`, data);
+			}
 
 			// Buffer del evento para debugging
 			this.bufferEvent(eventName, data);
@@ -358,18 +361,23 @@ export class NativeManager {
 			);
 		}
 
-		// No reenviar eventos de descargas completadas que no tienen actividad
+		// Cuando el progreso llega a 100%, emitir evento de completado de forma determinística
+		// Solo emitir si no hemos emitido ya para esta descarga
 		if (percent >= 100 && speed === 0) {
-			// PERO SÍ emitir evento de completado si el módulo nativo no lo hizo
-			// Solo log ocasional para debug, no spam
-			if (Math.random() < 0.02) {
-				// 2% de los eventos
-				this.currentLogger.debug(
+			const alreadyCompleted = this.completedDownloads?.has(eventData.id);
+			if (!alreadyCompleted) {
+				this.currentLogger.info(
 					TAG,
-					`Auto-completing download that reached 100%: ${eventData.id}`
+					`Download reached 100%, emitting completion: ${eventData.id}`
 				);
 
-				// Emitir evento de completado ya que el módulo nativo no lo está haciendo
+				// Marcar como completada para evitar duplicados
+				if (!this.completedDownloads) {
+					this.completedDownloads = new Set<string>();
+				}
+				this.completedDownloads.add(eventData.id);
+
+				// Emitir evento de completado
 				this.eventEmitter.emit("download_completed", {
 					downloadId: eventData.id,
 					fileUri: eventData.localPath || eventData.fileUri,
@@ -380,26 +388,7 @@ export class NativeManager {
 			return;
 		}
 
-		// No reenviar eventos estáticos repetitivos (sin cambios y sin actividad)
-		// PERO permitir eventos si el progreso ha cambiado significativamente
-		const lastProgress = this.lastProgressByDownload?.get(eventData.id) || 0;
-		const progressChanged = Math.abs(percent - lastProgress) >= 1; // Al menos 1% de cambio
-
-		if (speed === 0 && eventData.remainingTime === 0 && percent < 100 && !progressChanged) {
-			// Solo log ocasional para debug, no spam
-			if (Math.random() < 0.02) {
-				// 2% de los eventos
-				this.currentLogger.debug(
-					TAG,
-					`Filtering static progress event: ${eventData.id} (${percent}%, no activity)`
-				);
-			}
-			return;
-		}
-
-		// Actualizar último progreso conocido
-		this.lastProgressByDownload.set(eventData.id, percent);
-
+		// Emitir evento de progreso - el filtrado se hace en QueueManager
 		const progressEvent: DownloadProgressEvent = {
 			downloadId: eventData.id,
 			percent: percent,

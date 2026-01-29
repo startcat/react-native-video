@@ -9,6 +9,7 @@ import { PlayerError } from "../../../core/errors";
 import { Logger } from "../../logger";
 import { LOG_TAGS } from "../constants";
 import { DEFAULT_CONFIG_QUEUE, LOGGER_DEFAULTS } from "../defaultConfigs";
+import { binaryDownloadService } from "../services/download/BinaryDownloadService";
 import { persistenceService } from "../services/storage/PersistenceService";
 import { storageService } from "../services/storage/StorageService";
 import { downloadsManager } from "./DownloadsManager";
@@ -16,16 +17,17 @@ import { nativeManager } from "./NativeManager";
 import { profileManager } from "./ProfileManager";
 
 import {
-    BinaryDownloadTask,
-    DownloadEventType,
-    DownloadItem,
-    DownloadStates,
-    DownloadType,
-    QueueManagerConfig,
-    QueueStats,
-    QueueStatusCallback,
-    StreamDownloadTask,
+	BinaryDownloadTask,
+	DownloadEventType,
+	DownloadItem,
+	DownloadStates,
+	DownloadType,
+	QueueManagerConfig,
+	QueueStats,
+	QueueStatusCallback,
+	StreamDownloadTask,
 } from "../types";
+import { speedCalculator } from "../utils/SpeedCalculator";
 
 const TAG = LOG_TAGS.QUEUE_MANAGER;
 
@@ -43,6 +45,10 @@ export class QueueManager {
 	private retryTracker: Map<string, number> = new Map();
 	private currentLogger: Logger;
 	private isProcessingQueue: boolean = false; // Flag para prevenir ejecuciones concurrentes
+
+	// Sistema de locks para operaciones de eliminación
+	private pendingOperations: Map<string, "removing" | "updating"> = new Map();
+	private lockTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
@@ -93,14 +99,79 @@ export class QueueManager {
 			});
 		});
 
-		// Suscribirse a eventos de error del NativeManager
-		nativeManager.subscribe("download_error", (data: unknown) => {
-			this.handleNativeErrorEvent(data).catch(error => {
-				this.currentLogger.error(TAG, "Failed to handle native error event", error);
+		// NOTE: Error events are NOT subscribed here to avoid double notification.
+		// The correct flow is: NativeManager → StreamDownloadService → DownloadService → DownloadsManager → QueueManager
+		// This ensures the complete error message (including HTTP 404) reaches QueueManager for proper error detection.
+		// Previously, subscribing here caused a race condition where the first notification (with generic message)
+		// would schedule a retry before the second notification (with complete message) could mark as FAILED.
+
+		// FASE 1: Suscribirse a eventos de BinaryDownloadService directamente
+		// Los binarios no pasan por NativeManager, usan @kesha-antonov/react-native-background-downloader
+		this.setupBinaryEventListeners();
+
+		this.currentLogger.debug(TAG, "Native event listeners configured");
+	}
+
+	/*
+	 * FASE 1: Configura event listeners para BinaryDownloadService
+	 * Los binarios usan @kesha-antonov/react-native-background-downloader, no NativeManager
+	 */
+	private setupBinaryEventListeners(): void {
+		// Suscribirse a eventos de progreso de binarios
+		binaryDownloadService.subscribe(DownloadEventType.PROGRESS, (data: unknown) => {
+			// BinaryDownloadService emite: { taskId, percent, bytesWritten, totalBytes, downloadSpeed, estimatedTimeRemaining }
+			const progressData = data as {
+				taskId: string;
+				percent: number;
+				bytesWritten?: number;
+				bytesDownloaded?: number;
+				totalBytes: number;
+				downloadSpeed?: number;
+				speed?: number;
+			};
+			// Convertir al formato esperado por handleNativeProgressEvent
+			const percent = progressData.percent ?? 0;
+			const bytesDownloaded = progressData.bytesWritten ?? progressData.bytesDownloaded ?? 0;
+			const speed = progressData.downloadSpeed ?? progressData.speed ?? 0;
+
+			this.handleNativeProgressEvent({
+				downloadId: progressData.taskId,
+				percent,
+				bytesDownloaded,
+				totalBytes: progressData.totalBytes,
+				speed,
+			}).catch(error => {
+				this.currentLogger.error(TAG, "Failed to handle binary progress event", error);
 			});
 		});
 
-		this.currentLogger.debug(TAG, "Native event listeners configured");
+		// Suscribirse a eventos de completado de binarios
+		binaryDownloadService.subscribe(DownloadEventType.COMPLETED, (data: unknown) => {
+			const completedData = data as { taskId: string; fileUri?: string };
+			this.handleNativeCompletedEvent({
+				downloadId: completedData.taskId,
+				localPath: completedData.fileUri,
+			}).catch(error => {
+				this.currentLogger.error(TAG, "Failed to handle binary completed event", error);
+			});
+		});
+
+		// Suscribirse a eventos de error de binarios
+		binaryDownloadService.subscribe(DownloadEventType.FAILED, (data: unknown) => {
+			const errorData = data as { taskId: string; error?: string; errorCode?: string };
+			const item = this.downloadQueue.get(errorData.taskId);
+			if (item) {
+				this.handleDownloadFailure(errorData.taskId, item, {
+					code: errorData.errorCode || "UNKNOWN",
+					message: errorData.error || "Binary download failed",
+					timestamp: Date.now(),
+				}).catch((err: Error) => {
+					this.currentLogger.error(TAG, "Failed to handle binary error event", err);
+				});
+			}
+		});
+
+		this.currentLogger.debug(TAG, "Binary event listeners configured");
 	}
 
 	/*
@@ -223,6 +294,15 @@ export class QueueManager {
 			throw new PlayerError("DOWNLOAD_QUEUE_MANAGER_NOT_INITIALIZED");
 		}
 
+		// Intentar adquirir lock para evitar race conditions
+		if (!this.acquireLock(downloadId, "removing")) {
+			this.currentLogger.warn(
+				TAG,
+				`Cannot remove ${downloadId}: operation already in progress`
+			);
+			return;
+		}
+
 		try {
 			const item = this.downloadQueue.get(downloadId);
 			if (!item) {
@@ -331,6 +411,9 @@ export class QueueManager {
 				downloadId,
 				profileId: profileId,
 			});
+		} finally {
+			// Siempre liberar el lock
+			this.releaseLock(downloadId);
 		}
 	}
 
@@ -719,38 +802,79 @@ export class QueueManager {
 
 	/*
 	 * Limpia descargas por estados específicos (método auxiliar)
+	 * Realiza limpieza completa: archivos físicos, estado nativo y cola
 	 *
 	 */
 
-	private async clearByState(states: DownloadStates[]): Promise<void> {
+	private async clearByState(
+		states: DownloadStates[],
+		skipFileCleanup: boolean = false
+	): Promise<void> {
 		try {
 			const beforeCount = this.downloadQueue.size;
 			const idsToRemove: string[] = [];
 
+			// Identificar items a eliminar
 			for (const [id, item] of this.downloadQueue) {
 				if (states.includes(item.state)) {
 					idsToRemove.push(id);
 				}
 			}
 
-			idsToRemove.forEach(id => this.downloadQueue.delete(id));
+			if (idsToRemove.length === 0) {
+				return;
+			}
+
+			this.currentLogger.info(
+				TAG,
+				`Clearing ${idsToRemove.length} downloads with states: ${states.join(", ")}`
+			);
+
+			// Limpiar cada item completamente
+			for (const id of idsToRemove) {
+				const item = this.downloadQueue.get(id);
+
+				// 1. Limpiar archivo físico si existe y no se omite
+				if (!skipFileCleanup && item?.fileUri) {
+					try {
+						await storageService.deleteFile(item.fileUri);
+					} catch (error) {
+						this.currentLogger.warn(TAG, `Failed to delete file: ${item.fileUri}`);
+					}
+				}
+
+				// 2. Limpiar estado nativo (para streams)
+				if (item?.type === DownloadType.STREAM) {
+					try {
+						await nativeManager.removeDownload(id);
+					} catch (error) {
+						// Ignorar errores si ya no existe en nativo
+					}
+				}
+
+				// 3. Eliminar de la cola
+				this.downloadQueue.delete(id);
+
+				// 4. Limpiar tracking asociado
+				this.retryTracker.delete(id);
+				this.currentlyDownloading.delete(id);
+			}
 
 			const removed = beforeCount - this.downloadQueue.size;
 
-			if (removed > 0) {
-				await persistenceService.saveDownloadState(this.downloadQueue);
+			// Persistir cambios
+			await persistenceService.saveDownloadState(this.downloadQueue);
 
-				this.eventEmitter.emit("downloads_cleared_by_state", {
-					states,
-					clearedCount: removed,
-					queueSize: this.downloadQueue.size,
-				});
+			this.eventEmitter.emit("downloads_cleared_by_state", {
+				states,
+				clearedCount: removed,
+				queueSize: this.downloadQueue.size,
+			});
 
-				this.currentLogger.info(
-					TAG,
-					`Cleared ${removed} downloads with states: ${states.join(", ")}`
-				);
-			}
+			this.currentLogger.info(
+				TAG,
+				`Cleared ${removed} downloads with states: ${states.join(", ")}`
+			);
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_QUEUE_CLEAR_BY_STATE_FAILED", {
 				originalError: error,
@@ -1148,6 +1272,9 @@ export class QueueManager {
 		// Remover de descargas activas
 		this.currentlyDownloading.delete(downloadId);
 
+		// Limpiar muestras de velocidad
+		speedCalculator.clear(downloadId);
+
 		const item = this.downloadQueue.get(downloadId);
 		if (item) {
 			this.eventEmitter.emit(DownloadEventType.COMPLETED, {
@@ -1157,6 +1284,19 @@ export class QueueManager {
 
 			this.currentLogger.info(TAG, `Download completed: ${item.title}`);
 		}
+
+		// DEBUG: Log all downloads state after completion
+		const allDownloads = Array.from(this.downloadQueue.values());
+		const statesSummary = allDownloads.map(d => `${d.id}:${d.state}:${d.type}`).join(", ");
+		this.currentLogger.info(TAG, `Queue state after completion: [${statesSummary}]`);
+		this.currentLogger.info(
+			TAG,
+			`currentlyDownloading: [${Array.from(this.currentlyDownloading).join(", ")}]`
+		);
+		this.currentLogger.info(
+			TAG,
+			`isProcessing: ${this.isProcessing}, isPaused: ${this.isPaused}`
+		);
 
 		// Procesar siguiente item en cola (puede iniciar procesamiento si estaba detenido)
 		if (!this.isProcessing && !this.isPaused) {
@@ -1172,13 +1312,33 @@ export class QueueManager {
 	 */
 
 	public async notifyDownloadFailed(downloadId: string, error: unknown): Promise<void> {
+		// DEBUG: Log when notifyDownloadFailed is called
+		console.log(`[QueueManager] 🔴 notifyDownloadFailed called for: ${downloadId}`);
+		console.log(
+			`[QueueManager] 🔴 Queue has ${this.downloadQueue.size} items: [${Array.from(this.downloadQueue.keys()).join(", ")}]`
+		);
+
 		const item = this.downloadQueue.get(downloadId);
+
+		// DEDUPLICATION: If item is already FAILED, skip processing
+		// This prevents race conditions when multiple error events arrive for the same download
+		if (item?.state === DownloadStates.FAILED) {
+			console.log(`[QueueManager] 🔴 Item already FAILED, skipping duplicate notification`);
+			return;
+		}
+
 		if (item) {
+			console.log(`[QueueManager] 🔴 Item found, calling handleDownloadFailure`);
 			await this.handleDownloadFailure(downloadId, item, error);
+		} else {
+			console.log(`[QueueManager] 🔴 Item NOT found in queue for downloadId: ${downloadId}`);
 		}
 
 		// Remover de descargas activas
 		this.currentlyDownloading.delete(downloadId);
+
+		// Limpiar muestras de velocidad
+		speedCalculator.clear(downloadId);
 
 		// Procesar siguiente item en cola (puede iniciar procesamiento si estaba detenido)
 		if (!this.isProcessing && !this.isPaused) {
@@ -1289,6 +1449,8 @@ export class QueueManager {
 
 	/*
 	 * Maneja fallos de descarga
+	 * CENTRALIZADO: Toda la lógica de reintentos está aquí.
+	 * Los servicios (StreamDownloadService, BinaryDownloadService) solo reportan errores.
 	 *
 	 */
 
@@ -1300,49 +1462,67 @@ export class QueueManager {
 		const currentRetries = this.retryTracker.get(downloadId) || 0;
 		const retryCount = currentRetries + 1;
 
-		// Check if this is a non-retryable error (like NO_SPACE_LEFT)
-		const isNonRetryableError = this.isNonRetryableError(error);
+		// Extraer información de retryable del error si está disponible
+		const errorObj = error as {
+			isRetryable?: boolean;
+			code?: string;
+			errorCode?: string;
+			message?: string;
+		};
+		const serviceRecommendation = errorObj?.isRetryable;
+
+		// Determinar si es reintentable: usar recomendación del servicio o verificar localmente
+		const isNonRetryableError =
+			serviceRecommendation === false || this.isNonRetryableError(error);
 
 		if (isNonRetryableError || retryCount >= this.config.maxRetries) {
 			// Non-retryable error or retry limit reached - mark as failed immediately
 			this.retryTracker.delete(downloadId);
 			await this.updateDownloadState(downloadId, DownloadStates.FAILED);
 
+			// DEBUG: Verify state was updated
+			const updatedItem = this.downloadQueue.get(downloadId);
+			console.log(`[QueueManager] 🔴 After updateDownloadState FAILED:`, {
+				downloadId,
+				newState: updatedItem?.state,
+				expectedState: DownloadStates.FAILED,
+				stateMatches: updatedItem?.state === DownloadStates.FAILED,
+			});
+
 			// CRITICAL: Emit FAILED event so UI can update
-			console.log(
-				`[QueueManager] 🚨 EMITTING FAILED EVENT for: ${item.title || downloadId}`,
-				{ downloadId, error }
+			this.currentLogger.error(
+				TAG,
+				`Download failed permanently: ${item.title || downloadId}`,
+				{
+					isNonRetryableError,
+					retryCount,
+					maxRetries: this.config.maxRetries,
+					errorCode: errorObj?.code || errorObj?.errorCode,
+				}
 			);
 
 			this.eventEmitter.emit(DownloadEventType.FAILED, {
 				downloadId,
-				item,
+				item: updatedItem || item, // Use updated item with FAILED state
 				error,
 			});
-
-			if (isNonRetryableError) {
-				this.currentLogger.error(
-					TAG,
-					`Download failed with non-retryable error: ${item.title || downloadId}`,
-					error
-				);
-			} else {
-				this.currentLogger.error(
-					TAG,
-					`Download failed after ${retryCount} retries: ${item.title || downloadId}`
-				);
-			}
 		} else {
 			// Actualizar contador de reintentos
 			this.retryTracker.set(downloadId, retryCount);
 
-			// Log del error para debugging
-			console.log(
-				`[QueueManager] Download failed, will retry (${retryCount}/${this.config.maxRetries}): ${item.title || downloadId}`,
-				error
+			// Calcular delay con backoff exponencial
+			const baseDelay = this.config.retryDelayMs || 2000;
+			const delay = Math.min(
+				baseDelay * Math.pow(2, retryCount - 1), // Backoff exponencial
+				60000 // Máximo 60 segundos
 			);
 
-			// Programar reintento
+			this.currentLogger.info(
+				TAG,
+				`Download failed, scheduling retry ${retryCount}/${this.config.maxRetries} in ${delay}ms: ${item.title || downloadId}`
+			);
+
+			// Programar reintento con backoff exponencial
 			setTimeout(async () => {
 				await this.updateDownloadState(downloadId, DownloadStates.QUEUED);
 				this.currentLogger.info(
@@ -1351,7 +1531,7 @@ export class QueueManager {
 				);
 				// Forzar procesamiento de la cola
 				this.processQueue();
-			}, 5000);
+			}, delay);
 		}
 	}
 
@@ -1363,17 +1543,25 @@ export class QueueManager {
 			return false;
 		}
 
-		// Check for NO_SPACE_LEFT error code
 		const errorObj = error as { code?: string; errorCode?: string; message?: string };
 		const errorCode = errorObj?.code || errorObj?.errorCode || "";
-		const errorMessage = errorObj?.message || "";
+		// Handle both string errors and object errors with message property
+		const errorMessage = typeof error === "string" ? error : errorObj?.message || "";
+
+		// DEBUG: Log error analysis
+		console.log("[QueueManager] 🔍 isNonRetryableError analyzing:", {
+			errorType: typeof error,
+			errorCode,
+			errorMessage: errorMessage.substring(0, 100),
+		});
 
 		// NO_SPACE_LEFT errors should not be retried
 		if (errorCode === "NO_SPACE_LEFT" || errorCode === "DOWNLOAD_NO_SPACE") {
+			console.log("[QueueManager] 🔍 Detected NO_SPACE error - non-retryable");
 			return true;
 		}
 
-		// Check message for space-related errors
+		// Check message for space-related errors and HTTP client errors (4xx)
 		const lowerMessage = errorMessage.toLowerCase();
 		if (
 			lowerMessage.includes("no space left") ||
@@ -1381,10 +1569,80 @@ export class QueueManager {
 			lowerMessage.includes("insufficient storage") ||
 			lowerMessage.includes("disk full")
 		) {
+			console.log("[QueueManager] 🔍 Detected space error - non-retryable");
 			return true;
 		}
 
+		// HTTP 4xx client errors should not be retried (resource doesn't exist, unauthorized, etc.)
+		if (
+			lowerMessage.includes("http 404") ||
+			lowerMessage.includes("404") ||
+			lowerMessage.includes("http 401") ||
+			lowerMessage.includes("http 403") ||
+			lowerMessage.includes("file not found") ||
+			lowerMessage.includes("not found") ||
+			lowerMessage.includes("unauthorized") ||
+			lowerMessage.includes("forbidden")
+		) {
+			console.log("[QueueManager] 🔍 Detected HTTP 4xx error - non-retryable");
+			return true;
+		}
+
+		// Asset validation errors should not be retried (the asset is corrupted or incomplete)
+		if (
+			lowerMessage.includes("no playable tracks") ||
+			lowerMessage.includes("asset validation failed") ||
+			lowerMessage.includes("asset directory") ||
+			lowerMessage.includes("asset size too small")
+		) {
+			console.log("[QueueManager] 🔍 Detected asset validation error - non-retryable");
+			return true;
+		}
+
+		console.log("[QueueManager] 🔍 Error is retryable");
 		return false;
+	}
+
+	/*
+	 * Sistema de locks para operaciones de eliminación
+	 * Previene race conditions cuando se elimina una descarga en progreso
+	 *
+	 */
+
+	private acquireLock(downloadId: string, operation: "removing" | "updating"): boolean {
+		if (this.pendingOperations.has(downloadId)) {
+			this.currentLogger.debug(
+				TAG,
+				`Lock denied for ${downloadId}: ${this.pendingOperations.get(downloadId)} in progress`
+			);
+			return false;
+		}
+
+		this.pendingOperations.set(downloadId, operation);
+
+		// Timeout de seguridad: liberar lock después de 30 segundos
+		const timeout = setTimeout(() => {
+			this.currentLogger.warn(TAG, `Lock timeout for ${downloadId}`);
+			this.releaseLock(downloadId);
+		}, 30000);
+
+		this.lockTimeouts.set(downloadId, timeout);
+
+		return true;
+	}
+
+	private releaseLock(downloadId: string): void {
+		this.pendingOperations.delete(downloadId);
+
+		const timeout = this.lockTimeouts.get(downloadId);
+		if (timeout) {
+			clearTimeout(timeout);
+			this.lockTimeouts.delete(downloadId);
+		}
+	}
+
+	private isBeingRemoved(downloadId: string): boolean {
+		return this.pendingOperations.get(downloadId) === "removing";
 	}
 
 	/*
@@ -1462,14 +1720,18 @@ export class QueueManager {
 				item.stats.totalBytes = totalBytes;
 			}
 
-			// Calcular velocidad de descarga si tenemos los datos
-			if (bytesWritten !== undefined && totalBytes !== undefined && item.stats.startedAt) {
-				const now = Date.now();
-				const elapsedSeconds = (now - item.stats.startedAt) / 1000;
+			// Calcular velocidad de descarga usando ventana deslizante
+			if (bytesWritten !== undefined) {
+				speedCalculator.addSample(downloadId, bytesWritten);
+				item.stats.downloadSpeed = speedCalculator.getSpeed(downloadId);
 
-				if (elapsedSeconds > 0) {
-					// Velocidad en bytes por segundo
-					item.stats.downloadSpeed = Math.round(bytesWritten / elapsedSeconds);
+				// Calcular tiempo restante estimado
+				if (totalBytes !== undefined && totalBytes > 0) {
+					item.stats.remainingTime = speedCalculator.getEstimatedTimeRemaining(
+						downloadId,
+						totalBytes,
+						bytesWritten
+					);
 				}
 			}
 
@@ -1744,32 +2006,28 @@ export class QueueManager {
 		const { downloadId, percent } = eventData;
 
 		if (this.downloadQueue.has(downloadId)) {
+			// Ignorar eventos si la descarga está siendo eliminada
+			if (this.isBeingRemoved(downloadId)) {
+				return;
+			}
+
 			// FILTRAR eventos innecesarios para evitar ruido
 			const item = this.downloadQueue.get(downloadId);
 
 			// No procesar si la descarga no está realmente activa
 			if (!item || item.state !== DownloadStates.DOWNLOADING) {
-				// Solo log ocasional para debugging, no spam
-				if (Math.random() < 0.1) {
-					// 10% de los eventos
-					this.currentLogger.debug(
-						TAG,
-						`Ignoring progress event for inactive download: ${downloadId} (state: ${item?.state})`
-					);
+				// FASE 1 FIX: Si recibimos progreso pero el estado no es DOWNLOADING, actualizarlo
+				if (item && percent > 0) {
+					item.state = DownloadStates.DOWNLOADING;
+					this.downloadQueue.set(downloadId, item);
+				} else {
+					return;
 				}
-				return;
 			}
 
 			// No procesar eventos "estáticos" (sin velocidad y sin cambios)
 			if (eventData.speed === 0 && !item.stats.startedAt) {
-				// Solo log ocasional para debugging, no spam
-				if (Math.random() < 0.1) {
-					// 10% de los eventos
-					this.currentLogger.debug(
-						TAG,
-						`Ignoring static progress event for ${downloadId}: no speed and not started`
-					);
-				}
+				// Filtrar sin loguear para evitar spam
 				return;
 			}
 
@@ -1778,15 +2036,12 @@ export class QueueManager {
 			// Esto evita que descargas HLS se queden en 0% cuando la velocidad aún no se ha establecido
 			const currentPercent = item.stats.progressPercent || 0;
 			const isFirstProgressEvent = currentPercent === 0 && percent > 0;
-			if (Math.abs(percent - currentPercent) < 1 && eventData.speed === 0 && !isFirstProgressEvent) {
-				// Solo log ocasional para debugging, no spam
-				if (Math.random() < 0.1) {
-					// 10% de los eventos
-					this.currentLogger.debug(
-						TAG,
-						`Ignoring duplicate progress event for ${downloadId}: ${percent}% (no change)`
-					);
-				}
+			if (
+				Math.abs(percent - currentPercent) < 1 &&
+				eventData.speed === 0 &&
+				!isFirstProgressEvent
+			) {
+				// Filtrar sin loguear para evitar spam
 				return;
 			}
 
@@ -1801,14 +2056,7 @@ export class QueueManager {
 			const significantChange =
 				Math.abs(percent - currentPercent) >= 1 || (eventData.speed ?? 0) > 0;
 			if (timeSinceLastEvent < 1000 && !significantChange) {
-				// Solo log ocasional para debugging, no spam
-				if (Math.random() < 0.05) {
-					// 5% de los eventos
-					this.currentLogger.debug(
-						TAG,
-						`Throttling progress event for ${downloadId}: too frequent (${timeSinceLastEvent}ms ago)`
-					);
-				}
+				// Filtrar sin loguear para evitar spam
 				return;
 			}
 
@@ -2008,21 +2256,9 @@ export class QueueManager {
 		}
 	}
 
-	private async handleNativeErrorEvent(data: unknown): Promise<void> {
-		const eventData = data as { downloadId: string; error: unknown; [key: string]: unknown };
-		const { downloadId, error } = eventData;
-
-		if (this.downloadQueue.has(downloadId)) {
-			const errorData = error as { code?: string; message?: string };
-			// Use a safe default error code that PlayerError accepts
-			const playerError = new PlayerError("DOWNLOAD_FAILED" as const, {
-				originalError: error,
-				downloadId,
-				message: errorData.message || errorData.code || "Native download error",
-			});
-			await this.notifyDownloadFailed(downloadId, playerError);
-		}
-	}
+	// NOTE: handleNativeErrorEvent was removed to avoid double notification.
+	// Error events now flow through: NativeManager → StreamDownloadService → DownloadService → DownloadsManager → QueueManager
+	// This ensures the complete error message (including HTTP 404) reaches QueueManager for proper error detection.
 
 	private mapNativeStateToInternal(nativeState: string): DownloadStates {
 		// Mapear estados nativos a estados internos

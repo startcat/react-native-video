@@ -150,9 +150,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	}, [videoSource?.uri]);
 
 	useEffect(() => {
-		// currentLogger.current?.temp(`useEffect manifests - isAutoNext: ${props.isAutoNext}`);
-		// currentLogger.current?.temp(`useEffect manifests - tudumRef.current ${tudumRef.current} - isReady ${tudumRef.current?.isReady}`);
-		// currentLogger.current?.temp(`useEffect manifests - sourceRef.current ${sourceRef.current} - isReady ${sourceRef.current?.isReady}`);
+		// GUARD: Skip if manifests are not available yet
+		// This prevents throwing PLAYER_SOURCE_NO_MANIFESTS_PROVIDED before data is ready
+		if (!props.manifests || props.manifests.length === 0) {
+			return;
+		}
 
 		// Verificar si es contenido live/DVR vs VOD
 		const isLiveContent = !!props.playerProgress?.isLive;

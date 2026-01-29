@@ -26,6 +26,7 @@ import {
 	SubtitleDownloadTask,
 	ValidationResult,
 } from "../../types";
+import { ErrorMapper } from "../../utils/ErrorMapper";
 import { networkService } from "../network/NetworkService";
 import { persistenceService } from "../storage/PersistenceService";
 import { subtitleDownloadService } from "./SubtitleDownloadService";
@@ -205,35 +206,23 @@ export class StreamDownloadService {
 	}
 
 	private handleProgressEvent(data: unknown): void {
-		const { downloadId, percent, bytesDownloaded, totalBytes, speed, remainingTime } = data as {
+		const { downloadId, percent, bytesDownloaded, totalBytes } = data as {
 			downloadId: string;
 			percent?: number;
 			bytesDownloaded?: number;
 			totalBytes?: number;
-			speed?: number;
-			remainingTime?: number;
 		};
 
 		if (this.activeDownloads.has(downloadId)) {
 			const activeDownload = this.activeDownloads.get(downloadId)!;
 
-			// Actualizar progreso interno
+			// Actualizar progreso interno (no re-emitir, NativeManager ya lo hace)
 			activeDownload.progress = {
 				downloadId,
 				percent: percent || 0,
 				bytesDownloaded: bytesDownloaded || 0,
 				totalBytes: totalBytes || 0,
 			};
-
-			// Re-emitir evento con formato correcto para QueueManager
-			this.eventEmitter.emit(DownloadEventType.PROGRESS, {
-				taskId: downloadId,
-				progress: percent || 0,
-				bytesDownloaded: bytesDownloaded || 0,
-				totalBytes: totalBytes || 0,
-				speed: speed || 0,
-				remainingTime: remainingTime || 0,
-			});
 		}
 	}
 
@@ -246,24 +235,10 @@ export class StreamDownloadService {
 			const mappedState = this.mapNativeStateToInternal(state);
 			activeDownload.state = mappedState;
 
-			// Emitir eventos específicos según el estado
-			switch (mappedState) {
-				case DownloadStates.COMPLETED:
-					// Delegar a handleCompletedEvent para descargar subtítulos
-					this.handleCompletedEvent({ downloadId });
-					return; // handleCompletedEvent emitirá el evento COMPLETED
-				case DownloadStates.FAILED:
-					this.eventEmitter.emit(DownloadEventType.FAILED, {
-						taskId: downloadId,
-						error: eventData.error || "Download failed",
-					});
-					break;
-				case DownloadStates.PAUSED:
-					this.eventEmitter.emit(DownloadEventType.PAUSED, {
-						taskId: downloadId,
-						progress: activeDownload.progress.percent,
-					});
-					break;
+			// Solo manejamos COMPLETED internamente para descargar subtítulos
+			// Los demás estados (FAILED, PAUSED) los emite NativeManager directamente
+			if (mappedState === DownloadStates.COMPLETED) {
+				this.handleCompletedEvent({ downloadId });
 			}
 		}
 	}
@@ -576,6 +551,13 @@ export class StreamDownloadService {
 	 */
 
 	public async startDownload(task: StreamDownloadTask): Promise<void> {
+		// DEBUG: Log when startDownload is called
+		console.log(`[StreamDownloadService] 🚀 startDownload CALLED for ${task.id}`);
+		console.log(`[StreamDownloadService] 🚀 isInitialized: ${this.isInitialized}`);
+		console.log(
+			`[StreamDownloadService] 🚀 activeDownloads.size: ${this.activeDownloads.size}, maxConcurrent: ${this.config.maxConcurrentDownloads}`
+		);
+
 		if (!this.isInitialized) {
 			throw new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE");
 		}
@@ -744,6 +726,15 @@ export class StreamDownloadService {
 	 */
 
 	private async executeStreamDownload(task: StreamDownloadTask): Promise<void> {
+		// DEBUG: Log when stream download execution starts
+		console.log(`[StreamDownloadService] 🎬 executeStreamDownload CALLED for ${task.id}`);
+		console.log(
+			`[StreamDownloadService] 🎬 Current activeDownloads count: ${this.activeDownloads.size}`
+		);
+		console.log(
+			`[StreamDownloadService] 🎬 Current downloadQueue length: ${this.downloadQueue.length}`
+		);
+
 		// Preservar retryCount existente si hay un download previo
 		const existingDownload = this.activeDownloads.get(task.id);
 		const currentRetryCount = existingDownload ? existingDownload.retryCount : 0;
@@ -859,6 +850,8 @@ export class StreamDownloadService {
 
 	/*
 	 * Maneja errores de descarga de streams
+	 * NOTA: La lógica de reintentos está centralizada en QueueManager.
+	 * Este método solo reporta el error y deja que QueueManager decida si reintentar.
 	 *
 	 */
 
@@ -871,44 +864,36 @@ export class StreamDownloadService {
 		const errorMessage =
 			(error as { message?: string })?.message || "Unknown stream download error";
 
+		const errorCode = ErrorMapper.mapToErrorCode(error);
 		const downloadError: DownloadError = {
-			code: this.mapErrorToCode(error),
+			code: errorCode,
 			message: errorMessage,
 			details: error,
 			timestamp: Date.now(),
+			isRetryable: ErrorMapper.isRetryable(errorCode),
 		};
 
 		download.error = downloadError;
-		download.retryCount++;
 
-		// Intentar reintento si no se han agotado
-		if (download.retryCount < this.config.maxRetries) {
-			this.currentLogger.warn(
-				TAG,
-				`Stream download failed, retrying (${download.retryCount}/${this.config.maxRetries}): ${downloadId}`
-			);
-
-			// Reintento después de un delay exponencial
-			const delay = Math.pow(2, download.retryCount) * 1500; // Más delay para streams
-			setTimeout(() => {
-				this.executeStreamDownload(download.task);
-			}, delay);
-
-			return;
-		}
-
-		// Marcar como fallido
+		// Marcar como fallido localmente
 		download.state = DownloadStates.FAILED;
 		this.activeDownloads.set(downloadId, download);
 
+		// Emitir evento FAILED con información de retryable para que QueueManager decida
 		this.eventEmitter.emit(DownloadEventType.FAILED, {
 			taskId: downloadId,
 			error: downloadError,
+			errorCode: downloadError.code,
+			isRetryable: downloadError.isRetryable,
 		});
 
-		this.currentLogger.error(TAG, `Stream download failed: ${downloadId}`, downloadError);
+		this.currentLogger.error(TAG, `Stream download failed: ${downloadId}`, {
+			errorCode: downloadError.code,
+			isRetryable: downloadError.isRetryable,
+			message: downloadError.message,
+		});
 
-		// Procesar siguiente en cola
+		// Procesar siguiente en cola local
 		this.processNextInQueue();
 	}
 
@@ -956,41 +941,6 @@ export class StreamDownloadService {
 		console.log(`[StreamDownloadService] isHttps: ${isHttps}, isManifest: ${isManifest}`);
 
 		return isHttps && isManifest;
-	}
-
-	/*
-	 * Mapea errores a códigos conocidos
-	 *
-	 */
-
-	private mapErrorToCode(error: unknown): DownloadErrorCode {
-		if (!error) {
-			return DownloadErrorCode.UNKNOWN;
-		}
-
-		const message = ((error as { message?: string })?.message || "").toLowerCase();
-
-		if (message.includes("network") || message.includes("connection")) {
-			return DownloadErrorCode.NETWORK_ERROR;
-		}
-
-		if (message.includes("drm") || message.includes("license")) {
-			return DownloadErrorCode.DRM_ERROR;
-		}
-
-		if (message.includes("space") || message.includes("disk")) {
-			return DownloadErrorCode.INSUFFICIENT_SPACE;
-		}
-
-		if (message.includes("permission")) {
-			return DownloadErrorCode.PERMISSION_DENIED;
-		}
-
-		if (message.includes("timeout")) {
-			return DownloadErrorCode.TIMEOUT;
-		}
-
-		return DownloadErrorCode.UNKNOWN;
 	}
 
 	/*

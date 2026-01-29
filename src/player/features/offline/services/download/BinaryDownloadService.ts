@@ -17,13 +17,13 @@ import {
 	BinaryDownloadServiceConfig,
 	BinaryDownloadTask,
 	DownloadError,
-	DownloadErrorCode,
 	DownloadEventCallback,
 	DownloadEventType,
 	DownloadStates,
 	NetworkStatus,
 	ValidationResult,
 } from "../../types";
+import { ErrorMapper } from "../../utils/ErrorMapper";
 import { formatFileSize } from "../../utils/formatters";
 import { networkService } from "../network/NetworkService";
 import { storageService } from "../storage/StorageService";
@@ -814,6 +814,8 @@ export class BinaryDownloadService {
 
 	/*
 	 * Maneja errores de descarga
+	 * NOTA: La lógica de reintentos está centralizada en QueueManager.
+	 * Este método solo reporta el error y deja que QueueManager decida si reintentar.
 	 *
 	 */
 
@@ -824,68 +826,43 @@ export class BinaryDownloadService {
 		}
 
 		const errorMessage = (error as { message?: string })?.message || "Unknown download error";
+		const errorCode = ErrorMapper.mapToErrorCode(error);
 
 		const downloadError: DownloadError = {
-			code: this.mapErrorToCode(error),
+			code: errorCode,
 			message: errorMessage,
 			details: error,
 			timestamp: Date.now(),
+			isRetryable: ErrorMapper.isRetryable(errorCode),
 		};
 
 		download.error = downloadError;
-		download.retryCount++;
 
 		// Log detallado del error
-		this.currentLogger.error(
-			TAG,
-			`Download error for ${taskId} (attempt ${download.retryCount}/${this.config.maxRetries})`,
-			{
-				errorCode: downloadError.code,
-				errorMessage: downloadError.message,
-				filePath: download.task.destination,
-				url: download.task.url,
-			}
-		);
+		this.currentLogger.error(TAG, `Download error for ${taskId}`, {
+			errorCode: downloadError.code,
+			errorMessage: downloadError.message,
+			isRetryable: downloadError.isRetryable,
+			filePath: download.task.destination,
+			url: download.task.url,
+		});
 
-		// Intentar reintento si no se han agotado
-		if (download.retryCount < this.config.maxRetries) {
-			this.currentLogger.warn(
-				TAG,
-				`Download failed, retrying (${download.retryCount}/${this.config.maxRetries}): ${taskId}`
-			);
-
-			// Reintento después de un delay exponencial
-			const delay = Math.pow(2, download.retryCount) * 1000;
-			setTimeout(() => {
-				// Cancelar tarea anterior y crear nueva
-				if (download.downloadTask) {
-					try {
-						download.downloadTask.stop(); // stop() es síncrono, no devuelve Promise
-					} catch (stopError) {
-						this.currentLogger.warn(TAG, `Error stopping download task: ${stopError}`);
-					}
-				}
-				this.executeDownload(download.task);
-			}, delay);
-
-			return;
-		}
-
-		// Marcar como fallido
+		// Marcar como fallido localmente
 		download.state = DownloadStates.FAILED;
 		this.activeDownloads.set(taskId, download);
 
+		// Emitir evento FAILED con información de retryable para que QueueManager decida
 		this.eventEmitter.emit(DownloadEventType.FAILED, {
 			taskId,
 			error: downloadError,
+			errorCode: downloadError.code,
+			isRetryable: downloadError.isRetryable,
 		});
-
-		this.currentLogger.error(TAG, `Download failed: ${taskId}`, downloadError);
 
 		// Desregistrar de StorageService
 		storageService.unregisterActiveDownload(taskId);
 
-		// Procesar siguiente en cola
+		// Procesar siguiente en cola local
 		this.processNextInQueue();
 	}
 
@@ -992,41 +969,6 @@ export class BinaryDownloadService {
 	private isValidUrl(url: string): boolean {
 		// Usar regex para evitar bug de React Native con new URL()
 		return /^https?:\/\//.test(url.trim());
-	}
-
-	/*
-	 * Mapea errores a códigos conocidos
-	 *
-	 */
-
-	private mapErrorToCode(error: unknown): DownloadErrorCode {
-		if (!error) {
-			return DownloadErrorCode.UNKNOWN;
-		}
-
-		const message = ((error as { message?: string })?.message || "").toLowerCase();
-
-		if (message.includes("network") || message.includes("connection")) {
-			return DownloadErrorCode.NETWORK_ERROR;
-		}
-
-		if (message.includes("space") || message.includes("disk")) {
-			return DownloadErrorCode.INSUFFICIENT_SPACE;
-		}
-
-		if (message.includes("permission")) {
-			return DownloadErrorCode.PERMISSION_DENIED;
-		}
-
-		if (message.includes("timeout")) {
-			return DownloadErrorCode.TIMEOUT;
-		}
-
-		if (message.includes("cancelled") || message.includes("stopped")) {
-			return DownloadErrorCode.CANCELLED;
-		}
-
-		return DownloadErrorCode.UNKNOWN;
 	}
 
 	/*

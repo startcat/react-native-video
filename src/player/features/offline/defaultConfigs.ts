@@ -1,5 +1,5 @@
 import { LogLevel } from "../logger";
-import { DEFAULT_CONFIG, DIRECTORIES, LOG_TAGS } from "./constants";
+import { DEFAULT_CONFIG, DIRECTORIES, LOG_TAGS, PROGRESS_DEFAULTS } from "./constants";
 import {
 	BinaryDownloadServiceConfig,
 	ConfigManagerConfig,
@@ -68,6 +68,7 @@ export const DEFAULT_CONFIG_QUEUE: QueueManagerConfig = {
 	processIntervalMs: 2000,
 	maxConcurrentDownloads: 3,
 	maxRetries: 3,
+	retryDelayMs: 2000, // 2 segundos base, se aplica backoff exponencial
 };
 
 export const DEFAULT_CONFIG_NETWORK: NetworkServiceConfig = {
@@ -104,7 +105,7 @@ export const DEFAULT_CONFIG_BINARY_DOWNLOAD: BinaryDownloadServiceConfig = {
 	logEnabled: true,
 	logLevel: LogLevel.DEBUG,
 	maxConcurrentDownloads: 3,
-	progressUpdateInterval: 1500, // 1.5 segundos
+	progressUpdateInterval: PROGRESS_DEFAULTS.UPDATE_INTERVAL_MS,
 	timeoutMs: 30000, // 30 seconds
 	maxRetries: 3,
 	showNotifications: true,
@@ -116,7 +117,7 @@ export const DEFAULT_CONFIG_STREAM_DOWNLOAD: StreamDownloadServiceConfig = {
 	logEnabled: true,
 	logLevel: LogLevel.DEBUG,
 	maxConcurrentDownloads: 3,
-	progressUpdateInterval: 1500, // 1.5 segundos
+	progressUpdateInterval: PROGRESS_DEFAULTS.UPDATE_INTERVAL_MS,
 	timeoutMs: 30000, // 30 seconds
 	maxRetries: 3,
 	allowCellular: false,

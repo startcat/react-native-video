@@ -124,6 +124,7 @@ export interface DownloadError {
 	message: string;
 	details?: unknown;
 	timestamp: number;
+	isRetryable?: boolean; // Sugerencia del servicio, QueueManager decide
 }
 
 export interface StreamDownloadTask {
