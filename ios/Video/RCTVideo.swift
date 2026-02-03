@@ -1123,6 +1123,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     func setSelectedTextTrack(_ selectedTextTrack: SelectedTrackCriteria?) {
         _selectedTextTrackCriteria = selectedTextTrack
+        debugPrint("[RCTVideo] setSelectedTextTrack called - type: \(selectedTextTrack?.type ?? "nil"), value: \(selectedTextTrack?.value ?? "nil"), hasSideloadedTracks: \(_textTracks != nil), playerReady: \(_player?.currentItem?.status == .readyToPlay)")
+        
         if _textTracks != nil { // sideloaded text tracks
             RCTPlayerOperations.setSideloadedText(player: _player, textTracks: _textTracks!, criteria: _selectedTextTrackCriteria)
         } else { // text tracks included in the HLS playlist
@@ -1863,9 +1865,21 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 self.onAudioTracks?(["audioTracks": audioTracks])
             }
         }
+        
+        // Re-apply selected audio and text tracks when tracks become available
+        // This fixes the race condition where initial track selection fails because
+        // media selection groups weren't ready yet
+        debugPrint("[RCTVideo] handleTracksChange - Re-applying track selections. AudioCriteria: \(_selectedAudioTrackCriteria?.type ?? "nil"), TextCriteria: \(_selectedTextTrackCriteria?.type ?? "nil")")
+        if _selectedAudioTrackCriteria != nil {
+            setSelectedAudioTrack(_selectedAudioTrackCriteria)
+        }
+        if _selectedTextTrackCriteria != nil {
+            setSelectedTextTrack(_selectedTextTrackCriteria)
+        }
     }
 
     func handleLegibleOutput(strings: [NSAttributedString]) {
+        debugPrint("[RCTVideo] handleLegibleOutput received \(strings.count) strings: \(strings.map { $0.string.prefix(50) })")
         guard onTextTrackDataChanged != nil else { return }
 
         if let subtitles = strings.first {

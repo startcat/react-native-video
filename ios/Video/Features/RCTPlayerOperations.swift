@@ -84,13 +84,18 @@ enum RCTPlayerOperations {
     static func setMediaSelectionTrackForCharacteristic(player: AVPlayer?, characteristic: AVMediaCharacteristic, criteria: SelectedTrackCriteria?) async {
         let type = criteria?.type
         var mediaOption: AVMediaSelectionOption!
+        let characteristicName = characteristic == .legible ? "legible (subtitles)" : "audible (audio)"
 
         guard let group = await RCTVideoAssetsUtils.getMediaSelectionGroup(asset: player?.currentItem?.asset, for: characteristic) else {
+            debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: No media selection group available for \(characteristicName). Player ready: \(player?.currentItem?.status == .readyToPlay)")
             return
         }
+        
+        debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: \(characteristicName), type: \(type ?? "nil"), value: \(criteria?.value ?? "nil"), available options: \(group.options.count)")
 
         if type == "disabled" {
             // Do nothing. We want to ensure option is nil
+            debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: Disabling \(characteristicName) track")
         } else if (type == "language") || (type == "title") {
             let value = criteria?.value as? String
             for i in 0 ..< group.options.count {
@@ -103,8 +108,12 @@ enum RCTPlayerOperations {
                 }
                 if value == optionValue {
                     mediaOption = currentOption
+                    debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: Found matching \(characteristicName) option at index \(i): \(optionValue ?? "nil")")
                     break
                 }
+            }
+            if mediaOption == nil {
+                debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: No matching \(characteristicName) option found for \(type ?? ""): \(value ?? "nil")")
             }
             // } else if ([type isEqualToString:@"default"]) {
             //  option = group.defaultOption; */
@@ -113,15 +122,24 @@ enum RCTPlayerOperations {
                 if let indexValue = Int(value as String) { // ensure value is an integer an String to Snt
                     if group.options.count > indexValue { // ensure value is in group range
                         mediaOption = group.options[indexValue]
+                        debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: Selected \(characteristicName) option at index \(indexValue): \(mediaOption?.displayName ?? "nil")")
+                    } else {
+                        debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: Index \(indexValue) out of range for \(characteristicName) (available: \(group.options.count))")
                     }
+                } else {
+                    debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: Could not parse index value '\(value)' for \(characteristicName)")
                 }
+            } else {
+                debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: No value provided for index type \(characteristicName)")
             }
         } else { // default. invalid type or "system"
+            debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: Using automatic selection for \(characteristicName) (type: \(type ?? "nil"))")
             await player?.currentItem?.selectMediaOptionAutomatically(in: group)
             return
         }
 
         // If a match isn't found, option will be nil and text tracks will be disabled
+        debugPrint("[RCTPlayerOperations] setMediaSelectionTrackForCharacteristic: Applying \(characteristicName) selection - option: \(mediaOption?.displayName ?? "nil (disabled)")")
         await player?.currentItem?.select(mediaOption, in: group)
     }
 
