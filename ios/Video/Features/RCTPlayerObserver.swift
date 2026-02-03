@@ -69,7 +69,9 @@ class RCTPlayerObserver: NSObject, AVPlayerItemMetadataOutputPushDelegate, AVPla
             playerItem.add(legibleOutput)
             metadataOutput.setDelegate(self, queue: .main)
             legibleOutput.setDelegate(self, queue: .main)
-            legibleOutput.suppressesPlayerRendering = subtitleStyle?.opacity == 0 ? true : false
+            let shouldSuppress = subtitleStyle?.opacity == 0 ? true : false
+            legibleOutput.suppressesPlayerRendering = shouldSuppress
+            debugPrint("[RCTPlayerObserver] Legible output configured - subtitleStyle: \(String(describing: subtitleStyle)), opacity: \(String(describing: subtitleStyle?.opacity)), suppressesPlayerRendering: \(shouldSuppress)")
         }
     }
 

@@ -100,8 +100,8 @@ export class ProfileManager {
 		const previousProfile = this.currentProfile;
 		this.currentProfile = profile;
 
-		// Emitir eventos
-		if (previousProfile && previousProfile.id !== profile?.id) {
+		// Emitir eventos (siempre que cambie el ID, incluyendo de null a perfil)
+		if (previousProfile?.id !== profile?.id) {
 			this.eventEmitter.emit(ProfileEventType.PROFILE_CHANGED, {
 				previous: previousProfile,
 				current: profile,
