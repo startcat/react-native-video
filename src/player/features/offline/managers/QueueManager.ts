@@ -152,7 +152,7 @@ export class QueueManager {
 			const completedData = data as { taskId: string; fileUri?: string };
 			this.handleNativeCompletedEvent({
 				downloadId: completedData.taskId,
-				localPath: completedData.fileUri,
+				fileUri: completedData.fileUri,
 			}).catch(error => {
 				this.currentLogger.error(TAG, "Failed to handle binary completed event", error);
 			});
