@@ -160,6 +160,7 @@ export class DownloadsManager {
 				profileManager.initialize({
 					logEnabled: this.config.logEnabled,
 					logLevel: this.config.logLevel,
+					activeProfileRequired: this.config.activeProfileRequired,
 				})
 			);
 		}

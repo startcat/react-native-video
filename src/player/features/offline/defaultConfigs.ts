@@ -34,6 +34,7 @@ export const DEFAULT_CONFIG_MAIN_MANAGER: DownloadsManagerConfig = {
 	networkMonitoringEnabled: true,
 	storageMonitoringEnabled: true,
 	profileManagementEnabled: true,
+	activeProfileRequired: false,
 	enableBinaryDownloads: true,
 	enableStreamDownloads: true,
 	maxConcurrentDownloads: 3,
