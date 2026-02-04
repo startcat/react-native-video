@@ -202,6 +202,11 @@ export class QueueManager {
 				level: this.config.logLevel,
 			});
 
+			this.currentLogger.info(
+				TAG,
+				`Config applied: maxConcurrentDownloads=${this.config.maxConcurrentDownloads}, autoProcess=${this.config.autoProcess}`
+			);
+
 			try {
 				// Cargar cola persistida usando PersistenceService
 				await this.loadPersistedQueue();
@@ -561,15 +566,18 @@ export class QueueManager {
 			);
 		});
 
-		// Forzar procesamiento inmediato del queue después de reanudar
-		// Esto es necesario cuando hay descargas existentes que fueron reanudadas
-		// en el módulo nativo y necesitan ser procesadas inmediatamente
-		if (this.isProcessing && !this.isPaused) {
-			this.currentLogger.debug(TAG, "Forcing immediate queue processing after resumeAll");
-			this.processQueue().catch(error => {
-				this.currentLogger.error(TAG, "Failed to process queue after resumeAll", error);
-			});
+		// Iniciar procesamiento si no está activo (caso autoStart: false)
+		// o forzar procesamiento inmediato si ya está activo
+		if (!this.isProcessing) {
+			this.currentLogger.debug(TAG, "Starting processing after resumeAll (was not active)");
+			this.startProcessing();
 		}
+
+		// Forzar procesamiento inmediato del queue después de reanudar
+		this.currentLogger.debug(TAG, "Forcing immediate queue processing after resumeAll");
+		this.processQueue().catch(error => {
+			this.currentLogger.error(TAG, "Failed to process queue after resumeAll", error);
+		});
 	}
 
 	/*
@@ -1167,15 +1175,6 @@ export class QueueManager {
 
 	private async sendToDestinationQueue(item: DownloadItem): Promise<void> {
 		try {
-			// Verificar si la descarga ya está siendo procesada
-			if (this.currentlyDownloading.has(item.id)) {
-				this.currentLogger.warn(
-					TAG,
-					`Download ${item.id} is already being processed, skipping duplicate sendToDestinationQueue`
-				);
-				return;
-			}
-
 			// Crear tarea específica según el tipo
 			let task: BinaryDownloadTask | StreamDownloadTask;
 
@@ -1219,8 +1218,9 @@ export class QueueManager {
 				});
 			}
 
-			// DELEGAR AL DOWNLOADS MANAGER: Este enviará a la cola destino apropiada
-			await downloadsManager.addDownload(task, item.type);
+			// DELEGAR AL DOWNLOADS MANAGER: Usar startDownloadNow() que ignora autoStart
+			// ya que esta descarga ya fue aprobada para iniciar por el QueueManager
+			await downloadsManager.startDownloadNow(task, item.type);
 
 			this.currentLogger.info(
 				TAG,

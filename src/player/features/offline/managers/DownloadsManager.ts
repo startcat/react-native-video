@@ -687,7 +687,42 @@ export class DownloadsManager {
 			// Verificar políticas globales antes de agregar
 			await this.validateGlobalPolicies(task, type);
 
-			// Delegar la descarga específica al DownloadService
+			// Si autoStart está deshabilitado, solo añadir a la cola sin iniciar
+			// La descarga se iniciará cuando se llame a resumeAll() o start()
+			if (!this.config.autoStart) {
+				// Determinar URI según el tipo de descarga
+				const uri =
+					type === DownloadType.BINARY
+						? (task as BinaryDownloadTask).url
+						: (task as StreamDownloadTask).manifestUrl;
+
+				// Crear DownloadItem y añadir a la cola sin iniciar
+				const downloadItem: DownloadItem = {
+					id: task.id,
+					title: task.title || task.id,
+					type,
+					state: DownloadStates.QUEUED,
+					uri,
+					profileIds: profileManager.getActiveProfileId()
+						? [profileManager.getActiveProfileId()!]
+						: [],
+					stats: {
+						bytesDownloaded: 0,
+						totalBytes: 0,
+						progressPercent: 0,
+						retryCount: 0,
+					},
+				};
+
+				await queueManager.addDownloadItem(downloadItem);
+				this.currentLogger.info(
+					TAG,
+					`Download queued (autoStart disabled): ${task.id} (${type})`
+				);
+				return task.id;
+			}
+
+			// autoStart habilitado: delegar la descarga específica al DownloadService
 			await downloadService.startDownload(task, type);
 
 			this.currentLogger.info(TAG, `Download added via manager: ${task.id} (${type})`);
@@ -700,6 +735,40 @@ export class DownloadsManager {
 			}
 			// Solo envolver errores no tipados
 			throw new PlayerError("DOWNLOAD_MANAGER_ADD_FAILED", {
+				originalError: error,
+				taskId: task.id,
+			});
+		}
+	}
+
+	/*
+	 * Inicia una descarga inmediatamente, ignorando la configuración autoStart.
+	 * Este método es usado internamente por QueueManager cuando una descarga
+	 * ya fue aprobada para iniciar.
+	 */
+	public async startDownloadNow(
+		task: BinaryDownloadTask | StreamDownloadTask,
+		type: DownloadType
+	): Promise<string> {
+		if (!this.state.isInitialized) {
+			throw new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE");
+		}
+
+		try {
+			// Verificar políticas globales antes de iniciar
+			await this.validateGlobalPolicies(task, type);
+
+			// Iniciar descarga directamente, ignorando autoStart
+			await downloadService.startDownload(task, type);
+
+			this.currentLogger.info(TAG, `Download started immediately: ${task.id} (${type})`);
+
+			return task.id;
+		} catch (error) {
+			if (error instanceof PlayerError) {
+				throw error;
+			}
+			throw new PlayerError("DOWNLOAD_MANAGER_START_FAILED", {
 				originalError: error,
 				taskId: task.id,
 			});
