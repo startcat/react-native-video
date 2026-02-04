@@ -259,8 +259,9 @@ export class BinaryDownloadService {
 				}
 			}
 
-			// Verificar conectividad
-			if (!networkService.isOnline()) {
+			// Verificar conectividad - esperar a que la red esté disponible
+			const isNetworkAvailable = await networkService.waitForNetwork(3000);
+			if (!isNetworkAvailable) {
 				throw new PlayerError("NETWORK_CONNECTION_001", { taskId: task.id });
 			}
 

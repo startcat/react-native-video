@@ -183,6 +183,46 @@ export class NetworkService {
 	}
 
 	/*
+	 * Espera a que la red esté disponible con un timeout
+	 * Útil para evitar condiciones de carrera al inicio de la app
+	 */
+
+	public async waitForNetwork(timeoutMs: number = 3000): Promise<boolean> {
+		// Si ya está online, retornar inmediatamente
+		if (this.isOnline()) {
+			return true;
+		}
+
+		// Intentar fetch primero
+		try {
+			await this.fetchNetworkStatus();
+			if (this.isOnline()) {
+				return true;
+			}
+		} catch {
+			// Ignorar error de fetch
+		}
+
+		// Esperar a que el listener reporte conexión
+		return new Promise<boolean>(resolve => {
+			const timeout = setTimeout(() => {
+				unsubscribe();
+				resolve(this.isOnline());
+			}, timeoutMs);
+
+			const unsubscribe = NetInfo.addEventListener(state => {
+				const status = this.parseNetworkState(state);
+				if (status.isConnected && status.isInternetReachable) {
+					clearTimeout(timeout);
+					unsubscribe();
+					this.currentStatus = status;
+					resolve(true);
+				}
+			});
+		});
+	}
+
+	/*
 	 * Obtiene el estado actual sin hacer fetch
 	 *
 	 */

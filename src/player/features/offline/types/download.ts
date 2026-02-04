@@ -410,6 +410,7 @@ export interface DownloadsManagerConfig {
 	networkMonitoringEnabled: boolean;
 	storageMonitoringEnabled: boolean;
 	profileManagementEnabled: boolean;
+	activeProfileRequired: boolean;
 	enableBinaryDownloads: boolean;
 	enableStreamDownloads: boolean;
 	maxConcurrentDownloads: number;
