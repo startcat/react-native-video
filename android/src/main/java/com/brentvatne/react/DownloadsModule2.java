@@ -1903,6 +1903,10 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 manager.addDownload(downloadRequest);
                 Log.d(TAG, "Download successfully added to DownloadManager: " + downloadId);
                 
+                // Resume downloads to ensure the service starts processing the queue
+                DownloadService.sendResumeDownloads(reactContext, AxDownloadService.class, false);
+                Log.d(TAG, "Sent resume command to DownloadService");
+                
                 // Check the Download object after a small delay (non-blocking)
                 final String finalDownloadId = downloadId;
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
