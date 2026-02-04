@@ -149,10 +149,11 @@ export class QueueManager {
 
 		// Suscribirse a eventos de completado de binarios
 		binaryDownloadService.subscribe(DownloadEventType.COMPLETED, (data: unknown) => {
-			const completedData = data as { taskId: string; fileUri?: string };
+			const completedData = data as { taskId: string; fileUri?: string; fileSize?: number };
 			this.handleNativeCompletedEvent({
 				downloadId: completedData.taskId,
 				fileUri: completedData.fileUri,
+				fileSize: completedData.fileSize,
 			}).catch(error => {
 				this.currentLogger.error(TAG, "Failed to handle binary completed event", error);
 			});
@@ -1268,8 +1269,8 @@ export class QueueManager {
 	 *
 	 */
 
-	public async notifyDownloadCompleted(downloadId: string, fileUri?: string): Promise<void> {
-		await this.updateDownloadState(downloadId, DownloadStates.COMPLETED, fileUri);
+	public async notifyDownloadCompleted(downloadId: string, fileUri?: string, fileSize?: number): Promise<void> {
+		await this.updateDownloadState(downloadId, DownloadStates.COMPLETED, fileUri, fileSize);
 
 		// Remover de descargas activas
 		this.currentlyDownloading.delete(downloadId);
@@ -1655,7 +1656,8 @@ export class QueueManager {
 	private async updateDownloadState(
 		downloadId: string,
 		state: DownloadStates,
-		fileUri?: string
+		fileUri?: string,
+		fileSize?: number
 	): Promise<void> {
 		const item = this.downloadQueue.get(downloadId);
 		if (item) {
@@ -1687,7 +1689,10 @@ export class QueueManager {
 				mergedItem.stats.downloadedAt = Date.now();
 				// Ensure stats reflect 100% completion
 				mergedItem.stats.progressPercent = 100;
-				if (mergedItem.stats.totalBytes > 0) {
+				if (fileSize && fileSize > 0) {
+					mergedItem.stats.totalBytes = fileSize;
+					mergedItem.stats.bytesDownloaded = fileSize;
+				} else if (mergedItem.stats.totalBytes > 0) {
 					mergedItem.stats.bytesDownloaded = mergedItem.stats.totalBytes;
 				}
 			}
@@ -2248,13 +2253,14 @@ export class QueueManager {
 		const eventData = data as {
 			downloadId: string;
 			fileUri?: string;
+			fileSize?: number;
 			path?: string;
 			[key: string]: unknown;
 		};
 		const { downloadId } = eventData;
 
 		if (this.downloadQueue.has(downloadId)) {
-			await this.notifyDownloadCompleted(downloadId, eventData.fileUri || eventData.path);
+			await this.notifyDownloadCompleted(downloadId, eventData.fileUri || eventData.path, eventData.fileSize);
 		}
 	}
 
