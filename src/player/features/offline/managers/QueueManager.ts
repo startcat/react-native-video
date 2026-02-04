@@ -272,7 +272,8 @@ export class QueueManager {
 			);
 
 			// OPTIMIZACIÓN: Iniciar procesamiento si hay trabajo y no está procesando
-			if (!this.isProcessing && !this.isPaused) {
+			// IMPORTANTE: Solo iniciar si autoProcess está habilitado (respeta autoStart del DownloadsManager)
+			if (!this.isProcessing && !this.isPaused && this.config.autoProcess) {
 				this.currentLogger.debug(TAG, "Starting processing due to new download added");
 				this.startProcessing();
 			}
@@ -1269,7 +1270,11 @@ export class QueueManager {
 	 *
 	 */
 
-	public async notifyDownloadCompleted(downloadId: string, fileUri?: string, fileSize?: number): Promise<void> {
+	public async notifyDownloadCompleted(
+		downloadId: string,
+		fileUri?: string,
+		fileSize?: number
+	): Promise<void> {
 		await this.updateDownloadState(downloadId, DownloadStates.COMPLETED, fileUri, fileSize);
 
 		// Remover de descargas activas
@@ -2260,7 +2265,11 @@ export class QueueManager {
 		const { downloadId } = eventData;
 
 		if (this.downloadQueue.has(downloadId)) {
-			await this.notifyDownloadCompleted(downloadId, eventData.fileUri || eventData.path, eventData.fileSize);
+			await this.notifyDownloadCompleted(
+				downloadId,
+				eventData.fileUri || eventData.path,
+				eventData.fileSize
+			);
 		}
 	}
 
