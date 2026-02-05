@@ -4,9 +4,9 @@ import { Platform } from "react-native";
 import BackgroundTimer from "react-native-background-timer";
 import DeviceInfo from "react-native-device-info";
 import {
-	CastState as NativeCastState,
-	useCastSession,
-	useCastState as useNativeCastState,
+    CastState as NativeCastState,
+    useCastSession,
+    useCastState as useNativeCastState,
 } from "react-native-google-cast";
 import Orientation, { useOrientationChange } from "react-native-orientation-locker";
 import SystemNavigationBar from "react-native-system-navigation-bar";
@@ -64,6 +64,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	const watchingProgressIntervalObj = useRef<number>();
 	const hasBeenLoaded = useRef<boolean>(false);
 	const hasBeenLoadedAudio = useRef<boolean>(false);
+	const isPlayingAd = useRef<boolean>(false);
 
 	const [currentAudioIndex, setCurrentAudioIndex] = useState<number>(
 		typeof props.audioIndex === "number" ? props.audioIndex : -1
@@ -197,8 +198,8 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			typeof playerProgress.current.duration === "number"
 		) {
 			watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
-				// Evitamos mandar el watching progress en directos y en Chromecast
-				if (hasBeenLoaded.current && !props.playerProgress?.isLive && !isCasting.current) {
+				// Evitamos mandar el watching progress en directos, en Chromecast y durante anuncios
+				if (hasBeenLoaded.current && !props.playerProgress?.isLive && !isCasting.current && !isPlayingAd.current) {
 					props?.hooks?.addContentProgress?.(
 						playerProgress.current?.currentTime || 0,
 						playerProgress.current?.duration || 0
@@ -356,6 +357,14 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			(typeof data?.audioIndex === "number" || typeof data?.subtitleIndex === "number")
 		) {
 			hasBeenLoadedAudio.current = true;
+		}
+
+		// Actualizar estado de reproducción de anuncios
+		if (data?.isPlayingAd !== undefined) {
+			isPlayingAd.current = data.isPlayingAd;
+			currentLogger.current?.debug(`[Player] isPlayingAd changed to: ${data.isPlayingAd}`);
+			// Propagar el evento al consumidor
+			props.events?.onAdPlayingChange?.(data.isPlayingAd);
 		}
 	};
 

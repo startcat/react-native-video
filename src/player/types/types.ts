@@ -4,10 +4,10 @@ import { type SubtitleStyle } from "../../types";
 import * as Enums from "./enums";
 
 import {
-	type ICommonFlavourProps,
-	type ICommonPlayerProps,
-	type IPlayerProgress,
-	type IPlayerTimeMarkers,
+    type ICommonFlavourProps,
+    type ICommonPlayerProps,
+    type IPlayerProgress,
+    type IPlayerTimeMarkers,
 } from "./newTypes";
 
 import { type IInnerPlayerEvents } from "./events";
@@ -55,6 +55,7 @@ export interface ICommonData {
 	audioCode?: string;
 	subtitleCode?: string;
 	playbackRate?: number;
+	isPlayingAd?: boolean;
 }
 
 export interface IPreferencesCommonData {

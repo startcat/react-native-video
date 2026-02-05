@@ -14,6 +14,7 @@ export interface IPlayerEvents {
 	onProgress?: (value: number, duration?: number) => void;
 	onSeek?: (value: number) => void;
 	onBuffering?: (value: boolean) => void;
+	onAdPlayingChange?: (isPlaying: boolean) => void;
 
 	onNext?: () => void;
 	onPrevious?: () => void;
