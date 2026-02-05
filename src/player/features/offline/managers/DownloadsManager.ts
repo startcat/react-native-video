@@ -139,6 +139,39 @@ export class DownloadsManager {
 	}
 
 	/*
+	 * Actualiza la configuración del manager en runtime
+	 * Permite cambiar autoStart y otras opciones después de la inicialización
+	 */
+	public updateConfig(config: Partial<DownloadsManagerConfig>): void {
+		if (!this.state.isInitialized) {
+			this.currentLogger.warn(TAG, "Cannot update config: manager not initialized");
+			return;
+		}
+
+		const previousAutoStart = this.config.autoStart;
+		this.config = { ...this.config, ...config };
+
+		this.currentLogger.info(
+			TAG,
+			`Config updated: autoStart=${this.config.autoStart}, maxConcurrentDownloads=${this.config.maxConcurrentDownloads}`
+		);
+
+		// Propagar cambios relevantes a QueueManager
+		queueManager.updateConfig({
+			autoProcess: this.config.autoStart,
+			maxConcurrentDownloads: this.config.maxConcurrentDownloads,
+		});
+
+		// Si autoStart cambió de false a true, iniciar procesamiento
+		if (!previousAutoStart && this.config.autoStart) {
+			this.currentLogger.info(TAG, "autoStart enabled, starting processing");
+			this.start().catch(err => {
+				this.currentLogger.error(TAG, "Failed to start after config update", err);
+			});
+		}
+	}
+
+	/*
 	 * Inicialización del ecosistema completo de servicios
 	 *
 	 */
