@@ -238,6 +238,36 @@ export class QueueManager {
 	}
 
 	/*
+	 * Actualiza la configuración del QueueManager en runtime
+	 * Permite cambiar autoProcess y maxConcurrentDownloads después de la inicialización
+	 */
+	public updateConfig(config: Partial<QueueManagerConfig>): void {
+		if (!this.isInitialized) {
+			this.currentLogger.warn(TAG, "Cannot update config: QueueManager not initialized");
+			return;
+		}
+
+		const previousAutoProcess = this.config.autoProcess;
+		this.config = { ...this.config, ...config };
+
+		this.currentLogger.info(
+			TAG,
+			`Config updated: autoProcess=${this.config.autoProcess}, maxConcurrentDownloads=${this.config.maxConcurrentDownloads}`
+		);
+
+		// Si autoProcess cambió de false a true y no está procesando, iniciar
+		if (
+			!previousAutoProcess &&
+			this.config.autoProcess &&
+			!this.isProcessing &&
+			!this.isPaused
+		) {
+			this.currentLogger.info(TAG, "autoProcess enabled, starting processing");
+			this.startProcessing();
+		}
+	}
+
+	/*
 	 * Añadir DownloadItem completo a la cola (nuevo método para la nueva arquitectura)
 	 *
 	 */

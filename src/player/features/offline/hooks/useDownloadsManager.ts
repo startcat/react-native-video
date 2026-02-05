@@ -198,6 +198,13 @@ export function useDownloadsManager(
 		}
 	}, [autoInit, isInitialized, initializeManager]);
 
+	// Actualizar config cuando cambie después de la inicialización
+	useEffect(() => {
+		if (isInitialized && config) {
+			downloadsManager.updateConfig(config);
+		}
+	}, [isInitialized, config]);
+
 	// Suscripción a eventos del sistema
 	useEffect(() => {
 		if (!downloadsManager.isInitialized()) {
