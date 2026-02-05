@@ -337,6 +337,7 @@ export class NativeManager {
 			progress?: number;
 			speed?: number;
 			bytesDownloaded?: number;
+			downloadedBytes?: number; // Android sends this name
 			totalBytes?: number;
 			remainingTime?: number;
 			localPath?: string;
@@ -389,10 +390,12 @@ export class NativeManager {
 		}
 
 		// Emitir evento de progreso - el filtrado se hace en QueueManager
+		// Android sends downloadedBytes, iOS sends bytesDownloaded - normalize here
+		const bytesDownloaded = eventData.bytesDownloaded || eventData.downloadedBytes || 0;
 		const progressEvent: DownloadProgressEvent = {
 			downloadId: eventData.id,
 			percent: percent,
-			bytesDownloaded: eventData.bytesDownloaded || 0,
+			bytesDownloaded: bytesDownloaded,
 			totalBytes: eventData.totalBytes || 0,
 			speed: speed,
 			remainingTime: eventData.remainingTime,
