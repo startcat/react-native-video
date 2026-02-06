@@ -2365,6 +2365,7 @@ export class QueueManager {
 			case "PENDING":
 				return DownloadStates.QUEUED;
 			case "PAUSED":
+			case "STOPPED":
 				return DownloadStates.PAUSED;
 			case "COMPLETED":
 				return DownloadStates.COMPLETED;
