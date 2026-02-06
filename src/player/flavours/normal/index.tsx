@@ -1454,15 +1454,23 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// Solo procesar progreso para contenido principal, no para tudum
 		if (currentSourceType.current === "content") {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
-				// Para VOD: NO actualizar duration en onProgress, mantener la que se estableció en onLoad
+				// Para VOD: Preferir duración de onLoad, pero usar seekableDuration como fallback
+				// si onLoad no se ha recibido (puede ocurrir con preroll ads en algunos dispositivos)
 				const currentDuration = vodProgressManagerRef.current?.duration || 0;
+				const effectiveDuration =
+					currentDuration > 0 ? currentDuration : e.seekableDuration;
+				if (currentDuration === 0 && e.seekableDuration > 0) {
+					currentLogger.current?.info(
+						`handleOnProgress - Initializing VOD duration from seekableDuration: ${e.seekableDuration}s (onLoad not received)`
+					);
+				}
 				vodProgressManagerRef.current?.updatePlayerData({
 					currentTime: e.currentTime,
 					seekableRange: {
 						start: 0,
-						end: currentDuration > 0 ? currentDuration : e.seekableDuration,
+						end: effectiveDuration,
 					},
-					duration: currentDuration, // Mantener duración existente
+					duration: effectiveDuration,
 					isBuffering: isBuffering,
 					isPaused: paused,
 				});
