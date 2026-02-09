@@ -11,6 +11,7 @@ import { PlayerError } from "../../../core/errors";
 import { downloadsManager } from "../managers/DownloadsManager";
 import { profileManager } from "../managers/ProfileManager";
 import { queueManager } from "../managers/QueueManager";
+import { downloadService } from "../services/download/DownloadService";
 import { dashManifestParser } from "../services/manifest/DASHManifestParser";
 import { hlsManifestParser } from "../services/manifest/HLSManifestParser";
 import { storageService } from "../services/storage/StorageService";
@@ -385,7 +386,16 @@ export function useDownloadsManager(
 					});
 				}
 
-				// 4. Verificar que no exista ya la descarga
+				// 4. Verificar que el tipo de descarga esté habilitado
+				if (!downloadService.isTypeEnabled(itemWithId.type)) {
+					throw new PlayerError("DOWNLOAD_FAILED", {
+						downloadId: itemWithId.id,
+						title: itemWithId.title,
+						message: `Download type ${itemWithId.type} is not enabled. ${itemWithId.type === DownloadType.BINARY ? "BINARY_DOWNLOADS_DISABLED" : "STREAM_DOWNLOADS_DISABLED"}`,
+					});
+				}
+
+				// 5. Verificar que no exista ya la descarga
 				const existingDownload = queueManager.getDownload(itemWithId.id);
 				if (existingDownload) {
 					return itemWithId.id;

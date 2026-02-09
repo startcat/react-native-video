@@ -79,6 +79,10 @@ export class DownloadsManager {
 
 	public async initialize(config?: Partial<DownloadsManagerConfig>): Promise<void> {
 		if (this.state.isInitialized) {
+			// Si ya está inicializado pero se pasa nueva config, aplicarla
+			if (config) {
+				this.updateConfig(config);
+			}
 			return;
 		}
 
@@ -96,6 +100,11 @@ export class DownloadsManager {
 					enabled: this.config.logEnabled,
 					level: this.config.logLevel,
 				});
+
+				this.currentLogger.info(
+					TAG,
+					`Initializing with maxConcurrentDownloads=${this.config.maxConcurrentDownloads}, autoStart=${this.config.autoStart}`
+				);
 
 				// Inicializar servicios del sistema
 				await this.initializeSystemServices();
@@ -138,38 +147,7 @@ export class DownloadsManager {
 		return this.initPromise;
 	}
 
-	/*
-	 * Actualiza la configuración del manager en runtime
-	 * Permite cambiar autoStart y otras opciones después de la inicialización
-	 */
-	public updateConfig(config: Partial<DownloadsManagerConfig>): void {
-		if (!this.state.isInitialized) {
-			this.currentLogger.warn(TAG, "Cannot update config: manager not initialized");
-			return;
-		}
-
-		const previousAutoStart = this.config.autoStart;
-		this.config = { ...this.config, ...config };
-
-		this.currentLogger.info(
-			TAG,
-			`Config updated: autoStart=${this.config.autoStart}, maxConcurrentDownloads=${this.config.maxConcurrentDownloads}`
-		);
-
-		// Propagar cambios relevantes a QueueManager
-		queueManager.updateConfig({
-			autoProcess: this.config.autoStart,
-			maxConcurrentDownloads: this.config.maxConcurrentDownloads,
-		});
-
-		// Si autoStart cambió de false a true, iniciar procesamiento
-		if (!previousAutoStart && this.config.autoStart) {
-			this.currentLogger.info(TAG, "autoStart enabled, starting processing");
-			this.start().catch(err => {
-				this.currentLogger.error(TAG, "Failed to start after config update", err);
-			});
-		}
-	}
+	// updateConfig está definido más abajo en la sección "API Pública - Configuración"
 
 	/*
 	 * Inicialización del ecosistema completo de servicios
@@ -717,49 +695,48 @@ export class DownloadsManager {
 		}
 
 		try {
+			// Verificar que el tipo de descarga esté habilitado
+			if (!downloadService.isTypeEnabled(type)) {
+				throw new PlayerError("DOWNLOAD_FAILED", {
+					taskId: task.id,
+					downloadType: type,
+					message: `Download type ${type} is not enabled. ${type === DownloadType.BINARY ? "BINARY_DOWNLOADS_DISABLED" : "STREAM_DOWNLOADS_DISABLED"}`,
+				});
+			}
+
 			// Verificar políticas globales antes de agregar
 			await this.validateGlobalPolicies(task, type);
 
-			// Si autoStart está deshabilitado, solo añadir a la cola sin iniciar
-			// La descarga se iniciará cuando se llame a resumeAll() o start()
-			if (!this.config.autoStart) {
-				// Determinar URI según el tipo de descarga
-				const uri =
-					type === DownloadType.BINARY
-						? (task as BinaryDownloadTask).url
-						: (task as StreamDownloadTask).manifestUrl;
+			// Determinar URI según el tipo de descarga
+			const uri =
+				type === DownloadType.BINARY
+					? (task as BinaryDownloadTask).url
+					: (task as StreamDownloadTask).manifestUrl;
 
-				// Crear DownloadItem y añadir a la cola sin iniciar
-				const downloadItem: DownloadItem = {
-					id: task.id,
-					title: task.title || task.id,
-					type,
-					state: DownloadStates.QUEUED,
-					uri,
-					profileIds: profileManager.getActiveProfileId()
-						? [profileManager.getActiveProfileId()!]
-						: [],
-					stats: {
-						bytesDownloaded: 0,
-						totalBytes: 0,
-						progressPercent: 0,
-						retryCount: 0,
-					},
-				};
+			// Crear DownloadItem y añadir a la cola
+			// El QueueManager respetará maxConcurrentDownloads y autoProcess
+			const downloadItem: DownloadItem = {
+				id: task.id,
+				title: task.title || task.id,
+				type,
+				state: DownloadStates.QUEUED,
+				uri,
+				profileIds: profileManager.getActiveProfileId()
+					? [profileManager.getActiveProfileId()!]
+					: [],
+				stats: {
+					bytesDownloaded: 0,
+					totalBytes: 0,
+					progressPercent: 0,
+					retryCount: 0,
+				},
+			};
 
-				await queueManager.addDownloadItem(downloadItem);
-				this.currentLogger.info(
-					TAG,
-					`Download queued (autoStart disabled): ${task.id} (${type})`
-				);
-				return task.id;
-			}
-
-			// autoStart habilitado: delegar la descarga específica al DownloadService
-			await downloadService.startDownload(task, type);
-
-			this.currentLogger.info(TAG, `Download added via manager: ${task.id} (${type})`);
-
+			await queueManager.addDownloadItem(downloadItem);
+			this.currentLogger.info(
+				TAG,
+				`Download queued (autoStart ${this.config.autoStart ? "enabled" : "disabled"}): ${task.id} (${type})`
+			);
 			return task.id;
 		} catch (error) {
 			// Propagar PlayerError de servicios/managers directamente
@@ -1397,28 +1374,37 @@ export class DownloadsManager {
 	 */
 
 	public updateConfig(newConfig: Partial<DownloadsManagerConfig>): void {
+		const previousAutoStart = this.config.autoStart;
 		this.config = { ...this.config, ...newConfig };
 
-		// Propagar cambios de configuración a servicios
-		if (
-			newConfig.enableBinaryDownloads !== undefined ||
-			newConfig.enableStreamDownloads !== undefined
-		) {
-			if (newConfig.enableBinaryDownloads !== undefined) {
-				if (newConfig.enableBinaryDownloads) {
-					downloadService.enableDownloadType(DownloadType.BINARY);
-				} else {
-					downloadService.disableDownloadType(DownloadType.BINARY);
-				}
-			}
+		// Propagar cambios relevantes a QueueManager
+		queueManager.updateConfig({
+			autoProcess: this.config.autoStart,
+			maxConcurrentDownloads: this.config.maxConcurrentDownloads,
+		});
 
-			if (newConfig.enableStreamDownloads !== undefined) {
-				if (newConfig.enableStreamDownloads) {
-					downloadService.enableDownloadType(DownloadType.STREAM);
-				} else {
-					downloadService.disableDownloadType(DownloadType.STREAM);
-				}
+		// Propagar cambios de enable/disable a DownloadService
+		if (newConfig.enableBinaryDownloads !== undefined) {
+			if (newConfig.enableBinaryDownloads) {
+				downloadService.enableDownloadType(DownloadType.BINARY);
+			} else {
+				downloadService.disableDownloadType(DownloadType.BINARY);
 			}
+		}
+		if (newConfig.enableStreamDownloads !== undefined) {
+			if (newConfig.enableStreamDownloads) {
+				downloadService.enableDownloadType(DownloadType.STREAM);
+			} else {
+				downloadService.disableDownloadType(DownloadType.STREAM);
+			}
+		}
+
+		// Si autoStart cambió de false a true, iniciar procesamiento
+		if (!previousAutoStart && this.config.autoStart) {
+			this.currentLogger.info(TAG, "autoStart enabled, starting processing");
+			this.start().catch(err => {
+				this.currentLogger.error(TAG, "Failed to start after config update", err);
+			});
 		}
 
 		this.eventEmitter.emit("config:updated", {

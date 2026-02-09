@@ -184,6 +184,9 @@ export class QueueManager {
 
 	public async initialize(config?: Partial<QueueManagerConfig>): Promise<void> {
 		if (this.isInitialized) {
+			if (config) {
+				this.updateConfig(config);
+			}
 			return;
 		}
 
@@ -1061,11 +1064,13 @@ export class QueueManager {
 
 	private async doProcessQueue(): Promise<void> {
 		// Verificar límite de descargas concurrentes
-		// IMPORTANTE: Solo contar descargas activas (DOWNLOADING o PAUSED), no COMPLETED ni FAILED
-		const activeDownloads = Array.from(this.downloadQueue.values()).filter(
+		// IMPORTANTE: Contar tanto descargas con estado DOWNLOADING/PAUSED como las que están en currentlyDownloading
+		// (pueden estar en transición de QUEUED a DOWNLOADING)
+		const stateActive = Array.from(this.downloadQueue.values()).filter(
 			item =>
 				item.state === DownloadStates.DOWNLOADING || item.state === DownloadStates.PAUSED
 		).length;
+		const activeDownloads = Math.max(stateActive, this.currentlyDownloading.size);
 
 		const queuedDownloads = Array.from(this.downloadQueue.values()).filter(
 			item => item.state === DownloadStates.QUEUED
@@ -1131,6 +1136,24 @@ export class QueueManager {
 					`Waiting 500ms before starting next download (${activeDownloads} active downloads)`
 				);
 				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+
+			// Re-verificar límite de concurrencia después del delay
+			const stateActiveAfterDelay = Array.from(this.downloadQueue.values()).filter(
+				item =>
+					item.state === DownloadStates.DOWNLOADING ||
+					item.state === DownloadStates.PAUSED
+			).length;
+			const activeAfterDelay = Math.max(
+				stateActiveAfterDelay,
+				this.currentlyDownloading.size
+			);
+			if (activeAfterDelay >= this.config.maxConcurrentDownloads) {
+				this.currentLogger.debug(
+					TAG,
+					`Max concurrent reached after delay (${activeAfterDelay}/${this.config.maxConcurrentDownloads}), skipping`
+				);
+				return;
 			}
 
 			// Verificar de nuevo después del delay que la descarga sigue en QUEUED
