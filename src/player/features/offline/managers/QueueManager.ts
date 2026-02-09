@@ -217,10 +217,10 @@ export class QueueManager {
 				// Configurar event listeners para eventos nativos
 				this.setupNativeEventListeners();
 
-				// Inicializar procesamiento automático
-				if (this.config.autoProcess) {
-					this.startProcessing();
-				}
+				// NO iniciar procesamiento automático aquí.
+				// DownloadsManager.start() llamará a queueManager.start() después de
+				// marcar isInitialized=true, evitando que processQueue intente descargar
+				// antes de que el sistema esté completamente listo.
 
 				this.isInitialized = true;
 				this.currentLogger.info(
@@ -997,6 +997,7 @@ export class QueueManager {
 			DownloadEventType.RESUMED,
 			DownloadEventType.QUEUED,
 			DownloadEventType.REMOVED,
+			DownloadEventType.STATE_CHANGE,
 		];
 
 		events.forEach(event => {
@@ -1739,13 +1740,30 @@ export class QueueManager {
 		if (item) {
 			const previousState = item.state;
 
-			// Recargar desde persistencia para obtener cambios hechos por otros servicios
-			// (ej: subtítulos descargados por StreamDownloadService)
-			const persistedDownloads = await persistenceService.loadDownloadState();
-			const persistedItem = persistedDownloads.get(downloadId);
+			// FIX: Use in-memory item as source of truth to avoid race conditions
+			// during parallel downloads. The previous implementation loaded from
+			// async persistence (loadDownloadState), creating a window where
+			// concurrent progress events for other downloads could be missed.
+			// Only merge from persistence for COMPLETED state where subtitle data
+			// from StreamDownloadService may need to be picked up.
+			let mergedItem: typeof item;
 
-			// Merge: usar item persistido como base, actualizar con cambios locales
-			const mergedItem = persistedItem ? { ...persistedItem } : { ...item };
+			if (state === DownloadStates.COMPLETED) {
+				// For completion, merge with persisted data to pick up subtitles
+				// downloaded by StreamDownloadService
+				try {
+					const persistedDownloads = await persistenceService.loadDownloadState();
+					const persistedItem = persistedDownloads.get(downloadId);
+					mergedItem = persistedItem ? { ...persistedItem } : { ...item };
+				} catch {
+					mergedItem = { ...item };
+				}
+			} else {
+				// For all other states (FAILED, DOWNLOADING, QUEUED, etc.),
+				// use in-memory item directly - no async gap
+				mergedItem = { ...item };
+			}
+
 			mergedItem.state = state;
 
 			if (fileUri) {
@@ -2166,8 +2184,15 @@ export class QueueManager {
 
 			// Actualizar tiempo del último evento procesado
 			this.lastProgressEventTime.set(downloadId, now);
-			// Actualizar progreso en el item de la cola (solo acepta 2 argumentos)
-			await this.updateDownloadProgress(downloadId, percent);
+			// Actualizar progreso en el item de la cola (con bytes para SpeedCalculator)
+			// NOTA: Solo pasar totalBytes si es > 0 para evitar sobrescribir estimaciones previas
+			// (Android envía totalBytes=0 durante el inicio de descargas HLS/DASH)
+			await this.updateDownloadProgress(
+				downloadId,
+				percent,
+				eventData.bytesDownloaded,
+				eventData.totalBytes && eventData.totalBytes > 0 ? eventData.totalBytes : undefined
+			);
 
 			// También actualizar bytes y otros datos si están disponibles
 			if (item && item.stats) {
@@ -2176,8 +2201,10 @@ export class QueueManager {
 					item.stats.downloadSpeed = eventData.speed;
 				}
 
-				// Actualizar tiempo restante
-				if (eventData.remainingTime !== undefined) {
+				// Actualizar tiempo restante (solo si el nativo envía un valor real > 0)
+				// Android envía remainingTime=0 siempre para streams, así que no sobrescribir
+				// con 0 ya que el fallback JS calcula un valor más útil
+				if (eventData.remainingTime !== undefined && eventData.remainingTime > 0) {
 					item.stats.remainingTime = eventData.remainingTime;
 				}
 

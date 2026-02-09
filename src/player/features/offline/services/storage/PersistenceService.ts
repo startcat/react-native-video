@@ -31,6 +31,7 @@ export class PersistenceService {
 	private currentLogger: Logger;
 	private isDirty: boolean = false;
 	private isSaving: boolean = false;
+	private pendingSaveSource: Map<string, DownloadItem> | undefined = undefined;
 	private lastSaveTime: number = 0;
 	private dataVersion: number = 1; // Versión actual del esquema de datos
 	private isInitialized: boolean = false;
@@ -127,7 +128,12 @@ export class PersistenceService {
 
 	public async saveDownloadState(downloads: Map<string, DownloadItem>): Promise<void> {
 		if (this.isSaving) {
-			this.currentLogger.debug(TAG, "Save already in progress, skipping");
+			// FIX: Instead of silently dropping the save, mark as dirty so a
+			// re-save is triggered after the current save completes.
+			// This prevents state loss during parallel download operations.
+			this.isDirty = true;
+			this.pendingSaveSource = downloads;
+			this.currentLogger.debug(TAG, "Save already in progress, marking dirty for re-save");
 			return;
 		}
 
@@ -185,6 +191,15 @@ export class PersistenceService {
 			});
 		} finally {
 			this.isSaving = false;
+
+			// FIX: If a save was requested while we were saving, do it now
+			if (this.isDirty && this.pendingSaveSource) {
+				const pendingSource = this.pendingSaveSource;
+				this.pendingSaveSource = undefined;
+				this.saveDownloadState(pendingSource).catch(err => {
+					this.currentLogger.error(TAG, "Failed to execute pending save", err);
+				});
+			}
 		}
 	}
 
