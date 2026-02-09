@@ -3,28 +3,28 @@ import { useAirplayConnectivity } from "react-airplay";
 import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-	type OnBufferData,
-	type OnProgressData,
-	type OnVideoErrorData,
+    type OnBufferData,
+    type OnProgressData,
+    type OnVideoErrorData,
 } from "../../../specs/VideoNativeComponent";
 
 import { type OnLoadData, type OnReceiveAdEventData } from "../../../types/events";
 
 import {
-	type SelectedTrack,
-	type SelectedVideoTrack,
-	type TextTracks,
-	SelectedTrackType,
-	SelectedVideoTrackType,
-	TextTrackType,
+    type SelectedTrack,
+    type SelectedVideoTrack,
+    type TextTracks,
+    SelectedTrackType,
+    SelectedVideoTrackType,
+    TextTrackType,
 } from "../../../types/video";
 import Video, { type VideoRef } from "../../../Video";
 import { Overlay } from "../../components/overlay";
 import {
-	type IPlayerProgress,
-	type ProgressUpdateData,
-	type SliderValues,
-	DVR_PLAYBACK_TYPE,
+    type IPlayerProgress,
+    type ProgressUpdateData,
+    type SliderValues,
+    DVR_PLAYBACK_TYPE,
 } from "../../types";
 const BackgroundPoster = React.lazy(() => import("../../components/poster"));
 
@@ -43,10 +43,10 @@ import { type onSourceChangedProps, SourceClass } from "../../modules/source";
 import { TudumClass } from "../../modules/tudum";
 
 import {
-	type ModeChangeData,
-	type ProgramChangeData,
-	DVRProgressManagerClass,
-	VODProgressManagerClass,
+    type ModeChangeData,
+    type ProgramChangeData,
+    DVRProgressManagerClass,
+    VODProgressManagerClass,
 } from "../../core/progress";
 
 import { ComponentLogger } from "../../features/logger";
@@ -56,15 +56,15 @@ import { useVideoAnalytics } from "../../core/events/hooks/useVideoAnalytics";
 import { styles } from "../styles";
 
 import {
-	type ICommonData,
-	type IDrm,
-	type IMappedYoubora,
-	type IPlayerMenuData,
-	type IVideoSource,
-	type NormalFlavourProps,
-	CONTROL_ACTION,
-	PLAYER_MENU_DATA_TYPE,
-	YOUBORA_FORMAT,
+    type ICommonData,
+    type IDrm,
+    type IMappedYoubora,
+    type IPlayerMenuData,
+    type IVideoSource,
+    type NormalFlavourProps,
+    CONTROL_ACTION,
+    PLAYER_MENU_DATA_TYPE,
+    YOUBORA_FORMAT,
 } from "../../types";
 
 export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
@@ -1532,6 +1532,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: false });
 			props.events?.onAdPlayingChange?.(false);
+
 		} else if (e.event === "ERROR") {
 			currentLogger.current?.error("[ADS] Ad error", { data: e.data });
 			// En caso de error, asegurar que los controles vuelvan
