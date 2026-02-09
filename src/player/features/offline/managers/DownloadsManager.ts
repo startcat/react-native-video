@@ -1071,16 +1071,18 @@ export class DownloadsManager {
 			this.state.isPaused = true;
 			this.state.lastUpdated = Date.now();
 
-			// Coordinar con QueueManager para pausar todas las descargas
-			await queueManager.pauseAll();
-
-			// Pausar descargas binarias activas a través del DownloadService
-			const activeDownloads = this.getDownloads().filter(
+			// Collect active binary downloads BEFORE pauseAll changes their states to PAUSED
+			const activeBinaryDownloads = this.getDownloads().filter(
 				item =>
 					item.state === DownloadStates.DOWNLOADING && item.type === DownloadType.BINARY
 			);
 
-			for (const download of activeDownloads) {
+			// Coordinar con QueueManager para pausar todas las descargas
+			// This now also transitions individual DOWNLOADING states to PAUSED
+			queueManager.pauseAll();
+
+			// Pausar descargas binarias activas a través del DownloadService
+			for (const download of activeBinaryDownloads) {
 				try {
 					await downloadService.pauseDownload(download.id, download.type);
 					this.currentLogger.debug(TAG, `Paused binary download: ${download.id}`);
