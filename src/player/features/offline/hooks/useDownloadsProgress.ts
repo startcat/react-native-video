@@ -3,7 +3,7 @@
  *
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerError } from "../../../core/errors";
 import { queueManager } from "../managers/QueueManager";
 import { DownloadItem, DownloadItemMetadata, DownloadStates, DownloadType } from "../types";
@@ -193,21 +193,53 @@ export function useDownloadsProgress(
 		setHookState(newState);
 	}, [getCurrentState]);
 
-	// Suscribirse a eventos de descarga (OPTIMIZADO)
+	// Suscribirse a eventos de descarga (OPTIMIZADO + THROTTLEADO)
 	// Usa subscribeToDownload que filtra eventos por downloadId específico
+	// Throttle de 2s para eventos de progreso, inmediato para cambios de estado
+	const throttleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const lastStateRef = useRef<string | undefined>(undefined);
+
 	useEffect(() => {
 		if (!downloadId) {
 			return;
 		}
 
-		// Una sola suscripción filtrada en lugar de 8 suscripciones
-		// Esto reduce drásticamente el número de callbacks ejecutados
+		// Inicializar referencia al estado actual
+		lastStateRef.current = hookState.state;
+
 		const unsubscribe = queueManager.subscribeToDownload(downloadId, () => {
-			// Solo se ejecuta cuando HAY cambios en ESTE downloadId específico
-			setHookState(getCurrentState());
+			const newState = getCurrentState();
+
+			// Si el estado (DOWNLOADING, COMPLETED, FAILED, PAUSED, etc.) cambió,
+			// actualizar INMEDIATAMENTE y cancelar cualquier throttle pendiente
+			if (newState.state !== lastStateRef.current) {
+				if (throttleTimeoutRef.current) {
+					clearTimeout(throttleTimeoutRef.current);
+					throttleTimeoutRef.current = null;
+				}
+				lastStateRef.current = newState.state;
+				setHookState(newState);
+				return;
+			}
+
+			// Solo cambió el progreso → throttlear con trailing timeout de 2s
+			// Si ya hay un timeout pendiente, no hacer nada (el timeout existente
+			// leerá getCurrentState() que siempre tiene datos frescos del QueueManager)
+			if (!throttleTimeoutRef.current) {
+				throttleTimeoutRef.current = setTimeout(() => {
+					throttleTimeoutRef.current = null;
+					setHookState(getCurrentState());
+				}, 2000);
+			}
 		});
 
-		return unsubscribe;
+		return () => {
+			unsubscribe();
+			if (throttleTimeoutRef.current) {
+				clearTimeout(throttleTimeoutRef.current);
+				throttleTimeoutRef.current = null;
+			}
+		};
 	}, [downloadId, getCurrentState]);
 
 	return hookState;

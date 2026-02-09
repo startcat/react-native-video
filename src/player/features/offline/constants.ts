@@ -1,6 +1,6 @@
 // Configuración unificada de progreso - FUENTE DE VERDAD
 export const PROGRESS_DEFAULTS = {
-	UPDATE_INTERVAL_MS: 1000, // 1 segundo (balance entre responsividad y performance)
+	UPDATE_INTERVAL_MS: 2000, // 2 segundos (reducido para evitar bloqueo de UI)
 	THRESHOLD_PERCENT: 1, // 1% mínimo de cambio para emitir evento
 	PERSISTENCE_THRESHOLD: 10, // Persistir cada 10%
 } as const;

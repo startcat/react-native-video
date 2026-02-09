@@ -17,15 +17,15 @@ import { nativeManager } from "./NativeManager";
 import { profileManager } from "./ProfileManager";
 
 import {
-	BinaryDownloadTask,
-	DownloadEventType,
-	DownloadItem,
-	DownloadStates,
-	DownloadType,
-	QueueManagerConfig,
-	QueueStats,
-	QueueStatusCallback,
-	StreamDownloadTask,
+    BinaryDownloadTask,
+    DownloadEventType,
+    DownloadItem,
+    DownloadStates,
+    DownloadType,
+    QueueManagerConfig,
+    QueueStats,
+    QueueStatusCallback,
+    StreamDownloadTask,
 } from "../types";
 import { speedCalculator } from "../utils/SpeedCalculator";
 
@@ -2153,37 +2153,25 @@ export class QueueManager {
 				return;
 			}
 
-			// No procesar si el progreso no ha cambiado significativamente
-			// EXCEPCIÓN: Siempre procesar si es el primer evento (currentPercent === 0) o si percent > 0
-			// Esto evita que descargas HLS se queden en 0% cuando la velocidad aún no se ha establecido
+			// Calcular si es el primer evento de progreso
 			const currentPercent = item.stats.progressPercent || 0;
 			const isFirstProgressEvent = currentPercent === 0 && percent > 0;
+
+			// No procesar si el progreso no ha cambiado significativamente Y no hay velocidad
 			if (
 				Math.abs(percent - currentPercent) < 1 &&
 				eventData.speed === 0 &&
 				!isFirstProgressEvent
 			) {
-				// Filtrar sin loguear para evitar spam
 				return;
 			}
 
-			// FILTRO TEMPORAL: Evitar procesar eventos muy frecuentes (menos de 1 segundo de diferencia)
-			const now = Date.now();
-			const lastEventTime = this.lastProgressEventTime.get(downloadId) || 0;
-			const timeSinceLastEvent = now - lastEventTime;
+			// ═══════════════════════════════════════════════════════════════
+			// BLOQUE A: Actualización de datos internos (SIEMPRE se ejecuta)
+			// Garantiza que downloadQueue tiene datos frescos y SpeedCalculator
+			// recibe muestras regulares, independientemente del throttle de emisión
+			// ═══════════════════════════════════════════════════════════════
 
-			// Solo procesar si han pasado al menos 1 segundo o hay cambio significativo de progreso/velocidad
-			// NOTA: Reducido de 5% a 1% para evitar que eventos iniciales de HLS se filtren
-			// cuando la velocidad aún no se ha establecido (speed=0)
-			const significantChange =
-				Math.abs(percent - currentPercent) >= 1 || (eventData.speed ?? 0) > 0;
-			if (timeSinceLastEvent < 1000 && !significantChange) {
-				// Filtrar sin loguear para evitar spam
-				return;
-			}
-
-			// Actualizar tiempo del último evento procesado
-			this.lastProgressEventTime.set(downloadId, now);
 			// Actualizar progreso en el item de la cola (con bytes para SpeedCalculator)
 			// NOTA: Solo pasar totalBytes si es > 0 para evitar sobrescribir estimaciones previas
 			// (Android envía totalBytes=0 durante el inicio de descargas HLS/DASH)
@@ -2275,6 +2263,24 @@ export class QueueManager {
 				// Guardar el item actualizado de vuelta en el Map
 				this.downloadQueue.set(downloadId, item);
 			}
+
+			// ═══════════════════════════════════════════════════════════════
+			// BLOQUE B: Emisión de evento (THROTTLEADA)
+			// Solo emitir DownloadEventType.PROGRESS cada 2s para reducir
+			// callbacks a hooks y re-renders de React
+			// ═══════════════════════════════════════════════════════════════
+
+			const now = Date.now();
+			const lastEventTime = this.lastProgressEventTime.get(downloadId) || 0;
+			const timeSinceLastEvent = now - lastEventTime;
+
+			// Solo emitir si han pasado al menos 2 segundos O es el primer evento de progreso
+			if (timeSinceLastEvent < 2000 && !isFirstProgressEvent) {
+				return;
+			}
+
+			// Actualizar tiempo del último evento emitido
+			this.lastProgressEventTime.set(downloadId, now);
 
 			// Re-emitir evento para que los hooks lo reciban (usar valores calculados)
 			const updatedItem = this.downloadQueue.get(downloadId);

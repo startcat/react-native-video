@@ -11,17 +11,17 @@ import { Logger } from "../../logger";
 import { LOG_TAGS } from "../constants";
 import { DEFAULT_CONFIG_NATIVE, LOGGER_DEFAULTS } from "../defaultConfigs";
 import {
-	DownloadCompleteEvent,
-	DownloadErrorCode,
-	DownloadFailedEvent,
-	DownloadItem,
-	DownloadProgressEvent,
-	NativeDownloadConfig,
-	NativeDownloadStats,
-	NativeManagerConfig,
-	NativeManagerEventCallback,
-	NativeManagerEventType,
-	SystemInfo,
+    DownloadCompleteEvent,
+    DownloadErrorCode,
+    DownloadFailedEvent,
+    DownloadItem,
+    DownloadProgressEvent,
+    NativeDownloadConfig,
+    NativeDownloadStats,
+    NativeManagerConfig,
+    NativeManagerEventCallback,
+    NativeManagerEventType,
+    SystemInfo,
 } from "../types";
 
 import { IDrm } from "../../../types";
@@ -47,7 +47,12 @@ export class NativeManager {
 	// Estado interno
 	private systemInfo: SystemInfo | null = null;
 	private eventBuffer: Array<{ event: string; data: unknown; timestamp: number }> = [];
-	private completedDownloads: Set<string> = new Set(); // Tracking de descargas completadas para evitar duplicados
+	private completedDownloads: Set<string> = new Set();
+
+	// Throttle de eventos de progreso
+	private lastProgressLogTime: Map<string, number> = new Map();
+	private lastProgressEmitTime: Map<string, number> = new Map();
+	private static readonly PROGRESS_THROTTLE_MS = 2000;
 
 	private constructor() {
 		// Configuración por defecto del manager
@@ -274,9 +279,16 @@ export class NativeManager {
 
 	private handleNativeEvent(eventName: string, data: unknown): void {
 		try {
-			// DEBUG: Log all native events to verify they are being received
+			// DEBUG: Log native progress events (throttled to avoid spam)
 			if (eventName === "overonDownloadProgress") {
-				console.log(`[NativeManager] 📥 Received native progress event:`, data);
+				const progressData = data as { id?: string };
+				const id = progressData?.id || "unknown";
+				const now = Date.now();
+				const lastLog = this.lastProgressLogTime.get(id) || 0;
+				if (now - lastLog >= NativeManager.PROGRESS_THROTTLE_MS) {
+					console.log(`[NativeManager] 📥 Received native progress event:`, data);
+					this.lastProgressLogTime.set(id, now);
+				}
 			}
 
 			// Buffer del evento para debugging
@@ -389,9 +401,23 @@ export class NativeManager {
 			return;
 		}
 
-		// Emitir evento de progreso - el filtrado se hace en QueueManager
+		// Emitir evento de progreso - throttleado para reducir carga en el bridge JS
 		// Android sends downloadedBytes, iOS sends bytesDownloaded - normalize here
 		const bytesDownloaded = eventData.bytesDownloaded || eventData.downloadedBytes || 0;
+
+		// Throttle: solo emitir si han pasado >= 2s, es el primer evento, o está cerca de completar
+		const now = Date.now();
+		const lastEmit = this.lastProgressEmitTime.get(eventData.id) || 0;
+		const isFirstEvent = lastEmit === 0;
+		const isNearCompletion = percent >= 95;
+		const timeSinceLastEmit = now - lastEmit;
+
+		if (!isFirstEvent && !isNearCompletion && timeSinceLastEmit < NativeManager.PROGRESS_THROTTLE_MS) {
+			return;
+		}
+
+		this.lastProgressEmitTime.set(eventData.id, now);
+
 		const progressEvent: DownloadProgressEvent = {
 			downloadId: eventData.id,
 			percent: percent,
