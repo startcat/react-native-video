@@ -577,6 +577,24 @@ export class QueueManager {
 
 	public pauseAll(): void {
 		this.isPaused = true;
+
+		// Transition all DOWNLOADING downloads to PAUSED state
+		// Without this, individual downloads remain in DOWNLOADING state and the UI
+		// shows them as "downloading" instead of "paused" (since UI reads per-download state)
+		for (const [id, item] of this.downloadQueue.entries()) {
+			if (
+				item.state === DownloadStates.DOWNLOADING ||
+				item.state === DownloadStates.DOWNLOADING_ASSETS
+			) {
+				item.state = DownloadStates.PAUSED;
+				this.downloadQueue.set(id, item);
+				this.currentlyDownloading.delete(id);
+
+				// Emit event so useDownloadsProgress hooks update the UI
+				this.eventEmitter.emit(DownloadEventType.PAUSED, { downloadId: id, item });
+			}
+		}
+
 		this.currentLogger.info(TAG, "All downloads paused");
 	}
 
@@ -1976,6 +1994,13 @@ export class QueueManager {
 	 */
 
 	private async cleanupOrphanedDownloads(): Promise<void> {
+		// Skip orphan cleanup when globally paused - downloads in DOWNLOADING state
+		// are expected during pause transition and should not be reset to QUEUED
+		if (this.isPaused) {
+			this.currentLogger.debug(TAG, "Skipping orphan cleanup while paused");
+			return;
+		}
+
 		try {
 			let cleanedCount = 0;
 			const orphanedIds: string[] = [];
@@ -2059,6 +2084,13 @@ export class QueueManager {
 	private lastProgressEventTime: Map<string, number> = new Map();
 
 	private async handleNativeProgressEvent(data: unknown): Promise<void> {
+		// Ignore progress events when globally paused - native module may still
+		// send lingering events after stopDownloadProcessing(), including events
+		// with progress=0 that would incorrectly reset the displayed progress
+		if (this.isPaused) {
+			return;
+		}
+
 		const eventData = data as {
 			downloadId: string;
 			percent: number;
@@ -2082,7 +2114,14 @@ export class QueueManager {
 			// No procesar si la descarga no está realmente activa
 			if (!item || item.state !== DownloadStates.DOWNLOADING) {
 				// FASE 1 FIX: Si recibimos progreso pero el estado no es DOWNLOADING, actualizarlo
-				if (item && percent > 0) {
+				// Solo promover a DOWNLOADING desde QUEUED o PREPARING (estados de espera)
+				// NUNCA desde PAUSED, STOPPED, COMPLETED o FAILED (estados explícitos del usuario o finales)
+				if (
+					item &&
+					percent > 0 &&
+					(item.state === DownloadStates.QUEUED ||
+						item.state === DownloadStates.PREPARING)
+				) {
 					item.state = DownloadStates.DOWNLOADING;
 					this.downloadQueue.set(downloadId, item);
 				} else {
