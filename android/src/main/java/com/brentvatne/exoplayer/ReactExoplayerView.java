@@ -2745,6 +2745,14 @@ public class ReactExoplayerView extends FrameLayout implements
         } else {
             eventEmitter.receiveAdEvent(adEvent.getType().name());
         }
+
+        // On older Android devices, ExoPlayer may not re-emit STATE_READY after ads finish,
+        // so videoLoaded() never gets called and the JS side never receives onLoad with
+        // content tracks/duration. Force it here as a safety net.
+        // videoLoaded() is idempotent: if onLoad already fired, loadVideoStarted=false and it no-ops.
+        if (adEvent.getType() == AdEvent.AdEventType.CONTENT_RESUME_REQUESTED) {
+            videoLoaded();
+        }
     }
 
     @Override

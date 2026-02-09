@@ -214,8 +214,10 @@ export class AdEventsHandler {
 	};
 
 	private handleAdProgress = (data: OnReceiveAdEventData) => {
-		// Los eventos de progreso del anuncio se pueden usar para analíticas específicas
-		console.log(`[AdEventsHandler] Ad progress: ${data.event}`);
+		// Solo loguear quartiles, no cada tick de AD_PROGRESS (~4/s)
+		if (data.event !== "AD_PROGRESS") {
+			console.log(`[AdEventsHandler] Ad progress: ${data.event}`);
+		}
 	};
 
 	private handleAdClick = (data: OnReceiveAdEventData) => {

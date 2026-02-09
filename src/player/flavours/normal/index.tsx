@@ -73,7 +73,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const [isPlayingAd, setIsPlayingAd] = useState<boolean>(false);
 	const isPlayingAdRef = useRef<boolean>(false);
 	const hasAdFinishedRef = useRef<boolean>(false);
+	const postAdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const postAdSeekDoneRef = useRef<boolean>(false);
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
+	const isContentLoadedRef = useRef<boolean>(false);
 
 	const insets = useSafeAreaInsets();
 
@@ -868,12 +871,19 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	]);
 
 	useEffect(() => {
+		isContentLoadedRef.current = isContentLoaded;
+	}, [isContentLoaded]);
+
+	useEffect(() => {
 		return () => {
 			if (vodProgressManagerRef.current) {
 				vodProgressManagerRef.current.destroy();
 			}
 			if (dvrProgressManagerRef.current) {
 				dvrProgressManagerRef.current.destroy();
+			}
+			if (postAdTimeoutRef.current) {
+				clearTimeout(postAdTimeoutRef.current);
 			}
 		};
 	}, []);
@@ -1285,12 +1295,36 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	 *
 	 */
 
+	const ensureContentLoaded = (source: string) => {
+		if (isContentLoadedRef.current) return;
+		if (currentSourceType.current !== "content") return;
+
+		currentLogger.current?.info(`ensureContentLoaded [${source}] - Marking content as loaded`);
+		isChangingSource.current = false;
+		setIsContentLoaded(true);
+		if (props.events?.onStart) {
+			props.events.onStart();
+		}
+
+		if (postAdTimeoutRef.current) {
+			clearTimeout(postAdTimeoutRef.current);
+			postAdTimeoutRef.current = null;
+		}
+	};
+
 	const handleOnLoad = (e: OnLoadData) => {
 		currentLogger.current?.info(`handleOnLoad (${sourceRef.current?.playerSource?.uri})`);
 		// currentLogger.current?.temp(`handleOnLoad currentSourceType: ${currentSourceType.current}`);
 		// currentLogger.current?.temp(`handleOnLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
 		// currentLogger.current?.temp(`handleOnLoad isContentLoaded ${isContentLoaded}`);
 		// currentLogger.current?.temp(`handleOnLoad duration: ${e.duration}, currentTime: ${e.currentTime}`);
+
+		if (isPlayingAdRef.current) {
+			currentLogger.current?.info(
+				`handleOnLoad - Ignoring during ad playback (duration: ${e.duration}s, tracks would be from ad)`
+			);
+			return;
+		}
 
 		// Solo procesar onLoad para contenido principal, no para tudum
 		if (currentSourceType.current === "content" && !isContentLoaded) {
@@ -1313,12 +1347,26 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			isChangingSource.current = false;
 			setIsContentLoaded(true);
 
+			if (postAdTimeoutRef.current) {
+				currentLogger.current?.debug(
+					"handleOnLoad - Cancelling post-ad safety timeout (onLoad arrived)"
+				);
+				clearTimeout(postAdTimeoutRef.current);
+				postAdTimeoutRef.current = null;
+			}
+
 			if (props.events?.onStart) {
 				props.events.onStart();
 			}
 
 			// Seek inicial al cargar un live con DVR
-			if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+			// Post-ad: skip checkInitialSeek porque seekableRange aún tiene datos obsoletos.
+			// El goToLive se hará desde handleOnProgress con datos frescos.
+			if (
+				sourceRef.current?.isDVR &&
+				dvrProgressManagerRef.current &&
+				!hasAdFinishedRef.current
+			) {
 				try {
 					dvrProgressManagerRef.current.checkInitialSeek(
 						"player",
@@ -1431,6 +1479,19 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				}
 			}
 
+			// Fallback: si audioIndex sigue sin definir, preseleccionar la primera pista de audio
+			if ((finalAudioIndex === undefined || finalAudioIndex === -1) && generatedMenuData) {
+				const firstAudio = generatedMenuData.find(
+					(item: any) => item.type === PLAYER_MENU_DATA_TYPE.AUDIO
+				);
+				if (firstAudio && firstAudio.index !== undefined) {
+					currentAudioIndexRef.current = firstAudio.index;
+					currentLogger.current?.info(
+						`handleOnLoad - Auto-selecting first audio track: index=${firstAudio.index}, label=${firstAudio.label}`
+					);
+				}
+			}
+
 			// Establecer menuData DESPUÉS de aplicar preferencias para que refleje la selección correcta
 			setMenuData(generatedMenuData);
 		}
@@ -1487,14 +1548,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						// Si el anuncio ya terminó y tenemos duración válida, marcar contenido como cargado
 						// para que los controles (overlay) muestren la duración correctamente.
 						if (!isContentLoaded && hasAdFinishedRef.current) {
-							currentLogger.current?.info(
-								`handleOnProgress - Setting isContentLoaded=true (onLoad not received, using post-ad fallback)`
-							);
-							isChangingSource.current = false;
-							setIsContentLoaded(true);
-							if (props.events?.onStart) {
-								props.events.onStart();
-							}
+							ensureContentLoaded("onProgress-VOD-post-ad");
 						}
 					} else {
 						// Ni onLoad ni fin de anuncio - seekableDuration podría ser la del anuncio
@@ -1534,6 +1588,32 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					isBuffering: isBuffering,
 					isPaused: paused,
 				});
+
+				if (!isContentLoaded && hasAdFinishedRef.current && e.seekableDuration > 0) {
+					ensureContentLoaded("onProgress-DVR-post-ad");
+				}
+
+				// Post-ad: seek al live edge con datos frescos de seekableRange
+				if (
+					isContentLoadedRef.current &&
+					hasAdFinishedRef.current &&
+					!postAdSeekDoneRef.current &&
+					e.seekableDuration > 0
+				) {
+					postAdSeekDoneRef.current = true;
+					if (!isLiveProgramRestricted) {
+						currentLogger.current?.info(
+							`handleOnProgress - Post-ad goToLive (seekableDuration: ${e.seekableDuration})`
+						);
+						dvrProgressManagerRef.current?.goToLive();
+					}
+				}
+			}
+
+			if (sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
+				if (!isContentLoaded && hasAdFinishedRef.current) {
+					ensureContentLoaded("onProgress-LIVE-post-ad");
+				}
 			}
 
 			if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData) {
@@ -1583,14 +1663,33 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: false });
 			props.events?.onAdPlayingChange?.(false);
+
+			if (!isContentLoadedRef.current && currentSourceType.current === "content") {
+				currentLogger.current?.info(
+					`[ADS] Starting post-ad safety timeout (3s) for isContentLoaded`
+				);
+				postAdTimeoutRef.current = setTimeout(() => {
+					ensureContentLoaded("post-ad-timeout");
+				}, 3000);
+			}
 		} else if (e.event === "ERROR") {
 			currentLogger.current?.error("[ADS] Ad error", { data: e.data });
 			// En caso de error, asegurar que los controles vuelvan
 			isPlayingAdRef.current = false;
+			hasAdFinishedRef.current = true;
 			setIsPlayingAd(false);
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: false });
 			props.events?.onAdPlayingChange?.(false);
+
+			if (!isContentLoadedRef.current && currentSourceType.current === "content") {
+				currentLogger.current?.info(
+					`[ADS] Starting post-ad-error safety timeout (3s) for isContentLoaded`
+				);
+				postAdTimeoutRef.current = setTimeout(() => {
+					ensureContentLoaded("post-ad-error-timeout");
+				}, 3000);
+			}
 		}
 	};
 
