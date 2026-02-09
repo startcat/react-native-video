@@ -2256,6 +2256,7 @@ export class QueueManager {
 			if (item) {
 				switch (mappedState) {
 					case DownloadStates.COMPLETED:
+						this.currentlyDownloading.delete(downloadId);
 						this.eventEmitter.emit(DownloadEventType.COMPLETED, {
 							downloadId,
 							item,
@@ -2264,6 +2265,7 @@ export class QueueManager {
 						this.lastProgressEventTime.delete(downloadId);
 						break;
 					case DownloadStates.FAILED:
+						this.currentlyDownloading.delete(downloadId);
 						this.eventEmitter.emit(DownloadEventType.FAILED, {
 							downloadId,
 							item,
@@ -2273,6 +2275,7 @@ export class QueueManager {
 						this.lastProgressEventTime.delete(downloadId);
 						break;
 					case DownloadStates.PAUSED:
+						this.currentlyDownloading.delete(downloadId);
 						this.eventEmitter.emit(DownloadEventType.PAUSED, {
 							downloadId,
 							item,
@@ -2298,6 +2301,19 @@ export class QueueManager {
 					TAG,
 					`Re-emitted event for state change: ${downloadId} ${previousState} → ${mappedState}`
 				);
+
+				// Si se liberó un slot de concurrencia, re-procesar la cola
+				if (
+					mappedState === DownloadStates.COMPLETED ||
+					mappedState === DownloadStates.FAILED ||
+					mappedState === DownloadStates.PAUSED
+				) {
+					if (!this.isProcessing && !this.isPaused) {
+						this.startProcessing();
+					} else {
+						this.processQueue();
+					}
+				}
 			}
 		} else {
 			this.currentLogger.warn(
