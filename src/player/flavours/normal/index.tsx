@@ -1317,6 +1317,35 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				props.events.onStart();
 			}
 
+			// Seek inicial al cargar un live con DVR
+			if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+				try {
+					dvrProgressManagerRef.current.checkInitialSeek(
+						"player",
+						isLiveProgramRestricted
+					);
+				} catch (error: any) {
+					currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
+					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
+				}
+			}
+		} else if (currentSourceType.current === "tudum") {
+			currentLogger.current?.info(`handleOnLoad - Tudum loaded, duration: ${e.duration}`);
+		} else if (currentSourceType.current !== "content") {
+			currentLogger.current?.debug(
+				`handleOnLoad - Ignoring load event (sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded})`
+			);
+		}
+
+		// Generar menuData con las pistas de audio/subtítulos/video.
+		// Desacoplado de la guarda !isContentLoaded para que funcione también cuando
+		// onLoad llega tarde (ej: Android 33 tras preroll ads, donde el fallback en
+		// handleOnProgress ya marcó isContentLoaded=true pero sin datos de tracks).
+		if (currentSourceType.current === "content" && !menuData?.length) {
+			currentLogger.current?.info(
+				`handleOnLoad - Generating menuData (isContentLoaded: ${isContentLoaded}, had menuData: ${!!menuData?.length})`
+			);
+
 			let generatedMenuData: any;
 			if (props.hooks?.mergeMenuData && typeof props.hooks.mergeMenuData === "function") {
 				generatedMenuData = props.hooks.mergeMenuData(
@@ -1404,24 +1433,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 			// Establecer menuData DESPUÉS de aplicar preferencias para que refleje la selección correcta
 			setMenuData(generatedMenuData);
-			// Seek inicial al cargar un live con DVR
-			if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-				try {
-					dvrProgressManagerRef.current.checkInitialSeek(
-						"player",
-						isLiveProgramRestricted
-					);
-				} catch (error: any) {
-					currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
-					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
-				}
-			}
-		} else if (currentSourceType.current === "tudum") {
-			currentLogger.current?.info(`handleOnLoad - Tudum loaded, duration: ${e.duration}`);
-		} else {
-			currentLogger.current?.debug(
-				`handleOnLoad - Ignoring load event (sourceType: ${currentSourceType.current}, isContentLoaded: ${isContentLoaded})`
-			);
 		}
 	};
 
