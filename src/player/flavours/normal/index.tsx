@@ -72,6 +72,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const [isPlayingAd, setIsPlayingAd] = useState<boolean>(false);
 	const isPlayingAdRef = useRef<boolean>(false);
+	const hasAdFinishedRef = useRef<boolean>(false);
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
 
 	const insets = useSafeAreaInsets();
@@ -1454,24 +1455,40 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// Solo procesar progreso para contenido principal, no para tudum
 		if (currentSourceType.current === "content") {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
-				// Para VOD: Preferir duración de onLoad, pero usar seekableDuration como fallback
-				// SOLO si onLoad ya se ha recibido (isContentLoaded=true).
-				// Antes de onLoad, seekableDuration puede contener la duración del preroll ad
-				// en lugar de la del contenido real (especialmente en dispositivos lentos como Android 33).
+				// Para VOD: Preferir duración de onLoad, pero usar seekableDuration como fallback.
+				// ANTES de que el anuncio termine, NO confiar en seekableDuration porque puede
+				// contener la duración del preroll ad (ej: 20s) en lugar del contenido real.
+				// DESPUÉS del anuncio (hasAdFinishedRef) o después de onLoad (isContentLoaded),
+				// podemos confiar en seekableDuration como duración del VOD.
 				const currentDuration = vodProgressManagerRef.current?.duration || 0;
 				let effectiveDuration = currentDuration;
 
 				if (currentDuration === 0 && e.seekableDuration > 0) {
-					if (isContentLoaded) {
-						// onLoad ya se recibió, podemos confiar en seekableDuration
+					if (isContentLoaded || hasAdFinishedRef.current) {
+						// Podemos confiar en seekableDuration:
+						// - onLoad ya se recibió, o
+						// - el anuncio ya terminó (el player nativo ya reproduce contenido real)
 						effectiveDuration = e.seekableDuration;
 						currentLogger.current?.info(
-							`handleOnProgress - Initializing VOD duration from seekableDuration: ${e.seekableDuration}s (post-onLoad fallback)`
+							`handleOnProgress - Initializing VOD duration from seekableDuration: ${e.seekableDuration}s (${isContentLoaded ? "post-onLoad" : "post-ad"} fallback)`
 						);
+						// En Android 33, handleOnLoad puede no dispararse tras preroll ads.
+						// Si el anuncio ya terminó y tenemos duración válida, marcar contenido como cargado
+						// para que los controles (overlay) muestren la duración correctamente.
+						if (!isContentLoaded && hasAdFinishedRef.current) {
+							currentLogger.current?.info(
+								`handleOnProgress - Setting isContentLoaded=true (onLoad not received, using post-ad fallback)`
+							);
+							isChangingSource.current = false;
+							setIsContentLoaded(true);
+							if (props.events?.onStart) {
+								props.events.onStart();
+							}
+						}
 					} else {
-						// onLoad no se ha recibido aún - seekableDuration podría ser la del anuncio
+						// Ni onLoad ni fin de anuncio - seekableDuration podría ser la del anuncio
 						currentLogger.current?.debug(
-							`handleOnProgress - Skipping seekableDuration ${e.seekableDuration}s (onLoad not received yet, could be ad duration)`
+							`handleOnProgress - Skipping seekableDuration ${e.seekableDuration}s (pre-ad/pre-onLoad, could be ad duration)`
 						);
 					}
 				}
@@ -1550,6 +1567,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// CONTENT_RESUME_REQUESTED: el SDK solicita reanudar el contenido
 			currentLogger.current?.info(`[ADS] Ad break finished: ${e.event}`);
 			isPlayingAdRef.current = false;
+			hasAdFinishedRef.current = true;
 			setIsPlayingAd(false);
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: false });
