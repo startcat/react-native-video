@@ -3,28 +3,28 @@ import { useAirplayConnectivity } from "react-airplay";
 import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
-    type OnBufferData,
-    type OnProgressData,
-    type OnVideoErrorData,
+	type OnBufferData,
+	type OnProgressData,
+	type OnVideoErrorData,
 } from "../../../specs/VideoNativeComponent";
 
 import { type OnLoadData, type OnReceiveAdEventData } from "../../../types/events";
 
 import {
-    type SelectedTrack,
-    type SelectedVideoTrack,
-    type TextTracks,
-    SelectedTrackType,
-    SelectedVideoTrackType,
-    TextTrackType,
+	type SelectedTrack,
+	type SelectedVideoTrack,
+	type TextTracks,
+	SelectedTrackType,
+	SelectedVideoTrackType,
+	TextTrackType,
 } from "../../../types/video";
 import Video, { type VideoRef } from "../../../Video";
 import { Overlay } from "../../components/overlay";
 import {
-    type IPlayerProgress,
-    type ProgressUpdateData,
-    type SliderValues,
-    DVR_PLAYBACK_TYPE,
+	type IPlayerProgress,
+	type ProgressUpdateData,
+	type SliderValues,
+	DVR_PLAYBACK_TYPE,
 } from "../../types";
 const BackgroundPoster = React.lazy(() => import("../../components/poster"));
 
@@ -43,10 +43,10 @@ import { type onSourceChangedProps, SourceClass } from "../../modules/source";
 import { TudumClass } from "../../modules/tudum";
 
 import {
-    type ModeChangeData,
-    type ProgramChangeData,
-    DVRProgressManagerClass,
-    VODProgressManagerClass,
+	type ModeChangeData,
+	type ProgramChangeData,
+	DVRProgressManagerClass,
+	VODProgressManagerClass,
 } from "../../core/progress";
 
 import { ComponentLogger } from "../../features/logger";
@@ -56,15 +56,15 @@ import { useVideoAnalytics } from "../../core/events/hooks/useVideoAnalytics";
 import { styles } from "../styles";
 
 import {
-    type ICommonData,
-    type IDrm,
-    type IMappedYoubora,
-    type IPlayerMenuData,
-    type IVideoSource,
-    type NormalFlavourProps,
-    CONTROL_ACTION,
-    PLAYER_MENU_DATA_TYPE,
-    YOUBORA_FORMAT,
+	type ICommonData,
+	type IDrm,
+	type IMappedYoubora,
+	type IPlayerMenuData,
+	type IVideoSource,
+	type NormalFlavourProps,
+	CONTROL_ACTION,
+	PLAYER_MENU_DATA_TYPE,
+	YOUBORA_FORMAT,
 } from "../../types";
 
 export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
@@ -1455,25 +1455,47 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (currentSourceType.current === "content") {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
 				// Para VOD: Preferir duración de onLoad, pero usar seekableDuration como fallback
-				// si onLoad no se ha recibido (puede ocurrir con preroll ads en algunos dispositivos)
+				// SOLO si onLoad ya se ha recibido (isContentLoaded=true).
+				// Antes de onLoad, seekableDuration puede contener la duración del preroll ad
+				// en lugar de la del contenido real (especialmente en dispositivos lentos como Android 33).
 				const currentDuration = vodProgressManagerRef.current?.duration || 0;
-				const effectiveDuration =
-					currentDuration > 0 ? currentDuration : e.seekableDuration;
+				let effectiveDuration = currentDuration;
+
 				if (currentDuration === 0 && e.seekableDuration > 0) {
-					currentLogger.current?.info(
-						`handleOnProgress - Initializing VOD duration from seekableDuration: ${e.seekableDuration}s (onLoad not received)`
-					);
+					if (isContentLoaded) {
+						// onLoad ya se recibió, podemos confiar en seekableDuration
+						effectiveDuration = e.seekableDuration;
+						currentLogger.current?.info(
+							`handleOnProgress - Initializing VOD duration from seekableDuration: ${e.seekableDuration}s (post-onLoad fallback)`
+						);
+					} else {
+						// onLoad no se ha recibido aún - seekableDuration podría ser la del anuncio
+						currentLogger.current?.debug(
+							`handleOnProgress - Skipping seekableDuration ${e.seekableDuration}s (onLoad not received yet, could be ad duration)`
+						);
+					}
 				}
-				vodProgressManagerRef.current?.updatePlayerData({
-					currentTime: e.currentTime,
-					seekableRange: {
-						start: 0,
-						end: effectiveDuration,
-					},
-					duration: effectiveDuration,
-					isBuffering: isBuffering,
-					isPaused: paused,
-				});
+
+				if (effectiveDuration > 0) {
+					vodProgressManagerRef.current?.updatePlayerData({
+						currentTime: e.currentTime,
+						seekableRange: {
+							start: 0,
+							end: effectiveDuration,
+						},
+						duration: effectiveDuration,
+						isBuffering: isBuffering,
+						isPaused: paused,
+					});
+				} else {
+					vodProgressManagerRef.current?.updatePlayerData({
+						currentTime: e.currentTime,
+						seekableRange: { start: 0, end: 0 },
+						duration: undefined,
+						isBuffering: isBuffering,
+						isPaused: paused,
+					});
+				}
 			}
 
 			if (sourceRef.current?.isDVR) {
@@ -1532,7 +1554,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: false });
 			props.events?.onAdPlayingChange?.(false);
-
 		} else if (e.event === "ERROR") {
 			currentLogger.current?.error("[ADS] Ad error", { data: e.data });
 			// En caso de error, asegurar que los controles vuelvan
