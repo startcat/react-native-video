@@ -166,31 +166,9 @@ export class SourceClass {
 		// Revisamos si se trata de un Binario descargado
 		let downloadItem = null;
 		if (props.id) {
-			console.log(`${LOG_TAG} [OFFLINE DEBUG] Checking download for id: ${props.id}`);
-			console.log(
-				`${LOG_TAG} [OFFLINE DEBUG] FORCE_OFFLINE_PLAYBACK_DEBUG: ${FORCE_OFFLINE_PLAYBACK_DEBUG}`
-			);
-
 			downloadItem = downloadsManager.getDownload(props.id?.toString() || "");
 
 			if (downloadItem) {
-				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] Download item found:`,
-					JSON.stringify(
-						{
-							id: downloadItem.id,
-							title: downloadItem.title,
-							state: downloadItem.state,
-							type: downloadItem.type,
-							fileUri: downloadItem.fileUri,
-							uri: downloadItem.uri,
-							subtitlesCount: downloadItem.subtitles?.length || 0,
-						},
-						null,
-						2
-					)
-				);
-
 				// Está descargado si el estado es COMPLETED (o forzado para debug)
 				this._isDownloaded =
 					downloadItem.state === DownloadStates.COMPLETED || FORCE_OFFLINE_PLAYBACK_DEBUG;
@@ -199,18 +177,13 @@ export class SourceClass {
 				this._isBinary = downloadItem.type === DownloadType.BINARY;
 
 				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] isDownloaded: ${this._isDownloaded}, isBinary: ${this._isBinary}`
+					`${LOG_TAG} [OFFLINE] Download found for id ${props.id}: state=${downloadItem.state}, type=${downloadItem.type}, isDownloaded=${this._isDownloaded}`
 				);
 
 				if (FORCE_OFFLINE_PLAYBACK_DEBUG) {
-					console.log(
-						`${LOG_TAG} [OFFLINE DEBUG] ⚠️ FORCED OFFLINE MODE ENABLED FOR TESTING`
-					);
+					console.warn(`${LOG_TAG} [OFFLINE] FORCED OFFLINE MODE ENABLED FOR TESTING`);
 				}
 			} else {
-				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] No download item found for id: ${props.id}`
-				);
 				this._isDownloaded = false;
 				this._isBinary = false;
 			}
@@ -257,27 +230,14 @@ export class SourceClass {
 
 		// Manejo de contenido descargado
 		if (downloadItem && this._isDownloaded) {
-			console.log(`${LOG_TAG} [OFFLINE DEBUG] changeSource -> isDownloaded: true`);
-			console.log(`${LOG_TAG} [OFFLINE DEBUG] downloadItem.type: "${downloadItem.type}"`);
 			console.log(
-				`${LOG_TAG} [OFFLINE DEBUG] downloadItem.fileUri: "${downloadItem.fileUri}"`
-			);
-			console.log(
-				`${LOG_TAG} [OFFLINE DEBUG] downloadItem full data:`,
-				JSON.stringify(downloadItem, null, 2)
+				`${LOG_TAG} [OFFLINE] isDownloaded: true, type: ${downloadItem.type}, fileUri: "${downloadItem.fileUri}"`
 			);
 
 			if (this._isBinary) {
-				// BINARY downloads: usar fileUri directamente
-				console.log(`${LOG_TAG} [OFFLINE DEBUG] Processing BINARY download`);
-
 				if (!downloadItem.fileUri) {
 					console.error(
-						`${LOG_TAG} [OFFLINE DEBUG] ERROR: fileUri is empty or undefined for BINARY download!`
-					);
-					console.error(
-						`${LOG_TAG} [OFFLINE DEBUG] Available properties:`,
-						Object.keys(downloadItem)
+						`${LOG_TAG} [OFFLINE] ERROR: fileUri is empty for BINARY download`
 					);
 					throw new PlayerError("PLAYER_SOURCE_OFFLINE_FILE_URI_INVALID", {
 						contentId: props.id,
@@ -301,18 +261,12 @@ export class SourceClass {
 							documentsIndex + documentsMarker.length
 						);
 						resolvedFileUri = `${RNFS.DocumentDirectoryPath}/${relativePath}`;
-						console.log(
-							`${LOG_TAG} [OFFLINE DEBUG] iOS path resolved: "${downloadItem.fileUri}" -> "${resolvedFileUri}"`
-						);
 					} else {
 						// Fallback: try to extract just the filename and reconstruct
 						const filename = downloadItem.fileUri.substring(
 							downloadItem.fileUri.lastIndexOf("/") + 1
 						);
 						resolvedFileUri = `${RNFS.DocumentDirectoryPath}/Downloads/Binaries/${filename}`;
-						console.log(
-							`${LOG_TAG} [OFFLINE DEBUG] iOS path fallback: "${downloadItem.fileUri}" -> "${resolvedFileUri}"`
-						);
 					}
 				}
 
@@ -321,16 +275,13 @@ export class SourceClass {
 					? resolvedFileUri
 					: `file://${resolvedFileUri}`;
 
-				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] Constructed BINARY offline URI: "${offlineUri}"`
-				);
+				console.log(`${LOG_TAG} [OFFLINE] BINARY offline URI: "${offlineUri}"`);
 				this._videoSource.uri = offlineUri;
 			} else {
 				// STREAM downloads (HLS/DASH): el nativo maneja la reproducción offline
 				// usando el título para buscar el asset descargado
-				console.log(`${LOG_TAG} [OFFLINE DEBUG] Processing STREAM download`);
 				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] STREAM download will be handled by native layer using title: "${props.title}"`
+					`${LOG_TAG} [OFFLINE] STREAM download, native will handle via title: "${props.title}"`
 				);
 
 				// Para STREAM, necesitamos una URI para que el nativo no aborte
@@ -338,16 +289,7 @@ export class SourceClass {
 				// El nativo usará playOffline=true y buscará por título/ID
 				const streamUri = downloadItem.uri || this._currentManifest?.manifestURL;
 				if (streamUri && !this._videoSource.uri) {
-					console.log(
-						`${LOG_TAG} [OFFLINE DEBUG] Setting STREAM URI for native: "${streamUri}"`
-					);
 					this._videoSource.uri = streamUri;
-				}
-
-				if (downloadItem.fileUri) {
-					console.log(
-						`${LOG_TAG} [OFFLINE DEBUG] STREAM has fileUri (unexpected): "${downloadItem.fileUri}"`
-					);
 				}
 			}
 
@@ -357,11 +299,8 @@ export class SourceClass {
 			if (downloadItem.subtitles && downloadItem.subtitles.length > 0) {
 				this._offlineSubtitles = downloadItem.subtitles;
 				console.log(
-					`${LOG_TAG} [OFFLINE DEBUG] Found ${downloadItem.subtitles.length} offline subtitles`
+					`${LOG_TAG} [OFFLINE] Found ${downloadItem.subtitles.length} offline subtitles`
 				);
-				downloadItem.subtitles.forEach((sub: DownloadedSubtitleItem) => {
-					console.log(`${LOG_TAG} [OFFLINE DEBUG]   - ${sub.language}: ${sub.localPath}`);
-				});
 			}
 		}
 
