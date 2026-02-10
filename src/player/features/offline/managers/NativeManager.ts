@@ -11,17 +11,17 @@ import { Logger } from "../../logger";
 import { LOG_TAGS } from "../constants";
 import { DEFAULT_CONFIG_NATIVE, LOGGER_DEFAULTS } from "../defaultConfigs";
 import {
-    DownloadCompleteEvent,
-    DownloadErrorCode,
-    DownloadFailedEvent,
-    DownloadItem,
-    DownloadProgressEvent,
-    NativeDownloadConfig,
-    NativeDownloadStats,
-    NativeManagerConfig,
-    NativeManagerEventCallback,
-    NativeManagerEventType,
-    SystemInfo,
+	DownloadCompleteEvent,
+	DownloadErrorCode,
+	DownloadFailedEvent,
+	DownloadItem,
+	DownloadProgressEvent,
+	NativeDownloadConfig,
+	NativeDownloadStats,
+	NativeManagerConfig,
+	NativeManagerEventCallback,
+	NativeManagerEventType,
+	SystemInfo,
 } from "../types";
 
 import { IDrm } from "../../../types";
@@ -286,7 +286,8 @@ export class NativeManager {
 				const now = Date.now();
 				const lastLog = this.lastProgressLogTime.get(id) || 0;
 				if (now - lastLog >= NativeManager.PROGRESS_THROTTLE_MS) {
-					console.log(`[NativeManager] 📥 Received native progress event:`, data);
+					const { remainingTime: _rt, ...logData } = data as Record<string, unknown>;
+					console.log(`[NativeManager] 📥 Received native progress event:`, logData);
 					this.lastProgressLogTime.set(id, now);
 				}
 			}
@@ -368,7 +369,6 @@ export class NativeManager {
 				{
 					progress: percent,
 					speed: speed,
-					remainingTime: eventData.remainingTime,
 					state: "unknown_from_progress_event",
 				}
 			);
@@ -424,7 +424,6 @@ export class NativeManager {
 			bytesDownloaded: bytesDownloaded,
 			totalBytes: eventData.totalBytes || 0,
 			speed: speed,
-			remainingTime: eventData.remainingTime,
 		};
 		this.eventEmitter.emit("download_progress", progressEvent);
 	}
