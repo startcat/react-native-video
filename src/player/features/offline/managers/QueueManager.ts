@@ -2241,12 +2241,8 @@ export class QueueManager {
 					item.stats.downloadSpeed = eventData.speed;
 				}
 
-				// Actualizar tiempo restante (solo si el nativo envía un valor real > 0)
-				// Android envía remainingTime=0 siempre para streams, así que no sobrescribir
-				// con 0 ya que el fallback JS calcula un valor más útil
-				if (eventData.remainingTime !== undefined && eventData.remainingTime > 0) {
-					item.stats.remainingTime = eventData.remainingTime;
-				}
+				// remainingTime se calcula siempre en JS (fallback más abajo)
+				// El módulo nativo no envía este valor para streams HLS/DASH
 
 				// Actualizar bytes descargados si viene del evento nativo
 				if (eventData.bytesDownloaded !== undefined && eventData.bytesDownloaded > 0) {
