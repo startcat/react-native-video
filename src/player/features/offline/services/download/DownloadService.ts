@@ -247,7 +247,11 @@ export class DownloadService {
 		if (this.config.enableBinaryDownloads) {
 			try {
 				const binaryStrategy = this.strategyFactory.createStrategy(DownloadType.BINARY);
-				initPromises.push(binaryStrategy.initialize());
+				initPromises.push(
+					binaryStrategy.initialize({
+						maxConcurrentDownloads: this.config.maxConcurrentDownloads,
+					})
+				);
 				this.currentLogger.debug(TAG, "Binary download strategy initialized");
 			} catch (error) {
 				this.currentLogger.error(TAG, "Failed to initialize binary strategy", error);
@@ -257,7 +261,11 @@ export class DownloadService {
 		if (this.config.enableStreamDownloads) {
 			try {
 				const streamStrategy = this.strategyFactory.createStrategy(DownloadType.STREAM);
-				initPromises.push(streamStrategy.initialize());
+				initPromises.push(
+					streamStrategy.initialize({
+						maxConcurrentDownloads: this.config.maxConcurrentDownloads,
+					})
+				);
 				this.currentLogger.debug(TAG, "Stream download strategy initialized");
 			} catch (error) {
 				this.currentLogger.error(TAG, "Failed to initialize stream strategy", error);

@@ -510,7 +510,7 @@ export class StorageService {
 
 	public async getUsagePercentage(): Promise<number> {
 		const info = await this.getStorageInfo();
-		return Math.round((info.usedSpace / info.totalSpace) * 100);
+		return parseFloat(((info.usedSpace / info.totalSpace) * 100).toFixed(2));
 	}
 
 	/*
@@ -520,7 +520,7 @@ export class StorageService {
 
 	public async getDownloadPercentage(): Promise<number> {
 		const info = await this.getStorageInfo();
-		return Math.round((info.downloadsFolderSize / info.totalSpace) * 100);
+		return parseFloat(((info.downloadsFolderSize / info.totalSpace) * 100).toFixed(2));
 	}
 
 	/*
@@ -592,7 +592,10 @@ export class StorageService {
 	public async getStorageInfo(): Promise<StorageInfo> {
 		// Check storageInfoCache first (TTL from constants)
 		const now = Date.now();
-		if (this.storageInfoCache && now - this.storageInfoCache.timestamp < DEFAULT_CONFIG.STORAGE_CACHE_TTL_MS) {
+		if (
+			this.storageInfoCache &&
+			now - this.storageInfoCache.timestamp < DEFAULT_CONFIG.STORAGE_CACHE_TTL_MS
+		) {
 			return this.storageInfoCache.info;
 		}
 

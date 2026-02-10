@@ -134,6 +134,7 @@ export const DEFAULT_CONFIG_DOWNLOAD_SERVICE: DownloadServiceConfig = {
 	enableStreamDownloads: true,
 	eventBridgeEnabled: true,
 	autoInitializeStrategies: true,
+	maxConcurrentDownloads: 3,
 };
 
 export const DEFAULT_CONFIG_SUBTITLE: SubtitleServiceConfig = {

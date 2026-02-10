@@ -99,8 +99,16 @@ export function useStorageInfo(): UseStorageInfoReturn {
 
 				// Single call to getStorageInfo() (cached 30s) + derived calculations
 				const info = await storageService.getStorageInfo();
-				const usagePercent = info.totalSpace > 0 ? Math.round((info.usedSpace / info.totalSpace) * 100) : 0;
-				const downloadPercent = info.totalSpace > 0 ? Math.round((info.downloadsFolderSize / info.totalSpace) * 100) : 0;
+				const usagePercent =
+					info.totalSpace > 0
+						? parseFloat(((info.usedSpace / info.totalSpace) * 100).toFixed(2))
+						: 0;
+				const downloadPercent =
+					info.totalSpace > 0
+						? parseFloat(
+								((info.downloadsFolderSize / info.totalSpace) * 100).toFixed(2)
+							)
+						: 0;
 				const lowSpace = await storageService.isLowSpace();
 				const warningLevel = await storageService.getSpaceWarningLevel();
 
