@@ -17,15 +17,15 @@ import { nativeManager } from "./NativeManager";
 import { profileManager } from "./ProfileManager";
 
 import {
-    BinaryDownloadTask,
-    DownloadEventType,
-    DownloadItem,
-    DownloadStates,
-    DownloadType,
-    QueueManagerConfig,
-    QueueStats,
-    QueueStatusCallback,
-    StreamDownloadTask,
+	BinaryDownloadTask,
+	DownloadEventType,
+	DownloadItem,
+	DownloadStates,
+	DownloadType,
+	QueueManagerConfig,
+	QueueStats,
+	QueueStatusCallback,
+	StreamDownloadTask,
 } from "../types";
 import { speedCalculator } from "../utils/SpeedCalculator";
 
@@ -448,9 +448,15 @@ export class QueueManager {
 				);
 
 				// Force storage update so FilesystemBar reflects freed space immediately
-				storageService.forceUpdate().catch(err =>
-					this.currentLogger.warn(TAG, "Failed to force storage update after remove", err)
-				);
+				storageService
+					.forceUpdate()
+					.catch(err =>
+						this.currentLogger.warn(
+							TAG,
+							"Failed to force storage update after remove",
+							err
+						)
+					);
 			}
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_QUEUE_REMOVE_FAILED", {
@@ -534,9 +540,15 @@ export class QueueManager {
 			);
 
 			// Force storage update so FilesystemBar reflects freed space immediately
-			storageService.forceUpdate().catch(err =>
-				this.currentLogger.warn(TAG, "Failed to force storage update after force remove", err)
-			);
+			storageService
+				.forceUpdate()
+				.catch(err =>
+					this.currentLogger.warn(
+						TAG,
+						"Failed to force storage update after force remove",
+						err
+					)
+				);
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_QUEUE_REMOVE_FAILED", {
 				originalError: error,
@@ -1264,10 +1276,15 @@ export class QueueManager {
 				// Para descargas binarias -> react-native-background-downloader
 				// Usar ruta absoluta del directorio de binarios
 				const binariesDir = storageService.getBinariesDirectory();
+				// Extract file extension from the source URL (e.g., ".mp3" from "https://.../file.mp3")
+				// iOS AVFoundation requires the extension to recognize the media format
+				const urlPath = item.uri.split("?")[0]?.split("#")[0] || "";
+				const extMatch = urlPath.match(/\.\w+$/);
+				const fileExtension = extMatch ? extMatch[0] : "";
 				task = {
 					id: item.id,
 					url: item.uri,
-					destination: `${binariesDir}/${item.id}`,
+					destination: `${binariesDir}/${item.id}${fileExtension}`,
 					headers: {},
 					resumable: true,
 				} as BinaryDownloadTask;
@@ -1389,9 +1406,11 @@ export class QueueManager {
 		);
 
 		// Force storage update so FilesystemBar reflects new download space immediately
-		storageService.forceUpdate().catch(err =>
-			this.currentLogger.warn(TAG, "Failed to force storage update after completion", err)
-		);
+		storageService
+			.forceUpdate()
+			.catch(err =>
+				this.currentLogger.warn(TAG, "Failed to force storage update after completion", err)
+			);
 
 		// Procesar siguiente item en cola (puede iniciar procesamiento si estaba detenido)
 		if (!this.isProcessing && !this.isPaused) {
@@ -1987,6 +2006,20 @@ export class QueueManager {
 
 				const localItem = this.downloadQueue.get(nativeDownload.id);
 				if (localItem && localItem.state !== nativeDownload.state) {
+					// Proteger estados terminales: COMPLETED y FAILED no deben ser
+					// sobrescritos por el estado nativo. iOS puede reportar streams
+					// completados como "PAUSED", lo que corrompería el estado local.
+					if (
+						localItem.state === DownloadStates.COMPLETED ||
+						localItem.state === DownloadStates.FAILED
+					) {
+						this.currentLogger.debug(
+							TAG,
+							`Skipping sync for ${nativeDownload.id}: terminal state ${localItem.state} preserved (native reported: ${nativeDownload.state})`
+						);
+						continue;
+					}
+
 					this.currentLogger.info(
 						TAG,
 						`Syncing state for ${nativeDownload.id}: ${localItem.state} -> ${nativeDownload.state}`
