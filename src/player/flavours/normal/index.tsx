@@ -687,7 +687,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			);
 
 			// [OFFLINE DEBUG] Log offline playback info
-			const effectivePlayOffline = props.playOffline || sourceRef.current?.isDownloaded;
+			// playOffline is determined upstream (dataInterface) considering download state + connectivity
+			// We do NOT OR with isDownloaded here to avoid forcing offline mode when online
 			console.log(`[Player] (Normal Flavour) [OFFLINE DEBUG] setPlayerSource:`);
 			console.log(
 				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - props.playOffline: ${props.playOffline}`
@@ -696,7 +697,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - sourceRef.current?.isDownloaded: ${sourceRef.current?.isDownloaded}`
 			);
 			console.log(
-				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - effectivePlayOffline (sent to Video): ${effectivePlayOffline}`
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - effectivePlayOffline (sent to Video): ${!!props.playOffline}`
 			);
 			console.log(
 				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - source.uri: "${data.source?.uri}"`
@@ -1792,7 +1793,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						drm={drm.current}
 						// @ts-ignore
 						youbora={youboraForVideo.current}
-						playOffline={props.playOffline || sourceRef.current?.isDownloaded}
+						playOffline={!!props.playOffline}
 						multiSession={props.playerProgress?.liveValues?.multiSession}
 						disableDisconnectError={true}
 						debug={{
