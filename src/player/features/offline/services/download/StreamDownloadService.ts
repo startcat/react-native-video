@@ -239,6 +239,10 @@ export class StreamDownloadService {
 			// Los demás estados (FAILED, PAUSED) los emite NativeManager directamente
 			if (mappedState === DownloadStates.COMPLETED) {
 				this.handleCompletedEvent({ downloadId });
+			} else if (mappedState === DownloadStates.FAILED) {
+				// FIX: Liberar slot de concurrencia cuando el estado nativo cambia a FAILED
+				this.activeDownloads.delete(downloadId);
+				this.processNextInQueue();
 			}
 		}
 	}
@@ -351,7 +355,10 @@ export class StreamDownloadService {
 				message: error?.message || "Native download error",
 				timestamp: Date.now(),
 			};
-			this.activeDownloads.set(downloadId, activeDownload);
+			// FIX: Eliminar de activeDownloads para liberar slot de concurrencia.
+			// Antes solo se actualizaba el estado pero el download permanecía en el Map,
+			// bloqueando la siguiente descarga en cola.
+			this.activeDownloads.delete(downloadId);
 		}
 
 		// ALWAYS emit FAILED event, even if not in activeDownloads
@@ -367,6 +374,9 @@ export class StreamDownloadService {
 			error: error?.message || "Native download error",
 			errorCode: error?.code,
 		});
+
+		// FIX: Procesar siguiente en cola local tras liberar el slot
+		this.processNextInQueue();
 	}
 
 	private mapNativeStateToInternal(nativeState: string): DownloadStates {
@@ -876,9 +886,10 @@ export class StreamDownloadService {
 
 		download.error = downloadError;
 
-		// Marcar como fallido localmente
+		// Marcar como fallido y liberar slot de concurrencia
 		download.state = DownloadStates.FAILED;
-		this.activeDownloads.set(downloadId, download);
+		// FIX: Eliminar de activeDownloads para liberar slot (antes se mantenía bloqueando la cola)
+		this.activeDownloads.delete(downloadId);
 
 		// Emitir evento FAILED con información de retryable para que QueueManager decida
 		this.eventEmitter.emit(DownloadEventType.FAILED, {
