@@ -2220,6 +2220,13 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         
         // Use the larger value (more conservative)
         totalSize = max(activeDownloadsSize, persistedAssetsSize)
+
+        // Include binaries directory size (not counted by activeDownloads/savedPaths)
+        let binariesURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!.appendingPathComponent(downloadDirectory).appendingPathComponent("Binaries")
+        if FileManager.default.fileExists(atPath: binariesURL.path) {
+            let binariesSize = calculateDirectorySize(at: binariesURL)
+            totalSize += binariesSize
+        }
         
         // Update cache
         cachedDownloadSpace = totalSize

@@ -22,6 +22,7 @@ export const DEFAULT_CONFIG = {
 
 	// Configuración de almacenamiento
 	STORAGE_WARNING_THRESHOLD: 0.9, // 90% lleno
+	STORAGE_CACHE_TTL_MS: 30000, // 30 seconds - cache for getStorageInfo()
 	MIN_FREE_SPACE_MB: 200,
 	CLEANUP_INTERVAL_HOURS: 24,
 

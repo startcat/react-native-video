@@ -66,6 +66,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class DownloadsModule2 extends ReactContextBaseJavaModule
         implements LifecycleEventListener, IOfflineLicenseManagerListener,
@@ -111,6 +113,12 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     private String licensesDirectory = DEFAULT_LICENSES_DIR;
     private String subtitlesDirectory = DEFAULT_SUBTITLES_DIR;
     private int maxConcurrentDownloads = 3;
+
+    // Cache for getDownloadDirectorySize (avoid expensive recursive scan on every call)
+    private long cachedDownloadDirectorySize = 0;
+    private long downloadDirectorySizeCacheTime = 0;
+    private static final long DOWNLOAD_SPACE_CACHE_TTL_MS = 10000; // 10 seconds
+    private final ExecutorService storageExecutor = Executors.newSingleThreadExecutor();
     private boolean notificationsEnabled = true;
     private String currentStreamQuality = "auto";
     private boolean allowCellularDownloads = false;
@@ -253,6 +261,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
     @ReactMethod
     public void getSystemInfo(final Promise promise) {
+        storageExecutor.execute(() -> {
         try {
             WritableMap systemInfo = Arguments.createMap();
 
@@ -328,6 +337,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             Log.e(TAG, "Error getting system info", e);
             promise.reject("SYSTEM_INFO_FAILED", "Failed to get system info: " + e.getMessage());
         }
+        }); // storageExecutor.execute
     }
 
     // =============================================================================
@@ -479,6 +489,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 
                 // Wait a bit for the download manager to process the removal
                 // This ensures files are actually deleted before we resolve the promise
+                invalidateDownloadDirectorySizeCache();
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
                     Log.d(TAG, "Download removal completed (after delay) for: " + id);
                     promise.resolve(null);
@@ -1445,12 +1456,23 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     }
 
     private long getDownloadDirectorySize() {
+        long now = System.currentTimeMillis();
+        if (now - downloadDirectorySizeCacheTime < DOWNLOAD_SPACE_CACHE_TTL_MS && cachedDownloadDirectorySize > 0) {
+            return cachedDownloadDirectorySize;
+        }
         try {
             File downloadDir = new File(reactContext.getFilesDir(), downloadDirectory);
-            return calculateDirectorySize(downloadDir);
+            cachedDownloadDirectorySize = calculateDirectorySize(downloadDir);
+            downloadDirectorySizeCacheTime = now;
+            return cachedDownloadDirectorySize;
         } catch (Exception e) {
-            return 0;
+            return cachedDownloadDirectorySize > 0 ? cachedDownloadDirectorySize : 0;
         }
+    }
+
+    private void invalidateDownloadDirectorySizeCache() {
+        cachedDownloadDirectorySize = 0;
+        downloadDirectorySizeCacheTime = 0;
     }
 
     private long calculateDirectorySize(File directory) {
