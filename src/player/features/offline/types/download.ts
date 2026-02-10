@@ -399,6 +399,7 @@ export interface DownloadServiceConfig {
 	enableStreamDownloads: boolean;
 	eventBridgeEnabled: boolean;
 	autoInitializeStrategies: boolean;
+	maxConcurrentDownloads: number;
 }
 
 // Configuración del DownloadsManager principal

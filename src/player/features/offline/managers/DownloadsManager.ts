@@ -196,6 +196,7 @@ export class DownloadsManager {
 				enableStreamDownloads: this.config.enableStreamDownloads,
 				eventBridgeEnabled: true,
 				autoInitializeStrategies: true,
+				maxConcurrentDownloads: this.config.maxConcurrentDownloads,
 			})
 		);
 
