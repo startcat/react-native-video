@@ -1446,13 +1446,10 @@ export class QueueManager {
 			await this.handleDownloadFailure(downloadId, item, error);
 		} else {
 			console.log(`[QueueManager] 🔴 Item NOT found in queue for downloadId: ${downloadId}`);
+			// Limpiar por seguridad aunque no esté en la cola
+			this.currentlyDownloading.delete(downloadId);
+			speedCalculator.clear(downloadId);
 		}
-
-		// Remover de descargas activas
-		this.currentlyDownloading.delete(downloadId);
-
-		// Limpiar muestras de velocidad
-		speedCalculator.clear(downloadId);
 
 		// Procesar siguiente item en cola (puede iniciar procesamiento si estaba detenido)
 		if (!this.isProcessing && !this.isPaused) {
@@ -1573,6 +1570,13 @@ export class QueueManager {
 		item: DownloadItem,
 		error: unknown
 	): Promise<void> {
+		// FIX: Liberar slot de concurrencia inmediatamente para desbloquear la cola.
+		// Antes, solo notifyDownloadFailed (Path C) limpiaba currentlyDownloading,
+		// pero handleNativeErrorEvent (Path A) y setupBinaryEventListeners (Path B)
+		// llamaban a este método directamente sin limpiar, bloqueando la cola.
+		this.currentlyDownloading.delete(downloadId);
+		speedCalculator.clear(downloadId);
+
 		const currentRetries = this.retryTracker.get(downloadId) || 0;
 		const retryCount = currentRetries + 1;
 
