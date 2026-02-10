@@ -97,30 +97,17 @@ export function useStorageInfo(): UseStorageInfoReturn {
 			try {
 				isUpdatingRef.current = true;
 
-				const [
-					total,
-					available,
-					used,
-					downloads,
-					usagePercent,
-					downloadPercent,
-					lowSpace,
-					warningLevel,
-				] = await Promise.all([
-					storageService.getTotalSpace(),
-					storageService.getAvailableSpace(),
-					storageService.getUsedSpace(),
-					storageService.getDownloadsFolderSize(),
-					storageService.getUsagePercentage(),
-					storageService.getDownloadPercentage(),
-					storageService.isLowSpace(),
-					storageService.getSpaceWarningLevel(),
-				]);
+				// Single call to getStorageInfo() (cached 30s) + derived calculations
+				const info = await storageService.getStorageInfo();
+				const usagePercent = info.totalSpace > 0 ? Math.round((info.usedSpace / info.totalSpace) * 100) : 0;
+				const downloadPercent = info.totalSpace > 0 ? Math.round((info.downloadsFolderSize / info.totalSpace) * 100) : 0;
+				const lowSpace = await storageService.isLowSpace();
+				const warningLevel = await storageService.getSpaceWarningLevel();
 
-				setTotalSpace(total);
-				setAvailableSpace(available);
-				setUsedSpace(used);
-				setDownloadSpace(downloads);
+				setTotalSpace(info.totalSpace);
+				setAvailableSpace(info.availableSpace);
+				setUsedSpace(info.usedSpace);
+				setDownloadSpace(info.downloadsFolderSize);
 				setUsagePercentage(usagePercent);
 				setDownloadPercentage(downloadPercent);
 				setIsLowSpace(lowSpace);

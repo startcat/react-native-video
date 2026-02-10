@@ -52,6 +52,9 @@ export class StorageService {
 	}> | null = null;
 	private pendingDownloadsFolderSizePromise: Promise<number> | null = null;
 
+	// Cache for full StorageInfo (avoid redundant calculations)
+	private storageInfoCache: { info: StorageInfo; timestamp: number } | null = null;
+
 	// Tracking de descargas activas para incluir su tamaño estimado
 	private activeDownloads: Map<string, { bytesWritten: number; totalBytes: number }> = new Map();
 
@@ -341,21 +344,14 @@ export class StorageService {
 		// Crear promesa que otras llamadas concurrentes pueden esperar
 		this.pendingDownloadsFolderSizePromise = (async () => {
 			try {
-				// IMPORTANTE: Siempre usar RNFS para calcular el tamaño
-				// Razón: DownloadsModule2 solo cuenta assets HLS/DASH registrados en UserDefaults
-				// Las descargas binarias (react-native-background-downloader) no están registradas ahí
-				// RNFS puede leer todos los archivos en el directorio, incluyendo binarios
-				let totalSize = 0;
+				// Use native downloadSpace (includes streams + binaries after Fase 0 iOS fix)
+				// plus active binary downloads not yet on disk
+				const systemInfo = await this.getCachedSystemInfo();
+				let totalSize = systemInfo.downloadSpace;
 
-				// Calcular tamaño del directorio de descargas
-				const downloadSize = await this.calculateDirectorySize(this.downloadPath);
-				totalSize += downloadSize;
-
-				// Agregar tamaño estimado de descargas activas
-				// Esto es especialmente importante en Android donde react-native-background-downloader
-				// descarga a un archivo temporal que no aparece en el directorio final hasta completar
+				// Add active binary downloads size (not yet counted by native)
 				let activeDownloadsSize = 0;
-				for (const [_taskId, progress] of this.activeDownloads.entries()) {
+				for (const [, progress] of this.activeDownloads.entries()) {
 					activeDownloadsSize += progress.bytesWritten;
 				}
 
@@ -368,27 +364,9 @@ export class StorageService {
 					totalSize += activeDownloadsSize;
 				}
 
-				// this.currentLogger.debug(TAG, "Download path size calculated", {
-				// 	path: this.downloadPath,
-				// 	size: downloadSize,
-				// 	sizeFormatted: formatFileSize(downloadSize),
-				// });
-
-				// Calcular tamaño del directorio temporal
-				const tempSize = await this.calculateDirectorySize(this.tempPath);
-				totalSize += tempSize;
-
-				if (tempSize > 0) {
-					this.currentLogger.debug(TAG, "Temp path size calculated", {
-						path: this.tempPath,
-						size: tempSize,
-						sizeFormatted: formatFileSize(tempSize),
-					});
-				}
-
 				this.currentLogger.info(TAG, "Total downloads folder size", {
-					downloadPath: this.downloadPath,
-					tempPath: this.tempPath,
+					nativeDownloadSpace: systemInfo.downloadSpace,
+					activeDownloadsSize,
 					totalSize,
 					sizeFormatted: formatFileSize(totalSize),
 				});
@@ -461,8 +439,20 @@ export class StorageService {
 
 	public invalidateDownloadSpaceCache(): void {
 		this.systemInfoCache = null;
+		this.storageInfoCache = null;
 		this.pendingDownloadsFolderSizePromise = null;
 		this.currentLogger.debug(TAG, "Download space cache invalidated");
+	}
+
+	/*
+	 * Forces a full storage info update, invalidating all caches
+	 * Call on UX-critical events (download removed, completed, etc.)
+	 *
+	 */
+
+	public async forceUpdate(): Promise<void> {
+		this.invalidateDownloadSpaceCache();
+		await this.updateStorageInfo();
 	}
 
 	/*
@@ -600,20 +590,32 @@ export class StorageService {
 	 */
 
 	public async getStorageInfo(): Promise<StorageInfo> {
-		const [totalSpace, usedSpace, availableSpace, downloadsFolderSize] = await Promise.all([
-			this.getTotalSpace(),
-			this.getUsedSpace(),
-			this.getAvailableSpace(),
-			this.getDownloadsFolderSize(),
-		]);
+		// Check storageInfoCache first (TTL from constants)
+		const now = Date.now();
+		if (this.storageInfoCache && now - this.storageInfoCache.timestamp < DEFAULT_CONFIG.STORAGE_CACHE_TTL_MS) {
+			return this.storageInfoCache.info;
+		}
+
+		// Cache miss: single native call + local calculations
+		const systemInfo = await this.getCachedSystemInfo();
+
+		// Calculate downloadsFolderSize from native downloadSpace + active binary downloads
+		let activeDownloadsSize = 0;
+		for (const [, progress] of this.activeDownloads.entries()) {
+			activeDownloadsSize += progress.bytesWritten;
+		}
+		const downloadsFolderSize = systemInfo.downloadSpace + activeDownloadsSize;
 
 		const info: StorageInfo = {
-			totalSpace,
-			usedSpace,
-			availableSpace,
+			totalSpace: systemInfo.totalSpace,
+			usedSpace: systemInfo.totalSpace - systemInfo.availableSpace,
+			availableSpace: systemInfo.availableSpace,
 			downloadsFolderSize,
-			lastUpdated: Date.now(),
+			lastUpdated: now,
 		};
+
+		// Update cache
+		this.storageInfoCache = { info, timestamp: now };
 
 		this.checkStorageThresholds(info);
 

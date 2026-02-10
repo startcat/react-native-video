@@ -446,6 +446,11 @@ export class QueueManager {
 					TAG,
 					`Download completely removed: ${item.title} (${downloadId})`
 				);
+
+				// Force storage update so FilesystemBar reflects freed space immediately
+				storageService.forceUpdate().catch(err =>
+					this.currentLogger.warn(TAG, "Failed to force storage update after remove", err)
+				);
 			}
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_QUEUE_REMOVE_FAILED", {
@@ -526,6 +531,11 @@ export class QueueManager {
 			this.currentLogger.info(
 				TAG,
 				`Download forcefully removed: ${item.title} (${downloadId})`
+			);
+
+			// Force storage update so FilesystemBar reflects freed space immediately
+			storageService.forceUpdate().catch(err =>
+				this.currentLogger.warn(TAG, "Failed to force storage update after force remove", err)
 			);
 		} catch (error) {
 			throw new PlayerError("DOWNLOAD_QUEUE_REMOVE_FAILED", {
@@ -1376,6 +1386,11 @@ export class QueueManager {
 		this.currentLogger.info(
 			TAG,
 			`isProcessing: ${this.isProcessing}, isPaused: ${this.isPaused}`
+		);
+
+		// Force storage update so FilesystemBar reflects new download space immediately
+		storageService.forceUpdate().catch(err =>
+			this.currentLogger.warn(TAG, "Failed to force storage update after completion", err)
 		);
 
 		// Procesar siguiente item en cola (puede iniciar procesamiento si estaba detenido)
