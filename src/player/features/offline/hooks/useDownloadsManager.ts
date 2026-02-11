@@ -6,7 +6,7 @@
  *
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerError } from "../../../core/errors";
 import { downloadsManager } from "../managers/DownloadsManager";
 import { profileManager } from "../managers/ProfileManager";
@@ -206,6 +206,9 @@ export function useDownloadsManager(
 		}
 	}, [isInitialized, config]);
 
+	// Ref para throttle de eventos PROGRESS (trailing timeout de 2s)
+	const progressThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
 	// Suscripción a eventos del sistema
 	useEffect(() => {
 		if (!downloadsManager.isInitialized()) {
@@ -252,10 +255,16 @@ export function useDownloadsManager(
 			})
 		);
 
-		// Eventos de progreso y cambios
+		// Eventos de progreso y cambios (THROTTLEADO para reducir re-renders)
 		unsubscribers.push(
 			downloadsManager.subscribe(DownloadEventType.PROGRESS, () => {
-				updateState();
+				// Trailing throttle: solo ejecutar updateState() cada 2s máximo
+				if (!progressThrottleRef.current) {
+					progressThrottleRef.current = setTimeout(() => {
+						progressThrottleRef.current = null;
+						updateState();
+					}, 2000);
+				}
 			})
 		);
 
@@ -301,6 +310,11 @@ export function useDownloadsManager(
 
 		return () => {
 			unsubscribers.forEach(unsubscriber => unsubscriber());
+			// Limpiar throttle pendiente de PROGRESS
+			if (progressThrottleRef.current) {
+				clearTimeout(progressThrottleRef.current);
+				progressThrottleRef.current = null;
+			}
 		};
 	}, [isInitialized, updateState, onDownloadStarted, onDownloadCompleted, onDownloadFailed]);
 

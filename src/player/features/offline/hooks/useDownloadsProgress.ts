@@ -6,7 +6,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PlayerError } from "../../../core/errors";
 import { queueManager } from "../managers/QueueManager";
-import { DownloadItem, DownloadItemMetadata, DownloadStates, DownloadType } from "../types";
+import {
+	DownloadEventType,
+	DownloadItem,
+	DownloadItemMetadata,
+	DownloadStates,
+	DownloadType,
+} from "../types";
 import { calculateRemainingTime, generateDownloadIdFromUri, isValidUri } from "../utils";
 
 interface UseDownloadsProgressReturn {
@@ -204,7 +210,26 @@ export function useDownloadsProgress(
 			return;
 		}
 
-		// Inicializar referencia al estado actual
+		// Si el contenido no está en la cola, solo escuchar QUEUED para detectar
+		// cuando se inicia una descarga nueva para este ID (suscripción ligera: 1 evento)
+		const downloadItem = queueManager.getDownload(downloadId);
+		if (!downloadItem) {
+			const unsubscribeQueued = queueManager.subscribe(
+				DownloadEventType.QUEUED,
+				(eventData: unknown) => {
+					const data = eventData as { downloadId?: string; taskId?: string };
+					if (data.downloadId === downloadId || data.taskId === downloadId) {
+						// Item añadido → actualizar estado para trigger re-suscripción completa
+						setHookState(getCurrentState());
+					}
+				}
+			);
+			return () => {
+				unsubscribeQueued();
+			};
+		}
+
+		// Item existe → suscripción completa (9 eventos con throttle)
 		lastStateRef.current = hookState.state;
 
 		const unsubscribe = queueManager.subscribeToDownload(downloadId, () => {
@@ -240,7 +265,7 @@ export function useDownloadsProgress(
 				throttleTimeoutRef.current = null;
 			}
 		};
-	}, [downloadId, getCurrentState]);
+	}, [downloadId, getCurrentState, hookState.state]);
 
 	return hookState;
 }
