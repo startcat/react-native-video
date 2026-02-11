@@ -540,7 +540,7 @@ export class BinaryDownloadService {
 			this.currentLogger.info(
 				TAG,
 				`Creating download task with RNBackgroundDownloader: ${task.id}`,
-				{ url: task.url, destination: task.destination }
+				{ url: task.url, destination: task.destination, notificationTitle: downloadOptions.notificationTitle, taskTitle: task.title }
 			);
 
 			// Crear tarea de descarga usando la API correcta

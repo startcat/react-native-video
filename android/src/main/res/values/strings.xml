@@ -57,4 +57,5 @@
 	<string name="license_player_error_310">Asset is not DRM-protected</string>
   <string name="license_player_error_311">DRM license is not valid (begin_date is in future)</string>
   <string name="license_player_error_400">Invalid parameter provided to method</string>
+  <string name="download_channel_name">Downloads</string>
 </resources>

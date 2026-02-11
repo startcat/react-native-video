@@ -133,6 +133,9 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     
     // Track DRM message per download for offline license acquisition
     private Map<String, String> activeDrmMessages = new ConcurrentHashMap<>();
+    
+    // Track content title per download for notification display
+    private Map<String, String> activeDownloadTitles = new ConcurrentHashMap<>();
 
     public DownloadsModule2(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -363,6 +366,11 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             
             // Store quality for later use in onPrepared
             activeDownloadQuality.put(id, quality);
+            
+            // Store title for notification display in onPrepared
+            if (title != null) {
+                activeDownloadTitles.put(id, title);
+            }
             
             Log.d(TAG, "Step 2: Config validated - ID: " + id + ", URI: " + uri + ", Quality: " + quality);
 
@@ -1932,7 +1940,10 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             }
 
             // Create download request from the prepared helper with our custom ID
-            DownloadRequest downloadRequest = helper.getDownloadRequest(downloadId, downloadId.getBytes());
+            // Use content title (if available) as request.data for notification display
+            String titleForNotification = activeDownloadTitles.getOrDefault(downloadId, downloadId);
+            DownloadRequest downloadRequest = helper.getDownloadRequest(downloadId, titleForNotification.getBytes());
+            activeDownloadTitles.remove(downloadId);
             
             Log.d(TAG, "========== DownloadRequest Details ==========");
             Log.d(TAG, "ID: " + downloadRequest.id);
