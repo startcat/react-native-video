@@ -3,12 +3,18 @@ import { useAirplayConnectivity } from "react-airplay";
 import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+	type OnAudioTracksData,
 	type OnBufferData,
 	type OnProgressData,
 	type OnVideoErrorData,
+	type OnVideoTracksData,
 } from "../../../specs/VideoNativeComponent";
 
-import { type OnLoadData, type OnReceiveAdEventData } from "../../../types/events";
+import {
+	type OnLoadData,
+	type OnReceiveAdEventData,
+	type OnTextTracksData,
+} from "../../../types/events";
 
 import {
 	type SelectedTrack,
@@ -78,6 +84,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
 	const isContentLoadedRef = useRef<boolean>(false);
 
+	const cachedAudioTracksRef = useRef<OnLoadData["audioTracks"]>([]);
+	const cachedTextTracksRef = useRef<OnLoadData["textTracks"]>([]);
+	const cachedVideoTracksRef = useRef<OnLoadData["videoTracks"]>([]);
+
 	const insets = useSafeAreaInsets();
 
 	const youboraForVideo = useRef<IMappedYoubora>();
@@ -91,6 +101,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
 	const [buffering, setBuffering] = useState<boolean>(false);
 	const [menuData, setMenuData] = useState<Array<IPlayerMenuData>>();
+	const menuDataRef = useRef<Array<IPlayerMenuData> | undefined>(undefined);
 	const [speedRate, setSpeedRate] = useState<number>(1);
 	const [selectedAudioTrack, setSelectedAudioTrack] = useState<SelectedTrack>();
 	const [selectedTextTrack, setSelectedTextTrack] = useState<SelectedTrack>();
@@ -196,6 +207,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// Para live, cargar contenido directamente
 			currentSourceType.current = "content";
 			isChangingSource.current = true;
+			cachedAudioTracksRef.current = [];
+			cachedTextTracksRef.current = [];
+			cachedVideoTracksRef.current = [];
 
 			try {
 				sourceRef.current.changeSource({
@@ -223,6 +237,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			pendingContentSource.current = null;
 			setSliderValues(undefined);
 			setIsContentLoaded(false);
+			cachedAudioTracksRef.current = [];
+			cachedTextTracksRef.current = [];
+			cachedVideoTracksRef.current = [];
 
 			// Reset progress managers solo para VOD
 			vodProgressManagerRef.current?.reset();
@@ -876,6 +893,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	}, [isContentLoaded]);
 
 	useEffect(() => {
+		menuDataRef.current = menuData;
+	}, [menuData]);
+
+	useEffect(() => {
 		return () => {
 			if (vodProgressManagerRef.current) {
 				vodProgressManagerRef.current.destroy();
@@ -1296,6 +1317,87 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	 *
 	 */
 
+	const generateMenuDataFromCachedTracks = () => {
+		if (menuDataRef.current?.length) return;
+		if (!cachedAudioTracksRef.current.length && !cachedTextTracksRef.current.length) {
+			currentLogger.current?.debug(
+				"generateMenuDataFromCachedTracks - No cached tracks available"
+			);
+			return;
+		}
+
+		currentLogger.current?.info(
+			`generateMenuDataFromCachedTracks - Generating from cached tracks: ` +
+				`audio=${cachedAudioTracksRef.current.length}, ` +
+				`text=${cachedTextTracksRef.current.length}, ` +
+				`video=${cachedVideoTracksRef.current.length}`
+		);
+
+		const syntheticLoadData: OnLoadData = {
+			currentTime: 0,
+			duration: 0,
+			naturalSize: { width: 0, height: 0, orientation: "landscape" },
+			audioTracks: cachedAudioTracksRef.current,
+			textTracks: cachedTextTracksRef.current,
+			videoTracks: cachedVideoTracksRef.current,
+		};
+
+		let generatedMenuData: any;
+		if (props.hooks?.mergeMenuData && typeof props.hooks.mergeMenuData === "function") {
+			generatedMenuData = props.hooks.mergeMenuData(
+				syntheticLoadData,
+				props.languagesMapping,
+				sourceRef.current?.isDASH
+			);
+		} else {
+			generatedMenuData = mergeMenuData(
+				syntheticLoadData,
+				props.languagesMapping,
+				sourceRef.current?.isDASH
+			);
+		}
+
+		if (!generatedMenuData?.length) return;
+
+		let finalAudioIndex = props.audioIndex;
+		if (
+			(props.audioIndex === undefined || props.audioIndex === -1) &&
+			generatedMenuData &&
+			props.hooks?.getUserAudioSubtitlePreferences &&
+			props.hooks?.applyPreferencesFromMenuData
+		) {
+			const userPreferences = props.hooks.getUserAudioSubtitlePreferences();
+			const appliedPreferences = props.hooks.applyPreferencesFromMenuData(
+				generatedMenuData,
+				userPreferences
+			);
+			if (appliedPreferences?.audioIndex !== undefined) {
+				currentAudioIndexRef.current = appliedPreferences.audioIndex;
+				finalAudioIndex = appliedPreferences.audioIndex;
+			}
+			if (appliedPreferences?.subtitleIndex !== undefined) {
+				currentSubtitleIndexRef.current = appliedPreferences.subtitleIndex;
+			}
+			if (appliedPreferences) {
+				props.events?.onChangePreferences?.(appliedPreferences);
+			}
+		}
+
+		if ((finalAudioIndex === undefined || finalAudioIndex === -1) && generatedMenuData) {
+			const firstAudio = generatedMenuData.find(
+				(item: any) => item.type === PLAYER_MENU_DATA_TYPE.AUDIO
+			);
+			if (firstAudio && firstAudio.index !== undefined) {
+				currentAudioIndexRef.current = firstAudio.index;
+				currentLogger.current?.info(
+					`generateMenuDataFromCachedTracks - Auto-selecting first audio: index=${firstAudio.index}`
+				);
+			}
+		}
+
+		setMenuData(generatedMenuData);
+	};
+
 	const ensureContentLoaded = (source: string) => {
 		if (isContentLoadedRef.current) return;
 		if (currentSourceType.current !== "content") return;
@@ -1311,6 +1413,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			clearTimeout(postAdTimeoutRef.current);
 			postAdTimeoutRef.current = null;
 		}
+
+		generateMenuDataFromCachedTracks();
 	};
 
 	const handleOnLoad = (e: OnLoadData) => {
@@ -1694,6 +1798,51 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		}
 	};
 
+	const handleOnAudioTracks = (e: OnAudioTracksData) => {
+		if (isPlayingAdRef.current) {
+			currentLogger.current?.debug(
+				`handleOnAudioTracks - Ignoring during ad (${e.audioTracks?.length} tracks)`
+			);
+			return;
+		}
+		if (currentSourceType.current === "content" && e.audioTracks?.length) {
+			currentLogger.current?.info(
+				`handleOnAudioTracks - Caching ${e.audioTracks.length} audio tracks`
+			);
+			cachedAudioTracksRef.current = e.audioTracks;
+		}
+	};
+
+	const handleOnTextTracks = (e: OnTextTracksData) => {
+		if (isPlayingAdRef.current) {
+			currentLogger.current?.debug(
+				`handleOnTextTracks - Ignoring during ad (${e.textTracks?.length} tracks)`
+			);
+			return;
+		}
+		if (currentSourceType.current === "content" && e.textTracks?.length) {
+			currentLogger.current?.info(
+				`handleOnTextTracks - Caching ${e.textTracks.length} text tracks`
+			);
+			cachedTextTracksRef.current = e.textTracks as OnLoadData["textTracks"];
+		}
+	};
+
+	const handleOnVideoTracks = (e: OnVideoTracksData) => {
+		if (isPlayingAdRef.current) {
+			currentLogger.current?.debug(
+				`handleOnVideoTracks - Ignoring during ad (${e.videoTracks?.length} tracks)`
+			);
+			return;
+		}
+		if (currentSourceType.current === "content" && e.videoTracks?.length) {
+			currentLogger.current?.info(
+				`handleOnVideoTracks - Caching ${e.videoTracks.length} video tracks`
+			);
+			cachedVideoTracksRef.current = e.videoTracks;
+		}
+	};
+
 	const handleOnEnd = () => {
 		currentLogger.current?.debug(
 			`handleOnEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`
@@ -1877,9 +2026,18 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						onPlaybackStateChanged={videoEvents.onPlaybackStateChanged}
 						onPlaybackRateChange={videoEvents.onPlaybackRateChange}
 						onVolumeChange={videoEvents.onVolumeChange}
-						onAudioTracks={videoEvents.onAudioTracks}
-						onTextTracks={videoEvents.onTextTracks}
-						onVideoTracks={videoEvents.onVideoTracks}
+						onAudioTracks={combineEventHandlers(
+							handleOnAudioTracks,
+							videoEvents.onAudioTracks
+						)}
+						onTextTracks={combineEventHandlers(
+							handleOnTextTracks,
+							videoEvents.onTextTracks
+						)}
+						onVideoTracks={combineEventHandlers(
+							handleOnVideoTracks,
+							videoEvents.onVideoTracks
+						)}
 						onBandwidthUpdate={videoEvents.onBandwidthUpdate}
 						onAspectRatio={videoEvents.onAspectRatio}
 						onTimedMetadata={videoEvents.onTimedMetadata}
