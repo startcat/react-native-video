@@ -49,7 +49,7 @@ public class AxDownloadService extends DownloadService {
         super(FOREGROUND_NOTIFICATION_ID,
             DEFAULT_FOREGROUND_NOTIFICATION_UPDATE_INTERVAL,
             CHANNEL_ID,
-            androidx.media3.exoplayer.R.string.exo_download_notification_channel_name,
+            R.string.download_channel_name,
             0);
     }
 
@@ -167,7 +167,23 @@ public class AxDownloadService extends DownloadService {
                     .build();
         }
 
-        Notification notification = notificationHelper.buildProgressNotification(this, R.drawable.ic_download, null, null, downloads, i);
+        // Build message from active downloads' titles (stored in request.data)
+        StringBuilder messageBuilder = new StringBuilder();
+        for (int j = 0; j < downloads.size(); j++) {
+            Download dl = downloads.get(j);
+            if (dl.state == Download.STATE_DOWNLOADING || dl.state == Download.STATE_QUEUED || dl.state == Download.STATE_RESTARTING) {
+                String title = Util.fromUtf8Bytes(dl.request.data);
+                if (title != null && !title.isEmpty()) {
+                    if (messageBuilder.length() > 0) {
+                        messageBuilder.append("\n");
+                    }
+                    messageBuilder.append(title);
+                }
+            }
+        }
+        String message = messageBuilder.length() > 0 ? messageBuilder.toString() : null;
+
+        Notification notification = notificationHelper.buildProgressNotification(this, R.drawable.ic_download, null, message, downloads, i);
 
         if (notification != null && notification.extras != null && i < downloads.size()) {
             // Notification about download progress is sent here
