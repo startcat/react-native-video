@@ -1285,6 +1285,7 @@ export class QueueManager {
 					id: item.id,
 					url: item.uri,
 					destination: `${binariesDir}/${item.id}${fileExtension}`,
+					title: item.title,
 					headers: {},
 					resumable: true,
 				} as BinaryDownloadTask;
