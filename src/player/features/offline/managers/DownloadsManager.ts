@@ -337,15 +337,8 @@ export class DownloadsManager {
 	private handleQueueEvent(eventType: DownloadEventType, data: unknown): void {
 		try {
 			const eventData = data as Record<string, unknown>;
-			// Los eventos de cola se propagan directamente ya que son de alto nivel
-			this.eventEmitter.emit("queue:" + eventType, {
-				...eventData,
-				timestamp: Date.now(),
-				managerState: this.getState(),
-			});
 
-			// CRÍTICO: Re-emitir eventos de descarga importantes para que los hooks los reciban
-			// Re-emitir como evento de descarga directo (sin prefijo "queue:")
+			// Emisión única para hooks (sin prefijo "queue:" — verificado que nadie lo consume)
 			this.eventEmitter.emit(eventType, {
 				...eventData,
 				timestamp: Date.now(),

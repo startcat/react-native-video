@@ -20,7 +20,9 @@ import androidx.media3.exoplayer.offline.DownloadNotificationHelper;
 import androidx.media3.common.util.NotificationUtil;
 import androidx.media3.common.util.Util;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A class that extends Exoplayer's DownloadService class.
@@ -39,6 +41,9 @@ public class AxDownloadService extends DownloadService {
 
     // Helper for creating a download notifications
     private DownloadNotificationHelper notificationHelper;
+
+    // Cache del último progreso enviado por downloadId para evitar broadcasts redundantes
+    private final Map<String, Integer> lastSentProgress = new HashMap<>();
 
     public AxDownloadService() {
         super(FOREGROUND_NOTIFICATION_ID,
@@ -174,16 +179,9 @@ public class AxDownloadService extends DownloadService {
             // Solo enviar notificación de progreso si la descarga está realmente en progreso
             if (currentDownload.state == Download.STATE_DOWNLOADING) {
                 sendNotification(currentProgress, currentDownloadId);
-                Log.d("Downloads", "Notificando descarga actual: " + currentDownloadId + 
-                      " - Estado: " + getStateString(currentDownload.state) + 
-                      " - Progreso: " + currentProgress + "%");
             } else if (currentDownload.state == Download.STATE_QUEUED || 
                       currentDownload.state == Download.STATE_RESTARTING) {
-                // Para descargas en cola o reiniciando, siempre enviar progreso 0
                 sendNotification(0, currentDownloadId);
-                Log.d("Downloads", "Notificando descarga en cola/reinicio: " + currentDownloadId + 
-                      " - Estado: " + getStateString(currentDownload.state) + 
-                      " - Progreso: 0%");
             }
             
             // Opcional: enviar notificaciones individuales para todas las descargas activas
@@ -191,19 +189,11 @@ public class AxDownloadService extends DownloadService {
                 Download download = downloads.get(j);
                 if (j != i) {  // No es la descarga actual
                     if (download.state == Download.STATE_DOWNLOADING) {
-                        // Solo para descargas realmente en progreso
                         int downloadProgress = (int) download.getPercentDownloaded();
                         sendNotification(downloadProgress, download.request.id);
-                        Log.d("Downloads", "Notificando descarga adicional: " + download.request.id + 
-                              " - Estado: " + getStateString(download.state) + 
-                              " - Progreso: " + downloadProgress + "%");
                     } else if (download.state == Download.STATE_QUEUED || 
                               download.state == Download.STATE_RESTARTING) {
-                        // Para descargas en cola o reiniciando, siempre enviar progreso 0
                         sendNotification(0, download.request.id);
-                        Log.d("Downloads", "Notificando descarga adicional en cola/reinicio: " + 
-                              download.request.id + " - Estado: " + getStateString(download.state) + 
-                              " - Progreso: 0%");
                     }
                 }
             }
@@ -228,7 +218,13 @@ public class AxDownloadService extends DownloadService {
     }
 
     // A method that sends a notification
+    // Solo emite broadcast si el progreso ha cambiado respecto al último envío
     private void sendNotification(int progress, String content_id) {
+        Integer lastProgress = lastSentProgress.get(content_id);
+        if (lastProgress != null && lastProgress == progress) {
+            return; // Progreso sin cambios, no emitir broadcast redundante
+        }
+        lastSentProgress.put(content_id, progress);
 
         Log.d("Downloads", "+++ [AxDownloadService] sendNotification " + content_id + " " + progress);
         Intent intent = new Intent(NOTIFICATION);
