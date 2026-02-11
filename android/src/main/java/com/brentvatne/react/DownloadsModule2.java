@@ -409,6 +409,22 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
             // Prepare download helper
             Log.d(TAG, "Step 7: Checking AxDownloadTracker availability");
+            // Defensive re-initialization if tracker was lost (e.g. after onHostDestroy/onHostResume cycle)
+            if (mAxDownloadTracker == null) {
+                Log.w(TAG, "Step 7: mAxDownloadTracker is null, attempting re-initialization...");
+                try {
+                    AxDownloadTracker tracker = AxOfflineManager.getInstance().getDownloadTracker();
+                    if (tracker != null) {
+                        mAxDownloadTracker = tracker;
+                        mAxDownloadTracker.addListener(this);
+                        Log.d(TAG, "Step 7: Successfully re-initialized mAxDownloadTracker");
+                    } else {
+                        Log.e(TAG, "Step 7: AxOfflineManager.getDownloadTracker() returned null - AxOfflineManager not initialized");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Step 7: Failed to re-initialize mAxDownloadTracker: " + e.getMessage(), e);
+                }
+            }
             if (mAxDownloadTracker != null) {
                 Log.d(TAG, "Step 8: Getting DownloadHelper for ID: " + id);
                 Log.d(TAG, "Active helpers before: " + activeHelpers.size());
@@ -964,11 +980,13 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     // =============================================================================
 
     private void initOfflineManager() {
+        Log.d(TAG, "initOfflineManager() called - reactContext: " + (this.reactContext != null) + ", mLicenseManager: " + (mLicenseManager != null));
         if (AxOfflineManager.getInstance() != null && this.reactContext != null && mLicenseManager != null) {
             AxOfflineManager.getInstance().init(this.reactContext);
 
             if (mAxDownloadTracker == null) {
                 mAxDownloadTracker = AxOfflineManager.getInstance().getDownloadTracker();
+                Log.d(TAG, "initOfflineManager() - mAxDownloadTracker after init: " + (mAxDownloadTracker != null));
             }
 
             if (mAxDownloadTracker != null) {
@@ -979,6 +997,8 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             }
 
             mLicenseManager.setEventListener(this);
+        } else {
+            Log.e(TAG, "initOfflineManager() SKIPPED - preconditions not met");
         }
     }
 
@@ -994,19 +1014,30 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     private void startDownloadService() throws Exception {
         DownloadManager manager = AxOfflineManager.getInstance().getDownloadManager();
         if (manager != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (this.reactContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE)
-                        == PackageManager.PERMISSION_GRANTED) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (this.reactContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE)
+                            == PackageManager.PERMISSION_GRANTED) {
+                        DownloadService.start(this.reactContext, AxDownloadService.class);
+                        // Inicializar en estado PAUSADO por defecto - JavaScript controlará cuando resumir
+                        DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
+                    } else {
+                        throw new SecurityException("Foreground service permission required");
+                    }
+                } else {
                     DownloadService.start(this.reactContext, AxDownloadService.class);
                     // Inicializar en estado PAUSADO por defecto - JavaScript controlará cuando resumir
                     DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
-                } else {
-                    throw new SecurityException("Foreground service permission required");
                 }
-            } else {
-                DownloadService.start(this.reactContext, AxDownloadService.class);
-                // Inicializar en estado PAUSADO por defecto - JavaScript controlará cuando resumir
-                DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, true);
+            } catch (SecurityException se) {
+                throw se;
+            } catch (Exception e) {
+                if (e.getClass().getSimpleName().contains("ForegroundServiceStartNotAllowedException") ||
+                    (e.getMessage() != null && e.getMessage().contains("startForegroundService() not allowed"))) {
+                    Log.w(TAG, "Cannot start download service - foreground service not allowed from background. Will retry when app is in foreground.", e);
+                } else {
+                    throw e;
+                }
             }
         }
     }
@@ -1684,7 +1715,7 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
     @Override
     public void onHostDestroy() {
-        Log.d(TAG, "onHostDestroy");
+        Log.d(TAG, "onHostDestroy - mAxDownloadTracker was: " + (mAxDownloadTracker != null));
 
         if (pendingResumePromise != null) {
             pendingResumePromise.reject("APP_DESTROYED", "App was destroyed before resume could complete");
@@ -1926,8 +1957,17 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
                 Log.d(TAG, "Download successfully added to DownloadManager: " + downloadId);
                 
                 // Resume downloads to ensure the service starts processing the queue
-                DownloadService.sendResumeDownloads(reactContext, AxDownloadService.class, false);
-                Log.d(TAG, "Sent resume command to DownloadService");
+                try {
+                    DownloadService.sendResumeDownloads(reactContext, AxDownloadService.class, false);
+                    Log.d(TAG, "Sent resume command to DownloadService");
+                } catch (Exception serviceEx) {
+                    if (serviceEx.getClass().getSimpleName().contains("ForegroundServiceStartNotAllowedException") ||
+                        (serviceEx.getMessage() != null && serviceEx.getMessage().contains("startForegroundService() not allowed"))) {
+                        Log.w(TAG, "Cannot send resume command - foreground service not allowed. Download will resume when service is available.", serviceEx);
+                    } else {
+                        Log.e(TAG, "Error sending resume command to DownloadService", serviceEx);
+                    }
+                }
                 
                 // Check the Download object after a small delay (non-blocking)
                 final String finalDownloadId = downloadId;

@@ -564,8 +564,17 @@ public class DownloadsModule extends ReactContextBaseJavaModule implements Lifec
             }
             
             // Restart the download service
-            DownloadService.start(this.reactContext, AxDownloadService.class);
-            DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+            try {
+                DownloadService.start(this.reactContext, AxDownloadService.class);
+                DownloadService.sendPauseDownloads(this.reactContext, AxDownloadService.class, false);
+            } catch (Exception serviceEx) {
+                if (serviceEx.getClass().getSimpleName().contains("ForegroundServiceStartNotAllowedException") ||
+                    (serviceEx.getMessage() != null && serviceEx.getMessage().contains("startForegroundService() not allowed"))) {
+                    Log.w(TAG, "Cannot restart download service during recovery - foreground service not allowed. Will retry when app is in foreground.", serviceEx);
+                } else {
+                    throw serviceEx;
+                }
+            }
             
             Log.d(TAG, "Download system recovery completed successfully");
         } catch (Exception e) {

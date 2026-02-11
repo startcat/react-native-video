@@ -1,8 +1,12 @@
 package com.brentvatne.offline;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -48,18 +52,16 @@ public class AxDownloadService extends DownloadService {
         Log.d("Downloads", "+++ [AxDownloadService] init");
 
         try {
-            notificationHelper = new DownloadNotificationHelper(this, CHANNEL_ID);
             DownloadManager downloadManager = AxOfflineManager.getInstance().getDownloadManager();
 
             if (downloadManager != null) {
                 downloadManager.addListener(new TerminalStateNotificationHelper(this, notificationHelper, FOREGROUND_NOTIFICATION_ID + 1));
                 Log.d("Downloads", "AxDownloadService initialized successfully");
             } else {
-                Log.e("Downloads", "CRITICAL: DownloadManager is null during AxDownloadService init. Service may fail.");
+                Log.w("Downloads", "DownloadManager is null during AxDownloadService init. TerminalStateNotificationHelper not registered. Service will continue without it.");
             }
         } catch (Exception e) {
-            Log.e("Downloads", "Error during AxDownloadService init: " + e.getMessage(), e);
-            throw new RuntimeException("Failed to initialize AxDownloadService", e);
+            Log.e("Downloads", "Error during AxDownloadService init (non-fatal): " + e.getMessage(), e);
         }
     }
 
@@ -67,8 +69,49 @@ public class AxDownloadService extends DownloadService {
     public void onCreate() {
         super.onCreate();
         mContext = getApplicationContext();
-        init();
 
+        // Create notificationHelper BEFORE init() to guarantee it's available
+        // when getForegroundNotification() is called by the base DownloadService class.
+        try {
+            notificationHelper = new DownloadNotificationHelper(this, CHANNEL_ID);
+        } catch (Exception e) {
+            Log.e("Downloads", "Failed to create DownloadNotificationHelper: " + e.getMessage(), e);
+        }
+
+        // CRITICAL: Call startForeground() immediately in onCreate() to satisfy the
+        // Android 12+ foreground service contract. The base DownloadService class calls
+        // startForeground() in onStartCommand(), but that may not execute fast enough
+        // after Context.startForegroundService() is invoked, causing
+        // ForegroundServiceDidNotStartInTimeException.
+        try {
+            Notification immediateNotification = buildImmediateNotification();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(FOREGROUND_NOTIFICATION_ID, immediateNotification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } else {
+                startForeground(FOREGROUND_NOTIFICATION_ID, immediateNotification);
+            }
+            Log.d("Downloads", "startForeground() called immediately in onCreate()");
+        } catch (Exception e) {
+            Log.e("Downloads", "Failed to call startForeground() in onCreate(): " + e.getMessage(), e);
+        }
+
+        init();
+    }
+
+    private Notification buildImmediateNotification() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID, "Downloads", NotificationManager.IMPORTANCE_LOW);
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.createNotificationChannel(channel);
+            }
+        }
+        return new Notification.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_download)
+                .setContentTitle("Preparing download...")
+                .build();
     }
 
     @NonNull
@@ -101,6 +144,23 @@ public class AxDownloadService extends DownloadService {
     // Returns a notification to be displayed
     @Override
     protected Notification getForegroundNotification(List<Download> downloads, int i) {
+
+        // Fallback: if notificationHelper is null (should not happen), return a basic notification
+        // to satisfy the foreground service contract and prevent ForegroundServiceDidNotStartInTimeException
+        if (notificationHelper == null) {
+            Log.e("Downloads", "CRITICAL: notificationHelper is null in getForegroundNotification. Using fallback notification.");
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Downloads", NotificationManager.IMPORTANCE_LOW);
+                NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm != null) {
+                    nm.createNotificationChannel(channel);
+                }
+            }
+            return new Notification.Builder(this, CHANNEL_ID)
+                    .setSmallIcon(R.drawable.ic_download)
+                    .setContentTitle("Downloading...")
+                    .build();
+        }
 
         Notification notification = notificationHelper.buildProgressNotification(this, R.drawable.ic_download, null, null, downloads, i);
 
