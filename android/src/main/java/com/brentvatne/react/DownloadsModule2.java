@@ -62,8 +62,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -136,6 +138,11 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
     
     // Track content title per download for notification display
     private Map<String, String> activeDownloadTitles = new ConcurrentHashMap<>();
+
+    // Cola de descargas de licencia DRM para evitar race condition
+    // cuando se descargan múltiples contenidos en secuencia rápida
+    private final Queue<MediaItem> pendingLicenseDownloads = new LinkedList<>();
+    private boolean isDownloadingLicense = false;
 
     public DownloadsModule2(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -407,10 +414,10 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
             }
             Log.d(TAG, "Step 5: MediaItem created successfully");
 
-            // Download DRM license if needed
+            // Download DRM license if needed (encolada para evitar race condition)
             if (config.hasKey(PROP_DRM)) {
-                Log.d(TAG, "Step 6: Processing DRM license");
-                downloadLicenseForItem(mediaItem);
+                Log.d(TAG, "Step 6: Processing DRM license (enqueued)");
+                enqueueLicenseDownload(mediaItem);
             } else {
                 Log.d(TAG, "Step 6: No DRM, skipping license");
             }
@@ -1600,10 +1607,40 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
         }
     }
 
+    /**
+     * Encola una descarga de licencia DRM. Garantiza que las licencias se descargan
+     * una a una, evitando que cancelDownloadTask() cancele licencias en curso
+     * cuando se descargan múltiples contenidos en secuencia rápida.
+     */
+    private synchronized void enqueueLicenseDownload(MediaItem mediaItem) {
+        pendingLicenseDownloads.add(mediaItem);
+        Log.d(TAG, "[LICENSE_QUEUE] Enqueued license download. Queue size: " + pendingLicenseDownloads.size() + ", isDownloading: " + isDownloadingLicense);
+        processNextLicenseDownload();
+    }
+
+    private synchronized void processNextLicenseDownload() {
+        if (isDownloadingLicense || pendingLicenseDownloads.isEmpty()) {
+            return;
+        }
+        isDownloadingLicense = true;
+        MediaItem next = pendingLicenseDownloads.poll();
+        Log.d(TAG, "[LICENSE_QUEUE] Processing next license download. Remaining in queue: " + pendingLicenseDownloads.size());
+        downloadLicenseForItem(next);
+    }
+
+    private synchronized void onLicenseDownloadComplete() {
+        isDownloadingLicense = false;
+        processNextLicenseDownload();
+    }
+
     private void downloadLicenseForItem(MediaItem mediaItem) {
         MediaItem.DrmConfiguration drmConfig = Utility.getDrmConfiguration(mediaItem);
+        Log.d(TAG, "downloadLicenseForItem - drmConfig: " + (drmConfig != null) + ", mLicenseManager: " + (mLicenseManager != null));
         if (drmConfig != null && mLicenseManager != null) {
             String licenseServerUrl = String.valueOf(drmConfig.licenseUri);
+            String manifestUrl = String.valueOf(Utility.getPlaybackProperties(mediaItem).uri);
+            Log.d(TAG, "downloadLicenseForItem - licenseServerUrl: " + licenseServerUrl);
+            Log.d(TAG, "downloadLicenseForItem - manifestUrl: " + manifestUrl);
             
             // Try to get drmMessage from our stored map (set in createDrmConfiguration)
             String drmMessage = activeDrmMessages.get(licenseServerUrl);
@@ -2317,25 +2354,31 @@ public class DownloadsModule2 extends ReactContextBaseJavaModule
 
     @Override
     public void onLicenseDownloaded(String manifestUrl) {
+        Log.d(TAG, "onLicenseDownloaded - manifestUrl: " + manifestUrl);
         WritableMap params = Arguments.createMap();
         params.putString("contentId", manifestUrl);
         sendEvent("overonLicenseDownloaded", params);
+        onLicenseDownloadComplete();
     }
 
     @Override
     public void onLicenseDownloadedWithResult(String manifestUrl, byte[] keyIds) {
+        Log.d(TAG, "onLicenseDownloadedWithResult - manifestUrl: " + manifestUrl + ", keyIds size: " + (keyIds != null ? keyIds.length : 0));
         WritableMap params = Arguments.createMap();
         params.putString("contentId", manifestUrl);
         sendEvent("overonLicenseDownloaded", params);
+        onLicenseDownloadComplete();
     }
 
     @Override
     public void onLicenseDownloadFailed(int code, String description, String manifestUrl) {
+        Log.e(TAG, "onLicenseDownloadFailed - code: " + code + ", description: " + description + ", manifestUrl: " + manifestUrl);
         WritableMap params = Arguments.createMap();
         params.putString("contentId", manifestUrl);
         params.putString("error", description);
         params.putInt("code", code);
         sendEvent("overonLicenseError", params);
+        onLicenseDownloadComplete();
     }
 
     @Override

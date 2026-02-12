@@ -818,6 +818,23 @@ public class ReactExoplayerView extends FrameLayout implements
                 return;
             }
             try {
+                /*
+                 * Dani Offline - Defensive check for React Native prop race condition:
+                 * setSrc may fire before setPlayOffline. Detect downloaded content
+                 * via AxDownloadTracker so playOffline is correct before player creation.
+                 */
+                if (!self.playOffline && source.getUri() != null && self.drmUUID != null) {
+                    try {
+                        AxDownloadTracker tracker = AxOfflineManager.getInstance().getDownloadTracker();
+                        if (tracker != null && tracker.getDownloadRequest(source.getUri()) != null) {
+                            self.playOffline = true;
+                            Log.i("Downloads", "playOffline was false but download exists for URI, forcing offline path");
+                        }
+                    } catch (Exception e) {
+                        // AxOfflineManager may not be initialized yet, ignore
+                    }
+                }
+
                 if (player == null) {
                     // Initialize core configuration and listeners
                     initializePlayerCore(self);
@@ -966,7 +983,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
         return new DefaultDrmSessionManager.Builder()
                 .setUuidAndExoMediaDrmProvider(C.WIDEVINE_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                .setMultiSession(true)
+                .setMultiSession(false)
                 .build(drmCallback);
 
     }
@@ -981,13 +998,15 @@ public class ReactExoplayerView extends FrameLayout implements
 
         if (self.drmUUID != null) {
             try {
-                drmSessionManager = self.buildDrmSessionManager(self.drmUUID, self.drmLicenseUrl,
-                        self.drmLicenseHeader);
 
                 /*
                  * Dani Offline (A)
-                 * Get offline license
+                 * Get offline license - MUST run BEFORE online DRM to avoid
+                 * corrupting the Widevine CDM on Android 13 (API 33) devices.
                  *
+                 * Note: playOffline is guaranteed to be correct here because
+                 * initializePlayer() runs the AxDownloadTracker defensive check
+                 * before reaching this point (covers React Native prop race condition).
                  */
 
                 if (self.playOffline) {
@@ -1000,12 +1019,19 @@ public class ReactExoplayerView extends FrameLayout implements
 
                     mMediaItem = createOfflineMediaItem(source.getUri(), mDrmSessionManager);
 
+                    // Return null to DEFER player preparation until offline keys are restored.
+                    // onOfflineLicenseAcquired() will call initializePlayerSource(mDrmSessionManager)
+                    // with MODE_QUERY set, preventing the race condition where the player tries
+                    // to acquire a license online before offline keys are available.
+                    return null;
                 }
 
                 /*
                  * End
-                 *
                  */
+
+                drmSessionManager = self.buildDrmSessionManager(self.drmUUID, self.drmLicenseUrl,
+                        self.drmLicenseHeader);
 
             } catch (UnsupportedDrmException e) {
                 int errorStringId = Util.SDK_INT < 18 ? R.string.error_drm_not_supported
@@ -1047,6 +1073,13 @@ public class ReactExoplayerView extends FrameLayout implements
 
 
         if (drmSessionManager == null && drmUUID != null) {
+            if (playOffline) {
+                // Offline playback: DRM initialization is deferred until offline keys are restored.
+                // onOfflineLicenseAcquired() will call initializePlayerSource(mDrmSessionManager)
+                // once keys are available with MODE_QUERY set.
+                DebugLog.d(TAG, "Deferring player preparation until offline DRM keys are restored");
+                return;
+            }
             // Failed to intialize DRM session manager - cannot continue
             DebugLog.e(TAG, "Failed to initialize DRM Session Manager Framework!");
             eventEmitter.error("Failed to initialize DRM Session Manager Framework!", new Exception("DRM Session Manager Framework failure!"), "3003");

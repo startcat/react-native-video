@@ -2,6 +2,7 @@ package com.brentvatne.license.internal.utils;
 
 import android.text.TextUtils;
 import android.util.Base64;
+import android.util.Log;
 
 import com.brentvatne.license.LicenseManagerErrorCode;
 import com.brentvatne.license.internal.exception.LicenseManagerException;
@@ -23,13 +24,18 @@ public class LicenseFileUtils {
 
     public static void writeLicenseFile(String defaultStoragePath, String manifestUrl,
                                         byte[] offlineLicenseKeySetId) throws LicenseManagerException {
+        Log.d("Downloads", "writeLicenseFile - manifestUrl: " + manifestUrl);
+        Log.d("Downloads", "writeLicenseFile - storagePath: " + defaultStoragePath);
+        Log.d("Downloads", "writeLicenseFile - keySize: " + (offlineLicenseKeySetId != null ? offlineLicenseKeySetId.length : 0));
         String licenseFileName = getBase64Name(manifestUrl);
         if (TextUtils.isEmpty(licenseFileName)) {
             throw new LicenseManagerException(LicenseManagerErrorCode.ERROR_303,
                     "Problem while saving keys. Incorrect manifest name: " + manifestUrl);
         }
+        Log.d("Downloads", "writeLicenseFile - fileName: " + licenseFileName.trim());
 
         File licenseFile = getFileFromDataFolder(defaultStoragePath, licenseFileName);
+        Log.d("Downloads", "writeLicenseFile - fullPath: " + licenseFile.getAbsolutePath());
         File licenseFileFolder = getDataFolder(defaultStoragePath);
         boolean canContinue = true;
 

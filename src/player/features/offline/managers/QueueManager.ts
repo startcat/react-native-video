@@ -280,16 +280,9 @@ export class QueueManager {
 			throw new PlayerError("DOWNLOAD_QUEUE_MANAGER_NOT_INITIALIZED");
 		}
 
-		console.log(
-			`[QM-DIAG] addDownloadItem called: ${downloadItem.id}, isPaused=${this.isPaused}, isProcessing=${this.isProcessing}, queueSize=${this.downloadQueue.size}`
-		);
-
 		// Verificar si ya existe
 		const existing = this.downloadQueue.get(downloadItem.id);
 		if (existing) {
-			console.log(
-				`[QM-DIAG] EXISTING item: ${downloadItem.id}, state=${existing.state}, isPaused=${this.isPaused}, isProcessing=${this.isProcessing}`
-			);
 			this.currentLogger.info(
 				TAG,
 				`Download already exists: ${downloadItem.title} (${downloadItem.id}) [state=${existing.state}, isProcessing=${this.isProcessing}, isPaused=${this.isPaused}]`
@@ -298,22 +291,14 @@ export class QueueManager {
 			// addDownloadItem es una acción explícita del usuario → forzar unpause e iniciar procesamiento
 			if (existing.state === DownloadStates.QUEUED && !this.isProcessing) {
 				if (this.isPaused) {
-					console.log(`[QM-DIAG] FORCE UNPAUSING for existing item: ${downloadItem.id}`);
 					this.currentLogger.info(
 						TAG,
 						"Force unpausing: user explicitly requested download"
 					);
 					this.isPaused = false;
 				}
-				console.log(
-					`[QM-DIAG] Calling startProcessing for existing item: ${downloadItem.id}`
-				);
 				this.currentLogger.debug(TAG, "Starting processing for existing queued download");
 				this.startProcessing();
-			} else {
-				console.log(
-					`[QM-DIAG] NOT starting processing for existing: state=${existing.state}, isProcessing=${this.isProcessing}`
-				);
 			}
 			return downloadItem.id;
 		}
@@ -339,25 +324,16 @@ export class QueueManager {
 
 			// addDownloadItem es una acción explícita del usuario → forzar unpause e iniciar procesamiento
 			// autoProcess solo controla el inicio automático durante la inicialización del sistema.
-			console.log(
-				`[QM-DIAG] NEW item queued: ${downloadItem.id}, isPaused=${this.isPaused}, isProcessing=${this.isProcessing}`
-			);
 			if (!this.isProcessing) {
 				if (this.isPaused) {
-					console.log(`[QM-DIAG] FORCE UNPAUSING for new item: ${downloadItem.id}`);
 					this.currentLogger.info(
 						TAG,
 						"Force unpausing: user explicitly requested download"
 					);
 					this.isPaused = false;
 				}
-				console.log(`[QM-DIAG] Calling startProcessing for new item: ${downloadItem.id}`);
 				this.currentLogger.debug(TAG, "Starting processing due to new download added");
 				this.startProcessing();
-			} else {
-				console.log(
-					`[QM-DIAG] Already processing, skipping startProcessing for: ${downloadItem.id}`
-				);
 			}
 
 			return downloadItem.id;
