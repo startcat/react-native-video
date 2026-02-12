@@ -1537,7 +1537,60 @@ class DownloadsModule2: RCTEventEmitter {
     }
     
     private func applyNetworkPolicy() {
-        // Implementation for applying network policy
+        // Recreate the download session with updated allowsCellularAccess.
+        // iOS URLSessionConfiguration is copied at session creation time and cannot be mutated after.
+        // We must also cancel and recreate tasks that were waiting for connectivity on the old session,
+        // so they pick up the new network policy.
+        guard isInitialized else { return }
+        
+        downloadQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            print("📥 [DownloadsModule2] Applying network policy: allowCellular=\(self.allowCellularDownloads), requireWifi=\(self.requireWifi)")
+            
+            // Cancel tasks that haven't made progress (stuck waiting for connectivity)
+            var tasksToRecreate: [String] = []
+            for (downloadId, downloadInfo) in self.activeDownloads {
+                if (downloadInfo.state == .downloading || downloadInfo.state == .queued) && downloadInfo.progress == 0.0 {
+                    if let task = self.downloadTasks[downloadId] {
+                        task.cancel()
+                        self.downloadTasks.removeValue(forKey: downloadId)
+                        tasksToRecreate.append(downloadId)
+                        print("📥 [DownloadsModule2] Cancelled stuck task for recreation: \(downloadId)")
+                    }
+                }
+            }
+            
+            // Mark cancelled downloads for re-processing by JS QueueManager
+            for downloadId in tasksToRecreate {
+                if var downloadInfo = self.activeDownloads[downloadId] {
+                    downloadInfo.state = .queued
+                    self.activeDownloads[downloadId] = downloadInfo
+                }
+            }
+            
+            // Recreate session with new config
+            let bundleId = Bundle.main.bundleIdentifier ?? "com.downloads"
+            let sessionId = "\(bundleId).assetdownload"
+            
+            let config = URLSessionConfiguration.background(withIdentifier: sessionId)
+            config.isDiscretionary = false
+            config.sessionSendsLaunchEvents = true
+            config.allowsCellularAccess = self.allowCellularDownloads
+            config.httpMaximumConnectionsPerHost = 4
+            config.tlsMinimumSupportedProtocolVersion = .TLSv12
+            config.waitsForConnectivity = true
+            
+            self.downloadsSession = AVAssetDownloadURLSession(
+                configuration: config,
+                assetDownloadDelegate: self,
+                delegateQueue: OperationQueue.main
+            )
+            
+            self.persistDownloadState()
+            
+            print("📥 [DownloadsModule2] Download session recreated with allowsCellular=\(self.allowCellularDownloads), \(tasksToRecreate.count) tasks will be recreated by QueueManager")
+        }
     }
     
     private func cleanupTemporaryFiles() throws -> (Int, Int64) {
