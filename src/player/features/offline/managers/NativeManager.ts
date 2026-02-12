@@ -412,7 +412,11 @@ export class NativeManager {
 		const isNearCompletion = percent >= 95;
 		const timeSinceLastEmit = now - lastEmit;
 
-		if (!isFirstEvent && !isNearCompletion && timeSinceLastEmit < NativeManager.PROGRESS_THROTTLE_MS) {
+		if (
+			!isFirstEvent &&
+			!isNearCompletion &&
+			timeSinceLastEmit < NativeManager.PROGRESS_THROTTLE_MS
+		) {
 			return;
 		}
 

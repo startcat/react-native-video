@@ -837,6 +837,32 @@ export class StreamDownloadService {
 				`[StreamDownloadService] nativeManager.addDownload completed for ${task.id}`
 			);
 
+			// FIX: Ensure the native DownloadService is unpaused after adding a download.
+			// During initialization, startDownloadService() pauses all downloads. The native
+			// onPrepared() calls sendResumeDownloads(), but on Android 13+ this can fail
+			// silently with ForegroundServiceStartNotAllowedException.
+			// We call resumeAll() immediately and also after a delay (onPrepared is async
+			// and the download is only added to ExoPlayer's DownloadManager inside it).
+			try {
+				await nativeManager.resumeAll();
+			} catch (resumeError) {
+				this.currentLogger.warn(
+					TAG,
+					`Failed immediate resumeAll after addDownload for ${task.id}`,
+					resumeError
+				);
+			}
+
+			// Delayed resumeAll: safety net for slow onPrepared (large manifests, slow devices)
+			const taskId = task.id;
+			setTimeout(async () => {
+				try {
+					await nativeManager.resumeAll();
+				} catch (_err) {
+					// Best-effort, immediate resumeAll already succeeded
+				}
+			}, 5000);
+
 			// Actualizar estado
 			activeDownload.state = DownloadStates.DOWNLOADING;
 			this.activeDownloads.set(task.id, activeDownload);
