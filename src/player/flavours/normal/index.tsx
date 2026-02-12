@@ -241,6 +241,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			cachedTextTracksRef.current = [];
 			cachedVideoTracksRef.current = [];
 
+			// Si no hay adTagUrl, marcar ads como finalizados para que handleOnProgress
+			// pueda confiar en seekableDuration como duración del VOD sin esperar un
+			// evento AD_BREAK_ENDED/AD_ERROR que nunca llegará
+			hasAdFinishedRef.current = !props.playerAds?.adTagUrl;
+
 			// Reset progress managers solo para VOD
 			vodProgressManagerRef.current?.reset();
 			dvrProgressManagerRef.current?.reset();
