@@ -175,6 +175,8 @@ public class LicenceDownloadTask extends AsyncTask<LicenceDownloadTask.Params, V
         // Creating media DRM session
         if (mMediaDrm == null) {
             mMediaDrm = new MediaDrm(C.WIDEVINE_UUID);
+        }
+        if (mSessionId == null) {
             mSessionId = mMediaDrm.openSession();
         }
 
