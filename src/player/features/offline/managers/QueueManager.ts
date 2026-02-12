@@ -679,7 +679,7 @@ export class QueueManager {
 	 */
 
 	public getAllDownloads(): DownloadItem[] {
-		return Array.from(this.downloadQueue.values()).map(item => ({ ...item }));
+		return Array.from(this.downloadQueue.values()).map(item => this.deepCloneItem(item));
 	}
 
 	/*
@@ -689,7 +689,7 @@ export class QueueManager {
 
 	public getDownload(downloadId: string): DownloadItem | null {
 		const item = this.downloadQueue.get(downloadId);
-		return item ? { ...item } : null;
+		return item ? this.deepCloneItem(item) : null;
 	}
 
 	/*
@@ -2564,6 +2564,10 @@ export class QueueManager {
 	 * Limpia recursos al destruir
 	 *
 	 */
+
+	private deepCloneItem(item: DownloadItem): DownloadItem {
+		return JSON.parse(JSON.stringify(item));
+	}
 
 	public destroy(): void {
 		this.stopProcessing();
