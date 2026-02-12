@@ -13,7 +13,9 @@ import { PlayerError } from "../../../core/errors";
 import { Logger } from "../../logger";
 import { LOG_TAGS } from "../constants";
 import { DEFAULT_CONFIG_MAIN_MANAGER, LOGGER_DEFAULTS } from "../defaultConfigs";
+import { binaryDownloadService } from "../services/download/BinaryDownloadService";
 import { downloadService } from "../services/download/DownloadService";
+import { streamDownloadService } from "../services/download/StreamDownloadService";
 import { networkService } from "../services/network/NetworkService";
 import { storageService } from "../services/storage/StorageService";
 import {
@@ -307,10 +309,18 @@ export class DownloadsManager {
 
 		// Configurar políticas de red basadas en ConfigManager
 		const downloadsConfig = configManager.getConfig();
-		if (downloadsConfig.download_just_wifi) {
-			// Aplicar política de solo WiFi
-			this.currentLogger.debug(TAG, "WiFi-only policy enabled");
-		}
+		const wifiOnly = downloadsConfig.download_just_wifi;
+		const allowCellular = !wifiOnly;
+
+		// Propagar política de red a los servicios de descarga
+		streamDownloadService.setNetworkPolicy(wifiOnly, allowCellular);
+		binaryDownloadService.setNetworkPolicy(wifiOnly, allowCellular);
+		networkService.setNetworkPolicy({ requiresWifi: wifiOnly, allowCellular });
+
+		this.currentLogger.debug(
+			TAG,
+			`Network policy applied: WiFi only=${wifiOnly}, cellular allowed=${allowCellular}`
+		);
 
 		// Nota: QueueManager no tiene setRetryPolicy, los reintentos se manejan internamente
 		// basado en config.maxRetries durante la inicialización
