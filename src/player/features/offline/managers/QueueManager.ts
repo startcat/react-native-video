@@ -10,8 +10,10 @@ import { Logger } from "../../logger";
 import { LOG_TAGS } from "../constants";
 import { DEFAULT_CONFIG_QUEUE, LOGGER_DEFAULTS } from "../defaultConfigs";
 import { binaryDownloadService } from "../services/download/BinaryDownloadService";
+import { networkService } from "../services/network/NetworkService";
 import { persistenceService } from "../services/storage/PersistenceService";
 import { storageService } from "../services/storage/StorageService";
+import { configManager } from "./ConfigManager";
 import { downloadsManager } from "./DownloadsManager";
 import { nativeManager } from "./NativeManager";
 import { profileManager } from "./ProfileManager";
@@ -1279,8 +1281,15 @@ export class QueueManager {
 	 */
 
 	private canDownloadNow(): boolean {
-		// TODO: Integrar con NetworkService para verificar conectividad
-		// Por ahora, siempre permitir descargas para que funcione la lógica básica
+		if (!networkService.isOnline()) {
+			return false;
+		}
+
+		const wifiOnly = configManager.getConfig().download_just_wifi;
+		if (wifiOnly && !networkService.isWifiConnected()) {
+			return false;
+		}
+
 		return true;
 	}
 

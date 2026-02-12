@@ -265,6 +265,7 @@ export class DownloadsManager {
 		// Coordinar con ConfigManager para cambios de configuración
 		const configUnsubscriber = configManager.subscribe("all", data => {
 			this.handleConfigEvent(data);
+			this.setupGlobalPolicies();
 		});
 		this.eventUnsubscribers.push(configUnsubscriber);
 
