@@ -291,16 +291,27 @@ export class QueueManager {
 			);
 			// Si el item existe pero está en QUEUED, asegurar que el procesamiento esté activo
 			// addDownloadItem es una acción explícita del usuario → forzar unpause e iniciar procesamiento
+			// Pero respetar restricciones de red (ej: WiFi-only en cellular)
 			if (existing.state === DownloadStates.QUEUED && !this.isProcessing) {
-				if (this.isPaused) {
+				if (this.canDownloadNow()) {
+					if (this.isPaused) {
+						this.currentLogger.info(
+							TAG,
+							"Force unpausing: user explicitly requested download"
+						);
+						this.isPaused = false;
+					}
+					this.currentLogger.debug(
+						TAG,
+						"Starting processing for existing queued download"
+					);
+					this.startProcessing();
+				} else {
 					this.currentLogger.info(
 						TAG,
-						"Force unpausing: user explicitly requested download"
+						"Download queued but network conditions prevent starting"
 					);
-					this.isPaused = false;
 				}
-				this.currentLogger.debug(TAG, "Starting processing for existing queued download");
-				this.startProcessing();
 			}
 			return downloadItem.id;
 		}
@@ -326,16 +337,24 @@ export class QueueManager {
 
 			// addDownloadItem es una acción explícita del usuario → forzar unpause e iniciar procesamiento
 			// autoProcess solo controla el inicio automático durante la inicialización del sistema.
+			// Pero respetar restricciones de red (ej: WiFi-only en cellular)
 			if (!this.isProcessing) {
-				if (this.isPaused) {
+				if (this.canDownloadNow()) {
+					if (this.isPaused) {
+						this.currentLogger.info(
+							TAG,
+							"Force unpausing: user explicitly requested download"
+						);
+						this.isPaused = false;
+					}
+					this.currentLogger.debug(TAG, "Starting processing due to new download added");
+					this.startProcessing();
+				} else {
 					this.currentLogger.info(
 						TAG,
-						"Force unpausing: user explicitly requested download"
+						"Download queued but network conditions prevent starting"
 					);
-					this.isPaused = false;
 				}
-				this.currentLogger.debug(TAG, "Starting processing due to new download added");
-				this.startProcessing();
 			}
 
 			return downloadItem.id;
@@ -1269,7 +1288,25 @@ export class QueueManager {
 			// Limpiar estado si falla
 			this.currentlyDownloading.delete(nextDownloadId);
 			if (nextDownloadId) {
-				await this.updateDownloadState(nextDownloadId, DownloadStates.FAILED);
+				// Si el error es de red, volver a QUEUED para reintentar en el siguiente ciclo
+				const isNetworkError =
+					error instanceof PlayerError &&
+					(error.key === "NETWORK_DOWNLOADS_WIFI_RESTRICTED" ||
+						error.key === "NETWORK_CONNECTION_001" ||
+						(error.context?.originalError instanceof PlayerError &&
+							(error.context.originalError.key ===
+								"NETWORK_DOWNLOADS_WIFI_RESTRICTED" ||
+								error.context.originalError.key === "NETWORK_CONNECTION_001")));
+
+				if (isNetworkError) {
+					this.currentLogger.info(
+						TAG,
+						`Download ${nextDownloadId} returned to QUEUED due to network conditions`
+					);
+					await this.updateDownloadState(nextDownloadId, DownloadStates.QUEUED);
+				} else {
+					await this.updateDownloadState(nextDownloadId, DownloadStates.FAILED);
+				}
 			}
 		}
 	}
@@ -1459,26 +1496,17 @@ export class QueueManager {
 	 */
 
 	public async notifyDownloadFailed(downloadId: string, error: unknown): Promise<void> {
-		// DEBUG: Log when notifyDownloadFailed is called
-		console.log(`[QueueManager] 🔴 notifyDownloadFailed called for: ${downloadId}`);
-		console.log(
-			`[QueueManager] 🔴 Queue has ${this.downloadQueue.size} items: [${Array.from(this.downloadQueue.keys()).join(", ")}]`
-		);
-
 		const item = this.downloadQueue.get(downloadId);
 
 		// DEDUPLICATION: If item is already FAILED, skip processing
 		// This prevents race conditions when multiple error events arrive for the same download
 		if (item?.state === DownloadStates.FAILED) {
-			console.log(`[QueueManager] 🔴 Item already FAILED, skipping duplicate notification`);
 			return;
 		}
 
 		if (item) {
-			console.log(`[QueueManager] 🔴 Item found, calling handleDownloadFailure`);
 			await this.handleDownloadFailure(downloadId, item, error);
 		} else {
-			console.log(`[QueueManager] 🔴 Item NOT found in queue for downloadId: ${downloadId}`);
 			// Limpiar por seguridad aunque no esté en la cola
 			this.currentlyDownloading.delete(downloadId);
 			speedCalculator.clear(downloadId);
@@ -1631,14 +1659,7 @@ export class QueueManager {
 			this.retryTracker.delete(downloadId);
 			await this.updateDownloadState(downloadId, DownloadStates.FAILED);
 
-			// DEBUG: Verify state was updated
 			const updatedItem = this.downloadQueue.get(downloadId);
-			console.log(`[QueueManager] 🔴 After updateDownloadState FAILED:`, {
-				downloadId,
-				newState: updatedItem?.state,
-				expectedState: DownloadStates.FAILED,
-				stateMatches: updatedItem?.state === DownloadStates.FAILED,
-			});
 
 			// CRITICAL: Emit FAILED event so UI can update
 			this.currentLogger.error(
@@ -1699,16 +1720,8 @@ export class QueueManager {
 		// Handle both string errors and object errors with message property
 		const errorMessage = typeof error === "string" ? error : errorObj?.message || "";
 
-		// DEBUG: Log error analysis
-		console.log("[QueueManager] 🔍 isNonRetryableError analyzing:", {
-			errorType: typeof error,
-			errorCode,
-			errorMessage: errorMessage.substring(0, 100),
-		});
-
 		// NO_SPACE_LEFT errors should not be retried
 		if (errorCode === "NO_SPACE_LEFT" || errorCode === "DOWNLOAD_NO_SPACE") {
-			console.log("[QueueManager] 🔍 Detected NO_SPACE error - non-retryable");
 			return true;
 		}
 
@@ -1720,7 +1733,6 @@ export class QueueManager {
 			lowerMessage.includes("insufficient storage") ||
 			lowerMessage.includes("disk full")
 		) {
-			console.log("[QueueManager] 🔍 Detected space error - non-retryable");
 			return true;
 		}
 
@@ -1735,7 +1747,6 @@ export class QueueManager {
 			lowerMessage.includes("unauthorized") ||
 			lowerMessage.includes("forbidden")
 		) {
-			console.log("[QueueManager] 🔍 Detected HTTP 4xx error - non-retryable");
 			return true;
 		}
 
@@ -1746,11 +1757,9 @@ export class QueueManager {
 			lowerMessage.includes("asset directory") ||
 			lowerMessage.includes("asset size too small")
 		) {
-			console.log("[QueueManager] 🔍 Detected asset validation error - non-retryable");
 			return true;
 		}
 
-		console.log("[QueueManager] 🔍 Error is retryable");
 		return false;
 	}
 

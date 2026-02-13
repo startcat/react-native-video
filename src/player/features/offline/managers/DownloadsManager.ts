@@ -364,9 +364,55 @@ export class DownloadsManager {
 
 	private handleConfigEvent(data: unknown): void {
 		try {
-			const eventData = data as { type?: string; [key: string]: unknown };
+			const eventData = data as {
+				type?: string;
+				property?: string;
+				newValue?: unknown;
+				[key: string]: unknown;
+			};
 			// Los cambios de configuración pueden requerir aplicar nuevas políticas
 			this.setupGlobalPolicies();
+
+			// Si cambió download_just_wifi, pausar o reanudar descargas activas según corresponda
+			if (eventData.property === "download_just_wifi") {
+				const wifiOnly = eventData.newValue as boolean;
+				if (wifiOnly && !networkService.isWifiConnected() && networkService.isOnline()) {
+					this.currentLogger.info(
+						TAG,
+						"WiFi-only enabled while on cellular: pausing active downloads"
+					);
+					this.pauseAll().catch(error => {
+						this.currentLogger.error(
+							TAG,
+							"Failed to pause downloads on policy change",
+							error
+						);
+					});
+				} else if (!wifiOnly) {
+					if (this.state.isPaused) {
+						this.currentLogger.info(
+							TAG,
+							"WiFi-only disabled: resuming paused downloads"
+						);
+						this.resumeAll().catch(error => {
+							this.currentLogger.error(
+								TAG,
+								"Failed to resume downloads on policy change",
+								error
+							);
+						});
+					} else {
+						// Downloads may be stuck in QUEUED because they were added while
+						// WiFi-only was active (canDownloadNow() returned false).
+						// isPaused is false so resumeAll won't help — force queue processing.
+						this.currentLogger.info(
+							TAG,
+							"WiFi-only disabled: restarting queue processing for pending downloads"
+						);
+						queueManager.start();
+					}
+				}
+			}
 
 			this.eventEmitter.emit("config:" + (eventData.type || "unknown"), {
 				...eventData,
@@ -410,16 +456,6 @@ export class DownloadsManager {
 				[key: string]: unknown;
 			};
 
-			// DEBUG: Log all download events to ensure they're being received
-			if (type === DownloadEventType.FAILED) {
-				console.log(`[DownloadsManager] 🚨 FAILED event received:`, {
-					type,
-					downloadId: eventData.taskId || eventData.downloadId,
-					error: eventData.error,
-					errorCode: eventData.errorCode,
-				});
-			}
-
 			// Invalidar cache de estadísticas cuando hay cambios
 			this.invalidateStatsCache();
 
@@ -431,14 +467,6 @@ export class DownloadsManager {
 			this.applyGlobalPolicies(type, eventData);
 
 			// Propagar evento enriquecido para hooks
-			// DEBUG: Log event propagation for FAILED events
-			if (type === DownloadEventType.FAILED) {
-				console.log("[DownloadsManager] 📢 Propagating FAILED event to subscribers:", {
-					type,
-					taskId: eventData.taskId || eventData.downloadId,
-				});
-			}
-
 			this.eventEmitter.emit(type, {
 				...eventData,
 				sourceType,

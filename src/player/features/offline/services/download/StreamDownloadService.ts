@@ -407,15 +407,7 @@ export class StreamDownloadService {
 
 	private async recoverPendingDownloads(): Promise<void> {
 		try {
-			console.log("[StreamDownloadService] Attempting to recover pending downloads...");
 			const downloads = await nativeManager.getDownloads();
-
-			console.log("[StreamDownloadService] getDownloads() returned:", downloads);
-			console.log("[StreamDownloadService] getDownloads() type:", typeof downloads);
-			console.log(
-				"[StreamDownloadService] getDownloads() is array:",
-				Array.isArray(downloads)
-			);
 
 			// Validar que downloads es un array válido
 			if (!downloads || !Array.isArray(downloads)) {
@@ -562,13 +554,6 @@ export class StreamDownloadService {
 	 */
 
 	public async startDownload(task: StreamDownloadTask): Promise<void> {
-		// DEBUG: Log when startDownload is called
-		console.log(`[StreamDownloadService] 🚀 startDownload CALLED for ${task.id}`);
-		console.log(`[StreamDownloadService] 🚀 isInitialized: ${this.isInitialized}`);
-		console.log(
-			`[StreamDownloadService] 🚀 activeDownloads.size: ${this.activeDownloads.size}, maxConcurrent: ${this.config.maxConcurrentDownloads}`
-		);
-
 		if (!this.isInitialized) {
 			throw new PlayerError("DOWNLOAD_MODULE_UNAVAILABLE");
 		}
@@ -737,15 +722,6 @@ export class StreamDownloadService {
 	 */
 
 	private async executeStreamDownload(task: StreamDownloadTask): Promise<void> {
-		// DEBUG: Log when stream download execution starts
-		console.log(`[StreamDownloadService] 🎬 executeStreamDownload CALLED for ${task.id}`);
-		console.log(
-			`[StreamDownloadService] 🎬 Current activeDownloads count: ${this.activeDownloads.size}`
-		);
-		console.log(
-			`[StreamDownloadService] 🎬 Current downloadQueue length: ${this.downloadQueue.length}`
-		);
-
 		// Preservar retryCount existente si hay un download previo
 		const existingDownload = this.activeDownloads.get(task.id);
 		const currentRetryCount = existingDownload ? existingDownload.retryCount : 0;
@@ -763,9 +739,6 @@ export class StreamDownloadService {
 			},
 		};
 
-		console.log(
-			`[StreamDownloadService] ExecuteStreamDownload - Preserving retryCount: ${currentRetryCount} for ${task.id}`
-		);
 		this.activeDownloads.set(task.id, activeDownload);
 
 		try {
@@ -773,9 +746,6 @@ export class StreamDownloadService {
 			let effectiveQuality = task.config.quality;
 			if (!effectiveQuality || effectiveQuality === "auto") {
 				effectiveQuality = this.config.defaultQuality;
-				console.log(
-					`[StreamDownloadService] Quality normalized from "${task.config.quality}" to "${effectiveQuality}" (using service default)`
-				);
 
 				// Actualizar el task para que refleje la calidad efectiva
 				task.config.quality = effectiveQuality;
@@ -816,26 +786,11 @@ export class StreamDownloadService {
 				nativeConfig.drm = task.config.drm;
 			}
 
-			console.log(
-				`[StreamDownloadService] Creating native config for ${task.id}:`,
-				JSON.stringify(nativeConfig, null, 2)
-			);
-			console.log(
-				"[StreamDownloadService] Task config details:",
-				JSON.stringify(task.config, null, 2)
-			);
-
 			// Pequeño delay para evitar problemas de concurrencia
 			await new Promise(resolve => setTimeout(resolve, 100));
 
 			// Iniciar descarga nativa
-			console.log(
-				`[StreamDownloadService] About to call nativeManager.addDownload for ${task.id}`
-			);
 			await nativeManager.addDownload(nativeConfig);
-			console.log(
-				`[StreamDownloadService] nativeManager.addDownload completed for ${task.id}`
-			);
 
 			// FIX: Ensure the native DownloadService is unpaused after adding a download.
 			// During initialization, startDownloadService() pauses all downloads. The native
@@ -974,9 +929,6 @@ export class StreamDownloadService {
 		// Usar regex para evitar bug de React Native con new URL()
 		const isHttps = /^https?:\/\//.test(url.trim());
 		const isManifest = url.includes(".m3u8") || url.includes(".mpd");
-
-		console.log(`[StreamDownloadService] Validating manifest URL: ${url}`);
-		console.log(`[StreamDownloadService] isHttps: ${isHttps}, isManifest: ${isManifest}`);
 
 		return isHttps && isManifest;
 	}
