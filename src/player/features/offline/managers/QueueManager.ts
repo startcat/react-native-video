@@ -1081,6 +1081,13 @@ export class QueueManager {
 	 */
 
 	public start(): void {
+		if (this.processingInterval) {
+			// Interval already running — force an immediate processQueue() so that
+			// downloads waiting for changed network conditions are picked up now
+			// instead of waiting for the next interval tick.
+			this.processQueue();
+			return;
+		}
 		this.startProcessing();
 	}
 
