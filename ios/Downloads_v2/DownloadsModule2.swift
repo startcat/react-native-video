@@ -552,16 +552,23 @@ class DownloadsModule2: RCTEventEmitter {
                     self.downloadTasks.removeValue(forKey: downloadId)
                 }
                 
-                // Remove download info
+                // IMPORTANT: Remove downloaded files FIRST, while references still exist
+                // removeDownloadedFiles() needs activeDownloads[id]?.assetPath and
+                // UserDefaults savedPaths[id] to locate HLS .movpkg bundles on disk
+                try self.removeDownloadedFiles(for: downloadId)
+                
+                // Now remove references (after files are deleted)
                 self.activeDownloads.removeValue(forKey: downloadId)
                 self.lastProgressUpdate.removeValue(forKey: downloadId)
                 self.lastReportedProgress.removeValue(forKey: downloadId)
                 
-                // Remove asset path from UserDefaults (IMPORTANTE para cálculo de espacio)
+                // Remove asset path and bookmark from UserDefaults
                 self.removeAssetPath(forDownloadId: downloadId)
+                self.removeAssetBookmark(forDownloadId: downloadId)
+                self.removeAllSubtitleBookmarks(forDownloadId: downloadId)
                 
-                // Remove downloaded files
-                try self.removeDownloadedFiles(for: downloadId)
+                // Clean up pending location if exists
+                self.pendingLocations.removeValue(forKey: downloadId)
                 
                 // Persistir estado actualizado
                 self.persistDownloadState()
@@ -627,11 +634,11 @@ class DownloadsModule2: RCTEventEmitter {
             }
             
             if let downloadTask = self.downloadTasks[downloadId] {
+                // Task exists — resume it normally
                 downloadTask.resume()
                 downloadInfo.state = .downloading
                 self.activeDownloads[downloadId] = downloadInfo
                 
-                // Persistir estado
                 self.persistDownloadState()
                 self.startProgressTimerIfNeeded()
                 
@@ -639,10 +646,90 @@ class DownloadsModule2: RCTEventEmitter {
                     "id": downloadId,
                     "state": downloadInfo.state.stringValue
                 ])
-            }
-            
-            DispatchQueue.main.async {
-                resolve(nil)
+                
+                DispatchQueue.main.async {
+                    resolve(nil)
+                }
+            } else {
+                // FIX: Task lost after app kill — recreate from scratch.
+                // AVAggregateAssetDownloadTask does not survive app termination.
+                // We must create a new task using the persisted download info.
+                // The download will restart from 0% (HLS limitation on iOS).
+                RCTLog("[DownloadsModule2] Task lost for \(downloadId) — recreating download from scratch")
+                
+                self.sendEvent(withName: "overonDownloadResumeDeferred", body: [
+                    "id": downloadId,
+                    "reason": "iOS task was lost after app kill - HLS downloads must restart",
+                    "previousProgress": Int(downloadInfo.progress * 100)
+                ])
+                
+                do {
+                    guard let url = URL(string: downloadInfo.uri) else {
+                        throw NSError(domain: "DownloadsModule2", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URI for recreating download"])
+                    }
+                    
+                    var assetOptions: [String: Any] = [:]
+                    var headers: [String: String] = [:]
+                    headers["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                    assetOptions["AVURLAssetHTTPHeaderFieldsKey"] = headers
+                    if let cookies = HTTPCookieStorage.shared.cookies {
+                        assetOptions[AVURLAssetHTTPCookiesKey] = cookies
+                    }
+                    
+                    let asset = AVURLAsset(url: url, options: assetOptions)
+                    
+                    // Clean up old partial .movpkg if it exists
+                    if let oldAssetPath = downloadInfo.assetPath, !oldAssetPath.isEmpty {
+                        try? FileManager.default.removeItem(atPath: oldAssetPath)
+                    }
+                    
+                    let newTask = try self.createDownloadTask(for: asset, with: downloadInfo, downloadId: downloadId)
+                    self.downloadTasks[downloadId] = newTask
+                    
+                    // Reset progress since we're starting fresh
+                    downloadInfo.state = .downloading
+                    downloadInfo.progress = 0.0
+                    downloadInfo.downloadedBytes = 0
+                    downloadInfo.speed = 0.0
+                    downloadInfo.remainingTime = 0
+                    downloadInfo.assetPath = nil
+                    self.activeDownloads[downloadId] = downloadInfo
+                    
+                    newTask.resume()
+                    
+                    self.persistDownloadState()
+                    self.startProgressTimerIfNeeded()
+                    
+                    self.sendEvent(withName: "overonDownloadStateChanged", body: [
+                        "id": downloadId,
+                        "state": downloadInfo.state.stringValue
+                    ])
+                    
+                    RCTLog("[DownloadsModule2] Successfully recreated download task for \(downloadId)")
+                    
+                    DispatchQueue.main.async {
+                        resolve(nil)
+                    }
+                } catch {
+                    RCTLog("[DownloadsModule2] Failed to recreate download task for \(downloadId): \(error.localizedDescription)")
+                    
+                    downloadInfo.state = .failed
+                    downloadInfo.error = error
+                    self.activeDownloads[downloadId] = downloadInfo
+                    self.persistDownloadState()
+                    
+                    self.sendEvent(withName: "overonDownloadError", body: [
+                        "id": downloadId,
+                        "error": [
+                            "code": "RECREATE_FAILED",
+                            "message": "Failed to recreate download after app restart: \(error.localizedDescription)"
+                        ]
+                    ])
+                    
+                    DispatchQueue.main.async {
+                        reject("RECREATE_FAILED", "Failed to recreate download: \(error.localizedDescription)", error)
+                    }
+                }
             }
         }
     }
@@ -705,12 +792,27 @@ class DownloadsModule2: RCTEventEmitter {
         downloadQueue.async { [weak self] in
             guard let self = self else { return }
             
-            for (downloadId, downloadTask) in self.downloadTasks {
+            for (_, downloadTask) in self.downloadTasks {
                 downloadTask.cancel()
+            }
+            
+            // Clean up files BEFORE removing references
+            for (downloadId, _) in self.activeDownloads {
+                try? self.removeDownloadedFiles(for: downloadId)
+                self.removeAssetPath(forDownloadId: downloadId)
+                self.removeAssetBookmark(forDownloadId: downloadId)
+                self.removeAllSubtitleBookmarks(forDownloadId: downloadId)
             }
             
             self.downloadTasks.removeAll()
             self.activeDownloads.removeAll()
+            self.pendingLocations.removeAll()
+            self.lastProgressUpdate.removeAll()
+            self.lastReportedProgress.removeAll()
+            
+            self.persistDownloadState()
+            self.invalidateDownloadSpaceCache()
+            self.stopProgressTimerIfNotNeeded()
             
             DispatchQueue.main.async {
                 resolve(nil)
@@ -1105,10 +1207,19 @@ class DownloadsModule2: RCTEventEmitter {
         
         print("📥 [DownloadsModule2] Session config: allowsCellular=\(allowCellularDownloads), isDiscretionary=false, waitsForConnectivity=true")
         
+        // IMPORTANT: Use downloadQueue as delegate queue to ensure thread safety.
+        // All delegate callbacks will run on the same serial queue as download operations.
+        // This prevents race conditions when accessing shared dictionaries (downloadTasks, activeDownloads).
+        // Previously used OperationQueue.main which caused crashes when delegates read downloadTasks
+        // concurrently with addDownload writing to it from downloadQueue.
+        let delegateOperationQueue = OperationQueue()
+        delegateOperationQueue.underlyingQueue = downloadQueue
+        delegateOperationQueue.maxConcurrentOperationCount = 1
+        
         downloadsSession = AVAssetDownloadURLSession(
             configuration: config,
             assetDownloadDelegate: self,
-            delegateQueue: OperationQueue.main  // Use main queue for delegate callbacks
+            delegateQueue: delegateOperationQueue
         )
         
         // SOLUCIÓN 2: Recuperar tareas pendientes del sistema
@@ -1129,6 +1240,13 @@ class DownloadsModule2: RCTEventEmitter {
         
         // SOLUCIÓN 3: Restaurar estado de descargas persistidas
         restoreDownloadStates()
+        
+        // SOLUCIÓN 4: Purge orphaned .movpkg files from previous sessions
+        // This handles edge cases where downloads were cancelled/failed but files weren't deleted
+        let purgeResult = doPurgeOrphanedAssets()
+        if let deletedCount = (purgeResult["deletedFiles"] as? [String])?.count, deletedCount > 0 {
+            RCTLog("[DownloadsModule2] Init purge cleaned \(deletedCount) orphaned files")
+        }
     }
     
     private func createDirectoriesIfNeeded() throws {
@@ -1175,7 +1293,10 @@ class DownloadsModule2: RCTEventEmitter {
         
         DispatchQueue.main.async { [weak self] in
             self?.progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-                self?.checkProgressUpdates()
+                // Dispatch to downloadQueue to safely access activeDownloads
+                self?.downloadQueue.async {
+                    self?.checkProgressUpdates()
+                }
             }
             // Ensure timer runs during scroll
             if let timer = self?.progressTimer {
@@ -1455,16 +1576,27 @@ class DownloadsModule2: RCTEventEmitter {
     
     private func removeDownloadedFiles(for downloadId: String) throws {
         let fileManager = FileManager.default
+        var deletedAny = false
         
         // Try to get asset path from activeDownloads first
         let downloadInfo = activeDownloads[downloadId]
         
         // If asset path exists in memory, delete the downloaded asset
-        if let assetPath = downloadInfo?.assetPath {
+        if let assetPath = downloadInfo?.assetPath, !assetPath.isEmpty {
             let assetURL = URL(fileURLWithPath: assetPath)
             if fileManager.fileExists(atPath: assetPath) {
-                try fileManager.removeItem(at: assetURL)
+                do {
+                    try fileManager.removeItem(at: assetURL)
+                    deletedAny = true
+                    RCTLog("[DownloadsModule2] Deleted asset from activeDownloads path: \(assetPath)")
+                } catch {
+                    RCTLog("[DownloadsModule2] Failed to delete from activeDownloads path: \(assetPath) - \(error.localizedDescription)")
+                }
+            } else {
+                RCTLog("[DownloadsModule2] Asset not found at activeDownloads path: \(assetPath)")
             }
+        } else {
+            RCTLog("[DownloadsModule2] No assetPath in activeDownloads for \(downloadId)")
         }
         
         // IMPORTANTE: También intentar obtener el path desde UserDefaults
@@ -1474,14 +1606,42 @@ class DownloadsModule2: RCTEventEmitter {
            let savedAssetPath = assetPaths[downloadId] {
             if fileManager.fileExists(atPath: savedAssetPath) {
                 try? fileManager.removeItem(atPath: savedAssetPath)
+                deletedAny = true
+                RCTLog("[DownloadsModule2] Deleted asset from UserDefaults path: \(savedAssetPath)")
             }
             // Try without /.nofollow prefix
             if savedAssetPath.hasPrefix("/.nofollow") {
                 let cleanPath = String(savedAssetPath.dropFirst("/.nofollow".count))
                 if fileManager.fileExists(atPath: cleanPath) {
                     try? fileManager.removeItem(atPath: cleanPath)
+                    deletedAny = true
+                    RCTLog("[DownloadsModule2] Deleted asset from clean path: \(cleanPath)")
                 }
             }
+        }
+        
+        // Fallback: Resolve via bookmark data (survives sandbox UUID changes)
+        // This handles cases where raw paths are stale after recompilation
+        if let resolvedURL = resolveAssetBookmark(forDownloadId: downloadId) {
+            if fileManager.fileExists(atPath: resolvedURL.path) {
+                try? fileManager.removeItem(at: resolvedURL)
+                deletedAny = true
+                RCTLog("[DownloadsModule2] Deleted asset from bookmark: \(resolvedURL.path)")
+            }
+        }
+        
+        // Fallback: Check pendingLocations (in-memory, for downloads cancelled mid-progress)
+        if let pendingURL = pendingLocations[downloadId] {
+            if fileManager.fileExists(atPath: pendingURL.path) {
+                try? fileManager.removeItem(at: pendingURL)
+                deletedAny = true
+                RCTLog("[DownloadsModule2] Deleted asset from pendingLocations: \(pendingURL.path)")
+            }
+            pendingLocations.removeValue(forKey: downloadId)
+        }
+        
+        if !deletedAny {
+            RCTLog("[DownloadsModule2] ⚠️ No files found to delete for \(downloadId)")
         }
         
         // Also clean up any files in the download directory with this ID
@@ -1521,6 +1681,165 @@ class DownloadsModule2: RCTEventEmitter {
                 }
             }
         }
+    }
+    
+    // MARK: - Orphaned Asset Cleanup
+    
+    /// Purge orphaned .movpkg files that are not referenced by any active download.
+    /// This handles cases where downloads were cancelled/failed and the normal cleanup missed the files.
+    /// Also cancels orphaned tasks in the iOS download session.
+    @objc func purgeOrphanedAssets(_ resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
+        downloadQueue.async { [weak self] in
+            guard let self = self else { return }
+            
+            let result = self.doPurgeOrphanedAssets()
+            
+            DispatchQueue.main.async {
+                resolve(result)
+            }
+        }
+    }
+    
+    /// Internal purge implementation — can be called from init or from JS
+    private func doPurgeOrphanedAssets() -> [String: Any] {
+        let fileManager = FileManager.default
+        var deletedFiles: [String] = []
+        var freedBytes: Int64 = 0
+        var cancelledTasks = 0
+        
+        // Build set of known download IDs (completed downloads that should keep their files)
+        let knownCompletedIds = Set(activeDownloads.filter { $0.value.state == .completed }.keys)
+        let knownAssetPaths = Set(activeDownloads.compactMap { $0.value.assetPath }.filter { !$0.isEmpty })
+        
+        RCTLog("[DownloadsModule2] Purge: \(knownCompletedIds.count) completed downloads, \(activeDownloads.count) total active")
+        
+        // 1. Scan Library/ for .movpkg directories (where iOS stores HLS downloads)
+        let homeDir = NSHomeDirectory()
+        let libraryURL = URL(fileURLWithPath: homeDir).appendingPathComponent("Library")
+        
+        if let enumerator = fileManager.enumerator(
+            at: libraryURL,
+            includingPropertiesForKeys: [.isDirectoryKey, .totalFileAllocatedSizeKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for case let fileURL as URL in enumerator {
+                // Look for .movpkg directories
+                if fileURL.pathExtension == "movpkg" {
+                    let path = fileURL.path
+                    
+                    // Check if this .movpkg is referenced by any active download
+                    let isReferenced = knownAssetPaths.contains(where: { savedPath in
+                        path == savedPath || 
+                        path.hasSuffix(URL(fileURLWithPath: savedPath).lastPathComponent) ||
+                        savedPath.hasSuffix(fileURL.lastPathComponent)
+                    })
+                    
+                    if !isReferenced {
+                        // Calculate size before deleting
+                        let size = self.calculateAssetSize(at: fileURL)
+                        
+                        do {
+                            try fileManager.removeItem(at: fileURL)
+                            deletedFiles.append(fileURL.lastPathComponent)
+                            freedBytes += size
+                            RCTLog("[DownloadsModule2] Purge: deleted orphaned .movpkg: \(fileURL.lastPathComponent) (\(size) bytes)")
+                        } catch {
+                            RCTLog("[DownloadsModule2] Purge: failed to delete \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                        }
+                    }
+                    
+                    // Don't descend into .movpkg directories
+                    enumerator.skipDescendants()
+                }
+            }
+        }
+        
+        // 2. Also scan Documents/Downloads/ for any orphaned files
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let downloadDir = documentsPath.appendingPathComponent(downloadDirectory)
+        
+        if fileManager.fileExists(atPath: downloadDir.path) {
+            if let enumerator = fileManager.enumerator(
+                at: downloadDir,
+                includingPropertiesForKeys: [.isDirectoryKey, .totalFileAllocatedSizeKey],
+                options: [.skipsHiddenFiles]
+            ) {
+                for case let fileURL as URL in enumerator {
+                    if fileURL.pathExtension == "movpkg" {
+                        let isReferenced = knownAssetPaths.contains(where: { savedPath in
+                            fileURL.path == savedPath || savedPath.hasSuffix(fileURL.lastPathComponent)
+                        })
+                        
+                        if !isReferenced {
+                            let size = self.calculateAssetSize(at: fileURL)
+                            do {
+                                try fileManager.removeItem(at: fileURL)
+                                deletedFiles.append(fileURL.lastPathComponent)
+                                freedBytes += size
+                                RCTLog("[DownloadsModule2] Purge: deleted orphaned .movpkg in Downloads: \(fileURL.lastPathComponent)")
+                            } catch {
+                                RCTLog("[DownloadsModule2] Purge: failed to delete \(fileURL.lastPathComponent): \(error.localizedDescription)")
+                            }
+                        }
+                        enumerator.skipDescendants()
+                    }
+                }
+            }
+        }
+        
+        // 3. Cancel orphaned tasks in the download session
+        downloadsSession?.getAllTasks { [weak self] tasks in
+            guard let self = self else { return }
+            
+            for task in tasks {
+                if let aggregateTask = task as? AVAggregateAssetDownloadTask {
+                    let taskId = self.findDownloadId(for: aggregateTask)
+                    
+                    // If we can't find this task in our tracking, it's orphaned
+                    if taskId == nil || !self.activeDownloads.keys.contains(taskId!) {
+                        task.cancel()
+                        cancelledTasks += 1
+                        RCTLog("[DownloadsModule2] Purge: cancelled orphaned session task")
+                    }
+                } else {
+                    // Unknown task type — cancel it
+                    task.cancel()
+                    cancelledTasks += 1
+                }
+            }
+            
+            if cancelledTasks > 0 {
+                RCTLog("[DownloadsModule2] Purge: cancelled \(cancelledTasks) orphaned session tasks")
+            }
+        }
+        
+        // 4. Clean up UserDefaults entries for non-existent downloads
+        let savedPaths = loadAssetPaths()
+        var cleanedPaths = 0
+        for (id, _) in savedPaths {
+            if !activeDownloads.keys.contains(id) {
+                removeAssetPath(forDownloadId: id)
+                removeAssetBookmark(forDownloadId: id)
+                removeAllSubtitleBookmarks(forDownloadId: id)
+                cleanedPaths += 1
+            }
+        }
+        
+        if deletedFiles.count > 0 || cleanedPaths > 0 {
+            invalidateDownloadSpaceCache()
+        }
+        
+        let result: [String: Any] = [
+            "deletedFiles": deletedFiles,
+            "freedBytes": freedBytes,
+            "freedMB": Double(freedBytes) / 1024.0 / 1024.0,
+            "cancelledTasks": cancelledTasks,
+            "cleanedPaths": cleanedPaths
+        ]
+        
+        RCTLog("[DownloadsModule2] Purge complete: \(deletedFiles.count) files deleted, \(String(format: "%.1f", Double(freedBytes) / 1024.0 / 1024.0)) MB freed, \(cancelledTasks) tasks cancelled, \(cleanedPaths) paths cleaned")
+        
+        return result
     }
     
     private func releaseLicenseForDownload(_ downloadId: String) {
@@ -1737,6 +2056,17 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         
         // Store the location - this is where the .movpkg will be saved
         pendingLocations[downloadId] = location
+        
+        // IMPORTANT: Persist asset path immediately so we can clean up
+        // if the download is cancelled or fails before completion.
+        // Previously, assetPath was only saved in finalizeDownload (on success),
+        // leaving orphaned .movpkg files when downloads were cancelled/failed.
+        if var downloadInfo = activeDownloads[downloadId] {
+            downloadInfo.assetPath = location.path
+            activeDownloads[downloadId] = downloadInfo
+        }
+        saveAssetPath(location.path, forDownloadId: downloadId)
+        saveAssetBookmark(for: location, downloadId: downloadId)
     }
     
     /// Called when a child download task completes for each media selection (subtitles, audio tracks)

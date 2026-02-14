@@ -681,6 +681,32 @@ export class NativeManager {
 		}
 	}
 
+	public async purgeOrphanedAssets(): Promise<{
+		deletedFiles: string[];
+		freedBytes: number;
+		freedMB: number;
+		cancelledTasks: number;
+		cleanedPaths: number;
+	}> {
+		this.validateInitialized();
+
+		try {
+			const result = await this.nativeModule.purgeOrphanedAssets();
+			this.currentLogger.info(TAG, `Purge completed:`, result);
+
+			if (Platform.OS === "ios") {
+				storageService.invalidateDownloadSpaceCache();
+			}
+
+			return result;
+		} catch (error) {
+			this.currentLogger.error(TAG, `Failed to purge orphaned assets`, error);
+			throw new PlayerError("NATIVE_PURGE_FAILED", {
+				originalError: error,
+			});
+		}
+	}
+
 	/*
 	 * API Pública - Control masivo
 	 *
