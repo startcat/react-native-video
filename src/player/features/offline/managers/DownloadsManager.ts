@@ -615,8 +615,23 @@ export class DownloadsManager {
 			});
 		}
 
-		// Política global: reanudar descargas cuando vuelve la conectividad
-		else if (isConnected && !this.state.isPaused) {
+		// Política global: pausar descargas si conectado pero en red no permitida (ej: cellular con WiFi-only)
+		else if (isConnected && !networkService.canDownload() && this.state.isProcessing) {
+			this.currentLogger.info(
+				TAG,
+				"Network restricted (e.g. cellular with WiFi-only) - pausing downloads"
+			);
+			this.pauseAll().catch(error => {
+				this.currentLogger.error(
+					TAG,
+					"Failed to apply network restriction pause policy",
+					error
+				);
+			});
+		}
+
+		// Política global: reanudar descargas cuando vuelve la conectividad adecuada
+		else if (isConnected && !this.state.isPaused && networkService.canDownload()) {
 			this.currentLogger.info(TAG, "Network restored - implementing global resume policy");
 			this.resumeAll().catch(error => {
 				this.currentLogger.error(TAG, "Failed to apply network resume policy", error);

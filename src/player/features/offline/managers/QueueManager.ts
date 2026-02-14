@@ -666,19 +666,37 @@ export class QueueManager {
 	 *
 	 */
 
-	public resumeAll(): void {
+	public async resumeAll(): Promise<void> {
 		this.isPaused = false;
 		this.currentLogger.info(TAG, "All downloads resumed");
 
-		// Sincronizar estado con el módulo nativo después de reanudar
-		// Esto es crítico cuando hay descargas existentes que fueron reanudadas
-		this.syncWithNativeState().catch(error => {
+		// FIX: await syncWithNativeState() to prevent race condition with processQueue().
+		// Previously this was fire-and-forget, causing syncWithNativeState to overwrite
+		// QUEUED states back to PAUSED (native state) while processQueue was trying to
+		// start those same downloads.
+		try {
+			await this.syncWithNativeState();
+		} catch (error) {
 			this.currentLogger.error(
 				TAG,
 				"Failed to sync with native state after resumeAll",
 				error
 			);
-		});
+		}
+
+		// Transition PAUSED downloads back to QUEUED so processQueue can pick them up.
+		// Without this, after pauseAll+resumeAll items stay PAUSED and processQueue
+		// finds nothing to process (it only looks for QUEUED items).
+		for (const [id, item] of this.downloadQueue.entries()) {
+			if (item.state === DownloadStates.PAUSED) {
+				item.state = DownloadStates.QUEUED;
+				this.downloadQueue.set(id, item);
+				this.currentLogger.debug(
+					TAG,
+					`Transitioned ${id} from PAUSED to QUEUED for processing`
+				);
+			}
+		}
 
 		// Iniciar procesamiento si no está activo (caso autoStart: false)
 		// o forzar procesamiento inmediato si ya está activo
@@ -1156,11 +1174,11 @@ export class QueueManager {
 
 	private async doProcessQueue(): Promise<void> {
 		// Verificar límite de descargas concurrentes
-		// IMPORTANTE: Contar tanto descargas con estado DOWNLOADING/PAUSED como las que están en currentlyDownloading
-		// (pueden estar en transición de QUEUED a DOWNLOADING)
+		// FIX: Only count DOWNLOADING as active. PAUSED downloads are not actively downloading
+		// and should not block concurrency slots. Previously, PAUSED items counted as active,
+		// which blocked the queue when syncWithNativeState set items to PAUSED.
 		const stateActive = Array.from(this.downloadQueue.values()).filter(
-			item =>
-				item.state === DownloadStates.DOWNLOADING || item.state === DownloadStates.PAUSED
+			item => item.state === DownloadStates.DOWNLOADING
 		).length;
 		const activeDownloads = Math.max(stateActive, this.currentlyDownloading.size);
 
@@ -1232,9 +1250,7 @@ export class QueueManager {
 
 			// Re-verificar límite de concurrencia después del delay
 			const stateActiveAfterDelay = Array.from(this.downloadQueue.values()).filter(
-				item =>
-					item.state === DownloadStates.DOWNLOADING ||
-					item.state === DownloadStates.PAUSED
+				item => item.state === DownloadStates.DOWNLOADING
 			).length;
 			const activeAfterDelay = Math.max(
 				stateActiveAfterDelay,
@@ -1292,8 +1308,6 @@ export class QueueManager {
 			);
 		} catch (error) {
 			this.currentLogger.error(TAG, `Failed to start download: ${error}`);
-			// Limpiar estado si falla
-			this.currentlyDownloading.delete(nextDownloadId);
 			if (nextDownloadId) {
 				// Si el error es de red, volver a QUEUED para reintentar en el siguiente ciclo
 				const isNetworkError =
@@ -1306,14 +1320,19 @@ export class QueueManager {
 								error.context.originalError.key === "NETWORK_CONNECTION_001")));
 
 				if (isNetworkError) {
+					this.currentlyDownloading.delete(nextDownloadId);
 					this.currentLogger.info(
 						TAG,
 						`Download ${nextDownloadId} returned to QUEUED due to network conditions`
 					);
 					await this.updateDownloadState(nextDownloadId, DownloadStates.QUEUED);
 				} else {
-					await this.updateDownloadState(nextDownloadId, DownloadStates.FAILED);
+					// Usar handleDownloadFailure para emitir DownloadEventType.FAILED
+					// y que la app pueda mostrar el modal de error al usuario
+					await this.handleDownloadFailure(nextDownloadId, nextDownload!, error);
 				}
+			} else {
+				this.currentlyDownloading.delete(nextDownloadId);
 			}
 		}
 	}
@@ -2059,9 +2078,9 @@ export class QueueManager {
 
 				const localItem = this.downloadQueue.get(nativeDownload.id);
 				if (localItem && localItem.state !== nativeDownload.state) {
-					// Proteger estados terminales: COMPLETED y FAILED no deben ser
-					// sobrescritos por el estado nativo. iOS puede reportar streams
-					// completados como "PAUSED", lo que corrompería el estado local.
+					// Proteger estados terminales: COMPLETED and FAILED must not be
+					// overwritten by native state. iOS can report completed streams
+					// as "PAUSED", which would corrupt the local state.
 					if (
 						localItem.state === DownloadStates.COMPLETED ||
 						localItem.state === DownloadStates.FAILED
@@ -2069,6 +2088,22 @@ export class QueueManager {
 						this.currentLogger.debug(
 							TAG,
 							`Skipping sync for ${nativeDownload.id}: terminal state ${localItem.state} preserved (native reported: ${nativeDownload.state})`
+						);
+						continue;
+					}
+
+					// FIX: Protect QUEUED state from being overwritten by native PAUSED.
+					// QUEUED means "pending processing by processQueue()" and must not be
+					// degraded to PAUSED. The native module reports PAUSED because
+					// NativeManager.initializeNativeModule() calls pauseAll() on startup,
+					// but the JS layer intends to restart these downloads.
+					if (
+						localItem.state === DownloadStates.QUEUED &&
+						nativeDownload.state === "PAUSED"
+					) {
+						this.currentLogger.debug(
+							TAG,
+							`Skipping sync for ${nativeDownload.id}: QUEUED state preserved (native reported: PAUSED)`
 						);
 						continue;
 					}
