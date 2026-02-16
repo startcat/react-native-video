@@ -488,6 +488,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
         // OFFLINE PLAYBACK: Try to find downloaded asset
         if _playOffline == true {
+            RCTLog("[OFFLINE][RCTVideo] playOffline=true id=\(String(describing: source.id)) title=\(String(describing: source.title)) hasDRM=\(_drm != nil)")
             // Method 1: Try AssetDownloader (uses title as key) - for DRM content
             if let title = source.title,
                let downloadedAsset = downloader.downloadedAsset(withName: title) {
@@ -518,6 +519,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 // Para contenido offline con DRM, los subtítulos se manejan vía setSelectedTextTrack/setSideloadedText
                 return AVPlayerItem(asset: urlAsset)
             }
+
+            if _drm != nil {
+                if source.title == nil {
+                    RCTLog("[OFFLINE][RCTVideo] Method1 (AssetDownloader) skipped: source.title is nil")
+                } else {
+                    RCTLog("[OFFLINE][RCTVideo] Method1 (AssetDownloader) did not find asset for title: \(source.title!)")
+                }
+            }
             
             // Method 2: Try DownloadsModule2 (uses ID as key) - for non-DRM content
             if let contentId = source.id,
@@ -525,11 +534,47 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 RCTLog("[OFFLINE] Found asset via DownloadsModule2 for ID: \(contentId)")
                 RCTLog("[OFFLINE] Asset URL: \(assetURL)")
                 
+                // Use the downloaded .movpkg URL for offline playback
                 let offlineAsset = AVURLAsset(url: assetURL)
                 RCTLog("[OFFLINE] Created AVURLAsset for offline playback")
+
+                // If DRM is present, wire the offline asset to the FairPlay content key session.
+                if _drm != nil {
+                    RCTLog("[OFFLINE][RCTVideo] DownloadsModule2 path with DRM: wiring ContentKeyManager for offline playback")
+
+                    ContentKeyManager.sharedManager.createContentKeySession()
+                    ContentKeyManager.sharedManager.downloadRequestedByUser = true
+
+                    if ContentKeyManager.sharedManager.asset == nil {
+                        let assetName = source.id ?? source.title ?? "offline-asset"
+                        let drmAsset = Asset(name: assetName, url: assetURL, id: source.id ?? "")
+                        ContentKeyManager.sharedManager.asset = drmAsset
+                        RCTLog("[OFFLINE][RCTVideo] Set ContentKeyManager.asset for offline-by-id playback: \(assetName)")
+                    }
+
+                    if let contentKeySession = ContentKeyManager.sharedManager.contentKeySession {
+                        contentKeySession.addContentKeyRecipient(offlineAsset)
+                        RCTLog("[OFFLINE][RCTVideo] Added offline AVURLAsset as content key recipient")
+                    } else {
+                        RCTLog("[OFFLINE][RCTVideo] WARNING: ContentKeySession is nil; cannot add content key recipient")
+                    }
+
+                    if let licenseServer = _drm?.licenseServer,
+                       let certificateUrl = _drm?.certificateUrl {
+                        ContentKeyManager.sharedManager.licensingServiceUrl = licenseServer
+                        ContentKeyManager.sharedManager.licensingToken = ""
+                        ContentKeyManager.sharedManager.fpsCertificateUrl = certificateUrl
+                    }
+                }
                 // For offline HLS content, sideloaded subtitles are handled via setSelectedTextTrack/setSideloadedText
                 // Note: AVMutableComposition doesn't work with HLS .movpkg assets
                 return AVPlayerItem(asset: offlineAsset)
+            }
+
+            if source.id == nil {
+                RCTLog("[OFFLINE][RCTVideo] Method2 (DownloadsModule2) skipped: source.id is nil")
+            } else {
+                RCTLog("[OFFLINE][RCTVideo] Method2 (DownloadsModule2) did not find asset for id: \(source.id!)")
             }
             
             RCTLog("[OFFLINE] No offline asset found, falling back to online playback")
