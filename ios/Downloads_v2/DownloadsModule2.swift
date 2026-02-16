@@ -1267,7 +1267,9 @@ class DownloadsModule2: RCTEventEmitter {
         contentKeySession = nil
         #else
         contentKeySession = AVContentKeySession(keySystem: .fairPlayStreaming)
-        contentKeySession?.setDelegate(self, queue: downloadQueue)
+        // Forward FairPlay key handling to ContentKeyManager so persistable keys are saved in its .keys directory.
+        // DownloadsModule2 is responsible for adding recipients; ContentKeyManager is responsible for responding to key requests.
+        contentKeySession?.setDelegate(ContentKeyManager.sharedManager, queue: downloadQueue)
         #endif
     }
     
@@ -1570,6 +1572,24 @@ class DownloadsModule2: RCTEventEmitter {
                 userInfo: [NSLocalizedDescriptionKey: "ContentKeySession no inicializada"]
             )
         }
+        // Ensure ContentKeyManager is configured for FairPlay downloads so persistable keys can be stored.
+        if ContentKeyManager.sharedManager.contentKeySession == nil {
+            ContentKeyManager.sharedManager.createContentKeySession()
+        }
+        ContentKeyManager.sharedManager.downloadRequestedByUser = true
+
+        if let licenseServer = (config["licenseServer"] as? String) ?? (config["licenseAcquisitionURL"] as? String) {
+            ContentKeyManager.sharedManager.licensingServiceUrl = licenseServer
+        }
+        if let certificateUrl = (config["certificateUrl"] as? String) ?? (config["certificateURL"] as? String) {
+            ContentKeyManager.sharedManager.fpsCertificateUrl = certificateUrl
+        }
+
+        if ContentKeyManager.sharedManager.asset == nil {
+            let drmAsset = Asset(name: contentId, url: asset.url, id: contentId)
+            ContentKeyManager.sharedManager.asset = drmAsset
+        }
+
         contentKeySession.addContentKeyRecipient(asset)
         #endif
     }
@@ -2911,17 +2931,11 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
 extension DownloadsModule2: AVContentKeySessionDelegate {
     
     func contentKeySession(_ session: AVContentKeySession, didProvide keyRequest: AVContentKeyRequest) {
-        // Handle content key requests for FairPlay DRM
-        handleContentKeyRequest(keyRequest)
+        // If DownloadsModule2 is still the delegate for any reason, forward to ContentKeyManager.
+        ContentKeyManager.sharedManager.contentKeySession(session, didProvide: keyRequest)
     }
     
     func contentKeySession(_ session: AVContentKeySession, didProvideRenewingContentKeyRequest keyRequest: AVContentKeyRequest) {
-        // Handle renewing content key requests
-        handleContentKeyRequest(keyRequest)
-    }
-    
-    private func handleContentKeyRequest(_ keyRequest: AVContentKeyRequest) {
-        // Implementation for handling content key requests
-        // This involves communication with FairPlay licensing server
+        ContentKeyManager.sharedManager.contentKeySession(session, didProvideRenewingContentKeyRequest: keyRequest)
     }
 }
