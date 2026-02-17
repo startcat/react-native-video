@@ -44,6 +44,8 @@ jest.mock("../../managers/QueueManager", () => ({
 		notifyDownloadPaused: jest.fn().mockResolvedValue(undefined),
 		notifyDownloadResumed: jest.fn().mockResolvedValue(undefined),
 		notifyDownloadStateChange: jest.fn().mockResolvedValue(undefined),
+		cleanupCompleted: jest.fn().mockResolvedValue(undefined),
+		clearFailed: jest.fn().mockResolvedValue(undefined),
 	},
 }));
 
@@ -895,10 +897,33 @@ describe("DownloadsManager — Contrato público", () => {
 		});
 	});
 
+	// --- clearCompleted / clearFailed ---
+
+	describe("clearCompleted / clearFailed", () => {
+		it("#58 clearCompleted debe delegar a queueManager.cleanupCompleted", async () => {
+			await manager.clearCompleted();
+
+			expect(mockedQueueManager.cleanupCompleted).toHaveBeenCalled();
+		});
+
+		it("#59 clearFailed debe delegar a queueManager.clearFailed", async () => {
+			await manager.clearFailed();
+
+			expect(mockedQueueManager.clearFailed).toHaveBeenCalled();
+		});
+
+		it("#60 clearCompleted no debe llamar a clearFailed", async () => {
+			await manager.clearCompleted();
+
+			expect(mockedQueueManager.cleanupCompleted).toHaveBeenCalled();
+			expect(mockedQueueManager.clearFailed).not.toHaveBeenCalled();
+		});
+	});
+
 	// --- destroy ---
 
 	describe("destroy", () => {
-		it("#58 debe marcar isInitialized = false", () => {
+		it("#61 debe marcar isInitialized = false", () => {
 			expect(manager.isInitialized()).toBe(true);
 
 			manager.destroy();
@@ -906,7 +931,7 @@ describe("DownloadsManager — Contrato público", () => {
 			expect(manager.isInitialized()).toBe(false);
 		});
 
-		it("#59 debe limpiar event listeners sin lanzar error", () => {
+		it("#62 debe limpiar event listeners sin lanzar error", () => {
 			expect(() => manager.destroy()).not.toThrow();
 		});
 	});
