@@ -1060,6 +1060,18 @@ export class QueueManager {
 	}
 
 	/*
+	 * Suscribe a un evento arbitrario del eventEmitter interno
+	 * Permite suscribirse a eventos custom (max_concurrent_changed, etc.)
+	 * sin acceder directamente al eventEmitter privado
+	 *
+	 */
+
+	public onEvent(event: string, callback: (...args: unknown[]) => void): () => void {
+		this.eventEmitter.on(event, callback);
+		return () => this.eventEmitter.off(event, callback);
+	}
+
+	/*
 	 * Suscribe a eventos de un download específico (OPTIMIZADO)
 	 * Solo emite eventos cuando el downloadId coincide
 	 *

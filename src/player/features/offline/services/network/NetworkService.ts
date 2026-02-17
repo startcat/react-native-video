@@ -427,6 +427,18 @@ export class NetworkService {
 	}
 
 	/*
+	 * Suscribe a un evento arbitrario del eventEmitter interno
+	 * Permite suscribirse a eventos custom (policy_changed, downloads_paused_cellular, etc.)
+	 * sin acceder directamente al eventEmitter privado
+	 *
+	 */
+
+	public onEvent(event: string, callback: (...args: unknown[]) => void): () => void {
+		this.eventEmitter.on(event, callback);
+		return () => this.eventEmitter.off(event, callback);
+	}
+
+	/*
 	 * Maneja cambios en el estado de red
 	 *
 	 */
