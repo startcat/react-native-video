@@ -18,18 +18,9 @@ import { downloadsManager } from "../managers/DownloadsManager";
 import { profileManager } from "../managers/ProfileManager";
 import { queueManager } from "../managers/QueueManager";
 import { downloadService } from "../services/download/DownloadService";
-import { dashManifestParser } from "../services/manifest/DASHManifestParser";
-import { hlsManifestParser } from "../services/manifest/HLSManifestParser";
 import { storageService } from "../services/storage/StorageService";
-import {
-	BinaryDownloadTask,
-	DownloadEventType,
-	DownloadItem,
-	DownloadStates,
-	DownloadType,
-	StreamDownloadTask,
-	UsableDownloadItem,
-} from "../types";
+import { DownloadEventType, DownloadItem, DownloadStates, UsableDownloadItem } from "../types";
+import { createDownloadTask, sortDownloads } from "../utils/downloadTaskFactory";
 import { ensureDownloadId, isValidUri } from "../utils/downloadsUtils";
 
 export interface UseDownloadsListReturn {
@@ -65,39 +56,6 @@ export function useDownloadsList(options: UseDownloadsListOptions = {}): UseDown
 	const [isInitialized, setIsInitialized] = useState(false);
 	const [_error, setError] = useState<PlayerError | null>(null);
 
-	// Función de ordenamiento de descargas (misma lógica que useDownloadsManager)
-	const sortDownloads = useCallback((items: DownloadItem[]): DownloadItem[] => {
-		const statePriority: Record<DownloadStates, number> = {
-			[DownloadStates.DOWNLOADING]: 1,
-			[DownloadStates.DOWNLOADING_ASSETS]: 1,
-			[DownloadStates.PREPARING]: 1,
-			[DownloadStates.QUEUED]: 2,
-			[DownloadStates.PAUSED]: 2,
-			[DownloadStates.WAITING_FOR_NETWORK]: 2,
-			[DownloadStates.FAILED]: 3,
-			[DownloadStates.COMPLETED]: 4,
-			[DownloadStates.RESTART]: 5,
-			[DownloadStates.RESTARTING]: 5,
-			[DownloadStates.REMOVING]: 5,
-			[DownloadStates.STOPPED]: 5,
-			[DownloadStates.NOT_DOWNLOADED]: 5,
-		};
-
-		return [...items].sort((a, b) => {
-			const priorityA = statePriority[a.state] || 5;
-			const priorityB = statePriority[b.state] || 5;
-
-			if (priorityA !== priorityB) {
-				return priorityA - priorityB;
-			}
-
-			const timeA = a.stats.startedAt || 0;
-			const timeB = b.stats.startedAt || 0;
-
-			return timeB - timeA;
-		});
-	}, []);
-
 	// Actualizar lista desde el manager
 	const updateList = useCallback(() => {
 		if (downloadsManager.isInitialized()) {
@@ -105,7 +63,7 @@ export function useDownloadsList(options: UseDownloadsListOptions = {}): UseDown
 			const sortedDownloads = sortDownloads(newDownloads);
 			setDownloads(sortedDownloads);
 		}
-	}, [sortDownloads]);
+	}, []);
 
 	// Inicialización
 	useEffect(() => {
@@ -263,104 +221,11 @@ export function useDownloadsList(options: UseDownloadsListOptions = {}): UseDown
 
 				const downloadId = await queueManager.addDownloadItem(downloadItem);
 
-				let task: BinaryDownloadTask | StreamDownloadTask;
-
-				if (itemWithId.type === DownloadType.BINARY) {
-					const binariesDir = storageService.getBinariesDirectory();
-					task = {
-						id: itemWithId.id,
-						url: itemWithId.uri,
-						destination: `${binariesDir}/${itemWithId.id}`,
-						title: itemWithId.title,
-						headers: {},
-						resumable: true,
-					} as BinaryDownloadTask;
-				} else if (itemWithId.type === DownloadType.STREAM) {
-					let subtitlesForTask = itemWithId.subtitles
-						?.filter(sub => sub.uri && sub.uri.length > 0)
-						.map(sub => ({
-							id: sub.id,
-							uri: sub.uri || "",
-							language: sub.language,
-							label: sub.label,
-							format: sub.format,
-							isDefault: sub.isDefault,
-							encoding: sub.encoding,
-						}));
-
-					const hasValidSubtitles = subtitlesForTask && subtitlesForTask.length > 0;
-					if (!hasValidSubtitles) {
-						const isHLS = itemWithId.uri.includes(".m3u8");
-						const isDASH = itemWithId.uri.includes(".mpd");
-
-						if (isHLS) {
-							try {
-								const manifestSubtitles = await hlsManifestParser.extractSubtitles(
-									itemWithId.uri,
-									itemWithId.headers
-								);
-								if (manifestSubtitles.length > 0) {
-									subtitlesForTask = manifestSubtitles.map(sub => ({
-										id: sub.id,
-										uri: sub.uri,
-										language: sub.language,
-										label: sub.label,
-										format: sub.format,
-										isDefault: sub.isDefault,
-										encoding: undefined,
-									}));
-								}
-							} catch (manifestError) {
-								console.warn(
-									"[useDownloadsList] Failed to extract subtitles from HLS manifest:",
-									manifestError
-								);
-							}
-						} else if (isDASH) {
-							try {
-								const manifestSubtitles = await dashManifestParser.extractSubtitles(
-									itemWithId.uri,
-									itemWithId.headers
-								);
-								if (manifestSubtitles.length > 0) {
-									subtitlesForTask = manifestSubtitles.map(sub => ({
-										id: sub.id,
-										uri: sub.uri,
-										language: sub.language,
-										label: sub.label,
-										format: sub.format,
-										isDefault: sub.isDefault,
-										encoding: undefined,
-									}));
-								}
-							} catch (manifestError) {
-								console.warn(
-									"[useDownloadsList] Failed to extract subtitles from DASH manifest:",
-									manifestError
-								);
-							}
-						}
-					}
-
-					task = {
-						id: itemWithId.id,
-						manifestUrl: itemWithId.uri,
-						title: itemWithId.title,
-						headers: itemWithId.headers,
-						config: {
-							type: itemWithId.uri.includes(".m3u8") ? "HLS" : "DASH",
-							quality: "auto",
-							drm: itemWithId.drm,
-						},
-						subtitles: subtitlesForTask,
-					} as StreamDownloadTask;
-				} else {
-					throw new PlayerError("DOWNLOAD_FAILED", {
-						downloadType: itemWithId.type,
-						downloadId: itemWithId.id,
-						message: `Invalid download type: ${itemWithId.type}`,
-					});
-				}
+				const binariesDir = storageService.getBinariesDirectory();
+				const { task } = await createDownloadTask({
+					item: itemWithId,
+					binariesDir,
+				});
 
 				await downloadsManager.addDownload(task, itemWithId.type);
 
