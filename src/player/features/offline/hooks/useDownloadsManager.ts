@@ -12,11 +12,8 @@ import { downloadsManager } from "../managers/DownloadsManager";
 import { profileManager } from "../managers/ProfileManager";
 import { queueManager } from "../managers/QueueManager";
 import { downloadService } from "../services/download/DownloadService";
-import { dashManifestParser } from "../services/manifest/DASHManifestParser";
-import { hlsManifestParser } from "../services/manifest/HLSManifestParser";
 import { storageService } from "../services/storage/StorageService";
 import {
-	BinaryDownloadTask,
 	DownloadEventType,
 	DownloadItem,
 	DownloadsManagerConfig,
@@ -26,6 +23,7 @@ import {
 	StreamDownloadTask,
 	UsableDownloadItem,
 } from "../types";
+import { createDownloadTask, sortDownloads } from "../utils/downloadTaskFactory";
 import { ensureDownloadId, isValidUri } from "../utils/downloadsUtils";
 
 // Tipos específicos del hook
@@ -115,47 +113,6 @@ export function useDownloadsManager(
 	const [isPaused, setIsPaused] = useState(false);
 	const [error, setError] = useState<PlayerError | null>(null);
 
-	// Función de ordenamiento de descargas
-	const sortDownloads = useCallback((items: DownloadItem[]): DownloadItem[] => {
-		// Definir prioridad de estados
-		const statePriority: Record<DownloadStates, number> = {
-			// Activas (prioridad 1)
-			[DownloadStates.DOWNLOADING]: 1,
-			[DownloadStates.DOWNLOADING_ASSETS]: 1, // Descargando subtítulos/audio
-			[DownloadStates.PREPARING]: 1,
-			// En cola (prioridad 2)
-			[DownloadStates.QUEUED]: 2,
-			[DownloadStates.PAUSED]: 2,
-			[DownloadStates.WAITING_FOR_NETWORK]: 2,
-			// Fallidas (prioridad 3)
-			[DownloadStates.FAILED]: 3,
-			// Completadas (prioridad 4)
-			[DownloadStates.COMPLETED]: 4,
-			// Otros estados (prioridad 5)
-			[DownloadStates.RESTART]: 5,
-			[DownloadStates.RESTARTING]: 5,
-			[DownloadStates.REMOVING]: 5,
-			[DownloadStates.STOPPED]: 5,
-			[DownloadStates.NOT_DOWNLOADED]: 5,
-		};
-
-		return [...items].sort((a, b) => {
-			// 1. Ordenar por prioridad de estado
-			const priorityA = statePriority[a.state] || 5;
-			const priorityB = statePriority[b.state] || 5;
-
-			if (priorityA !== priorityB) {
-				return priorityA - priorityB;
-			}
-
-			// 2. Dentro del mismo grupo, ordenar por fecha de inserción (más reciente primero)
-			const timeA = a.stats.startedAt || 0;
-			const timeB = b.stats.startedAt || 0;
-
-			return timeB - timeA; // Descendente: más reciente primero
-		});
-	}, []);
-
 	// Actualizar estado desde el manager
 	const updateState = useCallback(() => {
 		if (downloadsManager.isInitialized()) {
@@ -174,7 +131,7 @@ export function useDownloadsManager(
 			setIsProcessing(downloadsManager.isProcessing());
 			setIsPaused(downloadsManager.isPaused());
 		}
-	}, [sortDownloads]);
+	}, []);
 
 	const initializeManager = useCallback(async () => {
 		try {
@@ -436,120 +393,11 @@ export function useDownloadsManager(
 				const downloadId = await queueManager.addDownloadItem(downloadItem);
 
 				// 8. Crear tareas específicas según el tipo para el DownloadsManager
-				let task: BinaryDownloadTask | StreamDownloadTask;
-
-				if (itemWithId.type === DownloadType.BINARY) {
-					// Usar ruta absoluta del directorio de binarios
-					const binariesDir = storageService.getBinariesDirectory();
-					task = {
-						id: itemWithId.id,
-						url: itemWithId.uri,
-						destination: `${binariesDir}/${itemWithId.id}`,
-						title: itemWithId.title, // Título para notificaciones
-						headers: {},
-						resumable: true,
-					} as BinaryDownloadTask;
-				} else if (itemWithId.type === DownloadType.STREAM) {
-					// Determinar subtítulos: usar los proporcionados (si tienen URI) o extraer del manifest
-					let subtitlesForTask = itemWithId.subtitles
-						?.filter(sub => sub.uri && sub.uri.length > 0) // Solo subtítulos con URI válida
-						.map(sub => ({
-							id: sub.id,
-							uri: sub.uri || "",
-							language: sub.language,
-							label: sub.label,
-							format: sub.format,
-							isDefault: sub.isDefault,
-							encoding: sub.encoding,
-						}));
-
-					// Si no hay subtítulos con URI válida, extraerlos del manifest (HLS o DASH)
-					const hasValidSubtitles = subtitlesForTask && subtitlesForTask.length > 0;
-					if (!hasValidSubtitles) {
-						const isHLS = itemWithId.uri.includes(".m3u8");
-						const isDASH = itemWithId.uri.includes(".mpd");
-
-						if (isHLS) {
-							console.log(
-								"[useDownloadsManager] No subtitles with valid URI, extracting from HLS manifest..."
-							);
-							try {
-								const manifestSubtitles = await hlsManifestParser.extractSubtitles(
-									itemWithId.uri,
-									itemWithId.headers
-								);
-								if (manifestSubtitles.length > 0) {
-									console.log(
-										`[useDownloadsManager] Extracted ${manifestSubtitles.length} subtitles from HLS manifest`
-									);
-									subtitlesForTask = manifestSubtitles.map(sub => ({
-										id: sub.id,
-										uri: sub.uri,
-										language: sub.language,
-										label: sub.label,
-										format: sub.format,
-										isDefault: sub.isDefault,
-										encoding: undefined,
-									}));
-								}
-							} catch (manifestError) {
-								console.warn(
-									"[useDownloadsManager] Failed to extract subtitles from HLS manifest:",
-									manifestError
-								);
-							}
-						} else if (isDASH) {
-							console.log(
-								"[useDownloadsManager] No subtitles with valid URI, extracting from DASH manifest..."
-							);
-							try {
-								const manifestSubtitles = await dashManifestParser.extractSubtitles(
-									itemWithId.uri,
-									itemWithId.headers
-								);
-								if (manifestSubtitles.length > 0) {
-									console.log(
-										`[useDownloadsManager] Extracted ${manifestSubtitles.length} subtitles from DASH manifest`
-									);
-									subtitlesForTask = manifestSubtitles.map(sub => ({
-										id: sub.id,
-										uri: sub.uri,
-										language: sub.language,
-										label: sub.label,
-										format: sub.format,
-										isDefault: sub.isDefault,
-										encoding: undefined,
-									}));
-								}
-							} catch (manifestError) {
-								console.warn(
-									"[useDownloadsManager] Failed to extract subtitles from DASH manifest:",
-									manifestError
-								);
-							}
-						}
-					}
-
-					task = {
-						id: itemWithId.id,
-						manifestUrl: itemWithId.uri,
-						title: itemWithId.title,
-						headers: itemWithId.headers, // Pasar headers para autenticación
-						config: {
-							type: itemWithId.uri.includes(".m3u8") ? "HLS" : "DASH",
-							quality: "auto",
-							drm: itemWithId.drm,
-						},
-						// Pasar subtítulos para descarga offline (proporcionados o extraídos)
-						subtitles: subtitlesForTask,
-					} as StreamDownloadTask;
-				} else {
-					throw new PlayerError("DOWNLOAD_FAILED", {
-						downloadType: itemWithId.type,
-						downloadId: itemWithId.id,
-						message: `Invalid download type: ${itemWithId.type}`,
-					});
-				}
+				const binariesDir = storageService.getBinariesDirectory();
+				const { task } = await createDownloadTask({
+					item: itemWithId,
+					binariesDir,
+				});
 
 				console.log(
 					`[useDownloadsManager] Download task created: ${itemWithId.title} (${itemWithId.id})`
