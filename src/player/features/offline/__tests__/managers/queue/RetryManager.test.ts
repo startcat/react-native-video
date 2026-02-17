@@ -104,10 +104,25 @@ describe("RetryManager — Contrato público", () => {
 		});
 	});
 
+	// --- clearRetries timer cleanup ---
+
+	describe("clearRetries — timer cleanup", () => {
+		it("#10 cancela timer individual al limpiar retries", () => {
+			const callback = jest.fn();
+			retryManager.scheduleRetry("d1", callback);
+
+			retryManager.clearRetries("d1");
+
+			// Advance past all possible delays
+			jest.advanceTimersByTime(120000);
+			expect(callback).not.toHaveBeenCalled();
+		});
+	});
+
 	// --- destroy ---
 
 	describe("destroy", () => {
-		it("#10 cancela todos los timers pendientes", () => {
+		it("#11 cancela todos los timers pendientes", () => {
 			const callback = jest.fn();
 			retryManager.scheduleRetry("d1", callback);
 			retryManager.scheduleRetry("d2", callback);
@@ -118,12 +133,23 @@ describe("RetryManager — Contrato público", () => {
 			jest.advanceTimersByTime(120000);
 			expect(callback).not.toHaveBeenCalled();
 		});
+
+		it("#12 scheduleRetry después de destroy no programa nada", () => {
+			retryManager.destroy();
+
+			const callback = jest.fn();
+			retryManager.scheduleRetry("d1", callback);
+
+			jest.advanceTimersByTime(120000);
+			expect(callback).not.toHaveBeenCalled();
+			expect(retryManager.getRetryCount("d1")).toBe(0);
+		});
 	});
 
 	// --- edge case ---
 
 	describe("edge cases", () => {
-		it("#11 delay no excede maxDelayMs (60s)", () => {
+		it("#13 delay no excede maxDelayMs (60s)", () => {
 			const rm = new RetryManager({
 				maxRetries: 20,
 				retryDelayMs: 10000,
