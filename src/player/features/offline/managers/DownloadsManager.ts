@@ -1256,12 +1256,12 @@ export class DownloadsManager {
 	}
 
 	public async clearCompleted(): Promise<void> {
-		// TODO: Implementar cuando esté disponible la persistencia
+		await queueManager.cleanupCompleted();
 		this.currentLogger.info(TAG, "Completed downloads cleared");
 	}
 
 	public async clearFailed(): Promise<void> {
-		// TODO: Implementar cuando esté disponible la persistencia
+		await queueManager.clearFailed();
 		this.currentLogger.info(TAG, "Failed downloads cleared");
 	}
 
