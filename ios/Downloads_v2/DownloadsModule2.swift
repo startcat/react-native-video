@@ -2926,16 +2926,3 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         }
     }
 }
-
-// MARK: - AVContentKeySessionDelegate
-extension DownloadsModule2: AVContentKeySessionDelegate {
-    
-    func contentKeySession(_ session: AVContentKeySession, didProvide keyRequest: AVContentKeyRequest) {
-        // If DownloadsModule2 is still the delegate for any reason, forward to ContentKeyManager.
-        ContentKeyManager.sharedManager.contentKeySession(session, didProvide: keyRequest)
-    }
-    
-    func contentKeySession(_ session: AVContentKeySession, didProvideRenewingContentKeyRequest keyRequest: AVContentKeyRequest) {
-        ContentKeyManager.sharedManager.contentKeySession(session, didProvideRenewingContentKeyRequest: keyRequest)
-    }
-}
