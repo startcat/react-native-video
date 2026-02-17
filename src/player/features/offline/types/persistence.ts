@@ -8,7 +8,6 @@ export interface PersistenceConfig {
 	logLevel?: LogLevel;
 	storageKey?: string;
 	encryptionEnabled?: boolean;
-	compressionEnabled?: boolean;
 }
 
 export interface PersistedData {

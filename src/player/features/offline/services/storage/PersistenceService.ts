@@ -97,7 +97,6 @@ export class PersistenceService {
 
 			this.currentLogger.info(TAG, "Initializing PersistenceService", {
 				encryptionEnabled: this.config.encryptionEnabled,
-				compressionEnabled: this.config.compressionEnabled,
 			});
 
 			try {
@@ -159,10 +158,7 @@ export class PersistenceService {
 				data.checksum = this.generateChecksum(data);
 			}
 
-			// Comprimir datos si está habilitado
-			const serializedData = this.config.compressionEnabled
-				? await this.compressData(data)
-				: JSON.stringify(data);
+			const serializedData = JSON.stringify(data);
 
 			// Guardar en AsyncStorage
 			await AsyncStorage.setItem(this.KEYS.DOWNLOADS, serializedData);
@@ -219,10 +215,7 @@ export class PersistenceService {
 				return new Map();
 			}
 
-			// Descomprimir si es necesario
-			const data: PersistedData = this.config.compressionEnabled
-				? await this.decompressData(serializedData)
-				: JSON.parse(serializedData);
+			const data: PersistedData = JSON.parse(serializedData);
 
 			// Verificar checksum si está habilitado
 			if (this.config.encryptionEnabled && data.checksum) {
@@ -455,9 +448,7 @@ export class PersistenceService {
 				checksum: this.config.encryptionEnabled ? this.generateChecksum(config) : undefined,
 			};
 
-			const serializedData = this.config.compressionEnabled
-				? await this.compressData(configData)
-				: JSON.stringify(configData);
+			const serializedData = JSON.stringify(configData);
 
 			await AsyncStorage.setItem(this.KEYS.CONFIG, serializedData);
 
@@ -591,10 +582,7 @@ export class PersistenceService {
 				return null;
 			}
 
-			// Descomprimir si es necesario
-			const data = this.config.compressionEnabled
-				? await this.decompressData(serializedData)
-				: JSON.parse(serializedData);
+			const data = JSON.parse(serializedData);
 
 			// Verificar si es el formato nuevo con metadata
 			let config: ConfigDownloads;
@@ -680,12 +668,10 @@ export class PersistenceService {
 				config,
 			};
 
-			const compressed = this.config.compressionEnabled
-				? await this.compressData(exportData)
-				: JSON.stringify(exportData, null, 2);
+			const serialized = JSON.stringify(exportData, null, 2);
 
 			this.currentLogger.info(TAG, "Data exported successfully");
-			return compressed;
+			return serialized;
 		} catch (error) {
 			this.currentLogger.error(TAG, "Failed to export data", error);
 			throw new PlayerError("STORAGE_ASYNC_003", {
@@ -704,9 +690,7 @@ export class PersistenceService {
 		this.eventEmitter.emit(PersistenceEventType.RESTORE_STARTED);
 
 		try {
-			const importData = this.config.compressionEnabled
-				? await this.decompressData(data)
-				: JSON.parse(data);
+			const importData = JSON.parse(data);
 
 			// Validar versión
 			if (importData.version > this.dataVersion) {
@@ -972,35 +956,6 @@ export class PersistenceService {
 			this.currentLogger.error(TAG, "Failed to load from backup", error);
 			return new Map();
 		}
-	}
-
-	/*
-	 * Comprime datos (simulado, en React Native usar una librería como lz-string)
-	 *
-	 */
-
-	private async compressData(data: unknown): Promise<string> {
-		// En producción, usar una librería de compresión como lz-string
-		// import LZString from 'lz-string';
-		// return LZString.compressToUTF16(JSON.stringify(data));
-
-		// Por ahora, solo stringificar
-		return JSON.stringify(data);
-	}
-
-	/*
-	 * Descomprime datos
-	 *
-	 */
-
-	private async decompressData(data: string): Promise<PersistedData> {
-		// En producción, usar una librería de compresión
-		// import LZString from 'lz-string';
-		// const decompressed = LZString.decompressFromUTF16(data);
-		// return JSON.parse(decompressed);
-
-		// Por ahora, solo parsear
-		return JSON.parse(data);
 	}
 
 	/*
