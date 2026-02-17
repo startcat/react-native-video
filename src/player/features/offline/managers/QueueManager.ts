@@ -30,6 +30,7 @@ import {
 	StreamDownloadTask,
 } from "../types";
 import { speedCalculator } from "../utils/SpeedCalculator";
+import { RetryManager } from "./queue/RetryManager";
 
 const TAG = LOG_TAGS.QUEUE_MANAGER;
 
@@ -44,7 +45,7 @@ export class QueueManager {
 	private config: QueueManagerConfig;
 	private processingInterval: ReturnType<typeof setTimeout> | null = null;
 	private currentlyDownloading: Set<string> = new Set();
-	private retryTracker: Map<string, number> = new Map();
+	private retryManager: RetryManager;
 	private currentLogger: Logger;
 	private isProcessingQueue: boolean = false; // Flag para prevenir ejecuciones concurrentes
 
@@ -62,6 +63,15 @@ export class QueueManager {
 			enabled: this.config.logEnabled,
 			level: this.config.logLevel,
 		});
+
+		this.retryManager = new RetryManager(
+			{
+				maxRetries: this.config.maxRetries,
+				retryDelayMs: this.config.retryDelayMs,
+				maxDelayMs: 60000,
+			},
+			this.currentLogger
+		);
 	}
 
 	/*
@@ -471,7 +481,7 @@ export class QueueManager {
 
 				// Remover completamente de la cola y tracking
 				this.downloadQueue.delete(downloadId);
-				this.retryTracker.delete(downloadId);
+				this.retryManager.clearRetries(downloadId);
 
 				// Persistir cambios
 				await persistenceService.saveDownloadState(this.downloadQueue);
@@ -563,7 +573,7 @@ export class QueueManager {
 
 			// Remover completamente de la cola y tracking
 			this.downloadQueue.delete(downloadId);
-			this.retryTracker.delete(downloadId);
+			this.retryManager.clearRetries(downloadId);
 
 			// Persistir cambios
 			await persistenceService.saveDownloadState(this.downloadQueue);
@@ -774,7 +784,7 @@ export class QueueManager {
 
 			// Limpiar la cola y tracking
 			this.downloadQueue.clear();
-			this.retryTracker.clear();
+			this.retryManager.clearAll();
 
 			// Persistir cambios
 			await persistenceService.saveDownloadState(this.downloadQueue);
@@ -1000,7 +1010,7 @@ export class QueueManager {
 				this.downloadQueue.delete(id);
 
 				// 4. Limpiar tracking asociado
-				this.retryTracker.delete(id);
+				this.retryManager.clearRetries(id);
 				this.currentlyDownloading.delete(id);
 			}
 
@@ -1664,35 +1674,28 @@ export class QueueManager {
 		this.currentlyDownloading.delete(downloadId);
 		speedCalculator.clear(downloadId);
 
-		const currentRetries = this.retryTracker.get(downloadId) || 0;
-		const retryCount = currentRetries + 1;
-
-		// Extraer información de retryable del error si está disponible
-		const errorObj = error as {
-			isRetryable?: boolean;
-			code?: string;
-			errorCode?: string;
-			message?: string;
-		};
-		const serviceRecommendation = errorObj?.isRetryable;
-
-		// Determinar si es reintentable: usar recomendación del servicio o verificar localmente
-		const isNonRetryableError =
-			serviceRecommendation === false || this.isNonRetryableError(error);
-
-		if (isNonRetryableError || retryCount >= this.config.maxRetries) {
+		if (this.retryManager.shouldRetry(downloadId, error)) {
+			// Reintentable: programar retry con backoff exponencial
+			this.retryManager.scheduleRetry(downloadId, async () => {
+				await this.updateDownloadState(downloadId, DownloadStates.QUEUED);
+				// Forzar procesamiento de la cola
+				this.processQueue();
+			});
+		} else {
 			// Non-retryable error or retry limit reached - mark as failed immediately
-			this.retryTracker.delete(downloadId);
+			const retryCount = this.retryManager.getRetryCount(downloadId);
+			this.retryManager.clearRetries(downloadId);
 			await this.updateDownloadState(downloadId, DownloadStates.FAILED);
 
 			const updatedItem = this.downloadQueue.get(downloadId);
+			const errorObj = error as { code?: string; errorCode?: string };
 
 			// CRITICAL: Emit FAILED event so UI can update
 			this.currentLogger.error(
 				TAG,
 				`Download failed permanently: ${item.title || downloadId}`,
 				{
-					isNonRetryableError,
+					isNonRetryableError: this.retryManager.isNonRetryableError(error),
 					retryCount,
 					maxRetries: this.config.maxRetries,
 					errorCode: errorObj?.code || errorObj?.errorCode,
@@ -1704,89 +1707,7 @@ export class QueueManager {
 				item: updatedItem || item, // Use updated item with FAILED state
 				error,
 			});
-		} else {
-			// Actualizar contador de reintentos
-			this.retryTracker.set(downloadId, retryCount);
-
-			// Calcular delay con backoff exponencial
-			const baseDelay = this.config.retryDelayMs || 2000;
-			const delay = Math.min(
-				baseDelay * Math.pow(2, retryCount - 1), // Backoff exponencial
-				60000 // Máximo 60 segundos
-			);
-
-			this.currentLogger.info(
-				TAG,
-				`Download failed, scheduling retry ${retryCount}/${this.config.maxRetries} in ${delay}ms: ${item.title || downloadId}`
-			);
-
-			// Programar reintento con backoff exponencial
-			setTimeout(async () => {
-				await this.updateDownloadState(downloadId, DownloadStates.QUEUED);
-				this.currentLogger.info(
-					TAG,
-					`Retrying download (${retryCount}/${this.config.maxRetries}): ${item.title || downloadId}`
-				);
-				// Forzar procesamiento de la cola
-				this.processQueue();
-			}, delay);
 		}
-	}
-
-	/**
-	 * Check if an error is non-retryable (should fail immediately without retries)
-	 */
-	private isNonRetryableError(error: unknown): boolean {
-		if (!error) {
-			return false;
-		}
-
-		const errorObj = error as { code?: string; errorCode?: string; message?: string };
-		const errorCode = errorObj?.code || errorObj?.errorCode || "";
-		// Handle both string errors and object errors with message property
-		const errorMessage = typeof error === "string" ? error : errorObj?.message || "";
-
-		// NO_SPACE_LEFT errors should not be retried
-		if (errorCode === "NO_SPACE_LEFT" || errorCode === "DOWNLOAD_NO_SPACE") {
-			return true;
-		}
-
-		// Check message for space-related errors and HTTP client errors (4xx)
-		const lowerMessage = errorMessage.toLowerCase();
-		if (
-			lowerMessage.includes("no space left") ||
-			lowerMessage.includes("no hay espacio") ||
-			lowerMessage.includes("insufficient storage") ||
-			lowerMessage.includes("disk full")
-		) {
-			return true;
-		}
-
-		// HTTP 4xx client errors should not be retried (resource doesn't exist, unauthorized, etc.)
-		if (
-			lowerMessage.includes("http 404") ||
-			lowerMessage.includes("404") ||
-			lowerMessage.includes("http 401") ||
-			lowerMessage.includes("http 403") ||
-			lowerMessage.includes("file not found") ||
-			lowerMessage.includes("not found") ||
-			lowerMessage.includes("unauthorized") ||
-			lowerMessage.includes("forbidden")
-		) {
-			return true;
-		}
-
-		// Asset validation errors should not be retried (the asset is corrupted or incomplete)
-		if (
-			lowerMessage.includes("no playable tracks") ||
-			lowerMessage.includes("asset validation failed") ||
-			lowerMessage.includes("asset directory") ||
-			lowerMessage.includes("asset size too small")
-		) {
-			return true;
-		}
-
-		return false;
 	}
 
 	/*
@@ -2634,7 +2555,7 @@ export class QueueManager {
 		this.eventEmitter.removeAllListeners();
 		this.downloadQueue.clear();
 		this.currentlyDownloading.clear();
-		this.retryTracker.clear();
+		this.retryManager.clearAll();
 		this.isInitialized = false;
 		this.currentLogger.info(TAG, "QueueManager destroyed");
 	}

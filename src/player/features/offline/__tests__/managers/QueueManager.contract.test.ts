@@ -555,7 +555,8 @@ describe("QueueManager — Contrato público", () => {
 			});
 			queueManager["downloadQueue"].set("fail-1", item);
 			queueManager["currentlyDownloading"].add("fail-1");
-			queueManager["retryTracker"].set("fail-1", 10);
+			// Simulate exhausted retries via retryManager internal tracker
+			queueManager["retryManager"]["retryTracker"].set("fail-1", 10);
 
 			await queueManager.notifyDownloadFailed("fail-1", { message: "Network error" });
 
@@ -588,7 +589,8 @@ describe("QueueManager — Contrato público", () => {
 			});
 			queueManager["downloadQueue"].set("fail-evt", item);
 			queueManager["currentlyDownloading"].add("fail-evt");
-			queueManager["retryTracker"].set("fail-evt", 10);
+			// Simulate exhausted retries via retryManager internal tracker
+			queueManager["retryManager"]["retryTracker"].set("fail-evt", 10);
 
 			await queueManager.notifyDownloadFailed("fail-evt", { message: "error" });
 
