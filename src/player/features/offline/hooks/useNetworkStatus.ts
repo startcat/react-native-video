@@ -9,14 +9,6 @@ import { DownloadEventType, NetworkPolicy, NetworkStatus } from "../types";
  *
  */
 
-// Tipo auxiliar para acceder a propiedades internas del NetworkService
-type NetworkServiceWithEventEmitter = {
-	eventEmitter: {
-		on: (event: string, handler: (data: unknown) => void) => void;
-		off: (event: string, handler: (data: unknown) => void) => void;
-	};
-};
-
 export interface UseNetworkStatusReturn {
 	// Estado actual
 	isOnline: boolean;
@@ -83,10 +75,7 @@ export function useNetworkStatus(): UseNetworkStatusReturn {
 			updateDerivedStates();
 		});
 
-		// Suscribirse a cambios de política y descargas usando eventEmitter interno
-		const serviceWithEmitter = networkService as unknown as NetworkServiceWithEventEmitter;
-		const eventEmitter = serviceWithEmitter.eventEmitter;
-
+		// Suscribirse a cambios de política y descargas usando API pública
 		const handlePolicyChange = (data: unknown) => {
 			const newPolicy = data as NetworkPolicy;
 			setPolicy(newPolicy);
@@ -99,11 +88,20 @@ export function useNetworkStatus(): UseNetworkStatusReturn {
 		};
 
 		// Eventos de política
-		eventEmitter.on("policy_changed", handlePolicyChange);
+		const unsubscribePolicyChanged = networkService.onEvent(
+			"policy_changed",
+			handlePolicyChange
+		);
 
 		// Eventos de descargas pausadas/reanudadas por red
-		eventEmitter.on("downloads_paused_cellular", handleDownloadsChange);
-		eventEmitter.on("downloads_resumed_wifi", handleDownloadsChange);
+		const unsubscribePausedCellular = networkService.onEvent(
+			"downloads_paused_cellular",
+			handleDownloadsChange
+		);
+		const unsubscribeResumedWifi = networkService.onEvent(
+			"downloads_resumed_wifi",
+			handleDownloadsChange
+		);
 
 		// Solo suscribirse a eventos relevantes de QueueManager
 		// No necesitamos PROGRESS, solo cambios de estado que afecten downloadsAllowed
@@ -150,9 +148,9 @@ export function useNetworkStatus(): UseNetworkStatusReturn {
 			unsubscribeFailed();
 			unsubscribeQueued();
 			unsubscribeRemoved();
-			eventEmitter.off("policy_changed", handlePolicyChange);
-			eventEmitter.off("downloads_paused_cellular", handleDownloadsChange);
-			eventEmitter.off("downloads_resumed_wifi", handleDownloadsChange);
+			unsubscribePolicyChanged();
+			unsubscribePausedCellular();
+			unsubscribeResumedWifi();
 		};
 	}, [updateDerivedStates]);
 

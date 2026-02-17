@@ -9,14 +9,6 @@ import { QueueStats } from "../types/queue";
  *
  */
 
-// Tipo auxiliar para acceder a propiedades internas del QueueManager
-type QueueManagerWithEventEmitter = {
-	eventEmitter: {
-		on: (event: string, handler: (data: unknown) => void) => void;
-		off: (event: string, handler: (data: unknown) => void) => void;
-	};
-};
-
 export interface UseDownloadsQueueReturn {
 	// Estado de la cola
 	queue: DownloadItem[]; // DownloadItem[]
@@ -96,20 +88,20 @@ export function useDownloadsQueue(): UseDownloadsQueueReturn {
 			updateQueueStates();
 		});
 
-		// Suscribirse a eventos específicos del manager interno
-		const managerWithEmitter = queueManager as unknown as QueueManagerWithEventEmitter;
-		const eventEmitter = managerWithEmitter.eventEmitter;
-
+		// Suscribirse a eventos específicos del manager usando API pública
 		const handleMaxConcurrentChange = (data: unknown) => {
 			const eventData = data as { maxConcurrent: number };
 			setMaxConcurrentState(eventData.maxConcurrent);
 		};
 
-		eventEmitter.on("max_concurrent_changed", handleMaxConcurrentChange);
+		const unsubscribeMaxConcurrent = queueManager.onEvent(
+			"max_concurrent_changed",
+			handleMaxConcurrentChange
+		);
 
 		return () => {
 			unsubscribeAll();
-			eventEmitter.off("max_concurrent_changed", handleMaxConcurrentChange);
+			unsubscribeMaxConcurrent();
 		};
 	}, [updateQueueStates]);
 
