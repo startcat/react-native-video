@@ -1585,10 +1585,10 @@ class DownloadsModule2: RCTEventEmitter {
             ContentKeyManager.sharedManager.fpsCertificateUrl = certificateUrl
         }
 
-        if ContentKeyManager.sharedManager.asset == nil {
-            let drmAsset = Asset(name: contentId, url: asset.url, id: contentId)
-            ContentKeyManager.sharedManager.asset = drmAsset
-        }
+        // SIEMPRE actualizar el asset para cada descarga (fix: keys se guardaban con nombre incorrecto)
+        let drmAsset = Asset(name: contentId, url: asset.url, id: contentId)
+        ContentKeyManager.sharedManager.asset = drmAsset
+        RCTLog("[DownloadsModule2] Set ContentKeyManager.asset for download: \(contentId)")
 
         contentKeySession.addContentKeyRecipient(asset)
         #endif
