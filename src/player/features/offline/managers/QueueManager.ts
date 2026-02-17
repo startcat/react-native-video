@@ -1894,64 +1894,6 @@ export class QueueManager {
 		return item?.type;
 	}
 
-	public getStats(): QueueStats {
-		const downloads = this.getAllDownloads();
-
-		// Filtros según estados definidos en la arquitectura
-		const pending = downloads.filter(d => d.state === DownloadStates.QUEUED).length;
-		const downloading = downloads.filter(d => d.state === DownloadStates.DOWNLOADING).length;
-		const paused = downloads.filter(d => d.state === DownloadStates.PAUSED).length;
-		const completed = downloads.filter(d => d.state === DownloadStates.COMPLETED).length;
-		const failed = downloads.filter(d => d.state === DownloadStates.FAILED).length;
-
-		// Cálculos de bytes
-		const totalBytesDownloaded = downloads.reduce(
-			(sum, d) => sum + (d.stats?.bytesDownloaded || 0),
-			0
-		);
-		const totalBytesRemaining = downloads.reduce(
-			(sum, d) =>
-				sum + Math.max(0, (d.stats?.totalBytes || 0) - (d.stats?.bytesDownloaded || 0)),
-			0
-		);
-
-		// Cálculo de velocidad promedio (downloads activos)
-		const activeDownloads = downloads.filter(d => d.state === DownloadStates.DOWNLOADING);
-		const averageSpeed =
-			activeDownloads.length > 0
-				? activeDownloads.reduce((sum, d) => sum + (d.stats?.downloadSpeed || 0), 0) /
-					activeDownloads.length
-				: 0;
-
-		// Cálculo de tiempo estimado restante
-		const estimatedTimeRemaining =
-			averageSpeed > 0 && totalBytesRemaining > 0
-				? Math.round(totalBytesRemaining / averageSpeed)
-				: 0;
-
-		return {
-			// Campos principales requeridos
-			total: downloads.length,
-			pending,
-			downloading,
-			paused,
-			completed,
-			failed,
-			isPaused: this.isPaused,
-			isProcessing: this.isProcessing,
-
-			// Campos opcionales (aliases para compatibilidad)
-			active: downloading, // Alias de downloading
-			queued: pending, // Alias de pending
-
-			// Estadísticas de bytes y performance
-			totalBytesDownloaded,
-			totalBytesRemaining,
-			averageSpeed,
-			estimatedTimeRemaining,
-		};
-	}
-
 	/*
 	 * Carga la cola persistida usando PersistenceService
 	 *
