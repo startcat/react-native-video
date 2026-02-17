@@ -90,7 +90,6 @@ export const DEFAULT_CONFIG_PERSISTENCE: PersistenceConfig = {
 	logLevel: LogLevel.DEBUG,
 	storageKey: DEFAULT_CONFIG.STORAGE_KEY,
 	encryptionEnabled: false,
-	compressionEnabled: true,
 };
 
 export const DEFAULT_CONFIG_STORAGE: StorageServiceConfig = {
