@@ -545,12 +545,11 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                     ContentKeyManager.sharedManager.createContentKeySession()
                     ContentKeyManager.sharedManager.downloadRequestedByUser = true
 
-                    if ContentKeyManager.sharedManager.asset == nil {
-                        let assetName = source.id ?? source.title ?? "offline-asset"
-                        let drmAsset = Asset(name: assetName, url: assetURL, id: source.id ?? "")
-                        ContentKeyManager.sharedManager.asset = drmAsset
-                        RCTLog("[OFFLINE][RCTVideo] Set ContentKeyManager.asset for offline-by-id playback: \(assetName)")
-                    }
+                    // SIEMPRE actualizar el asset para cada reproducción (fix: keys se buscaban con nombre incorrecto)
+                    let assetName = source.id ?? source.title ?? "offline-asset"
+                    let drmAsset = Asset(name: assetName, url: assetURL, id: source.id ?? "")
+                    ContentKeyManager.sharedManager.asset = drmAsset
+                    RCTLog("[OFFLINE][RCTVideo] Set ContentKeyManager.asset for offline-by-id playback: \(assetName)")
 
                     if let contentKeySession = ContentKeyManager.sharedManager.contentKeySession {
                         contentKeySession.addContentKeyRecipient(offlineAsset)
