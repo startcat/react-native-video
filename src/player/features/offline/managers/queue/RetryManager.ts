@@ -30,6 +30,7 @@ export class RetryManager {
 	private pendingTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 	private config: RetryConfig;
 	private logger: Logger;
+	private destroyed = false;
 
 	constructor(config?: Partial<RetryConfig>, logger?: Logger) {
 		this.config = { ...DEFAULT_RETRY_CONFIG, ...config };
@@ -71,6 +72,11 @@ export class RetryManager {
 	 */
 
 	scheduleRetry(downloadId: string, onRetry: () => void): void {
+		if (this.destroyed) {
+			this.logger.warn(TAG, `scheduleRetry called after destroy, ignoring: ${downloadId}`);
+			return;
+		}
+
 		const currentRetries = this.retryTracker.get(downloadId) || 0;
 		const retryCount = currentRetries + 1;
 
@@ -208,6 +214,7 @@ export class RetryManager {
 	 */
 
 	destroy(): void {
+		this.destroyed = true;
 		this.clearAll();
 	}
 }

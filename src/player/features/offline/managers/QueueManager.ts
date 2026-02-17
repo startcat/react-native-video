@@ -2567,7 +2567,7 @@ export class QueueManager {
 		this.eventEmitter.removeAllListeners();
 		this.downloadQueue.clear();
 		this.currentlyDownloading.clear();
-		this.retryManager.clearAll();
+		this.retryManager.destroy();
 		this.isInitialized = false;
 		this.currentLogger.info(TAG, "QueueManager destroyed");
 	}
