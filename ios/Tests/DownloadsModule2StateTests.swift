@@ -17,7 +17,7 @@ class DownloadsModule2StateTests: XCTestCase {
         moduleInitialized = false
         // Limpiar UserDefaults para tests aislados
         let defaults = UserDefaults.standard
-        defaults.removeObject(forKey: "com.downloads.activeDownloads")
+        defaults.removeObject(forKey: "com.downloads.activeStates")
         defaults.removeObject(forKey: "com.downloads.assetPaths")
         defaults.removeObject(forKey: "com.downloads.assetBookmarks")
         defaults.removeObject(forKey: "com.downloads.subtitleBookmarks")
@@ -208,13 +208,17 @@ class DownloadsModule2StateTests: XCTestCase {
 
     // MARK: - cancelDownload (REQ-005)
 
-    func testCancelDownload_nonExistent_behavior() {
+    func testCancelDownload_nonExistent_delegatesToRemoveDownload() {
         let expectation = self.expectation(description: "cancelDownload completes")
 
-        // Nota: cancelDownload delega a removeDownload internamente
+        // cancelDownload delega a removeDownload internamente (línea 738-739)
+        // Comportamiento idéntico a testRemoveDownload_nonExistent
         module.cancelDownload("non-existent-id", resolver: { _ in
+            // Resolve sin error: ficheros no existían, limpieza silenciosa
             expectation.fulfill()
         }, rejecter: { code, message, error in
+            // Reject: removeDownloadedFiles lanzó excepción
+            XCTAssertEqual(code, "REMOVE_DOWNLOAD_FAILED")
             expectation.fulfill()
         })
 
