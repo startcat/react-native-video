@@ -16,6 +16,13 @@
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		FA4D23232F4520F70026F7EA /* DownloadsModule2ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4D23212F4520F70026F7EA /* DownloadsModule2ConfigTests.swift */; };
 		FA4D23242F4520F70026F7EA /* DownloadsModule2StateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4D23222F4520F70026F7EA /* DownloadsModule2StateTests.swift */; };
+		FA050001AAAA000100000001 /* ContentKeyPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000001 /* ContentKeyPersistenceTests.swift */; };
+		FA050001AAAA000100000002 /* DataStructureParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000002 /* DataStructureParsingTests.swift */; };
+		FA050001AAAA000100000003 /* DownloadInfoSerializationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000003 /* DownloadInfoSerializationTests.swift */; };
+		FA050001AAAA000100000004 /* DownloadStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000004 /* DownloadStateTests.swift */; };
+		FA050001AAAA000100000005 /* DownloadTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000005 /* DownloadTypesTests.swift */; };
+		FA050001AAAA000100000006 /* DownloadValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000006 /* DownloadValidationTests.swift */; };
+		FA050001AAAA000100000007 /* DownloadsModule2PersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000007 /* DownloadsModule2PersistenceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -49,6 +56,13 @@
 		FA4D23212F4520F70026F7EA /* DownloadsModule2ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsModule2ConfigTests.swift; sourceTree = "<group>"; };
 		FA4D23222F4520F70026F7EA /* DownloadsModule2StateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsModule2StateTests.swift; sourceTree = "<group>"; };
 		FA4D23252F4520FB0026F7EA /* FabricExampleTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "FabricExampleTests-Bridging-Header.h"; sourceTree = "<group>"; };
+		FA050001AAAA000000000001 /* ContentKeyPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentKeyPersistenceTests.swift; sourceTree = "<group>"; };
+		FA050001AAAA000000000002 /* DataStructureParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStructureParsingTests.swift; sourceTree = "<group>"; };
+		FA050001AAAA000000000003 /* DownloadInfoSerializationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadInfoSerializationTests.swift; sourceTree = "<group>"; };
+		FA050001AAAA000000000004 /* DownloadStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadStateTests.swift; sourceTree = "<group>"; };
+		FA050001AAAA000000000005 /* DownloadTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadTypesTests.swift; sourceTree = "<group>"; };
+		FA050001AAAA000000000006 /* DownloadValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadValidationTests.swift; sourceTree = "<group>"; };
+		FA050001AAAA000000000007 /* DownloadsModule2PersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsModule2PersistenceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -79,6 +93,13 @@
 				FA4D23212F4520F70026F7EA /* DownloadsModule2ConfigTests.swift */,
 				FA4D23222F4520F70026F7EA /* DownloadsModule2StateTests.swift */,
 				FA4D23252F4520FB0026F7EA /* FabricExampleTests-Bridging-Header.h */,
+				FA050001AAAA000000000001 /* ContentKeyPersistenceTests.swift */,
+				FA050001AAAA000000000002 /* DataStructureParsingTests.swift */,
+				FA050001AAAA000000000003 /* DownloadInfoSerializationTests.swift */,
+				FA050001AAAA000000000004 /* DownloadStateTests.swift */,
+				FA050001AAAA000000000005 /* DownloadTypesTests.swift */,
+				FA050001AAAA000000000006 /* DownloadValidationTests.swift */,
+				FA050001AAAA000000000007 /* DownloadsModule2PersistenceTests.swift */,
 			);
 			path = FabricExampleTests;
 			sourceTree = "<group>";
@@ -283,13 +304,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-FabricExample/Pods-FabricExample-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-FabricExample/Pods-FabricExample-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -348,13 +365,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-FabricExample-FabricExampleTests/Pods-FabricExample-FabricExampleTests-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-FabricExample-FabricExampleTests/Pods-FabricExample-FabricExampleTests-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -369,13 +382,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-FabricExample/Pods-FabricExample-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-FabricExample/Pods-FabricExample-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -390,13 +399,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-FabricExample-FabricExampleTests/Pods-FabricExample-FabricExampleTests-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-FabricExample-FabricExampleTests/Pods-FabricExample-FabricExampleTests-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -431,6 +436,13 @@
 			files = (
 				FA4D23232F4520F70026F7EA /* DownloadsModule2ConfigTests.swift in Sources */,
 				FA4D23242F4520F70026F7EA /* DownloadsModule2StateTests.swift in Sources */,
+				FA050001AAAA000100000001 /* ContentKeyPersistenceTests.swift in Sources */,
+				FA050001AAAA000100000002 /* DataStructureParsingTests.swift in Sources */,
+				FA050001AAAA000100000003 /* DownloadInfoSerializationTests.swift in Sources */,
+				FA050001AAAA000100000004 /* DownloadStateTests.swift in Sources */,
+				FA050001AAAA000100000005 /* DownloadTypesTests.swift in Sources */,
+				FA050001AAAA000100000006 /* DownloadValidationTests.swift in Sources */,
+				FA050001AAAA000100000007 /* DownloadsModule2PersistenceTests.swift in Sources */,
 				00E356F31AD99517003FC87E /* FabricExampleTests.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -659,7 +671,10 @@
 					"-DFOLLY_MOBILE=1",
 					"-DFOLLY_USE_LIBCPP=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 			};
@@ -728,7 +743,10 @@
 					"-DFOLLY_MOBILE=1",
 					"-DFOLLY_USE_LIBCPP=1",
 				);
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				VALIDATE_PRODUCT = YES;
