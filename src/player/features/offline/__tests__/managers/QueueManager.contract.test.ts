@@ -248,7 +248,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "test-pause",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("test-pause", item);
+			queueManager["store"].set("test-pause", item);
 
 			await queueManager.pauseDownload("test-pause");
 
@@ -261,7 +261,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "test-pause-queued",
 				state: DownloadStates.QUEUED,
 			});
-			queueManager["downloadQueue"].set("test-pause-queued", item);
+			queueManager["store"].set("test-pause-queued", item);
 
 			await queueManager.pauseDownload("test-pause-queued");
 
@@ -276,7 +276,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "test-resume",
 				state: DownloadStates.PAUSED,
 			});
-			queueManager["downloadQueue"].set("test-resume", item);
+			queueManager["store"].set("test-resume", item);
 
 			await queueManager.resumeDownload("test-resume");
 
@@ -294,7 +294,7 @@ describe("QueueManager — Contrato público", () => {
 				createMockDownloadItem({ id: "dl-3", state: DownloadStates.QUEUED }),
 			];
 			items.forEach(item => {
-				queueManager["downloadQueue"].set(item.id, item);
+				queueManager["store"].set(item.id, item);
 			});
 
 			queueManager.pauseAll();
@@ -309,7 +309,7 @@ describe("QueueManager — Contrato público", () => {
 				createMockDownloadItem({ id: "dl-c", state: DownloadStates.COMPLETED }),
 			];
 			items.forEach(item => {
-				queueManager["downloadQueue"].set(item.id, item);
+				queueManager["store"].set(item.id, item);
 			});
 
 			queueManager.pauseAll();
@@ -327,7 +327,7 @@ describe("QueueManager — Contrato público", () => {
 				createMockDownloadItem({ id: "ra-3", state: DownloadStates.COMPLETED }),
 			];
 			items.forEach(item => {
-				queueManager["downloadQueue"].set(item.id, item);
+				queueManager["store"].set(item.id, item);
 			});
 
 			await queueManager.resumeAll();
@@ -371,7 +371,7 @@ describe("QueueManager — Contrato público", () => {
 				createMockDownloadItem({ id: "s-5", state: DownloadStates.PAUSED }),
 			];
 			items.forEach(item => {
-				queueManager["downloadQueue"].set(item.id, item);
+				queueManager["store"].set(item.id, item);
 			});
 
 			const stats = queueManager.getQueueStats();
@@ -431,14 +431,14 @@ describe("QueueManager — Contrato público", () => {
 				id: "target-id",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("target-id", targetItem);
+			queueManager["store"].set("target-id", targetItem);
 			await queueManager.notifyDownloadProgress("target-id", 50, 5000, 10000);
 
 			const otherItem = createMockDownloadItem({
 				id: "other-id",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("other-id", otherItem);
+			queueManager["store"].set("other-id", otherItem);
 			await queueManager.notifyDownloadProgress("other-id", 30, 3000, 10000);
 
 			const targetCalls = callback.mock.calls.filter(
@@ -464,7 +464,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "prog-1",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("prog-1", item);
+			queueManager["store"].set("prog-1", item);
 
 			await queueManager.notifyDownloadProgress("prog-1", 50, 5000, 10000);
 
@@ -480,7 +480,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "prog-evt",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("prog-evt", item);
+			queueManager["store"].set("prog-evt", item);
 
 			await queueManager.notifyDownloadProgress("prog-evt", 75, 7500, 10000);
 
@@ -505,7 +505,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "comp-1",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("comp-1", item);
+			queueManager["store"].set("comp-1", item);
 			queueManager["currentlyDownloading"].add("comp-1");
 
 			await queueManager.notifyDownloadCompleted("comp-1", "/path/to/file", 10000);
@@ -519,7 +519,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "comp-pct",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("comp-pct", item);
+			queueManager["store"].set("comp-pct", item);
 			queueManager["currentlyDownloading"].add("comp-pct");
 
 			await queueManager.notifyDownloadCompleted("comp-pct");
@@ -536,7 +536,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "comp-evt",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("comp-evt", item);
+			queueManager["store"].set("comp-evt", item);
 			queueManager["currentlyDownloading"].add("comp-evt");
 
 			await queueManager.notifyDownloadCompleted("comp-evt");
@@ -553,7 +553,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "fail-1",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("fail-1", item);
+			queueManager["store"].set("fail-1", item);
 			queueManager["currentlyDownloading"].add("fail-1");
 			// Simulate exhausted retries via retryManager internal tracker
 			queueManager["retryManager"]["retryTracker"].set("fail-1", 10);
@@ -572,7 +572,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "fail-dup",
 				state: DownloadStates.FAILED,
 			});
-			queueManager["downloadQueue"].set("fail-dup", item);
+			queueManager["store"].set("fail-dup", item);
 
 			await queueManager.notifyDownloadFailed("fail-dup", { message: "error" });
 
@@ -587,7 +587,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "fail-evt",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("fail-evt", item);
+			queueManager["store"].set("fail-evt", item);
 			queueManager["currentlyDownloading"].add("fail-evt");
 			// Simulate exhausted retries via retryManager internal tracker
 			queueManager["retryManager"]["retryTracker"].set("fail-evt", 10);
@@ -606,7 +606,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "np-1",
 				state: DownloadStates.DOWNLOADING,
 			});
-			queueManager["downloadQueue"].set("np-1", item);
+			queueManager["store"].set("np-1", item);
 
 			await queueManager.notifyDownloadPaused("np-1");
 
@@ -621,7 +621,7 @@ describe("QueueManager — Contrato público", () => {
 				id: "nr-1",
 				state: DownloadStates.PAUSED,
 			});
-			queueManager["downloadQueue"].set("nr-1", item);
+			queueManager["store"].set("nr-1", item);
 
 			await queueManager.notifyDownloadResumed("nr-1");
 
@@ -689,7 +689,7 @@ describe("QueueManager — Contrato público", () => {
 				createMockDownloadItem({ id: "cc-3", state: DownloadStates.FAILED }),
 			];
 			items.forEach(item => {
-				queueManager["downloadQueue"].set(item.id, item);
+				queueManager["store"].set(item.id, item);
 			});
 
 			await queueManager.cleanupCompleted();
@@ -708,7 +708,7 @@ describe("QueueManager — Contrato público", () => {
 				createMockDownloadItem({ id: "cf-3", state: DownloadStates.COMPLETED }),
 			];
 			items.forEach(item => {
-				queueManager["downloadQueue"].set(item.id, item);
+				queueManager["store"].set(item.id, item);
 			});
 
 			await queueManager.clearFailed();
