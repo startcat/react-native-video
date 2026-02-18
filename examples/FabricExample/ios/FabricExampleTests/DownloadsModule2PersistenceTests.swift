@@ -1,3 +1,6 @@
+// These tests require a running React Native bridge (sendEvent calls stall without one).
+// Enable by adding -D INTEGRATION_TESTS to the test target's Swift compiler flags.
+#if INTEGRATION_TESTS
 import XCTest
 @testable import react_native_video
 
@@ -581,3 +584,4 @@ class DownloadsModule2PersistenceTests: XCTestCase {
         XCTAssertEqual(resolvedCA?.lastPathComponent, "subtitle-ca.vtt")
     }
 }
+#endif
