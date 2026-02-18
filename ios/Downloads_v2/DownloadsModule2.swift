@@ -291,6 +291,15 @@ class DownloadsModule2: RCTEventEmitter {
         ]
     }
     
+    // MARK: - Safe Event Emission
+    override func sendEvent(withName name: String!, body: Any!) {
+        if self.bridge != nil {
+            super.sendEvent(withName: name, body: body)
+        } else {
+            print("⚠️ [DownloadsModule2] sendEvent(\(name ?? "nil")) skipped — no bridge available")
+        }
+    }
+    
     // MARK: - Initialization Methods
     @objc func moduleInit(_ config: NSDictionary?, resolver resolve: @escaping RCTPromiseResolveBlock, rejecter reject: @escaping RCTPromiseRejectBlock) {
         // Set shared instance for offline playback access
