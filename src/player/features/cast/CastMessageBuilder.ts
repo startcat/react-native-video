@@ -1,6 +1,6 @@
 import { PlayerError } from "../../core/errors";
 import { ComponentLogger, Logger } from "../../features/logger";
-import { getSourceMessageForCast } from "../../utils";
+import { getAbsoluteUri, getSourceMessageForCast } from "../../utils";
 import { LoggerConfigBasic } from "../logger/types";
 import {
 	DEFAULT_MESSAGE_CONFIG,
@@ -120,9 +120,13 @@ export class CastMessageBuilder {
 					buildTimestamp: Date.now(),
 					builderVersion: "1.0.0",
 					manifest: {
-						url: config.manifest.manifestURL,
-						licenseServer: config.manifest?.drmConfig?.licenseAcquisitionURL,
-						certificateUrl: config.manifest?.drmConfig?.certificateURL,
+						url: getAbsoluteUri(config.manifest.manifestURL),
+						licenseServer: config.manifest?.drmConfig?.licenseAcquisitionURL
+							? getAbsoluteUri(config.manifest.drmConfig.licenseAcquisitionURL)
+							: undefined,
+						certificateUrl: config.manifest?.drmConfig?.certificateURL
+							? getAbsoluteUri(config.manifest.drmConfig.certificateURL)
+							: undefined,
 					},
 					...config.customDataForCast,
 				};
