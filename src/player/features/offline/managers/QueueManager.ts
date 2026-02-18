@@ -30,6 +30,7 @@ import {
 	StreamDownloadTask,
 } from "../types";
 import { speedCalculator } from "../utils/SpeedCalculator";
+import { DownloadStateStore } from "./queue/DownloadStateStore";
 import { RetryManager } from "./queue/RetryManager";
 
 const TAG = LOG_TAGS.QUEUE_MANAGER;
@@ -37,7 +38,7 @@ const TAG = LOG_TAGS.QUEUE_MANAGER;
 export class QueueManager {
 	private static instance: QueueManager;
 	private eventEmitter: EventEmitter;
-	private downloadQueue: Map<string, DownloadItem> = new Map();
+	private store: DownloadStateStore;
 	private isProcessing: boolean = false;
 	private isPaused: boolean = false;
 	private isInitialized: boolean = false;
@@ -49,10 +50,6 @@ export class QueueManager {
 	private currentLogger: Logger;
 	private isProcessingQueue: boolean = false; // Flag para prevenir ejecuciones concurrentes
 
-	// Sistema de locks para operaciones de eliminación
-	private pendingOperations: Map<string, "removing" | "updating"> = new Map();
-	private lockTimeouts: Map<string, ReturnType<typeof setTimeout>> = new Map();
-
 	private constructor() {
 		this.eventEmitter = new EventEmitter();
 
@@ -63,6 +60,8 @@ export class QueueManager {
 			enabled: this.config.logEnabled,
 			level: this.config.logLevel,
 		});
+
+		this.store = new DownloadStateStore(persistenceService, this.currentLogger);
 
 		this.retryManager = new RetryManager(
 			{
@@ -174,7 +173,7 @@ export class QueueManager {
 		// Suscribirse a eventos de error de binarios
 		binaryDownloadService.subscribe(DownloadEventType.FAILED, (data: unknown) => {
 			const errorData = data as { taskId: string; error?: string; errorCode?: string };
-			const item = this.downloadQueue.get(errorData.taskId);
+			const item = this.store.getRaw(errorData.taskId);
 			if (item) {
 				this.handleDownloadFailure(errorData.taskId, item, {
 					code: errorData.errorCode || "UNKNOWN",
@@ -237,7 +236,7 @@ export class QueueManager {
 				this.isInitialized = true;
 				this.currentLogger.info(
 					TAG,
-					`QueueManager initialized with ${this.downloadQueue.size} downloads`
+					`QueueManager initialized with ${this.store.size} downloads`
 				);
 			} catch (error) {
 				throw new PlayerError("DOWNLOAD_QUEUE_MANAGER_INITIALIZATION_FAILED", {
@@ -293,7 +292,7 @@ export class QueueManager {
 		}
 
 		// Verificar si ya existe
-		const existing = this.downloadQueue.get(downloadItem.id);
+		const existing = this.store.getRaw(downloadItem.id);
 		if (existing) {
 			this.currentLogger.info(
 				TAG,
@@ -328,16 +327,16 @@ export class QueueManager {
 
 		try {
 			// Agregar directamente a la cola
-			this.downloadQueue.set(downloadItem.id, downloadItem);
+			this.store.set(downloadItem.id, downloadItem);
 
 			// Persistir usando PersistenceService
-			await persistenceService.saveDownloadState(this.downloadQueue);
+			await this.store.persist();
 
 			// Emitir evento
 			this.eventEmitter.emit(DownloadEventType.QUEUED, {
 				downloadId: downloadItem.id,
 				item: downloadItem,
-				queueSize: this.downloadQueue.size,
+				queueSize: this.store.size,
 			});
 
 			this.currentLogger.info(
@@ -397,7 +396,7 @@ export class QueueManager {
 		}
 
 		try {
-			const item = this.downloadQueue.get(downloadId);
+			const item = this.store.getRaw(downloadId);
 			if (!item) {
 				throw new PlayerError("DOWNLOAD_QUEUE_ITEM_NOT_FOUND", { downloadId });
 			}
@@ -427,10 +426,10 @@ export class QueueManager {
 			if (updatedProfileIds.length > 0) {
 				// AÚN HAY OTROS PERFILES: Solo actualizar array de profileIds
 				item.profileIds = updatedProfileIds;
-				this.downloadQueue.set(downloadId, item);
+				this.store.set(downloadId, item);
 
 				// Persistir cambios
-				await persistenceService.saveDownloadState(this.downloadQueue);
+				await this.store.persist();
 
 				// Emitir evento de perfil eliminado (no descarga eliminada)
 				this.eventEmitter.emit("profile_removed_from_download", {
@@ -475,22 +474,19 @@ export class QueueManager {
 					);
 				}
 
-				// Cambiar estado a removing
-				item.state = DownloadStates.REMOVING;
-				this.downloadQueue.set(downloadId, item);
-
 				// Remover completamente de la cola y tracking
-				this.downloadQueue.delete(downloadId);
+				this.store.delete(downloadId);
 				this.retryManager.clearRetries(downloadId);
+				this.lastProgressEventTime.delete(downloadId);
 
 				// Persistir cambios
-				await persistenceService.saveDownloadState(this.downloadQueue);
+				await this.store.persist();
 
 				// Emitir evento de descarga completamente eliminada
 				this.eventEmitter.emit(DownloadEventType.REMOVED, {
 					downloadId,
 					item,
-					queueSize: this.downloadQueue.size,
+					queueSize: this.store.size,
 				});
 
 				this.currentLogger.info(
@@ -533,7 +529,7 @@ export class QueueManager {
 		}
 
 		try {
-			const item = this.downloadQueue.get(downloadId);
+			const item = this.store.getRaw(downloadId);
 			if (!item) {
 				// No lanzar error si el item no existe - puede haber sido eliminado por otro proceso
 				// o nunca fue añadido correctamente (ej: falló durante preparación)
@@ -548,10 +544,6 @@ export class QueueManager {
 				TAG,
 				`Force removing download ${downloadId} - ignoring profile management`
 			);
-
-			// Cambiar estado a removing
-			item.state = DownloadStates.REMOVING;
-			this.downloadQueue.set(downloadId, item);
 
 			// Si se está descargando, detenerla
 			if (this.currentlyDownloading.has(downloadId)) {
@@ -572,17 +564,18 @@ export class QueueManager {
 			}
 
 			// Remover completamente de la cola y tracking
-			this.downloadQueue.delete(downloadId);
+			this.store.delete(downloadId);
 			this.retryManager.clearRetries(downloadId);
+			this.lastProgressEventTime.delete(downloadId);
 
 			// Persistir cambios
-			await persistenceService.saveDownloadState(this.downloadQueue);
+			await this.store.persist();
 
 			// Emitir evento de descarga completamente eliminada
 			this.eventEmitter.emit(DownloadEventType.REMOVED, {
 				downloadId,
 				item,
-				queueSize: this.downloadQueue.size,
+				queueSize: this.store.size,
 			});
 
 			this.currentLogger.info(
@@ -614,12 +607,16 @@ export class QueueManager {
 	 */
 
 	public async pauseDownload(downloadId: string): Promise<void> {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (item && item.state === DownloadStates.DOWNLOADING) {
 			await this.updateDownloadState(downloadId, DownloadStates.PAUSED);
 			this.currentlyDownloading.delete(downloadId);
 
-			this.eventEmitter.emit(DownloadEventType.PAUSED, { downloadId, item });
+			const updatedItem = this.store.getRaw(downloadId);
+			this.eventEmitter.emit(DownloadEventType.PAUSED, {
+				downloadId,
+				item: updatedItem || item,
+			});
 		}
 	}
 
@@ -629,11 +626,15 @@ export class QueueManager {
 	 */
 
 	public async resumeDownload(downloadId: string): Promise<void> {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (item && item.state === DownloadStates.PAUSED) {
 			await this.updateDownloadState(downloadId, DownloadStates.QUEUED);
 
-			this.eventEmitter.emit(DownloadEventType.RESUMED, { downloadId, item });
+			const updatedItem = this.store.getRaw(downloadId);
+			this.eventEmitter.emit(DownloadEventType.RESUMED, {
+				downloadId,
+				item: updatedItem || item,
+			});
 
 			// OPTIMIZACIÓN: Iniciar procesamiento si no está procesando
 			if (!this.isProcessing && !this.isPaused) {
@@ -654,13 +655,13 @@ export class QueueManager {
 		// Transition all DOWNLOADING downloads to PAUSED state
 		// Without this, individual downloads remain in DOWNLOADING state and the UI
 		// shows them as "downloading" instead of "paused" (since UI reads per-download state)
-		for (const [id, item] of this.downloadQueue.entries()) {
+		for (const [id, item] of this.store.entries()) {
 			if (
 				item.state === DownloadStates.DOWNLOADING ||
 				item.state === DownloadStates.DOWNLOADING_ASSETS
 			) {
 				item.state = DownloadStates.PAUSED;
-				this.downloadQueue.set(id, item);
+				this.store.set(id, item);
 				this.currentlyDownloading.delete(id);
 
 				// Emit event so useDownloadsProgress hooks update the UI
@@ -697,10 +698,10 @@ export class QueueManager {
 		// Transition PAUSED downloads back to QUEUED so processQueue can pick them up.
 		// Without this, after pauseAll+resumeAll items stay PAUSED and processQueue
 		// finds nothing to process (it only looks for QUEUED items).
-		for (const [id, item] of this.downloadQueue.entries()) {
+		for (const [id, item] of this.store.entries()) {
 			if (item.state === DownloadStates.PAUSED) {
 				item.state = DownloadStates.QUEUED;
-				this.downloadQueue.set(id, item);
+				this.store.set(id, item);
 				this.currentLogger.debug(
 					TAG,
 					`Transitioned ${id} from PAUSED to QUEUED for processing`
@@ -728,7 +729,7 @@ export class QueueManager {
 	 */
 
 	public getAllDownloads(): DownloadItem[] {
-		return Array.from(this.downloadQueue.values()).map(item => this.deepCloneItem(item));
+		return Array.from(this.store.values()).map(item => this.deepCloneItem(item));
 	}
 
 	/*
@@ -737,7 +738,7 @@ export class QueueManager {
 	 */
 
 	public getDownload(downloadId: string): DownloadItem | null {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		return item ? this.deepCloneItem(item) : null;
 	}
 
@@ -766,13 +767,13 @@ export class QueueManager {
 
 	public async clearQueue(): Promise<void> {
 		try {
-			const beforeCount = this.downloadQueue.size;
+			const beforeCount = this.store.size;
 
 			// Detener todas las descargas activas
 			this.currentlyDownloading.clear();
 
 			// Limpiar archivos de descargas incompletas
-			for (const [, item] of this.downloadQueue) {
+			for (const [, item] of this.store.entries()) {
 				if (item.fileUri && item.state !== DownloadStates.COMPLETED) {
 					try {
 						await storageService.deleteFile(item.fileUri);
@@ -783,11 +784,9 @@ export class QueueManager {
 			}
 
 			// Limpiar la cola y tracking
-			this.downloadQueue.clear();
+			await this.store.clear();
 			this.retryManager.clearAll();
-
-			// Persistir cambios
-			await persistenceService.saveDownloadState(this.downloadQueue);
+			this.lastProgressEventTime.clear();
 
 			this.eventEmitter.emit(DownloadEventType.QUEUE_CLEARED, {
 				queueSize: 0,
@@ -809,31 +808,11 @@ export class QueueManager {
 
 	public async reorderQueue(newOrder: string[]): Promise<void> {
 		try {
-			// Crear nueva cola con el orden especificado
-			const newQueue = new Map<string, DownloadItem>();
-			const existingItems = new Map(this.downloadQueue);
-
-			// Agregar items en el orden especificado
-			newOrder.forEach(id => {
-				const item = existingItems.get(id);
-				if (item) {
-					newQueue.set(id, item);
-					existingItems.delete(id);
-				}
-			});
-
-			// Agregar items restantes al final
-			existingItems.forEach((item, id) => {
-				newQueue.set(id, item);
-			});
-
-			this.downloadQueue = newQueue;
-
-			// Persistir cambios
-			await persistenceService.saveDownloadState(this.downloadQueue);
+			// Reordenar y persistir via store
+			await this.store.reorder(newOrder);
 
 			this.eventEmitter.emit(DownloadEventType.QUEUE_REORDERED, {
-				queueSize: this.downloadQueue.size,
+				queueSize: this.store.size,
 				newOrder,
 			});
 
@@ -868,9 +847,9 @@ export class QueueManager {
 	 */
 
 	public filterByState(states: DownloadStates[]): DownloadItem[] {
-		return Array.from(this.downloadQueue.values())
+		return Array.from(this.store.values())
 			.filter(item => states.includes(item.state))
-			.map(item => ({ ...item }));
+			.map(item => this.deepCloneItem(item));
 	}
 
 	/*
@@ -879,9 +858,9 @@ export class QueueManager {
 	 */
 
 	public filterByType(type: string): DownloadItem[] {
-		return Array.from(this.downloadQueue.values())
+		return Array.from(this.store.values())
 			.filter(item => item.type.toString() === type)
-			.map(item => ({ ...item }));
+			.map(item => this.deepCloneItem(item));
 	}
 
 	/*
@@ -893,7 +872,7 @@ export class QueueManager {
 		const positions = new Map<string, number>();
 		let position = 1;
 
-		for (const [id] of this.downloadQueue) {
+		for (const [id] of this.store.entries()) {
 			positions.set(id, position);
 			position++;
 		}
@@ -907,7 +886,7 @@ export class QueueManager {
 	 */
 
 	public getQueueStats(): QueueStats {
-		const items = Array.from(this.downloadQueue.values());
+		const items = Array.from(this.store.values());
 		const pending = items.filter(item => item.state === DownloadStates.QUEUED).length;
 		const downloading = items.filter(item => item.state === DownloadStates.DOWNLOADING).length;
 		const paused = items.filter(item => item.state === DownloadStates.PAUSED).length;
@@ -933,7 +912,7 @@ export class QueueManager {
 		}
 
 		return {
-			total: this.downloadQueue.size,
+			total: this.store.size,
 			pending,
 			downloading,
 			paused,
@@ -965,11 +944,11 @@ export class QueueManager {
 		skipFileCleanup: boolean = false
 	): Promise<void> {
 		try {
-			const beforeCount = this.downloadQueue.size;
+			const beforeCount = this.store.size;
 			const idsToRemove: string[] = [];
 
 			// Identificar items a eliminar
-			for (const [id, item] of this.downloadQueue) {
+			for (const [id, item] of this.store.entries()) {
 				if (states.includes(item.state)) {
 					idsToRemove.push(id);
 				}
@@ -986,7 +965,7 @@ export class QueueManager {
 
 			// Limpiar cada item completamente
 			for (const id of idsToRemove) {
-				const item = this.downloadQueue.get(id);
+				const item = this.store.getRaw(id);
 
 				// 1. Limpiar archivo físico si existe y no se omite
 				if (!skipFileCleanup && item?.fileUri) {
@@ -1007,22 +986,23 @@ export class QueueManager {
 				}
 
 				// 3. Eliminar de la cola
-				this.downloadQueue.delete(id);
+				this.store.delete(id);
 
 				// 4. Limpiar tracking asociado
 				this.retryManager.clearRetries(id);
 				this.currentlyDownloading.delete(id);
+				this.lastProgressEventTime.delete(id);
 			}
 
-			const removed = beforeCount - this.downloadQueue.size;
+			const removed = beforeCount - this.store.size;
 
 			// Persistir cambios
-			await persistenceService.saveDownloadState(this.downloadQueue);
+			await this.store.persist();
 
 			this.eventEmitter.emit("downloads_cleared_by_state", {
 				states,
 				clearedCount: removed,
-				queueSize: this.downloadQueue.size,
+				queueSize: this.store.size,
 			});
 
 			this.currentLogger.info(
@@ -1199,12 +1179,12 @@ export class QueueManager {
 		// FIX: Only count DOWNLOADING as active. PAUSED downloads are not actively downloading
 		// and should not block concurrency slots. Previously, PAUSED items counted as active,
 		// which blocked the queue when syncWithNativeState set items to PAUSED.
-		const stateActive = Array.from(this.downloadQueue.values()).filter(
+		const stateActive = Array.from(this.store.values()).filter(
 			item => item.state === DownloadStates.DOWNLOADING
 		).length;
 		const activeDownloads = Math.max(stateActive, this.currentlyDownloading.size);
 
-		const queuedDownloads = Array.from(this.downloadQueue.values()).filter(
+		const queuedDownloads = Array.from(this.store.values()).filter(
 			item => item.state === DownloadStates.QUEUED
 		).length;
 
@@ -1241,7 +1221,7 @@ export class QueueManager {
 		let nextDownload: DownloadItem | null = null;
 		let nextDownloadId: string | null = null;
 
-		for (const [id, item] of this.downloadQueue) {
+		for (const [id, item] of this.store.entries()) {
 			if (item.state === DownloadStates.QUEUED && !this.currentlyDownloading.has(id)) {
 				nextDownload = item;
 				nextDownloadId = id;
@@ -1271,7 +1251,7 @@ export class QueueManager {
 			}
 
 			// Re-verificar límite de concurrencia después del delay
-			const stateActiveAfterDelay = Array.from(this.downloadQueue.values()).filter(
+			const stateActiveAfterDelay = Array.from(this.store.values()).filter(
 				item => item.state === DownloadStates.DOWNLOADING
 			).length;
 			const activeAfterDelay = Math.max(
@@ -1288,7 +1268,7 @@ export class QueueManager {
 
 			// Verificar de nuevo después del delay que la descarga sigue en QUEUED
 			// Puede haber cambiado de estado durante el delay
-			const currentItem = this.downloadQueue.get(nextDownloadId);
+			const currentItem = this.store.getRaw(nextDownloadId);
 			if (!currentItem || currentItem.state !== DownloadStates.QUEUED) {
 				this.currentLogger.debug(
 					TAG,
@@ -1318,10 +1298,11 @@ export class QueueManager {
 			// ENVIAR A COLA DESTINO: Aquí es donde enviamos a react-native-background-downloader o módulo nativo
 			await this.sendToDestinationQueue(nextDownload);
 
-			// Emitir evento de inicio
+			// Emitir evento de inicio (re-fetch para obtener item con estado DOWNLOADING)
+			const startedItem = this.store.getRaw(nextDownloadId);
 			this.eventEmitter.emit(DownloadEventType.STARTED, {
 				downloadId: nextDownloadId,
-				item: nextDownload,
+				item: startedItem || nextDownload,
 			});
 
 			this.currentLogger.info(
@@ -1472,7 +1453,7 @@ export class QueueManager {
 	): Promise<void> {
 		await this.updateDownloadProgress(downloadId, progressPercent, bytesWritten, totalBytes);
 
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (item) {
 			this.eventEmitter.emit(DownloadEventType.PROGRESS, {
 				downloadId,
@@ -1500,18 +1481,22 @@ export class QueueManager {
 		// Limpiar muestras de velocidad
 		speedCalculator.clear(downloadId);
 
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (item) {
+			const clonedItem = this.deepCloneItem(item);
+			if (fileUri) {
+				clonedItem.fileUri = fileUri;
+			}
 			this.eventEmitter.emit(DownloadEventType.COMPLETED, {
 				downloadId,
-				item: { ...item, fileUri },
+				item: clonedItem,
 			});
 
 			this.currentLogger.info(TAG, `Download completed: ${item.title}`);
 		}
 
 		// DEBUG: Log all downloads state after completion
-		const allDownloads = Array.from(this.downloadQueue.values());
+		const allDownloads = Array.from(this.store.values());
 		const statesSummary = allDownloads.map(d => `${d.id}:${d.state}:${d.type}`).join(", ");
 		this.currentLogger.info(TAG, `Queue state after completion: [${statesSummary}]`);
 		this.currentLogger.info(
@@ -1544,7 +1529,7 @@ export class QueueManager {
 	 */
 
 	public async notifyDownloadFailed(downloadId: string, error: unknown): Promise<void> {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 
 		// DEDUPLICATION: If item is already FAILED, skip processing
 		// This prevents race conditions when multiple error events arrive for the same download
@@ -1579,7 +1564,7 @@ export class QueueManager {
 		// Remover de descargas activas
 		this.currentlyDownloading.delete(downloadId);
 
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (item) {
 			this.eventEmitter.emit(DownloadEventType.PAUSED, { downloadId, item });
 		}
@@ -1600,7 +1585,7 @@ export class QueueManager {
 	 */
 
 	public async notifyDownloadResumed(downloadId: string): Promise<void> {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (!item) {
 			this.currentLogger.warn(
 				TAG,
@@ -1615,8 +1600,12 @@ export class QueueManager {
 		// Agregar a descargas activas
 		this.currentlyDownloading.add(downloadId);
 
-		// Emitir evento de actualización
-		this.eventEmitter.emit(DownloadEventType.RESUMED, { downloadId, item });
+		// Emitir evento de actualización (re-fetch para obtener item con estado actualizado)
+		const updatedItem = this.store.getRaw(downloadId);
+		this.eventEmitter.emit(DownloadEventType.RESUMED, {
+			downloadId,
+			item: updatedItem || item,
+		});
 
 		this.currentLogger.debug(
 			TAG,
@@ -1630,7 +1619,7 @@ export class QueueManager {
 	 */
 
 	public async notifyDownloadStateChange(downloadId: string, newState: string): Promise<void> {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (!item) {
 			this.currentLogger.warn(
 				TAG,
@@ -1652,10 +1641,11 @@ export class QueueManager {
 		// Actualizar estado
 		await this.updateDownloadState(downloadId, mappedState);
 
-		// Emitir evento de cambio de estado
+		// Emitir evento de cambio de estado (re-fetch para obtener item actualizado)
+		const updatedItem = this.store.getRaw(downloadId);
 		this.eventEmitter.emit(DownloadEventType.STATE_CHANGE, {
 			downloadId,
-			item,
+			item: updatedItem || item,
 			state: mappedState,
 		});
 
@@ -1699,7 +1689,7 @@ export class QueueManager {
 			this.retryManager.clearRetries(downloadId);
 			await this.updateDownloadState(downloadId, DownloadStates.FAILED);
 
-			const updatedItem = this.downloadQueue.get(downloadId);
+			const updatedItem = this.store.getRaw(downloadId);
 			const errorObj = error as { code?: string; errorCode?: string };
 
 			// CRITICAL: Emit FAILED event so UI can update
@@ -1729,39 +1719,15 @@ export class QueueManager {
 	 */
 
 	private acquireLock(downloadId: string, operation: "removing" | "updating"): boolean {
-		if (this.pendingOperations.has(downloadId)) {
-			this.currentLogger.debug(
-				TAG,
-				`Lock denied for ${downloadId}: ${this.pendingOperations.get(downloadId)} in progress`
-			);
-			return false;
-		}
-
-		this.pendingOperations.set(downloadId, operation);
-
-		// Timeout de seguridad: liberar lock después de 30 segundos
-		const timeout = setTimeout(() => {
-			this.currentLogger.warn(TAG, `Lock timeout for ${downloadId}`);
-			this.releaseLock(downloadId);
-		}, 30000);
-
-		this.lockTimeouts.set(downloadId, timeout);
-
-		return true;
+		return this.store.acquireLock(downloadId, operation);
 	}
 
 	private releaseLock(downloadId: string): void {
-		this.pendingOperations.delete(downloadId);
-
-		const timeout = this.lockTimeouts.get(downloadId);
-		if (timeout) {
-			clearTimeout(timeout);
-			this.lockTimeouts.delete(downloadId);
-		}
+		this.store.releaseLock(downloadId);
 	}
 
 	private isBeingRemoved(downloadId: string): boolean {
-		return this.pendingOperations.get(downloadId) === "removing";
+		return this.store.isBeingRemoved(downloadId);
 	}
 
 	/*
@@ -1775,7 +1741,7 @@ export class QueueManager {
 		fileUri?: string,
 		fileSize?: number
 	): Promise<void> {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (item) {
 			const previousState = item.state;
 
@@ -1830,10 +1796,10 @@ export class QueueManager {
 				}
 			}
 
-			this.downloadQueue.set(downloadId, mergedItem);
+			this.store.set(downloadId, mergedItem);
 
 			// Persistir cambios usando PersistenceService
-			await persistenceService.saveDownloadState(this.downloadQueue);
+			await this.store.persist();
 		}
 	}
 
@@ -1848,7 +1814,7 @@ export class QueueManager {
 		bytesWritten?: number,
 		totalBytes?: number
 	): Promise<void> {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (item) {
 			item.stats.progressPercent = Math.max(0, Math.min(100, progress));
 
@@ -1875,11 +1841,11 @@ export class QueueManager {
 				}
 			}
 
-			this.downloadQueue.set(downloadId, item);
+			this.store.set(downloadId, item);
 
 			// Solo persistir en cambios importantes de progreso (cada 10%)
 			if (progress % 10 === 0) {
-				await persistenceService.saveDownloadState(this.downloadQueue);
+				await this.store.persist();
 			}
 		}
 	}
@@ -1890,7 +1856,7 @@ export class QueueManager {
 	 */
 
 	public getDownloadType(downloadId: string): DownloadType | undefined {
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		return item?.type;
 	}
 
@@ -1900,27 +1866,7 @@ export class QueueManager {
 	 */
 
 	private async loadPersistedQueue(): Promise<void> {
-		try {
-			this.currentLogger.debug(TAG, "Loading persisted download queue");
-
-			// Cargar usando PersistenceService
-			const persistedDownloads = await persistenceService.loadDownloadState();
-			this.downloadQueue = persistedDownloads;
-
-			// Resetear descargas que estaban en progreso
-			for (const [id, item] of this.downloadQueue) {
-				if (item.state === DownloadStates.DOWNLOADING) {
-					item.state = DownloadStates.QUEUED;
-					this.downloadQueue.set(id, item);
-				}
-			}
-
-			if (this.downloadQueue.size > 0) {
-				await persistenceService.saveDownloadState(this.downloadQueue);
-			}
-		} catch (error) {
-			this.currentLogger.error(TAG, `Failed to load persisted queue: ${error}`);
-		}
+		await this.store.loadFromPersistence();
 	}
 
 	/*
@@ -1951,7 +1897,7 @@ export class QueueManager {
 					continue;
 				}
 
-				const localItem = this.downloadQueue.get(nativeDownload.id);
+				const localItem = this.store.getRaw(nativeDownload.id);
 				if (localItem && localItem.state !== nativeDownload.state) {
 					// Proteger estados terminales: COMPLETED and FAILED must not be
 					// overwritten by native state. iOS can report completed streams
@@ -1998,14 +1944,14 @@ export class QueueManager {
 						this.currentlyDownloading.delete(nativeDownload.id);
 					}
 
-					this.downloadQueue.set(nativeDownload.id, localItem);
+					this.store.set(nativeDownload.id, localItem);
 					syncedCount++;
 				}
 			}
 
 			// Persistir cambios si hubo sincronizaciones
 			if (syncedCount > 0) {
-				await persistenceService.saveDownloadState(this.downloadQueue);
+				await this.store.persist();
 				this.currentLogger.info(TAG, `Synced ${syncedCount} downloads with native state`);
 			} else {
 				this.currentLogger.debug(TAG, "All download states already in sync");
@@ -2035,7 +1981,7 @@ export class QueueManager {
 			const orphanedIds: string[] = [];
 
 			// Buscar descargas que están marcadas como DOWNLOADING pero no existen en nativo
-			for (const [downloadId, item] of this.downloadQueue.entries()) {
+			for (const [downloadId, item] of this.store.entries()) {
 				if (
 					item.state === DownloadStates.DOWNLOADING ||
 					item.state === DownloadStates.PREPARING
@@ -2055,14 +2001,14 @@ export class QueueManager {
 
 			// Resetear estado de descargas huérfanas a QUEUED para que puedan reiniciarse
 			for (const downloadId of orphanedIds) {
-				const item = this.downloadQueue.get(downloadId);
+				const item = this.store.getRaw(downloadId);
 				if (item) {
 					item.state = DownloadStates.QUEUED;
 					// Resetear progreso si existe la propiedad
 					if ("progress" in item) {
 						(item as { progress: number }).progress = 0;
 					}
-					this.downloadQueue.set(downloadId, item);
+					this.store.set(downloadId, item);
 					this.currentlyDownloading.delete(downloadId);
 					cleanedCount++;
 
@@ -2075,7 +2021,7 @@ export class QueueManager {
 
 			// Persistir cambios
 			if (cleanedCount > 0) {
-				await persistenceService.saveDownloadState(this.downloadQueue);
+				await this.store.persist();
 				this.currentLogger.info(
 					TAG,
 					`Cleaned up ${cleanedCount} orphaned downloads, reset to QUEUED`
@@ -2131,14 +2077,14 @@ export class QueueManager {
 		};
 		const { downloadId, percent } = eventData;
 
-		if (this.downloadQueue.has(downloadId)) {
+		if (this.store.has(downloadId)) {
 			// Ignorar eventos si la descarga está siendo eliminada
 			if (this.isBeingRemoved(downloadId)) {
 				return;
 			}
 
 			// FILTRAR eventos innecesarios para evitar ruido
-			const item = this.downloadQueue.get(downloadId);
+			const item = this.store.getRaw(downloadId);
 
 			// No procesar si la descarga no está realmente activa
 			if (!item || item.state !== DownloadStates.DOWNLOADING) {
@@ -2152,7 +2098,7 @@ export class QueueManager {
 						item.state === DownloadStates.PREPARING)
 				) {
 					item.state = DownloadStates.DOWNLOADING;
-					this.downloadQueue.set(downloadId, item);
+					this.store.set(downloadId, item);
 				} else {
 					return;
 				}
@@ -2268,7 +2214,7 @@ export class QueueManager {
 				}
 
 				// Guardar el item actualizado de vuelta en el Map
-				this.downloadQueue.set(downloadId, item);
+				this.store.set(downloadId, item);
 			}
 
 			// ═══════════════════════════════════════════════════════════════
@@ -2290,7 +2236,7 @@ export class QueueManager {
 			this.lastProgressEventTime.set(downloadId, now);
 
 			// Re-emitir evento para que los hooks lo reciban (usar valores calculados)
-			const updatedItem = this.downloadQueue.get(downloadId);
+			const updatedItem = this.store.getRaw(downloadId);
 			const stats = updatedItem?.stats;
 
 			const progressData = {
@@ -2323,15 +2269,15 @@ export class QueueManager {
 
 		this.currentLogger.debug(TAG, `Handling native state event: ${downloadId} → ${state}`);
 
-		if (this.downloadQueue.has(downloadId)) {
+		if (this.store.has(downloadId)) {
 			// Convertir estado nativo a estado interno si es necesario
 			const mappedState = this.mapNativeStateToInternal(state);
-			const previousState = this.downloadQueue.get(downloadId)?.state;
+			const previousState = this.store.getRaw(downloadId)?.state;
 
 			await this.updateDownloadState(downloadId, mappedState);
 
 			// Re-emitir evento específico según el estado
-			const item = this.downloadQueue.get(downloadId);
+			const item = this.store.getRaw(downloadId);
 			if (item) {
 				switch (mappedState) {
 					case DownloadStates.COMPLETED:
@@ -2412,7 +2358,7 @@ export class QueueManager {
 		};
 		const { downloadId } = eventData;
 
-		if (this.downloadQueue.has(downloadId)) {
+		if (this.store.has(downloadId)) {
 			await this.notifyDownloadCompleted(
 				downloadId,
 				eventData.fileUri || eventData.path,
@@ -2440,7 +2386,7 @@ export class QueueManager {
 			return;
 		}
 
-		const item = this.downloadQueue.get(downloadId);
+		const item = this.store.getRaw(downloadId);
 		if (!item) {
 			this.currentLogger.debug(TAG, `Error event for unknown download: ${downloadId}`);
 			return;
@@ -2507,8 +2453,9 @@ export class QueueManager {
 	public destroy(): void {
 		this.stopProcessing();
 		this.eventEmitter.removeAllListeners();
-		this.downloadQueue.clear();
+		this.store.destroy();
 		this.currentlyDownloading.clear();
+		this.lastProgressEventTime.clear();
 		this.retryManager.destroy();
 		this.isInitialized = false;
 		this.currentLogger.info(TAG, "QueueManager destroyed");
