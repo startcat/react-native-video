@@ -2,8 +2,15 @@ ENV['RCT_NEW_ARCH_ENABLED'] = "1"
 require_relative '../node_modules/react-native/scripts/react_native_pods'
 require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
 
-platform :ios, '12.4'
+source 'https://cdn.cocoapods.org'
+source 'https://repo.plugin.npaw.com/release/plugin-ios-cocoapods.git'
+
+platform :ios, '13.0'
 install! 'cocoapods', :deterministic_uuids => false
+use_modular_headers!
+
+$RNVideoUseYoubora = true
+$RNVideoUseVideoCaching = true
 
 target 'FabricExample' do
   config = use_native_modules!
@@ -18,11 +25,8 @@ target 'FabricExample' do
     # we make it explicit here to aid in the React Native upgrade process.
     :hermes_enabled => true,
     :fabric_enabled => flags[:fabric_enabled],
-    # Enables Flipper.
-    #
-    # Note that if you have use_frameworks! enabled, Flipper will not work and
-    # you should disable the next line.
-    :flipper_configuration => FlipperConfiguration.enabled,
+    # Flipper disabled — deprecated and causes pod install issues
+    # :flipper_configuration => FlipperConfiguration.enabled,
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
