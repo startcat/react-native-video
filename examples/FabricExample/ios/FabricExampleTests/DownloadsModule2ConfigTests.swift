@@ -13,6 +13,13 @@ class DownloadsModule2ConfigTests: XCTestCase {
     override func setUp() {
         super.setUp()
         module = DownloadsModule2()
+        // Limpiar UserDefaults para tests aislados
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "com.downloads.activeStates")
+        defaults.removeObject(forKey: "com.downloads.assetPaths")
+        defaults.removeObject(forKey: "com.downloads.assetBookmarks")
+        defaults.removeObject(forKey: "com.downloads.subtitleBookmarks")
+        defaults.synchronize()
     }
 
     override func tearDown() {
