@@ -3,61 +3,6 @@ import AVFoundation
 import React
 import UIKit
 
-// MARK: - Download State Enum
-@objc enum DownloadState: Int, CaseIterable {
-    case notDownloaded = 0
-    case preparing = 1
-    case queued = 2
-    case downloading = 3
-    case paused = 4
-    case completed = 5
-    case failed = 6
-    case removing = 7
-    case stopped = 8
-    case waitingForNetwork = 9
-    case licenseExpired = 10
-    case drmExpired = 11
-    case restarting = 12
-    
-    var stringValue: String {
-        switch self {
-        case .notDownloaded: return "NOT_DOWNLOADED"
-        case .preparing: return "PREPARING"
-        case .queued: return "QUEUED"
-        case .downloading: return "DOWNLOADING"
-        case .paused: return "PAUSED"
-        case .completed: return "COMPLETED"
-        case .failed: return "FAILED"
-        case .removing: return "REMOVING"
-        case .stopped: return "STOPPED"
-        case .waitingForNetwork: return "WAITING_FOR_NETWORK"
-        case .licenseExpired: return "LICENSE_EXPIRED"
-        case .drmExpired: return "DRM_EXPIRED"
-        case .restarting: return "RESTARTING"
-        }
-    }
-}
-
-// MARK: - Download Info Structure
-struct DownloadInfo {
-    let id: String
-    let uri: String
-    let title: String
-    var state: DownloadState
-    var progress: Float
-    var totalBytes: Int64
-    var downloadedBytes: Int64
-    var speed: Double
-    var remainingTime: Int
-    var quality: String?
-    var hasSubtitles: Bool
-    var hasDRM: Bool
-    var error: Error?
-    var startTime: Date?
-    var completionTime: Date?
-    var assetPath: String? // Path where iOS stored the downloaded asset
-}
-
 // MARK: - Main Downloads Module Class
 @objc(DownloadsModule2)
 class DownloadsModule2: RCTEventEmitter {
@@ -242,16 +187,8 @@ class DownloadsModule2: RCTEventEmitter {
     // Cache para downloadSpace (evitar cálculos costosos)
     private var cachedDownloadSpace: Int64 = 0
     private var downloadSpaceCacheTime: Date?
-    private let DOWNLOAD_SPACE_CACHE_TTL: TimeInterval = 5.0 // 5 segundos
-    
     // Progress timer - only runs when there are active downloads
     private var progressTimer: Timer?
-    
-    // Persistencia de asset paths para recuperar después de restart
-    private let ASSET_PATHS_KEY = "com.downloads.assetPaths"
-    private let ASSET_BOOKMARKS_KEY = "com.downloads.assetBookmarks" // NEW: Use bookmarkData for persistence
-    private let SUBTITLE_BOOKMARKS_KEY = "com.downloads.subtitleBookmarks" // Bookmarks for subtitle files (survives sandbox UUID changes)
-    private let ACTIVE_DOWNLOADS_KEY = "com.downloads.activeStates" // NUEVO: Persistir descargas en progreso
     
     // Speed tracking
     private var lastProgressUpdate: [String: (bytes: Int64, time: Date)] = [:]
@@ -2501,7 +2438,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         // Check cache
         if let cacheTime = downloadSpaceCacheTime {
             let age = Date().timeIntervalSince(cacheTime)
-            if age < DOWNLOAD_SPACE_CACHE_TTL {
+            if age < DownloadConstants.DOWNLOAD_SPACE_CACHE_TTL {
                 return cachedDownloadSpace
             }
         }
@@ -2651,13 +2588,13 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             downloadStates.append(state)
         }
         
-        UserDefaults.standard.set(downloadStates, forKey: ACTIVE_DOWNLOADS_KEY)
+        UserDefaults.standard.set(downloadStates, forKey: DownloadConstants.ACTIVE_DOWNLOADS_KEY)
         UserDefaults.standard.synchronize()
     }
     
     /// Restaurar estado de descargas desde UserDefaults
     private func restoreDownloadStates() {
-        guard let savedStates = UserDefaults.standard.array(forKey: ACTIVE_DOWNLOADS_KEY) as? [[String: Any]] else {
+        guard let savedStates = UserDefaults.standard.array(forKey: DownloadConstants.ACTIVE_DOWNLOADS_KEY) as? [[String: Any]] else {
             return
         }
         
@@ -2751,26 +2688,26 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     private func saveAssetPath(_ path: String, forDownloadId downloadId: String) {
         var paths = loadAssetPaths()
         paths[downloadId] = path
-        UserDefaults.standard.set(paths, forKey: ASSET_PATHS_KEY)
+        UserDefaults.standard.set(paths, forKey: DownloadConstants.ASSET_PATHS_KEY)
         UserDefaults.standard.synchronize()
     }
     
     /// Cargar todos los asset paths guardados
     private func loadAssetPaths() -> [String: String] {
-        return UserDefaults.standard.dictionary(forKey: ASSET_PATHS_KEY) as? [String: String] ?? [:]
+        return UserDefaults.standard.dictionary(forKey: DownloadConstants.ASSET_PATHS_KEY) as? [String: String] ?? [:]
     }
     
     /// Eliminar asset path de un download específico
     private func removeAssetPath(forDownloadId downloadId: String) {
         var paths = loadAssetPaths()
         paths.removeValue(forKey: downloadId)
-        UserDefaults.standard.set(paths, forKey: ASSET_PATHS_KEY)
+        UserDefaults.standard.set(paths, forKey: DownloadConstants.ASSET_PATHS_KEY)
         UserDefaults.standard.synchronize()
     }
     
     /// Limpiar todos los asset paths (útil para debugging o reset completo)
     private func clearAllAssetPaths() {
-        UserDefaults.standard.removeObject(forKey: ASSET_PATHS_KEY)
+        UserDefaults.standard.removeObject(forKey: DownloadConstants.ASSET_PATHS_KEY)
         UserDefaults.standard.synchronize()
     }
     
@@ -2782,7 +2719,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             let bookmarkData = try url.bookmarkData()
             var bookmarks = loadAssetBookmarks()
             bookmarks[downloadId] = bookmarkData
-            UserDefaults.standard.set(bookmarks, forKey: ASSET_BOOKMARKS_KEY)
+            UserDefaults.standard.set(bookmarks, forKey: DownloadConstants.ASSET_BOOKMARKS_KEY)
             UserDefaults.standard.synchronize()
         } catch {
             // Failed to create bookmark
@@ -2791,7 +2728,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     
     /// Load all saved bookmarks
     private func loadAssetBookmarks() -> [String: Data] {
-        return UserDefaults.standard.dictionary(forKey: ASSET_BOOKMARKS_KEY) as? [String: Data] ?? [:]
+        return UserDefaults.standard.dictionary(forKey: DownloadConstants.ASSET_BOOKMARKS_KEY) as? [String: Data] ?? [:]
     }
     
     /// Resolve a bookmark to get the current URL (handles sandbox UUID changes)
@@ -2821,7 +2758,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     private func removeAssetBookmark(forDownloadId downloadId: String) {
         var bookmarks = loadAssetBookmarks()
         bookmarks.removeValue(forKey: downloadId)
-        UserDefaults.standard.set(bookmarks, forKey: ASSET_BOOKMARKS_KEY)
+        UserDefaults.standard.set(bookmarks, forKey: DownloadConstants.ASSET_BOOKMARKS_KEY)
         UserDefaults.standard.synchronize()
     }
     
@@ -2835,7 +2772,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
             var bookmarks = loadSubtitleBookmarks()
             let key = "\(downloadId):\(language)"
             bookmarks[key] = bookmarkData
-            UserDefaults.standard.set(bookmarks, forKey: SUBTITLE_BOOKMARKS_KEY)
+            UserDefaults.standard.set(bookmarks, forKey: DownloadConstants.SUBTITLE_BOOKMARKS_KEY)
             UserDefaults.standard.synchronize()
             RCTLog("[Native Downloads] (DownloadsModule2) Saved subtitle bookmark for \(key)")
         } catch {
@@ -2845,7 +2782,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
     
     /// Load all saved subtitle bookmarks
     private func loadSubtitleBookmarks() -> [String: Data] {
-        return UserDefaults.standard.dictionary(forKey: SUBTITLE_BOOKMARKS_KEY) as? [String: Data] ?? [:]
+        return UserDefaults.standard.dictionary(forKey: DownloadConstants.SUBTITLE_BOOKMARKS_KEY) as? [String: Data] ?? [:]
     }
     
     /// Resolve a subtitle bookmark to get the current URL (handles sandbox UUID changes)
@@ -2888,7 +2825,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         var bookmarks = loadSubtitleBookmarks()
         let key = "\(downloadId):\(language)"
         bookmarks.removeValue(forKey: key)
-        UserDefaults.standard.set(bookmarks, forKey: SUBTITLE_BOOKMARKS_KEY)
+        UserDefaults.standard.set(bookmarks, forKey: DownloadConstants.SUBTITLE_BOOKMARKS_KEY)
         UserDefaults.standard.synchronize()
     }
     
@@ -2900,7 +2837,7 @@ extension DownloadsModule2: AVAssetDownloadDelegate {
         for key in keysToRemove {
             bookmarks.removeValue(forKey: key)
         }
-        UserDefaults.standard.set(bookmarks, forKey: SUBTITLE_BOOKMARKS_KEY)
+        UserDefaults.standard.set(bookmarks, forKey: DownloadConstants.SUBTITLE_BOOKMARKS_KEY)
         UserDefaults.standard.synchronize()
     }
     
