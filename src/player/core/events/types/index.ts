@@ -1,16 +1,15 @@
 import { VideoEventsAdapter } from "../VideoEventsAdapter";
 
-import type { ReactVideoEvents } from "../../../../types";
-import type { PlayerError } from "../../errors";
-
 import {
 	PlayerAnalyticsEvents,
+	type BaseError,
 	type PlayerAnalyticsPlugin,
 } from "@overon/react-native-overon-player-analytics-plugins";
+import type { ReactVideoEvents } from "../../../../types";
 
 export interface UseVideoAnalyticsProps {
 	plugins?: PlayerAnalyticsPlugin[];
-	onInternalError?: (error: PlayerError) => void;
+	onInternalError?: (error: BaseError) => void;
 }
 
 export interface UseVideoAnalyticsReturn {

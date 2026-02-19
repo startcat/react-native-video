@@ -34,6 +34,7 @@ import {
 } from "../../types";
 const BackgroundPoster = React.lazy(() => import("../../components/poster"));
 
+import { type BaseError } from "@overon/react-native-overon-player-analytics-plugins";
 import { PlayerError, handleErrorException, mapVideoErrorToPlayerError } from "../../core/errors";
 
 import { useIsLandscape } from "../common/hooks";
@@ -1904,11 +1905,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		return playerError;
 	};
 
-	const handleOnInternalError = (error: PlayerError) => {
+	const handleOnInternalError = (error: BaseError | PlayerError) => {
 		currentLogger.current?.error(`handleOnInternalError: ${JSON.stringify(error)}`);
 
 		if (props.events?.onError && typeof props.events.onError === "function") {
-			props.events.onError(error);
+			props.events.onError(error as unknown as PlayerError);
 		}
 
 		return false;

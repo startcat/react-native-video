@@ -6,13 +6,12 @@
 import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
 
-import type { ReactVideoEvents } from "../../../../types";
-import { PlayerError } from "../../errors";
-
 import {
 	PlayerAnalyticsEvents,
 	type PlayerAnalyticsPlugin,
+	createHandlerError,
 } from "@overon/react-native-overon-player-analytics-plugins";
+import type { ReactVideoEvents } from "../../../../types";
 
 import { VideoEventsAdapter } from "../VideoEventsAdapter";
 
@@ -56,9 +55,7 @@ export const useVideoAnalytics = ({
 			adapterRef.current = new VideoEventsAdapter(analyticsEventsRef.current);
 		} catch (error) {
 			onInternalError?.(
-				new PlayerError("PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED", {
-					originalError: error,
-				})
+				createHandlerError("INITIALIZATION_FAILED", { originalError: error as Error })
 			);
 		}
 	}
@@ -123,9 +120,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onLoadStart(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_LOAD_START_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("LOAD_START_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -137,9 +132,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onLoad(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_LOAD_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("LOAD_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -151,9 +144,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onProgress(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_PROGRESS_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("PROGRESS_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -165,8 +156,8 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onPlaybackStateChanged(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_PLAYBACK_STATE_CHANGED_FAILED", {
-							originalError: error,
+						createHandlerError("PLAYBACK_STATE_CHANGED_FAILED", {
+							originalError: error as Error,
 						})
 					);
 				}
@@ -179,9 +170,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onBuffer(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_BUFFER_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("BUFFER_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -193,9 +182,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onSeek(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_SEEK_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("SEEK_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -207,8 +194,8 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onPlaybackRateChange(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_PLAYBACK_RATE_CHANGE_FAILED", {
-							originalError: error,
+						createHandlerError("PLAYBACK_RATE_CHANGE_FAILED", {
+							originalError: error as Error,
 						})
 					);
 				}
@@ -221,8 +208,8 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onVolumeChange(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_VOLUME_CHANGE_FAILED", {
-							originalError: error,
+						createHandlerError("VOLUME_CHANGE_FAILED", {
+							originalError: error as Error,
 						})
 					);
 				}
@@ -235,7 +222,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onEnd();
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_END_FAILED", { originalError: error })
+						createHandlerError("END_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -247,9 +234,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onError(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_ERROR_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("ERROR_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -261,8 +246,8 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onReceiveAdEvent(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED", {
-							originalError: error,
+						createHandlerError("RECEIVE_AD_EVENT_FAILED", {
+							originalError: error as Error,
 						})
 					);
 				}
@@ -275,9 +260,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onAudioTracks(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_AUDIO_TRACKS_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("AUDIO_TRACKS_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -289,9 +272,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onTextTracks(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_TEXT_TRACKS_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("TEXT_TRACKS_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -303,9 +284,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onVideoTracks(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_VIDEO_TRACKS_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("VIDEO_TRACKS_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -317,8 +296,8 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onBandwidthUpdate(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_BANDWIDTH_UPDATE_FAILED", {
-							originalError: error,
+						createHandlerError("BANDWIDTH_UPDATE_FAILED", {
+							originalError: error as Error,
 						})
 					);
 				}
@@ -331,9 +310,7 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onAspectRatio(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_ASPECT_RATIO_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("ASPECT_RATIO_FAILED", { originalError: error as Error })
 					);
 				}
 			}
@@ -345,8 +322,8 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onTimedMetadata(e);
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_TIMED_METADATA_FAILED", {
-							originalError: error,
+						createHandlerError("TIMED_METADATA_FAILED", {
+							originalError: error as Error,
 						})
 					);
 				}
@@ -359,8 +336,8 @@ export const useVideoAnalytics = ({
 					adapterRef.current.onReadyForDisplay();
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_READY_FOR_DISPLAY_FAILED", {
-							originalError: error,
+						createHandlerError("READY_FOR_DISPLAY_FAILED", {
+							originalError: error as Error,
 						})
 					);
 				}
@@ -374,8 +351,8 @@ export const useVideoAnalytics = ({
 					analyticsEventsRef.current.onPause();
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_AUDIO_BECOMING_NOISY_FAILED", {
-							originalError: error,
+						createHandlerError("AUDIO_BECOMING_NOISY_FAILED", {
+							originalError: error as Error,
 						})
 					);
 				}
@@ -388,9 +365,7 @@ export const useVideoAnalytics = ({
 					analyticsEventsRef.current.onPause();
 				} catch (error) {
 					onInternalError?.(
-						new PlayerError("PLAYER_EVENT_HANDLER_IDLE_FAILED", {
-							originalError: error,
-						})
+						createHandlerError("IDLE_FAILED", { originalError: error as Error })
 					);
 				}
 			}
