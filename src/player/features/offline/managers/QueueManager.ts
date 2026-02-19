@@ -31,6 +31,7 @@ import {
 } from "../types";
 import { speedCalculator } from "../utils/SpeedCalculator";
 import { DownloadStateStore } from "./queue/DownloadStateStore";
+import { NativeEventBridge, NativeProgressData } from "./queue/NativeEventBridge";
 import { RetryManager } from "./queue/RetryManager";
 
 const TAG = LOG_TAGS.QUEUE_MANAGER;
@@ -47,6 +48,7 @@ export class QueueManager {
 	private processingInterval: ReturnType<typeof setTimeout> | null = null;
 	private currentlyDownloading: Set<string> = new Set();
 	private retryManager: RetryManager;
+	private eventBridge!: NativeEventBridge;
 	private currentLogger: Logger;
 	private isProcessingQueue: boolean = false; // Flag para prevenir ejecuciones concurrentes
 
@@ -86,109 +88,6 @@ export class QueueManager {
 	}
 
 	/*
-	 * Configura los event listeners para conectar con eventos nativos
-	 */
-	private setupNativeEventListeners(): void {
-		// Suscribirse a eventos de progreso del NativeManager
-		nativeManager.subscribe("download_progress", (data: unknown) => {
-			this.handleNativeProgressEvent(data).catch(error => {
-				this.currentLogger.error(TAG, "Failed to handle native progress event", error);
-			});
-		});
-
-		// Suscribirse a eventos de estado del NativeManager
-		nativeManager.subscribe("download_state_changed", (data: unknown) => {
-			this.handleNativeStateEvent(data).catch(error => {
-				this.currentLogger.error(TAG, "Failed to handle native state event", error);
-			});
-		});
-
-		// Suscribirse a eventos de completado del NativeManager
-		nativeManager.subscribe("download_completed", (data: unknown) => {
-			this.handleNativeCompletedEvent(data).catch(error => {
-				this.currentLogger.error(TAG, "Failed to handle native completed event", error);
-			});
-		});
-
-		// Suscribirse a eventos de error del NativeManager (streams HLS/DASH)
-		// FASE 2: Ahora que DownloadService ya no re-emite eventos, necesitamos suscribirnos directamente
-		nativeManager.subscribe("download_error", (data: unknown) => {
-			this.handleNativeErrorEvent(data).catch(error => {
-				this.currentLogger.error(TAG, "Failed to handle native error event", error);
-			});
-		});
-
-		// FASE 1: Suscribirse a eventos de BinaryDownloadService directamente
-		// Los binarios no pasan por NativeManager, usan @kesha-antonov/react-native-background-downloader
-		this.setupBinaryEventListeners();
-
-		this.currentLogger.debug(TAG, "Native event listeners configured");
-	}
-
-	/*
-	 * FASE 1: Configura event listeners para BinaryDownloadService
-	 * Los binarios usan @kesha-antonov/react-native-background-downloader, no NativeManager
-	 */
-	private setupBinaryEventListeners(): void {
-		// Suscribirse a eventos de progreso de binarios
-		binaryDownloadService.subscribe(DownloadEventType.PROGRESS, (data: unknown) => {
-			// BinaryDownloadService emite: { taskId, percent, bytesWritten, totalBytes, downloadSpeed, estimatedTimeRemaining }
-			const progressData = data as {
-				taskId: string;
-				percent: number;
-				bytesWritten?: number;
-				bytesDownloaded?: number;
-				totalBytes: number;
-				downloadSpeed?: number;
-				speed?: number;
-			};
-			// Convertir al formato esperado por handleNativeProgressEvent
-			const percent = progressData.percent ?? 0;
-			const bytesDownloaded = progressData.bytesWritten ?? progressData.bytesDownloaded ?? 0;
-			const speed = progressData.downloadSpeed ?? progressData.speed ?? 0;
-
-			this.handleNativeProgressEvent({
-				downloadId: progressData.taskId,
-				percent,
-				bytesDownloaded,
-				totalBytes: progressData.totalBytes,
-				speed,
-			}).catch(error => {
-				this.currentLogger.error(TAG, "Failed to handle binary progress event", error);
-			});
-		});
-
-		// Suscribirse a eventos de completado de binarios
-		binaryDownloadService.subscribe(DownloadEventType.COMPLETED, (data: unknown) => {
-			const completedData = data as { taskId: string; fileUri?: string; fileSize?: number };
-			this.handleNativeCompletedEvent({
-				downloadId: completedData.taskId,
-				fileUri: completedData.fileUri,
-				fileSize: completedData.fileSize,
-			}).catch(error => {
-				this.currentLogger.error(TAG, "Failed to handle binary completed event", error);
-			});
-		});
-
-		// Suscribirse a eventos de error de binarios
-		binaryDownloadService.subscribe(DownloadEventType.FAILED, (data: unknown) => {
-			const errorData = data as { taskId: string; error?: string; errorCode?: string };
-			const item = this.store.getRaw(errorData.taskId);
-			if (item) {
-				this.handleDownloadFailure(errorData.taskId, item, {
-					code: errorData.errorCode || "UNKNOWN",
-					message: errorData.error || "Binary download failed",
-					timestamp: Date.now(),
-				}).catch((err: Error) => {
-					this.currentLogger.error(TAG, "Failed to handle binary error event", err);
-				});
-			}
-		});
-
-		this.currentLogger.debug(TAG, "Binary event listeners configured");
-	}
-
-	/*
 	 * Inicializa el servicio de cola de descargas
 	 *
 	 */
@@ -225,8 +124,62 @@ export class QueueManager {
 				// Cargar cola persistida usando PersistenceService
 				await this.loadPersistedQueue();
 
-				// Configurar event listeners para eventos nativos
-				this.setupNativeEventListeners();
+				// Configurar event bridge para eventos nativos y binarios
+				this.eventBridge = new NativeEventBridge(
+					{
+						nativeManager,
+						binaryDownloadService,
+						isBeingRemoved: (id: string) => this.isBeingRemoved(id),
+						hasDownload: (id: string) => this.store.has(id),
+						isPaused: () => this.isPaused,
+					},
+					{
+						onProgress: (id: string, progressData: NativeProgressData) => {
+							this.handleBridgeProgress(id, progressData).catch(error => {
+								this.currentLogger.error(
+									TAG,
+									"Failed to handle progress event",
+									error
+								);
+							});
+						},
+						onCompleted: (id: string, fileUri?: string, fileSize?: number) => {
+							this.handleBridgeCompleted(id, fileUri, fileSize).catch(error => {
+								this.currentLogger.error(
+									TAG,
+									"Failed to handle completed event",
+									error
+								);
+							});
+						},
+						onFailed: (
+							id: string,
+							error: { code: string; message: string; timestamp: number }
+						) => {
+							this.handleBridgeFailed(id, error).catch(err => {
+								this.currentLogger.error(TAG, "Failed to handle error event", err);
+							});
+						},
+						onStateChanged: (
+							id: string,
+							state: DownloadStates,
+							rawState: string,
+							extraData?: Record<string, unknown>
+						) => {
+							this.handleBridgeStateChanged(id, state, rawState, extraData).catch(
+								error => {
+									this.currentLogger.error(
+										TAG,
+										"Failed to handle state change event",
+										error
+									);
+								}
+							);
+						},
+					},
+					this.currentLogger
+				);
+				this.eventBridge.setup();
 
 				// NO iniciar procesamiento automático aquí.
 				// DownloadsManager.start() llamará a queueManager.start() después de
@@ -1671,8 +1624,8 @@ export class QueueManager {
 	): Promise<void> {
 		// FIX: Liberar slot de concurrencia inmediatamente para desbloquear la cola.
 		// Antes, solo notifyDownloadFailed (Path C) limpiaba currentlyDownloading,
-		// pero handleNativeErrorEvent (Path A) y setupBinaryEventListeners (Path B)
-		// llamaban a este método directamente sin limpiar, bloqueando la cola.
+		// pero los callbacks de NativeEventBridge (onFailed)
+		// llaman a este método directamente sin limpiar, bloqueando la cola.
 		this.currentlyDownloading.delete(downloadId);
 		speedCalculator.clear(downloadId);
 
@@ -2051,227 +2004,231 @@ export class QueueManager {
 	}
 
 	/*
-	 * Handlers para eventos nativos
+	 * Callbacks para NativeEventBridge — reciben datos ya normalizados
 	 *
 	 */
 
 	// Track last progress event times to avoid spam
 	private lastProgressEventTime: Map<string, number> = new Map();
 
-	private async handleNativeProgressEvent(data: unknown): Promise<void> {
-		// Ignore progress events when globally paused - native module may still
-		// send lingering events after stopDownloadProcessing(), including events
-		// with progress=0 that would incorrectly reset the displayed progress
-		if (this.isPaused) {
+	private async handleBridgeProgress(
+		downloadId: string,
+		eventData: NativeProgressData
+	): Promise<void> {
+		const { percent } = eventData;
+
+		// FILTRAR eventos innecesarios para evitar ruido
+		const item = this.store.getRaw(downloadId);
+
+		// No procesar si la descarga no está realmente activa
+		if (!item || item.state !== DownloadStates.DOWNLOADING) {
+			// FASE 1 FIX: Si recibimos progreso pero el estado no es DOWNLOADING, actualizarlo
+			// Solo promover a DOWNLOADING desde QUEUED o PREPARING (estados de espera)
+			// NUNCA desde PAUSED, STOPPED, COMPLETED o FAILED (estados explícitos del usuario o finales)
+			if (
+				item &&
+				percent > 0 &&
+				(item.state === DownloadStates.QUEUED || item.state === DownloadStates.PREPARING)
+			) {
+				item.state = DownloadStates.DOWNLOADING;
+				this.store.set(downloadId, item);
+			} else {
+				return;
+			}
+		}
+
+		// No procesar eventos "estáticos" (sin velocidad y sin cambios)
+		if (eventData.speed === 0 && !item.stats.startedAt) {
+			// Filtrar sin loguear para evitar spam
 			return;
 		}
 
-		const eventData = data as {
-			downloadId: string;
-			percent: number;
-			speed?: number;
-			remainingTime?: number;
-			bytesDownloaded?: number;
-			totalBytes?: number;
-			[key: string]: unknown;
-		};
-		const { downloadId, percent } = eventData;
+		// Calcular si es el primer evento de progreso
+		const currentPercent = item.stats.progressPercent || 0;
+		const isFirstProgressEvent = currentPercent === 0 && percent > 0;
 
-		if (this.store.has(downloadId)) {
-			// Ignorar eventos si la descarga está siendo eliminada
-			if (this.isBeingRemoved(downloadId)) {
-				return;
+		// No procesar si el progreso no ha cambiado significativamente Y no hay velocidad
+		if (
+			Math.abs(percent - currentPercent) < 1 &&
+			eventData.speed === 0 &&
+			!isFirstProgressEvent
+		) {
+			return;
+		}
+
+		// ═══════════════════════════════════════════════════════════════
+		// BLOQUE A: Actualización de datos internos (SIEMPRE se ejecuta)
+		// Garantiza que downloadQueue tiene datos frescos y SpeedCalculator
+		// recibe muestras regulares, independientemente del throttle de emisión
+		// ═══════════════════════════════════════════════════════════════
+
+		// Actualizar progreso en el item de la cola (con bytes para SpeedCalculator)
+		// NOTA: Solo pasar totalBytes si es > 0 para evitar sobrescribir estimaciones previas
+		// (Android envía totalBytes=0 durante el inicio de descargas HLS/DASH)
+		await this.updateDownloadProgress(
+			downloadId,
+			percent,
+			eventData.bytesDownloaded,
+			eventData.totalBytes && eventData.totalBytes > 0 ? eventData.totalBytes : undefined
+		);
+
+		// También actualizar bytes y otros datos si están disponibles
+		if (item && item.stats) {
+			// Actualizar velocidad
+			if (eventData.speed !== undefined) {
+				item.stats.downloadSpeed = eventData.speed;
 			}
 
-			// FILTRAR eventos innecesarios para evitar ruido
-			const item = this.store.getRaw(downloadId);
+			// remainingTime se calcula siempre en JS (fallback más abajo)
+			// El módulo nativo no envía este valor para streams HLS/DASH
 
-			// No procesar si la descarga no está realmente activa
-			if (!item || item.state !== DownloadStates.DOWNLOADING) {
-				// FASE 1 FIX: Si recibimos progreso pero el estado no es DOWNLOADING, actualizarlo
-				// Solo promover a DOWNLOADING desde QUEUED o PREPARING (estados de espera)
-				// NUNCA desde PAUSED, STOPPED, COMPLETED o FAILED (estados explícitos del usuario o finales)
-				if (
-					item &&
-					percent > 0 &&
-					(item.state === DownloadStates.QUEUED ||
-						item.state === DownloadStates.PREPARING)
-				) {
-					item.state = DownloadStates.DOWNLOADING;
-					this.store.set(downloadId, item);
+			// Actualizar bytes descargados si viene del evento nativo
+			if (eventData.bytesDownloaded !== undefined && eventData.bytesDownloaded > 0) {
+				item.stats.bytesDownloaded = eventData.bytesDownloaded;
+			}
+
+			// Actualizar total bytes si viene del evento nativo
+			// IMPORTANTE: Para streams adaptativos (DASH/HLS), el totalBytes puede variar
+			// según la calidad de los segmentos descargados. Para evitar que el progreso
+			// retroceda, solo actualizamos si:
+			// 1. No tenemos un valor previo (primera vez)
+			// 2. El nuevo valor es significativamente mayor (>5% diferencia)
+			if (eventData.totalBytes !== undefined && eventData.totalBytes > 0) {
+				const currentTotal = item.stats.totalBytes || 0;
+
+				if (currentTotal === 0) {
+					// Primera vez, establecer el valor
+					item.stats.totalBytes = eventData.totalBytes;
 				} else {
-					return;
-				}
-			}
-
-			// No procesar eventos "estáticos" (sin velocidad y sin cambios)
-			if (eventData.speed === 0 && !item.stats.startedAt) {
-				// Filtrar sin loguear para evitar spam
-				return;
-			}
-
-			// Calcular si es el primer evento de progreso
-			const currentPercent = item.stats.progressPercent || 0;
-			const isFirstProgressEvent = currentPercent === 0 && percent > 0;
-
-			// No procesar si el progreso no ha cambiado significativamente Y no hay velocidad
-			if (
-				Math.abs(percent - currentPercent) < 1 &&
-				eventData.speed === 0 &&
-				!isFirstProgressEvent
-			) {
-				return;
-			}
-
-			// ═══════════════════════════════════════════════════════════════
-			// BLOQUE A: Actualización de datos internos (SIEMPRE se ejecuta)
-			// Garantiza que downloadQueue tiene datos frescos y SpeedCalculator
-			// recibe muestras regulares, independientemente del throttle de emisión
-			// ═══════════════════════════════════════════════════════════════
-
-			// Actualizar progreso en el item de la cola (con bytes para SpeedCalculator)
-			// NOTA: Solo pasar totalBytes si es > 0 para evitar sobrescribir estimaciones previas
-			// (Android envía totalBytes=0 durante el inicio de descargas HLS/DASH)
-			await this.updateDownloadProgress(
-				downloadId,
-				percent,
-				eventData.bytesDownloaded,
-				eventData.totalBytes && eventData.totalBytes > 0 ? eventData.totalBytes : undefined
-			);
-
-			// También actualizar bytes y otros datos si están disponibles
-			if (item && item.stats) {
-				// Actualizar velocidad
-				if (eventData.speed !== undefined) {
-					item.stats.downloadSpeed = eventData.speed;
-				}
-
-				// remainingTime se calcula siempre en JS (fallback más abajo)
-				// El módulo nativo no envía este valor para streams HLS/DASH
-
-				// Actualizar bytes descargados si viene del evento nativo
-				if (eventData.bytesDownloaded !== undefined && eventData.bytesDownloaded > 0) {
-					item.stats.bytesDownloaded = eventData.bytesDownloaded;
-				}
-
-				// Actualizar total bytes si viene del evento nativo
-				// IMPORTANTE: Para streams adaptativos (DASH/HLS), el totalBytes puede variar
-				// según la calidad de los segmentos descargados. Para evitar que el progreso
-				// retroceda, solo actualizamos si:
-				// 1. No tenemos un valor previo (primera vez)
-				// 2. El nuevo valor es significativamente mayor (>5% diferencia)
-				if (eventData.totalBytes !== undefined && eventData.totalBytes > 0) {
-					const currentTotal = item.stats.totalBytes || 0;
-
-					if (currentTotal === 0) {
-						// Primera vez, establecer el valor
+					// Solo actualizar si el nuevo valor es significativamente mayor
+					const percentDiff =
+						((eventData.totalBytes - currentTotal) / currentTotal) * 100;
+					if (percentDiff > 5) {
+						// El nuevo total es >5% mayor, actualizar
 						item.stats.totalBytes = eventData.totalBytes;
-					} else {
-						// Solo actualizar si el nuevo valor es significativamente mayor
-						const percentDiff =
-							((eventData.totalBytes - currentTotal) / currentTotal) * 100;
-						if (percentDiff > 5) {
-							// El nuevo total es >5% mayor, actualizar
-							item.stats.totalBytes = eventData.totalBytes;
-							this.currentLogger.debug(
-								TAG,
-								`Updated totalBytes for ${downloadId}: ${currentTotal} → ${eventData.totalBytes} (+${percentDiff.toFixed(1)}%)`
-							);
-						}
-						// Si es menor o similar, mantener el valor actual para estabilidad
+						this.currentLogger.debug(
+							TAG,
+							`Updated totalBytes for ${downloadId}: ${currentTotal} → ${eventData.totalBytes} (+${percentDiff.toFixed(1)}%)`
+						);
 					}
+					// Si es menor o similar, mantener el valor actual para estabilidad
 				}
-
-				// CALCULAR bytes si no vienen del nativo (usando speed y tiempo transcurrido)
-				if (
-					!eventData.bytesDownloaded &&
-					item.stats.startedAt &&
-					(eventData.speed ?? 0) > 0
-				) {
-					const elapsedSeconds = (Date.now() - item.stats.startedAt) / 1000;
-					const estimatedBytes = Math.floor((eventData.speed ?? 0) * elapsedSeconds);
-					if (estimatedBytes > item.stats.bytesDownloaded) {
-						item.stats.bytesDownloaded = estimatedBytes;
-					}
-				}
-
-				// CALCULAR totalBytes si no viene del nativo (usando progress y bytesDownloaded)
-				if (item.stats.totalBytes <= 0 && percent > 0 && item.stats.bytesDownloaded > 0) {
-					item.stats.totalBytes = Math.floor(
-						item.stats.bytesDownloaded / (percent / 100)
-					);
-				}
-
-				// CALCULAR remainingTime si es 0 o no viene del nativo
-				if (
-					(!eventData.remainingTime || eventData.remainingTime === 0) &&
-					(eventData.speed ?? 0) > 0 &&
-					item.stats.totalBytes > 0 &&
-					item.stats.bytesDownloaded > 0
-				) {
-					const remainingBytes = item.stats.totalBytes - item.stats.bytesDownloaded;
-					item.stats.remainingTime = Math.floor(remainingBytes / (eventData.speed ?? 1));
-				}
-
-				// Guardar el item actualizado de vuelta en el Map
-				this.store.set(downloadId, item);
 			}
 
-			// ═══════════════════════════════════════════════════════════════
-			// BLOQUE B: Emisión de evento (THROTTLEADA)
-			// Solo emitir DownloadEventType.PROGRESS cada 2s para reducir
-			// callbacks a hooks y re-renders de React
-			// ═══════════════════════════════════════════════════════════════
-
-			const now = Date.now();
-			const lastEventTime = this.lastProgressEventTime.get(downloadId) || 0;
-			const timeSinceLastEvent = now - lastEventTime;
-
-			// Solo emitir si han pasado al menos 2 segundos O es el primer evento de progreso
-			if (timeSinceLastEvent < 2000 && !isFirstProgressEvent) {
-				return;
+			// CALCULAR bytes si no vienen del nativo (usando speed y tiempo transcurrido)
+			if (!eventData.bytesDownloaded && item.stats.startedAt && (eventData.speed ?? 0) > 0) {
+				const elapsedSeconds = (Date.now() - item.stats.startedAt) / 1000;
+				const estimatedBytes = Math.floor((eventData.speed ?? 0) * elapsedSeconds);
+				if (estimatedBytes > item.stats.bytesDownloaded) {
+					item.stats.bytesDownloaded = estimatedBytes;
+				}
 			}
 
-			// Actualizar tiempo del último evento emitido
-			this.lastProgressEventTime.set(downloadId, now);
+			// CALCULAR totalBytes si no viene del nativo (usando progress y bytesDownloaded)
+			if (item.stats.totalBytes <= 0 && percent > 0 && item.stats.bytesDownloaded > 0) {
+				item.stats.totalBytes = Math.floor(item.stats.bytesDownloaded / (percent / 100));
+			}
 
-			// Re-emitir evento para que los hooks lo reciban (usar valores calculados)
-			const updatedItem = this.store.getRaw(downloadId);
-			const stats = updatedItem?.stats;
+			// CALCULAR remainingTime si es 0 o no viene del nativo
+			if (
+				(!eventData.remainingTime || eventData.remainingTime === 0) &&
+				(eventData.speed ?? 0) > 0 &&
+				item.stats.totalBytes > 0 &&
+				item.stats.bytesDownloaded > 0
+			) {
+				const remainingBytes = item.stats.totalBytes - item.stats.bytesDownloaded;
+				item.stats.remainingTime = Math.floor(remainingBytes / (eventData.speed ?? 1));
+			}
 
-			const progressData = {
-				downloadId,
-				percent: Math.floor(percent),
-				item: updatedItem,
-				bytesDownloaded: stats?.bytesDownloaded || 0,
-				totalBytes: stats?.totalBytes || 0,
-				speed: stats?.downloadSpeed || 0,
-				remainingTime: stats?.remainingTime || 0,
-			};
+			// Guardar el item actualizado de vuelta en el Map
+			this.store.set(downloadId, item);
+		}
 
-			// Log para debug de los valores calculados
-			this.currentLogger.debug(TAG, `Progress event data for ${downloadId}:`, {
-				percent: progressData.percent,
-				bytesDownloaded: progressData.bytesDownloaded,
-				totalBytes: progressData.totalBytes,
-				speed: progressData.speed,
-				remainingTime: progressData.remainingTime,
-				startedAt: stats?.startedAt,
-			});
+		// ═══════════════════════════════════════════════════════════════
+		// BLOQUE B: Emisión de evento (THROTTLEADA)
+		// Solo emitir DownloadEventType.PROGRESS cada 2s para reducir
+		// callbacks a hooks y re-renders de React
+		// ═══════════════════════════════════════════════════════════════
 
-			this.eventEmitter.emit(DownloadEventType.PROGRESS, progressData);
+		const now = Date.now();
+		const lastEventTime = this.lastProgressEventTime.get(downloadId) || 0;
+		const timeSinceLastEvent = now - lastEventTime;
+
+		// Solo emitir si han pasado al menos 2 segundos O es el primer evento de progreso
+		if (timeSinceLastEvent < 2000 && !isFirstProgressEvent) {
+			return;
+		}
+
+		// Actualizar tiempo del último evento emitido
+		this.lastProgressEventTime.set(downloadId, now);
+
+		// Re-emitir evento para que los hooks lo reciban (usar valores calculados)
+		const updatedItem = this.store.getRaw(downloadId);
+		const stats = updatedItem?.stats;
+
+		const progressData = {
+			downloadId,
+			percent: Math.floor(percent),
+			item: updatedItem,
+			bytesDownloaded: stats?.bytesDownloaded || 0,
+			totalBytes: stats?.totalBytes || 0,
+			speed: stats?.downloadSpeed || 0,
+			remainingTime: stats?.remainingTime || 0,
+		};
+
+		// Log para debug de los valores calculados
+		this.currentLogger.debug(TAG, `Progress event data for ${downloadId}:`, {
+			percent: progressData.percent,
+			bytesDownloaded: progressData.bytesDownloaded,
+			totalBytes: progressData.totalBytes,
+			speed: progressData.speed,
+			remainingTime: progressData.remainingTime,
+			startedAt: stats?.startedAt,
+		});
+
+		this.eventEmitter.emit(DownloadEventType.PROGRESS, progressData);
+	}
+
+	private async handleBridgeCompleted(
+		downloadId: string,
+		fileUri?: string,
+		fileSize?: number
+	): Promise<void> {
+		if (this.store.has(downloadId)) {
+			await this.notifyDownloadCompleted(downloadId, fileUri, fileSize);
 		}
 	}
 
-	private async handleNativeStateEvent(data: unknown): Promise<void> {
-		const eventData = data as { downloadId: string; state: string; [key: string]: unknown };
-		const { downloadId, state } = eventData;
+	private async handleBridgeFailed(
+		downloadId: string,
+		error: { code: string; message: string; timestamp: number }
+	): Promise<void> {
+		const item = this.store.getRaw(downloadId);
+		if (!item) {
+			this.currentLogger.debug(TAG, `Error event for unknown download: ${downloadId}`);
+			return;
+		}
 
-		this.currentLogger.debug(TAG, `Handling native state event: ${downloadId} → ${state}`);
+		this.currentLogger.error(
+			TAG,
+			`Native error for ${downloadId}: ${error.code} - ${error.message}`
+		);
+
+		await this.handleDownloadFailure(downloadId, item, error);
+	}
+
+	private async handleBridgeStateChanged(
+		downloadId: string,
+		mappedState: DownloadStates,
+		rawState: string,
+		extraData?: Record<string, unknown>
+	): Promise<void> {
+		this.currentLogger.debug(
+			TAG,
+			`Handling state event: ${downloadId} → ${rawState} (mapped: ${mappedState})`
+		);
 
 		if (this.store.has(downloadId)) {
-			// Convertir estado nativo a estado interno si es necesario
-			const mappedState = this.mapNativeStateToInternal(state);
 			const previousState = this.store.getRaw(downloadId)?.state;
 
 			await this.updateDownloadState(downloadId, mappedState);
@@ -2294,7 +2251,7 @@ export class QueueManager {
 						this.eventEmitter.emit(DownloadEventType.FAILED, {
 							downloadId,
 							item,
-							error: eventData.error || null,
+							error: extraData?.error || null,
 						});
 						// Limpiar tracking de eventos para esta descarga
 						this.lastProgressEventTime.delete(downloadId);
@@ -2348,99 +2305,6 @@ export class QueueManager {
 		}
 	}
 
-	private async handleNativeCompletedEvent(data: unknown): Promise<void> {
-		const eventData = data as {
-			downloadId: string;
-			fileUri?: string;
-			fileSize?: number;
-			path?: string;
-			[key: string]: unknown;
-		};
-		const { downloadId } = eventData;
-
-		if (this.store.has(downloadId)) {
-			await this.notifyDownloadCompleted(
-				downloadId,
-				eventData.fileUri || eventData.path,
-				eventData.fileSize
-			);
-		}
-	}
-
-	/**
-	 * Maneja eventos de error nativos (streams HLS/DASH)
-	 * FASE 2: Ahora que DownloadService ya no re-emite eventos, recibimos errores directamente de NativeManager
-	 */
-	private async handleNativeErrorEvent(data: unknown): Promise<void> {
-		const eventData = data as {
-			downloadId?: string;
-			id?: string;
-			error?: { code?: string; message?: string } | string;
-			errorCode?: string;
-			errorMessage?: string;
-		};
-
-		const downloadId = eventData.downloadId || eventData.id;
-		if (!downloadId) {
-			this.currentLogger.warn(TAG, "Received error event without downloadId", eventData);
-			return;
-		}
-
-		const item = this.store.getRaw(downloadId);
-		if (!item) {
-			this.currentLogger.debug(TAG, `Error event for unknown download: ${downloadId}`);
-			return;
-		}
-
-		// Extraer código y mensaje de error
-		let errorCode = "UNKNOWN";
-		let errorMessage = "Download failed";
-
-		if (typeof eventData.error === "object" && eventData.error) {
-			errorCode = eventData.error.code || eventData.errorCode || "UNKNOWN";
-			errorMessage = eventData.error.message || eventData.errorMessage || "Download failed";
-		} else if (typeof eventData.error === "string") {
-			errorMessage = eventData.error;
-			errorCode = eventData.errorCode || "UNKNOWN";
-		} else {
-			errorCode = eventData.errorCode || "UNKNOWN";
-			errorMessage = eventData.errorMessage || "Download failed";
-		}
-
-		this.currentLogger.error(
-			TAG,
-			`Native error for ${downloadId}: ${errorCode} - ${errorMessage}`
-		);
-
-		await this.handleDownloadFailure(downloadId, item, {
-			code: errorCode,
-			message: errorMessage,
-			timestamp: Date.now(),
-		});
-	}
-
-	private mapNativeStateToInternal(nativeState: string): DownloadStates {
-		// Mapear estados nativos a estados internos
-		switch (nativeState.toUpperCase()) {
-			case "DOWNLOADING":
-			case "ACTIVE":
-				return DownloadStates.DOWNLOADING;
-			case "QUEUED":
-			case "PENDING":
-				return DownloadStates.QUEUED;
-			case "PAUSED":
-			case "STOPPED":
-				return DownloadStates.PAUSED;
-			case "COMPLETED":
-				return DownloadStates.COMPLETED;
-			case "FAILED":
-			case "ERROR":
-				return DownloadStates.FAILED;
-			default:
-				return DownloadStates.QUEUED;
-		}
-	}
-
 	/*
 	 * Limpia recursos al destruir
 	 *
@@ -2452,6 +2316,7 @@ export class QueueManager {
 
 	public destroy(): void {
 		this.stopProcessing();
+		this.eventBridge?.teardown();
 		this.eventEmitter.removeAllListeners();
 		this.store.destroy();
 		this.currentlyDownloading.clear();
