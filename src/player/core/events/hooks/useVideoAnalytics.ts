@@ -9,7 +9,10 @@ import { AppState } from "react-native";
 import type { ReactVideoEvents } from "../../../../types";
 import { PlayerError } from "../../errors";
 
-import { PlayerAnalyticsEvents, type PlayerAnalyticsPlugin } from "../../../features/analytics";
+import {
+	PlayerAnalyticsEvents,
+	type PlayerAnalyticsPlugin,
+} from "@overon/react-native-overon-player-analytics-plugins";
 
 import { VideoEventsAdapter } from "../VideoEventsAdapter";
 

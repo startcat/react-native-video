@@ -3,8 +3,8 @@
  *
  */
 
+import { type PlayerAnalyticsPlugin } from "@overon/react-native-overon-player-analytics-plugins";
 import { PlayerContext } from "../core/context";
-import { type PlayerAnalyticsPlugin } from "../features/analytics/types";
 import { type LoggerConfigBasic } from "../features/logger/types";
 import * as Enums from "./enums";
 

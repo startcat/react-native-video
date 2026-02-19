@@ -28,6 +28,9 @@
 	"devDependencies": {
 		"@babel/core": "^7.20.0",
 		"@jamesacarr/eslint-formatter-github-actions": "^0.2.0",
+		"@overon/react-native-logger": "^0.1.6",
+		"@overon/react-native-overon-errors": "^0.3.2",
+		"@overon/react-native-overon-player-analytics-plugins": "^0.2.0",
 		"@react-native/eslint-config": "^0.72.2",
 		"@release-it/conventional-changelog": "^7.0.2",
 		"@types/jest": "^28.1.2",

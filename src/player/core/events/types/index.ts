@@ -3,7 +3,10 @@ import { VideoEventsAdapter } from "../VideoEventsAdapter";
 import type { ReactVideoEvents } from "../../../../types";
 import type { PlayerError } from "../../errors";
 
-import { PlayerAnalyticsEvents, type PlayerAnalyticsPlugin } from "../../../features/analytics";
+import {
+	PlayerAnalyticsEvents,
+	type PlayerAnalyticsPlugin,
+} from "@overon/react-native-overon-player-analytics-plugins";
 
 export interface UseVideoAnalyticsProps {
 	plugins?: PlayerAnalyticsPlugin[];

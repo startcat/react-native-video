@@ -3,7 +3,7 @@
  *
  */
 
-import { PlayerAnalyticsEvents } from "../../../features/analytics";
+import { PlayerAnalyticsEvents } from "@overon/react-native-overon-player-analytics-plugins";
 
 import type { OnAudioTracksData, OnVolumeChangeData } from "../../../../specs/VideoNativeComponent";
 
