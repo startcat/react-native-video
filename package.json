@@ -54,6 +54,9 @@
 		"typescript": "5.1.6"
 	},
 	"peerDependencies": {
+		"@overon/react-native-logger": "^0.1.6",
+		"@overon/react-native-overon-errors": "^0.1.1",
+		"@overon/react-native-overon-player-analytics-plugins": "^0.2.0",
 		"@react-native-async-storage/async-storage": "*",
 		"@react-native-community/netinfo": "^11.2.1",
 		"@react-native-community/slider": "^4.5.2",
