@@ -3,8 +3,10 @@
  *
  */
 
-import { PlayerAnalyticsEvents } from "@overon/react-native-overon-player-analytics-plugins";
-import { PlayerError } from "../../core/errors";
+import {
+	PlayerAnalyticsEvents,
+	createHandlerError,
+} from "@overon/react-native-overon-player-analytics-plugins";
 
 import type {
 	OnAudioTracksData,
@@ -52,7 +54,7 @@ export class VideoEventsAdapter {
 
 	constructor(analyticsEvents: PlayerAnalyticsEvents) {
 		if (!analyticsEvents) {
-			throw new PlayerError("PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED");
+			throw createHandlerError("INITIALIZATION_FAILED");
 		}
 
 		this.analyticsEvents = analyticsEvents;
@@ -66,8 +68,8 @@ export class VideoEventsAdapter {
 			this.trackHandler = new TrackEventsHandler(analyticsEvents);
 			this.metadataHandler = new MetadataEventsHandler(analyticsEvents);
 		} catch (error) {
-			throw new PlayerError("PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED", {
-				originalError: error,
+			throw createHandlerError("INITIALIZATION_FAILED", {
+				originalError: error as Error,
 			});
 		}
 	}
