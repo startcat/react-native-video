@@ -3,8 +3,8 @@
  *
  */
 
+import { PlayerAnalyticsEvents } from "@overon/react-native-overon-player-analytics-plugins";
 import { PlayerError } from "../../core/errors";
-import { PlayerAnalyticsEvents } from "../../features/analytics";
 
 import type {
 	OnAudioTracksData,

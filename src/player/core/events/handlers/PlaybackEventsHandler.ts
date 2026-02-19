@@ -3,8 +3,8 @@
  *
  */
 
+import { PlayerAnalyticsEvents } from "@overon/react-native-overon-player-analytics-plugins";
 import { PlayerError } from "../../../core/errors";
-import { PlayerAnalyticsEvents } from "../../../features/analytics";
 
 import type {
 	OnBufferData,
@@ -95,8 +95,7 @@ export class PlaybackEventsHandler {
 			}
 
 			// No disparamos onSeekEnd aquí - esperamos a que onProgress o onBuffer nos confirmen
-
-        } catch (error) {
+		} catch (error) {
 			throw new PlayerError("PLAYER_SEEK_TRACKING_ERROR", { originalError: error });
 		}
 	};
