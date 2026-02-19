@@ -29,15 +29,22 @@ export const getSourceMessageForCast = (
 	let messageMetadata = {},
 		message = {};
 
+	const isDrmWithLicense =
+		drm &&
+		(drm.type === DRM_TYPE.WIDEVINE || drm.type === DRM_TYPE.FAIRPLAY) &&
+		drm.licenseServer;
+
 	messageMetadata = {
 		title: metadata?.title || "",
 		subtitle: metadata?.subtitle || "",
 		images: [],
 		isLive: !!metadata?.isLive,
-		licenseAcquisitionURL:
-			drm && drm.type === DRM_TYPE.WIDEVINE && drm?.licenseServer
-				? getAbsoluteUri(drm?.licenseServer!)
+		licenseAcquisitionURL: isDrmWithLicense ? getAbsoluteUri(drm!.licenseServer!) : null,
+		certificateUrl:
+			drm && drm.type === DRM_TYPE.FAIRPLAY && drm.certificateUrl
+				? getAbsoluteUri(drm.certificateUrl)
 				: null,
+		drmType: drm?.type || null,
 		progress: null,
 		// progress: (data?.type !== 'live') ? {
 		//     id: data?.id,

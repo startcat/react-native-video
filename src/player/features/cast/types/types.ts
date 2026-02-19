@@ -190,6 +190,9 @@ export interface CastContentMetadata {
 	isDVR?: boolean;
 	startPosition?: number;
 	mediaType?: "video" | "audio"; // Tipo de contenido multimedia
+	licenseAcquisitionURL?: string; // URL absoluta de licencia DRM para el receptor Cast (Widevine/FairPlay)
+	certificateUrl?: string; // URL del certificado FairPlay (solo HLS + FairPlay)
+	drmType?: string; // Tipo de DRM: "widevine" | "fairplay" | "playready" | "clearkey"
 }
 
 export interface CastMessageConfig {

@@ -1,5 +1,6 @@
 import { PlayerError } from "../../core/errors";
 import { ComponentLogger, Logger } from "../../features/logger";
+import { IDrm } from "../../types";
 import { getAbsoluteUri, getSourceMessageForCast } from "../../utils";
 import { LoggerConfigBasic } from "../logger/types";
 import {
@@ -77,7 +78,7 @@ export class CastMessageBuilder {
 			const contentId = this.generateContentId(config);
 
 			// Preparar metadata
-			const metadata = this.buildMetadata(config.metadata);
+			const metadata = this.buildMetadata(config.metadata, config.drm);
 
 			// Calcular posición de inicio
 			const startPosition = this.calculateStartPosition(config);
@@ -201,7 +202,7 @@ export class CastMessageBuilder {
 	 *
 	 */
 
-	private buildMetadata(metadata: CastContentMetadata): CastContentMetadata {
+	private buildMetadata(metadata: CastContentMetadata, drm?: IDrm): CastContentMetadata {
 		return {
 			id: metadata.id,
 			title: this.truncateString(
@@ -224,6 +225,11 @@ export class CastMessageBuilder {
 			isDVR: metadata.isDVR || false,
 			startPosition: metadata.startPosition || this.config.defaultStartPosition || 0,
 			mediaType: metadata.mediaType,
+			licenseAcquisitionURL: drm?.licenseServer
+				? getAbsoluteUri(drm.licenseServer)
+				: undefined,
+			certificateUrl: drm?.certificateUrl ? getAbsoluteUri(drm.certificateUrl) : undefined,
+			drmType: drm?.type,
 		};
 	}
 
