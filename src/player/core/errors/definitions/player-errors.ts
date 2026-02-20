@@ -118,53 +118,6 @@ export const PLAYER_ERROR_DEFINITIONS = {
 		message: "Content type not supported by AirPlay.",
 	},
 
-	// === ERRORES DE ANALYTICS ===
-	PLAYER_ANALYTICS_PLUGIN_CREATION_FAILED: {
-		message: "Failed to create analytics plugin.",
-	},
-	PLAYER_ANALYTICS_PLUGIN_INITIALIZATION_FAILED: {
-		message: "Analytics plugin failed to initialize.",
-	},
-	PLAYER_ANALYTICS_PLUGIN_EXECUTION_ERROR: {
-		message: "Error executing analytics plugin method.",
-	},
-	PLAYER_ANALYTICS_PLUGIN_DESTROY_ERROR: {
-		message: "Error destroying analytics plugin.",
-	},
-	PLAYER_ANALYTICS_FACTORY_REGISTRATION_FAILED: {
-		message: "Failed to register analytics plugin in factory.",
-	},
-	PLAYER_ANALYTICS_INVALID_CONFIGURATION: {
-		message: "Invalid analytics plugin configuration.",
-	},
-	PLAYER_ANALYTICS_MISSING_DEPENDENCY: {
-		message: "Required analytics dependency not found.",
-	},
-	PLAYER_ANALYTICS_NETWORK_ERROR: {
-		message: "Analytics network request failed.",
-	},
-	PLAYER_ANALYTICS_DATA_VALIDATION_FAILED: {
-		message: "Analytics data validation failed.",
-	},
-	PLAYER_ANALYTICS_SESSION_CREATION_FAILED: {
-		message: "Failed to create analytics session.",
-	},
-	PLAYER_ANALYTICS_METADATA_MAPPING_ERROR: {
-		message: "Error mapping media data to analytics metadata.",
-	},
-	PLAYER_ANALYTICS_PLUGIN_NOT_FOUND: {
-		message: "Requested analytics plugin not found in registry.",
-	},
-	PLAYER_ANALYTICS_ENVIRONMENT_MISMATCH: {
-		message: "Analytics configuration environment mismatch.",
-	},
-	PLAYER_ANALYTICS_TRACKING_DISABLED: {
-		message: "Analytics tracking is disabled or unavailable.",
-	},
-	PLAYER_ANALYTICS_BUFFER_OVERFLOW: {
-		message: "Analytics event buffer overflow.",
-	},
-
 	// === ERRORES DE SOURCE ===
 	PLAYER_SOURCE_NO_MANIFESTS_PROVIDED: {
 		message: "No manifests provided to source.",
@@ -226,71 +179,6 @@ export const PLAYER_ERROR_DEFINITIONS = {
 	},
 	PLAYER_ERROR_PROCESSING_ERROR: {
 		message: "Error processing error event.",
-	},
-
-	// === ERRORES DE EVENT HANDLERS ===
-	PLAYER_EVENT_HANDLER_INITIALIZATION_FAILED: {
-		message: "Failed to initialize video event handler.",
-	},
-	PLAYER_EVENT_HANDLER_LOAD_START_FAILED: {
-		message: "Error handling load start event.",
-	},
-	PLAYER_EVENT_HANDLER_LOAD_FAILED: {
-		message: "Error handling load event.",
-	},
-	PLAYER_EVENT_HANDLER_PROGRESS_FAILED: {
-		message: "Error handling progress event.",
-	},
-	PLAYER_EVENT_HANDLER_PLAYBACK_STATE_CHANGED_FAILED: {
-		message: "Error handling playback state change event.",
-	},
-	PLAYER_EVENT_HANDLER_BUFFER_FAILED: {
-		message: "Error handling buffer event.",
-	},
-	PLAYER_EVENT_HANDLER_SEEK_FAILED: {
-		message: "Error handling seek event.",
-	},
-	PLAYER_EVENT_HANDLER_PLAYBACK_RATE_CHANGE_FAILED: {
-		message: "Error handling playback rate change event.",
-	},
-	PLAYER_EVENT_HANDLER_VOLUME_CHANGE_FAILED: {
-		message: "Error handling volume change event.",
-	},
-	PLAYER_EVENT_HANDLER_END_FAILED: {
-		message: "Error handling end event.",
-	},
-	PLAYER_EVENT_HANDLER_ERROR_FAILED: {
-		message: "Error handling error event.",
-	},
-	PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED: {
-		message: "Error handling ad event.",
-	},
-	PLAYER_EVENT_HANDLER_AUDIO_TRACKS_FAILED: {
-		message: "Error handling audio tracks event.",
-	},
-	PLAYER_EVENT_HANDLER_TEXT_TRACKS_FAILED: {
-		message: "Error handling text tracks event.",
-	},
-	PLAYER_EVENT_HANDLER_VIDEO_TRACKS_FAILED: {
-		message: "Error handling video tracks event.",
-	},
-	PLAYER_EVENT_HANDLER_BANDWIDTH_UPDATE_FAILED: {
-		message: "Error handling bandwidth update event.",
-	},
-	PLAYER_EVENT_HANDLER_ASPECT_RATIO_FAILED: {
-		message: "Error handling aspect ratio event.",
-	},
-	PLAYER_EVENT_HANDLER_TIMED_METADATA_FAILED: {
-		message: "Error handling timed metadata event.",
-	},
-	PLAYER_EVENT_HANDLER_READY_FOR_DISPLAY_FAILED: {
-		message: "Error handling ready for display event.",
-	},
-	PLAYER_EVENT_HANDLER_AUDIO_BECOMING_NOISY_FAILED: {
-		message: "Error handling audio becoming noisy event.",
-	},
-	PLAYER_EVENT_HANDLER_IDLE_FAILED: {
-		message: "Error handling idle event.",
 	},
 
 	// === ERRORES DE TRACKING DE PROGRESO ===
