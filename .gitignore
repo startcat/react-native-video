@@ -60,3 +60,12 @@ android/buildOutput_*
 lib/
 !src/lib
 *.tsbuildinfo
+
+# Auto Claude data directory
+.auto-claude/
+
+# Claude AI
+.claude/
+
+# Windsurf IDE
+.windsurf/
