@@ -92,15 +92,18 @@ export const useVideoAnalytics = ({
 		}
 
 		const handleAppStateChange = (nextAppState: string) => {
-			if (appStateRef.current.match(/inactive|background/) && nextAppState === "active") {
-				adapterRef.current!.onApplicationForeground();
-				adapterRef.current!.onApplicationActive();
-			} else if (
-				appStateRef.current === "active" &&
-				nextAppState.match(/inactive|background/)
-			) {
-				adapterRef.current!.onApplicationInactive();
-				adapterRef.current!.onApplicationBackground();
+			switch (nextAppState) {
+				case "active":
+					adapterRef.current!.onApplicationForeground();
+					adapterRef.current!.onApplicationActive();
+					break;
+				case "background":
+					adapterRef.current!.onApplicationInactive();
+					adapterRef.current!.onApplicationBackground();
+					break;
+				case "inactive":
+					adapterRef.current!.onApplicationInactive();
+					break;
 			}
 			appStateRef.current = nextAppState;
 		};
