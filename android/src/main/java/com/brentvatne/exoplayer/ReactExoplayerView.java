@@ -813,6 +813,9 @@ public class ReactExoplayerView extends FrameLayout implements
         boolean isSourceEqual = source.isEquals(this.source);
         DebugLog.d(TAG, "initializePlayer source " + source.getUri());
 
+        if (mainHandler != null && mainRunnable != null) {
+            mainHandler.removeCallbacks(mainRunnable);
+        }
         mainRunnable = () -> {
             if (viewHasDropped && isSourceEqual) {
                 return;
@@ -823,7 +826,7 @@ public class ReactExoplayerView extends FrameLayout implements
                  * setSrc may fire before setPlayOffline. Detect downloaded content
                  * via AxDownloadTracker so playOffline is correct before player creation.
                  */
-                if (!self.playOffline && source.getUri() != null && self.drmUUID != null) {
+                if (!self.playOffline && source.getUri() != null) {
                     try {
                         AxDownloadTracker tracker = AxOfflineManager.getInstance().getDownloadTracker();
                         if (tracker != null && tracker.getDownloadRequest(source.getUri()) != null) {
@@ -1088,6 +1091,16 @@ public class ReactExoplayerView extends FrameLayout implements
 
         ArrayList<MediaSource> mediaSourceList = buildTextSources();
         MediaSource videoSource = buildMediaSource(source.getUri(), source.getExtension(), drmSessionManager, source.getCropStartMs(), source.getCropEndMs());
+        if (videoSource == null) {
+            if (playOffline) {
+                DebugLog.e(TAG, "buildMediaSource returned null for offline playback - download request not found in tracker for URI: " + source.getUri());
+                eventEmitter.error("Offline content not available for playback", new Exception("Download request not found in tracker"), "3004");
+            } else {
+                DebugLog.e(TAG, "buildMediaSource returned null for online playback - URI: " + source.getUri());
+                eventEmitter.error("Failed to build media source", new Exception("buildMediaSource returned null"), "3004");
+            }
+            return;
+        }
         MediaSource mediaSourceWithAds = null;
         if (adTagUrl != null && adsLoader != null) {
             DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(mediaDataSourceFactory)
@@ -1704,16 +1717,22 @@ public class ReactExoplayerView extends FrameLayout implements
 
     private DataSource.Factory buildLocalDataSourceFactory(boolean useBandwidthMeter) {
 
-        Log.i("Downloads", "buildLocalDataSourceFactory " + source.getUri().toString());
+        Log.i("Downloads", "buildLocalDataSourceFactory URI=" + source.getUri().toString());
         AxDownloadTracker axDownloadTracker = AxOfflineManager.getInstance().getDownloadTracker();
 
-        if (axDownloadTracker != null) {
-            mDownloadRequest = axDownloadTracker.getDownloadRequest(source.getUri());
-            if (mDownloadRequest != null) {
-                return AxOfflineManager.getInstance().buildDataSourceFactory(this.themedReactContext);
-            }
+        if (axDownloadTracker == null) {
+            Log.e("Downloads", "buildLocalDataSourceFactory: AxDownloadTracker is null - AxOfflineManager not initialized!");
+            return null;
         }
 
+        mDownloadRequest = axDownloadTracker.getDownloadRequest(source.getUri());
+        if (mDownloadRequest != null) {
+            Log.i("Downloads", "buildLocalDataSourceFactory: Download request found, using offline data source");
+            return AxOfflineManager.getInstance().buildDataSourceFactory(this.themedReactContext);
+        }
+
+        Log.e("Downloads", "buildLocalDataSourceFactory: getDownloadRequest returned null for URI=" + source.getUri()
+                + " - Download may not be registered in tracker (Android " + android.os.Build.VERSION.SDK_INT + ")");
         return null;
 
     }
