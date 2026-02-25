@@ -1,5 +1,13 @@
 
 
+## [7.1.2](https://github.com/startcat/react-native-video/compare/v7.1.1...v7.1.2) (2026-02-25)
+
+
+### Bug Fixes
+
+* **offline:** corregir crashes en reproducción de contenido offline ([e867f62](https://github.com/startcat/react-native-video/commit/e867f62cd9e94254f5ae24d7f474e43fdf381c88))
+* **player:** corrige pantalla negra al volver de background durante anuncio en Android ([0be77d5](https://github.com/startcat/react-native-video/commit/0be77d5a8914450c44547a6035b018604c550b8e))
+
 ## [7.1.1](https://github.com/startcat/react-native-video/compare/v7.0.0...v7.1.1) (2026-02-25)
 
 
