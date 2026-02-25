@@ -233,6 +233,16 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		} else {
 			// LÓGICA DEL TUDUM SOLO PARA VOD
 
+			// Guard: si el contenido ya está cargado, significa que props.manifests cambió
+			// de referencia (nuevo array, mismo contenido) por un re-render del padre
+			// (ej: tras resolver watching-progress API). No resetear ni recargar.
+			if (isContentLoadedRef.current) {
+				currentLogger.current?.debug(
+					"useEffect manifests - Content already loaded, skipping reset (manifests reference changed but content is the same)"
+				);
+				return;
+			}
+
 			// Reset completo solo para VOD
 			currentSourceType.current = null;
 			pendingContentSource.current = null;
