@@ -1,5 +1,23 @@
 
 
+## [7.1.1](https://github.com/startcat/react-native-video/compare/v7.0.0...v7.1.1) (2026-02-25)
+
+
+### Bug Fixes
+
+* **dvrProgressManager:** evitar throw en setPlaybackType cuando el estado no es válido ([77047ac](https://github.com/startcat/react-native-video/commit/77047ac08dd166ec7847de6e6bd73ecda4c37272))
+* validación isLowSpace ([b0f6305](https://github.com/startcat/react-native-video/commit/b0f630551af87030c98d309ac197326566c92ebc))
+* **VideoPlaybackService:** evitar SecurityException al eliminar canal de notificación ([29f14b7](https://github.com/startcat/react-native-video/commit/29f14b7a902b8b2be06303afd7d8204cf389d08e))
+
+# [7.1.0](https://github.com/startcat/react-native-video/compare/v7.0.0...v7.1.0) (2026-02-25)
+
+
+### Bug Fixes
+
+* **dvrProgressManager:** evitar throw en setPlaybackType cuando el estado no es válido ([77047ac](https://github.com/startcat/react-native-video/commit/77047ac08dd166ec7847de6e6bd73ecda4c37272))
+* validación isLowSpace ([b0f6305](https://github.com/startcat/react-native-video/commit/b0f630551af87030c98d309ac197326566c92ebc))
+* **VideoPlaybackService:** evitar SecurityException al eliminar canal de notificación ([29f14b7](https://github.com/startcat/react-native-video/commit/29f14b7a902b8b2be06303afd7d8204cf389d08e))
+
 ## [6.1.2](https://github.com/TheWidlarzGroup/react-native-video/compare/v6.1.1...v6.1.2) (2024-05-23)
 
 
