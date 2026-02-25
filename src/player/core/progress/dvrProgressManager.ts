@@ -327,15 +327,21 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	}
 
 	async setPlaybackType(playbackType: DVR_PLAYBACK_TYPE, program: any = null): Promise<void> {
-		if (!this._isValidState()) {
-			this._currentLogger?.error("setPlaybackType: Invalid state");
-			throw new Error("setPlaybackType: Invalid state");
-		}
-
 		const previousType = this._playbackType;
 		this._currentLogger?.info(`setPlaybackType: ${previousType} -> ${playbackType}`);
 
+		// Siempre asignar el tipo - es configuración, no requiere estado válido
 		this._playbackType = playbackType;
+
+		// Si el estado no es válido, solo guardar el tipo y programa.
+		// Los side effects (seek, EPG, callbacks) se ejecutarán cuando lleguen datos válidos.
+		if (!this._isValidState()) {
+			this._currentLogger?.debug(
+				"setPlaybackType: State not ready yet, type saved for when data arrives"
+			);
+			this._currentProgram = program;
+			return;
+		}
 
 		// Obtener programa si es necesario
 		if (
