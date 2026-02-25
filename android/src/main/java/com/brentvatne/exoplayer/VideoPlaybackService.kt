@@ -170,10 +170,12 @@ class VideoPlaybackService : MediaSessionService() {
     }
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        Log.d(TAG, "onUpdateNotification: startInForegroundRequired=$startInForegroundRequired isPlaying=${session.player.isPlaying} playWhenReady=${session.player.playWhenReady} isPlayingAd=${session.player.isPlayingAd}")
         createSessionNotification(session)
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        Log.d(TAG, "onTaskRemoved called")
         cleanup()
         stopSelf()
     }

@@ -244,6 +244,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private Handler mainHandler;
     private Runnable mainRunnable;
     private boolean useCache = false;
+    private boolean isAdCurrentlyActive = false;
     private ControlsConfig controlsConfig = new ControlsConfig();
 
     // Props from React
@@ -394,11 +395,32 @@ public class ReactExoplayerView extends FrameLayout implements
     // LifecycleEventListener implementation
     @Override
     public void onHostResume() {
+        DebugLog.d(TAG, "onHostResume: playInBackground=" + playInBackground
+                + " isInBackground=" + isInBackground
+                + " isAdCurrentlyActive=" + isAdCurrentlyActive
+                + " isPlayingAd=" + isPlayingAd()
+                + " playerState=" + (player != null ? player.getPlaybackState() : "null")
+                + " playWhenReady=" + (player != null ? player.getPlayWhenReady() : "null")
+                + " isPaused=" + isPaused
+                + " serviceBinder=" + (playbackServiceBinder != null ? "bound" : "null"));
+
         if (!playInBackground || !isInBackground) {
-            // Si hay un anuncio reproduciéndose, el IMA SDK manejará el resume
-            // Solo necesitamos asegurar que el player esté listo para reproducir
-            if (isPlayingAd()) {
-                DebugLog.d(TAG, "onHostResume: Ad is playing, letting IMA SDK handle resume");
+            if (isAdCurrentlyActive && adsLoader != null && player != null && !isPaused) {
+                if (player.getPlaybackState() == Player.STATE_IDLE) {
+                    // El player cayó a STATE_IDLE en background durante un anuncio (p.ej. el
+                    // sistema liberó recursos). Reconectar adsLoader + prepare no es suficiente,
+                    // necesitamos reinicializar completamente el player desde la fuente.
+                    DebugLog.d(TAG, "onHostResume: ad active but player is IDLE, doing full reinit");
+                    releasePlayer();
+                    initializePlayer();
+                    isInBackground = false;
+                    return;
+                }
+                // Player en STATE_READY/BUFFERING: el ImaAdsLoader perdió el contexto de su
+                // AdDisplayContainer por destrucción del surface en background. Reconectar.
+                DebugLog.d(TAG, "onHostResume: ad was active in background, reconnecting ImaAdsLoader to restore surface context");
+                adsLoader.setPlayer(null);
+                adsLoader.setPlayer(player);
             }
             setPlayWhenReady(!isPaused);
         }
@@ -1557,6 +1579,7 @@ public class ReactExoplayerView extends FrameLayout implements
             adsLoader.release();
         }
         adsLoader = null;
+        isAdCurrentlyActive = false;
         progressHandler.removeMessages(SHOW_PROGRESS);
         audioBecomingNoisyReceiver.removeListener();
         bandwidthMeter.removeEventListener(this);
@@ -2796,6 +2819,23 @@ public class ReactExoplayerView extends FrameLayout implements
             eventEmitter.receiveAdEvent(adEvent.getType().name(), adEvent.getAdData());
         } else {
             eventEmitter.receiveAdEvent(adEvent.getType().name());
+        }
+
+        // Rastrear si hay un anuncio activo para detectar correctamente la desconexión del servicio
+        switch (adEvent.getType()) {
+            case STARTED:
+            case PAUSED:
+            case RESUMED:
+                isAdCurrentlyActive = true;
+                break;
+            case COMPLETED:
+            case SKIPPED:
+            case ALL_ADS_COMPLETED:
+            case CONTENT_RESUME_REQUESTED:
+                isAdCurrentlyActive = false;
+                break;
+            default:
+                break;
         }
 
         // On older Android devices, ExoPlayer may not re-emit STATE_READY after ads finish,
