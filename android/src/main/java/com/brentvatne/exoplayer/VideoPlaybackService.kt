@@ -181,9 +181,23 @@ class VideoPlaybackService : MediaSessionService() {
     override fun onDestroy() {
         DebugLog.d(TAG, "VideoPlaybackService onDestroy")
         cleanup()
-        val notificationManager: NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // Stop foreground service before deleting the channel to avoid
+        // SecurityException: "Not allowed to delete channel with a foreground service"
+        if (isForegroundServiceStarted) {
+            try {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                isForegroundServiceStarted = false
+            } catch (e: Exception) {
+                Log.w(TAG, "Error stopping foreground service: ${e.message}")
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager.deleteNotificationChannel(NOTIFICATION_CHANEL_ID)
+            try {
+                val notificationManager: NotificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.deleteNotificationChannel(NOTIFICATION_CHANEL_ID)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error deleting notification channel: ${e.message}")
+            }
         }
         super.onDestroy()
     }
@@ -319,7 +333,6 @@ class VideoPlaybackService : MediaSessionService() {
             session.release()
         }
         mediaSessionsList.clear()
-        isForegroundServiceStarted = false
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
