@@ -496,6 +496,10 @@ export class DownloadsManager {
 	 */
 
 	private handleStorageEvent(storageData: unknown): void {
+		if (!storageData || typeof storageData !== "object") {
+			return;
+		}
+
 		const { isLowSpace, criticalSpace } = storageData as {
 			isLowSpace?: boolean;
 			criticalSpace?: boolean;
