@@ -88,6 +88,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// Ref para evitar bucle infinito en sincronización de tracks remotos
 	const isLocalTrackChangeRef = useRef<boolean>(false);
 
+	// Ref para indicar que nos hemos unido a una sesión Cast existente (no hemos cargado nosotros el contenido)
+	// En este caso, no debemos sobrescribir los tracks activos del Cast con nuestras preferencias locales
+	const isJoiningExistingSessionRef = useRef<boolean>(false);
+
 	const castLoggerConfig: LoggerConfigBasic = {
 		enabled: props.logger?.cast?.enabled ?? true,
 		level: props.logger?.cast?.level ?? LogLevel.INFO,
@@ -526,7 +530,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		}
 	}, [props.playerMetadata]);
 
-	// Sincronizar subtítulos cuando activeTrackIds cambia desde otro dispositivo
+	// Sincronizar audio y subtítulos cuando activeTrackIds cambia desde otro dispositivo
 	// Usamos menuData para mapear los IDs de tracks a índices
 	// IMPORTANTE: Solo sincronizar si el cambio NO fue iniciado por este dispositivo
 	const prevActiveTrackIdsRef = useRef<number[]>([]);
@@ -534,8 +538,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	useEffect(() => {
 		if (!menuData || !castMedia.activeTrackIds) return;
 
-		// Ignorar si el cambio fue iniciado localmente
-		if (isLocalTrackChangeRef.current) {
+		// Ignorar si el cambio fue iniciado localmente (pero NO si estamos uniéndonos a sesión existente)
+		if (isLocalTrackChangeRef.current && !isJoiningExistingSessionRef.current) {
 			currentLogger.current?.debug(
 				`[CAST_SYNC] Ignoring activeTrackIds change - local change in progress`
 			);
@@ -546,15 +550,46 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		const currentIds = castMedia.activeTrackIds;
 		const prevIds = prevActiveTrackIdsRef.current;
 
-		// Verificar si activeTrackIds ha cambiado
+		// Verificar si activeTrackIds ha cambiado (o si estamos uniéndonos a sesión existente)
 		const hasChanged =
-			currentIds.length !== prevIds.length || currentIds.some((id, i) => id !== prevIds[i]);
+			isJoiningExistingSessionRef.current ||
+			currentIds.length !== prevIds.length ||
+			currentIds.some((id, i) => id !== prevIds[i]);
 
 		if (!hasChanged) return;
 
 		prevActiveTrackIdsRef.current = [...currentIds];
 
-		// Buscar el track de texto activo en menuData usando el ID
+		const joining = isJoiningExistingSessionRef.current;
+		if (joining) {
+			currentLogger.current?.info(
+				`[CAST_SYNC] Joining existing session - reading active tracks from Cast: ${JSON.stringify(currentIds)}`
+			);
+		}
+
+		// --- Sincronizar track de AUDIO ---
+		const audioMenuItems = menuData.filter(
+			item => item.type === "audio" && item.id !== undefined
+		);
+		const activeAudioTrack = audioMenuItems.find(item => currentIds.includes(item.id!));
+
+		if (activeAudioTrack && (activeAudioTrack.index !== audioIndex || joining)) {
+			currentLogger.current?.info(
+				`[CAST_SYNC] Syncing audio from activeTrackIds: ${audioIndex} -> ${activeAudioTrack.index} (trackId: ${activeAudioTrack.id})`
+			);
+			isLocalTrackChangeRef.current = true;
+			setAudioIndex(activeAudioTrack.index);
+			currentAudioIndexRef.current = activeAudioTrack.index;
+			if (props.events?.onChangeCommonData) {
+				props.events.onChangeCommonData({
+					audioIndex: activeAudioTrack.index,
+					audioLabel: activeAudioTrack.label,
+					audioCode: activeAudioTrack.code,
+				});
+			}
+		}
+
+		// --- Sincronizar track de SUBTÍTULOS ---
 		const textMenuItems = menuData.filter(
 			item => item.type === "text" && item.id !== undefined
 		);
@@ -562,11 +597,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 		if (activeTextTrack) {
 			// Hay un subtítulo activo
-			if (activeTextTrack.index !== subtitleIndex) {
+			if (activeTextTrack.index !== subtitleIndex || joining) {
 				currentLogger.current?.info(
 					`[CAST_SYNC] Syncing subtitle from activeTrackIds: ${subtitleIndex} -> ${activeTextTrack.index} (trackId: ${activeTextTrack.id})`
 				);
-				// Marcar como cambio local para evitar bucle
 				isLocalTrackChangeRef.current = true;
 				setSubtitleIndex(activeTextTrack.index);
 				currentSubtitleIndexRef.current = activeTextTrack.index;
@@ -577,19 +611,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 						subtitleCode: activeTextTrack.code,
 					});
 				}
-				// Reset después de un tiempo
-				setTimeout(() => {
-					isLocalTrackChangeRef.current = false;
-				}, 2000);
 			}
 		} else {
-			// No hay subtítulo activo (solo audio en activeTrackIds)
+			// No hay subtítulo activo
 			const hasNoTextTrack = !textMenuItems.some(item => currentIds.includes(item.id!));
-			if (hasNoTextTrack && subtitleIndex !== -1) {
+			if (hasNoTextTrack && (subtitleIndex !== -1 || joining)) {
 				currentLogger.current?.info(
 					`[CAST_SYNC] Syncing subtitle OFF from activeTrackIds: ${subtitleIndex} -> -1`
 				);
-				// Marcar como cambio local para evitar bucle
 				isLocalTrackChangeRef.current = true;
 				setSubtitleIndex(-1);
 				currentSubtitleIndexRef.current = -1;
@@ -600,13 +629,17 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 						subtitleCode: "none",
 					});
 				}
-				// Reset después de un tiempo
-				setTimeout(() => {
-					isLocalTrackChangeRef.current = false;
-				}, 2000);
 			}
 		}
-	}, [castMedia.activeTrackIds, menuData, subtitleIndex, props.events]);
+
+		// Limpiar el flag de sesión existente y el flag de cambio local
+		if (joining) {
+			isJoiningExistingSessionRef.current = false;
+		}
+		setTimeout(() => {
+			isLocalTrackChangeRef.current = false;
+		}, 2000);
+	}, [castMedia.activeTrackIds, menuData, audioIndex, subtitleIndex, props.events]);
 
 	// Procesar media tracks cuando estén disponibles (independiente de onLoad)
 	useEffect(() => {
@@ -943,7 +976,13 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 				// Verificar si ya estamos reproduciendo el mismo contenido
 				if (castMedia.url === data.source.uri && !castMedia.isIdle) {
-					currentLogger.current?.info("Content already loaded in Cast, skipping");
+					currentLogger.current?.info(
+						"Content already loaded in Cast, joining existing session - will sync tracks from Cast"
+					);
+					// Marcar que nos unimos a una sesión existente para NO sobrescribir
+					// los tracks activos con nuestras preferencias locales
+					isJoiningExistingSessionRef.current = true;
+					prevActiveTrackIdsRef.current = [];
 					setIsLoadingContent(false);
 					isChangingSource.current = false;
 					setIsContentLoaded(true);
@@ -1079,6 +1118,16 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// HANDLE TRACK CHANGES
 	const handleTrackChanges = () => {
 		currentLogger.current?.debug("handleTrackChanges...");
+
+		// Si nos hemos unido a una sesión Cast existente, no sobrescribimos los tracks activos.
+		// La sincronización de activeTrackIds se encargará de leer el estado actual del Cast.
+		if (isJoiningExistingSessionRef.current) {
+			currentLogger.current?.debug(
+				"[CAST_SYNC] Skipping handleTrackChanges - joining existing session, waiting for activeTrackIds sync"
+			);
+			return;
+		}
+
 		const activeTracks: Array<number> = [];
 		if (castConnected && menuData) {
 			currentLogger.current?.debug(
