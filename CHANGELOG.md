@@ -1,5 +1,12 @@
 
 
+## [7.1.3](https://github.com/startcat/react-native-video/compare/v7.1.2...v7.1.3) (2026-02-26)
+
+
+### Bug Fixes
+
+* **cast:** sincronizar audio y subtítulos al unirse a sesión existente ([dc355f0](https://github.com/startcat/react-native-video/commit/dc355f0d5d9c6d59e1bfc64375afbf0ef8b3feda))
+
 ## [7.1.2](https://github.com/startcat/react-native-video/compare/v7.1.1...v7.1.2) (2026-02-25)
 
 
