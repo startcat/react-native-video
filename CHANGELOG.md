@@ -1,5 +1,12 @@
 
 
+## [7.1.4](https://github.com/startcat/react-native-video/compare/v7.1.3...v7.1.4) (2026-02-27)
+
+
+### Features
+
+* **middleBar:** deshabilitar skip forward cuando se está en live edge ([7b73fd2](https://github.com/startcat/react-native-video/commit/7b73fd2123ce94e63dd9783d58f98256cafe64df))
+
 ## [7.1.3](https://github.com/startcat/react-native-video/compare/v7.1.2...v7.1.3) (2026-02-26)
 
 
