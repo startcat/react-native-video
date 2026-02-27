@@ -15,6 +15,7 @@ const ControlsMiddleBarBase = ({
 	// Extract values from playerProgress and events
 	const paused = playerProgress?.isPaused ?? false;
 	const contentLoaded = playerProgress?.isContentLoaded ?? isContentLoaded;
+	const isLiveEdgePosition = playerProgress?.sliderValues?.isLiveEdgePosition ?? false;
 
 	// Extract events
 	const onPress = events?.onPress;
@@ -80,12 +81,12 @@ const ControlsMiddleBarBase = ({
 				size={BUTTON_SIZE.MEDIUM}
 				iconName="play-forward-outline"
 				value={15}
-				disabled={!contentLoaded}
+				disabled={!contentLoaded || isLiveEdgePosition}
 				accessibilityLabel={accessibilityLabels.forward}
 				onPress={handlePress}
 			/>
 		),
-		[contentLoaded, accessibilityLabels, handlePress]
+		[contentLoaded, isLiveEdgePosition, accessibilityLabels, handlePress]
 	);
 
 	return (
@@ -105,6 +106,8 @@ const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps)
 		prevProps.playerProgress?.isPaused === nextProps.playerProgress?.isPaused &&
 		prevProps.playerProgress?.isContentLoaded === nextProps.playerProgress?.isContentLoaded &&
 		prevProps.isContentLoaded === nextProps.isContentLoaded &&
+		prevProps.playerProgress?.sliderValues?.isLiveEdgePosition ===
+			nextProps.playerProgress?.sliderValues?.isLiveEdgePosition &&
 		prevProps.events?.onPress === nextProps.events?.onPress
 	);
 };
