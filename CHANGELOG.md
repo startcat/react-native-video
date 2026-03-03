@@ -1,5 +1,12 @@
 
 
+## [7.1.5](https://github.com/startcat/react-native-video/compare/v7.1.4...v7.1.5) (2026-03-03)
+
+
+### Features
+
+* **player:** añadir soporte de pistas externas y gestión de subtítulos en ads ([1cf72a9](https://github.com/startcat/react-native-video/commit/1cf72a962ddf20afc841ee963e6d487f28e4a57c))
+
 ## [7.1.4](https://github.com/startcat/react-native-video/compare/v7.1.3...v7.1.4) (2026-02-27)
 
 
