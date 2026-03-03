@@ -4,10 +4,10 @@ import { type SubtitleStyle } from "../../types";
 import * as Enums from "./enums";
 
 import {
-    type ICommonFlavourProps,
-    type ICommonPlayerProps,
-    type IPlayerProgress,
-    type IPlayerTimeMarkers,
+	type ICommonFlavourProps,
+	type ICommonPlayerProps,
+	type IPlayerProgress,
+	type IPlayerTimeMarkers,
 } from "./newTypes";
 
 import { type IInnerPlayerEvents } from "./events";
@@ -80,6 +80,12 @@ export interface IThumbnailMetadata {
 	imageHeight: number;
 }
 
+export interface IManifestTextTrack {
+	language: string;
+	label: string;
+	uri: string;
+}
+
 export interface IManifest {
 	manifestURL: string;
 	isExternal?: boolean;
@@ -92,6 +98,7 @@ export interface IManifest {
 		licenseAcquisitionURL: string;
 		certificateURL?: string;
 	};
+	textTracks?: Array<IManifestTextTrack>;
 }
 
 export interface IThumbnail {

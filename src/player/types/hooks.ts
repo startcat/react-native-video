@@ -37,7 +37,8 @@ export interface IPlayerHooks {
 	mergeMenuData?: (
 		loadedData: OnLoadData,
 		languagesMapping?: ILanguagesMapping,
-		isDASH?: boolean
+		isDASH?: boolean,
+		externalTextTracks?: Array<IManifestTextTrack>
 	) => Array<IPlayerMenuData>;
 	mergeCastMenuData?: (
 		loadedData: Array<MediaTrack> | undefined,

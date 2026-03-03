@@ -4,7 +4,12 @@ import { type OnLoadData } from "../../types";
 
 import { type MediaTrack } from "react-native-google-cast";
 
-import { type ILanguagesMapping, type IPlayerMenuData, PLAYER_MENU_DATA_TYPE } from "../types";
+import {
+	type ILanguagesMapping,
+	type IManifestTextTrack,
+	type IPlayerMenuData,
+	PLAYER_MENU_DATA_TYPE,
+} from "../types";
 
 const sortByIndex = (a: IPlayerMenuData, b: IPlayerMenuData) => {
 	if (a.type < b.type) {
@@ -42,7 +47,8 @@ export const getTrackIndex = (
 export const mergeMenuData = (
 	loadedData: OnLoadData,
 	languagesMapping?: ILanguagesMapping,
-	isDASH?: boolean
+	isDASH?: boolean,
+	externalTextTracks?: Array<IManifestTextTrack>
 ): Array<IPlayerMenuData> => {
 	let menuData: Array<IPlayerMenuData> = [];
 
@@ -160,6 +166,35 @@ export const mergeMenuData = (
 							: item.title || item.index.toString(),
 				});
 			});
+	}
+
+	// Añadimos subtítulos externos (sideloaded) para fuentes MP4 directas
+	if (externalTextTracks && externalTextTracks.length > 0) {
+		const existingTextTracks = menuData.filter(
+			item => item.type === PLAYER_MENU_DATA_TYPE.TEXT
+		);
+		const validIndices = existingTextTracks
+			.map(item => item.index)
+			.filter((idx): idx is number => idx !== undefined && idx >= 0);
+		let nextIndex = validIndices.length > 0 ? Math.max(...validIndices) + 1 : 0;
+
+		externalTextTracks.forEach(track => {
+			const alreadyExists = menuData.some(
+				item => item.type === PLAYER_MENU_DATA_TYPE.TEXT && item.code === track.language
+			);
+			if (!alreadyExists) {
+				menuData.push({
+					type: PLAYER_MENU_DATA_TYPE.TEXT,
+					index: nextIndex++,
+					code: track.language,
+					label:
+						languagesMapping && languagesMapping[track.language]
+							? languagesMapping[track.language]
+							: track.label,
+					uri: track.uri,
+				});
+			}
+		});
 	}
 
 	menuData = menuData.sort(sortByIndex);

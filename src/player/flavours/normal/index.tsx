@@ -142,8 +142,16 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
 
 	// Track current audio/subtitle indices (para el menú)
+	const [currentAudioIndex, setCurrentAudioIndex] = useState<number | undefined>(
+		props.audioIndex
+	);
 	const currentAudioIndexRef = useRef<number | undefined>(props.audioIndex);
-	const currentSubtitleIndexRef = useRef<number | undefined>(props.subtitleIndex);
+	const [currentSubtitleIndex, setCurrentSubtitleIndex] = useState<
+		number | { index?: number; language?: string } | undefined
+	>(props.subtitleIndex);
+	const currentSubtitleIndexRef = useRef<
+		number | { index?: number; language?: string } | undefined
+	>(props.subtitleIndex);
 
 	// Control para evitar mezcla de sources
 	const currentSourceType = useRef<"tudum" | "content" | null>(null);
@@ -525,6 +533,31 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		}
 	}, [videoSource]);
 
+	// When sideloaded textTracks change, the native player may auto-activate the first track.
+	// Re-apply selectedTextTrack to enforce the current subtitle selection (e.g. DISABLED).
+	// Note: treat undefined/null subtitleIndex as DISABLED (no preference = no subtitle).
+	useEffect(() => {
+		if (offlineTextTracks !== undefined) {
+			if (
+				props.subtitleIndex === undefined ||
+				props.subtitleIndex === null ||
+				(typeof props.subtitleIndex === "number" && props.subtitleIndex === -1)
+			) {
+				setSelectedTextTrack({ type: SelectedTrackType.DISABLED });
+			} else if (typeof props.subtitleIndex === "number" && props.subtitleIndex > -1) {
+				setSelectedTextTrack({ value: props.subtitleIndex, type: SelectedTrackType.INDEX });
+			} else if (typeof props.subtitleIndex === "object" && props.subtitleIndex !== null) {
+				const subtitleData = props.subtitleIndex as { index?: number; language?: string };
+				if (subtitleData.language) {
+					setSelectedTextTrack({
+						value: subtitleData.language,
+						type: SelectedTrackType.LANGUAGE,
+					});
+				}
+			}
+		}
+	}, [offlineTextTracks]);
+
 	useEffect(() => {
 		if (menuData && props.events?.onChangeCommonData) {
 			// Al cargar la lista de audios y subtítulos, mandamos las labels iniciales
@@ -776,8 +809,24 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					);
 					setOfflineTextTracks(convertedTracks);
 				}
+			} else if (
+				sourceRef.current?.currentManifest?.textTracks &&
+				sourceRef.current.currentManifest.textTracks.length > 0
+			) {
+				// Fuente MP4 online con subtítulos externos (sideloaded VTT)
+				const manifestTracks = sourceRef.current.currentManifest.textTracks.map(track => ({
+					title: track.label,
+					language: track.language,
+					type: TextTrackType.VTT,
+					uri: track.uri,
+				})) as TextTracks;
+
+				console.log(
+					`[Player] (Normal Flavour) Setting ${manifestTracks.length} external textTracks from manifest`
+				);
+				setOfflineTextTracks(manifestTracks);
 			} else {
-				// Clear offline tracks if not in offline mode
+				// Clear offline tracks if not in offline mode and no external tracks
 				setOfflineTextTracks(undefined);
 			}
 
@@ -793,6 +842,24 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					props.playerAnalytics?.youbora!,
 					YOUBORA_FORMAT.MOBILE
 				);
+			}
+
+			// Configure sideloaded textTracks from manifest (MP4 online)
+			if (
+				sourceRef.current?.currentManifest?.textTracks &&
+				sourceRef.current.currentManifest.textTracks.length > 0
+			) {
+				const manifestTracks = sourceRef.current.currentManifest.textTracks.map(track => ({
+					title: track.label,
+					language: track.language,
+					type: TextTrackType.VTT,
+					uri: track.uri,
+				})) as TextTracks;
+
+				console.log(
+					`[Player] (Normal Flavour) Setting ${manifestTracks.length} external textTracks from manifest (sourceRef branch)`
+				);
+				setOfflineTextTracks(manifestTracks);
 			}
 
 			currentLogger.current?.info(
@@ -990,6 +1057,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					language?: string;
 					label?: string;
 				};
+				currentSubtitleIndexRef.current = subtitleData;
+				setCurrentSubtitleIndex(subtitleData);
 
 				// iOS OFFLINE HLS: Los subtítulos están embebidos en el .movpkg descargado con
 				// AVAggregateAssetDownloadTask. NO usamos VTT sideloaded - usamos el índice
@@ -1053,6 +1122,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					}
 				}
 			} else if (typeof value === "number") {
+				currentSubtitleIndexRef.current = value;
 				if (value === -1) {
 					setSelectedTextTrack({
 						type: SelectedTrackType.DISABLED,
@@ -1285,8 +1355,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				// Actualizar refs locales cuando el usuario cambia desde el menú
 				if (id === CONTROL_ACTION.AUDIO_INDEX) {
 					currentAudioIndexRef.current = value;
+					setCurrentAudioIndex(value);
 				} else if (id === CONTROL_ACTION.SUBTITLE_INDEX) {
 					currentSubtitleIndexRef.current = value;
+					setCurrentSubtitleIndex(value);
 				}
 
 				const audioTrack = menuData?.find(
@@ -1358,18 +1430,23 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			videoTracks: cachedVideoTracksRef.current,
 		};
 
+		const manifestExternalTracks = sourceRef.current?.currentManifest?.textTracks;
+
 		let generatedMenuData: any;
 		if (props.hooks?.mergeMenuData && typeof props.hooks.mergeMenuData === "function") {
 			generatedMenuData = props.hooks.mergeMenuData(
 				syntheticLoadData,
 				props.languagesMapping,
-				sourceRef.current?.isDASH
+				sourceRef.current?.isDASH,
+				manifestExternalTracks
 			);
 		} else {
 			generatedMenuData = mergeMenuData(
 				syntheticLoadData,
 				props.languagesMapping,
-				sourceRef.current?.isDASH
+				sourceRef.current?.isDASH,
+				undefined,
+				manifestExternalTracks
 			);
 		}
 
@@ -1389,10 +1466,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			);
 			if (appliedPreferences?.audioIndex !== undefined) {
 				currentAudioIndexRef.current = appliedPreferences.audioIndex;
+				setCurrentAudioIndex(appliedPreferences.audioIndex);
 				finalAudioIndex = appliedPreferences.audioIndex;
 			}
 			if (appliedPreferences?.subtitleIndex !== undefined) {
 				currentSubtitleIndexRef.current = appliedPreferences.subtitleIndex;
+				setCurrentSubtitleIndex(appliedPreferences.subtitleIndex);
 			}
 			if (appliedPreferences) {
 				props.events?.onChangePreferences?.(appliedPreferences);
@@ -1405,6 +1484,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			);
 			if (firstAudio && firstAudio.index !== undefined) {
 				currentAudioIndexRef.current = firstAudio.index;
+				setCurrentAudioIndex(firstAudio.index);
 				currentLogger.current?.info(
 					`generateMenuDataFromCachedTracks - Auto-selecting first audio: index=${firstAudio.index}`
 				);
@@ -1515,18 +1595,23 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				`handleOnLoad - Generating menuData (isContentLoaded: ${isContentLoaded}, had menuData: ${!!menuData?.length})`
 			);
 
+			const manifestExternalTracks = sourceRef.current?.currentManifest?.textTracks;
+
 			let generatedMenuData: any;
 			if (props.hooks?.mergeMenuData && typeof props.hooks.mergeMenuData === "function") {
 				generatedMenuData = props.hooks.mergeMenuData(
 					e,
 					props.languagesMapping,
-					sourceRef.current?.isDASH
+					sourceRef.current?.isDASH,
+					manifestExternalTracks
 				);
 			} else {
 				generatedMenuData = mergeMenuData(
 					e,
 					props.languagesMapping,
-					sourceRef.current?.isDASH
+					sourceRef.current?.isDASH,
+					undefined,
+					manifestExternalTracks
 				);
 			}
 
@@ -1576,9 +1661,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						// Actualizar los refs locales para que el menú reciba los valores correctos
 						if (appliedPreferences.audioIndex !== undefined) {
 							currentAudioIndexRef.current = appliedPreferences.audioIndex;
+							setCurrentAudioIndex(appliedPreferences.audioIndex);
 						}
 						if (appliedPreferences.subtitleIndex !== undefined) {
 							currentSubtitleIndexRef.current = appliedPreferences.subtitleIndex;
+							setCurrentSubtitleIndex(appliedPreferences.subtitleIndex);
 						}
 						// Actualizar los índices finales con las preferencias aplicadas
 						if (appliedPreferences.audioIndex !== undefined) {
@@ -1607,6 +1694,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				);
 				if (firstAudio && firstAudio.index !== undefined) {
 					currentAudioIndexRef.current = firstAudio.index;
+					setCurrentAudioIndex(firstAudio.index);
 					currentLogger.current?.info(
 						`handleOnLoad - Auto-selecting first audio track: index=${firstAudio.index}, label=${firstAudio.label}`
 					);
@@ -1751,6 +1839,23 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		}
 	};
 
+	const restoreSubtitleAfterAd = () => {
+		const subtitleIdx = currentSubtitleIndexRef.current;
+		if (subtitleIdx === undefined || subtitleIdx === null) {
+			setSelectedTextTrack({ type: SelectedTrackType.DISABLED });
+		} else if (typeof subtitleIdx === "number") {
+			if (subtitleIdx === -1) {
+				setSelectedTextTrack({ type: SelectedTrackType.DISABLED });
+			} else {
+				setSelectedTextTrack({ type: SelectedTrackType.INDEX, value: subtitleIdx });
+			}
+		} else if (subtitleIdx.language) {
+			setSelectedTextTrack({ type: SelectedTrackType.LANGUAGE, value: subtitleIdx.language });
+		} else {
+			setSelectedTextTrack({ type: SelectedTrackType.DISABLED });
+		}
+	};
+
 	const handleOnReceiveAdEvent = (e: OnReceiveAdEventData) => {
 		currentLogger.current?.debug(`[ADS] onReceiveAdEvent: ${e.event}`, {
 			event: e.event,
@@ -1763,6 +1868,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			currentLogger.current?.info(`[ADS] Ad break/ad started: ${e.event}`);
 			isPlayingAdRef.current = true;
 			setIsPlayingAd(true);
+			// Deshabilitar subtítulos durante anuncios para evitar mostrarlos sobre el ad
+			setSelectedTextTrack({ type: SelectedTrackType.DISABLED });
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: true });
 			props.events?.onAdPlayingChange?.(true);
@@ -1781,6 +1888,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			isPlayingAdRef.current = false;
 			hasAdFinishedRef.current = true;
 			setIsPlayingAd(false);
+			// Restaurar el estado de subtítulos que tenía el usuario antes del ad
+			restoreSubtitleAfterAd();
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: false });
 			props.events?.onAdPlayingChange?.(false);
@@ -1799,6 +1908,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			isPlayingAdRef.current = false;
 			hasAdFinishedRef.current = true;
 			setIsPlayingAd(false);
+			// Restaurar el estado de subtítulos que tenía el usuario antes del ad
+			restoreSubtitleAfterAd();
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: false });
 			props.events?.onAdPlayingChange?.(false);
@@ -2019,7 +2130,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 							// See: Apple WWDC 2020 Session 10655 "Discover how to download and play HLS offline"
 							//
 							// For Android and iOS online playback, we use sideloaded VTT files (offlineTextTracks).
-							Platform.OS === "ios" && sourceRef.current?.isDownloaded
+							// During ads: remove textTracks entirely - selectedTextTrack=DISABLED is ignored by
+							// native iOS when sideloaded tracks are present.
+							isPlayingAd ||
+							(Platform.OS === "ios" && sourceRef.current?.isDownloaded)
 								? undefined
 								: offlineTextTracks
 						}
@@ -2084,8 +2198,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					isContentLoaded={isContentLoaded}
 					menuData={menuData}
 					videoIndex={videoQualityIndex.current}
-					audioIndex={currentAudioIndexRef.current ?? props.audioIndex}
-					subtitleIndex={currentSubtitleIndexRef.current ?? props.subtitleIndex}
+					audioIndex={currentAudioIndex ?? props.audioIndex}
+					subtitleIndex={currentSubtitleIndex ?? props.subtitleIndex}
 					speedRate={speedRate}
 					// Nuevas Props Agrupadas
 					playerMetadata={props.playerMetadata}
