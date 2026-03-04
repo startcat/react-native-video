@@ -1187,10 +1187,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 		}
 
-		if (id === CONTROL_ACTION.SPEED_RATE && typeof value === "number") {
-			setSpeedRate(value);
-		}
-
 		if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR) {
 			const timestamp = props.events?.onLiveStartProgram?.();
 			currentLogger.current?.temp(
@@ -1198,6 +1194,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			);
 
 			if (typeof timestamp === "number") {
+				// Reset ad cycle refs so the new source load works correctly:
+				// - postAdSeekDoneRef: allows post-ad seek logic to run for the new source
+				// - hasAdFinishedRef: allows checkInitialSeek in handleOnLoad to execute with isLiveProgramRestricted=true
+				postAdSeekDoneRef.current = false;
+				hasAdFinishedRef.current = false;
+
 				isChangingSource.current = true;
 				setVideoSource(undefined);
 				setIsContentLoaded(false);
@@ -1561,12 +1563,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 
 			// Seek inicial al cargar un live con DVR
-			// Post-ad: skip checkInitialSeek porque seekableRange aún tiene datos obsoletos.
+			// Post-ad: skip checkInitialSeek si vamos al live edge (goToLive necesita seekableRange fresco).
+			// Excepción: si isLiveProgramRestricted=true, el seek es a posición 0 y no depende del seekableRange.
 			// El goToLive se hará desde handleOnProgress con datos frescos.
 			if (
 				sourceRef.current?.isDVR &&
 				dvrProgressManagerRef.current &&
-				!hasAdFinishedRef.current
+				(!hasAdFinishedRef.current || isLiveProgramRestricted)
 			) {
 				try {
 					dvrProgressManagerRef.current.checkInitialSeek(
@@ -1590,7 +1593,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// Desacoplado de la guarda !isContentLoaded para que funcione también cuando
 		// onLoad llega tarde (ej: Android 33 tras preroll ads, donde el fallback en
 		// handleOnProgress ya marcó isContentLoaded=true pero sin datos de tracks).
-		if (currentSourceType.current === "content" && !menuData?.length) {
+		// Usar menuDataRef.current (síncrono) en lugar del state menuData para evitar
+		// que un segundo onLoad en iOS (race condition) regenere menuData y re-aplique
+		// pistas de audio/subtítulos mientras hay un seek en curso.
+		if (currentSourceType.current === "content" && !menuDataRef.current?.length) {
 			currentLogger.current?.info(
 				`handleOnLoad - Generating menuData (isContentLoaded: ${isContentLoaded}, had menuData: ${!!menuData?.length})`
 			);
@@ -1701,6 +1707,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				}
 			}
 
+			// Actualizar menuDataRef síncronamente antes de setMenuData para que un segundo
+			// onLoad de iOS que llegue inmediatamente encuentre la guarda ya establecida
+			// y no regenere menuData ni re-aplique pistas de audio/subtítulos en mitad de un seek.
+			menuDataRef.current = generatedMenuData;
 			// Establecer menuData DESPUÉS de aplicar preferencias para que refleje la selección correcta
 			setMenuData(generatedMenuData);
 		}
@@ -2087,7 +2097,14 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 								targetOffsetMs: 25000,
 							},
 						}}
-						adTagUrl={props?.playerAds?.adTagUrl}
+						adTagUrl={
+							// iOS MP4 + IMA ads + sideloaded subtitles = black screen.
+							// Disable ads for MP4 on iOS; HLS with ads works fine.
+							// Use videoSource.type (available at render) instead of sourceRef.current?.isHLS (may be undefined on first render).
+							Platform.OS === "ios" && videoSource?.type === "mp4"
+								? undefined
+								: props?.playerAds?.adTagUrl
+						}
 						allowsExternalPlayback={true}
 						//volume={10}
 						controls={false}
