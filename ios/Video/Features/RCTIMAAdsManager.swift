@@ -170,11 +170,18 @@
                 ])
             }
 
+            // Restore track criteria in case ContentPause was called before the error
+            // (if not, restoreTrackCriteriaAfterAd is a no-op since _saved* are nil)
+            _video.restoreTrackCriteriaAfterAd()
             // Fall back to playing content
             _video.setPaused(false)
         }
 
         func adsManagerDidRequestContentPause(_: IMAAdsManager) {
+            // Save and clear content track criteria before the IMA SDK takes the AVPlayer.
+            // This prevents content criteria from being re-applied over the ad's AVPlayerItem
+            // via handleTracksChange KVO, which would cause the ad to freeze.
+            _video?.saveAndClearTrackCriteriaForAd()
             // Pause the content for the SDK to play ads.
             _video?.setPaused(true)
             _video?.setAdPlaying(true)
@@ -184,6 +191,8 @@
             // Resume the content since the SDK is done playing ads (at least for now).
             print("[RCTIMAAdsManager] adsManagerDidRequestContentResume called")
             _video?.setAdPlaying(false)
+            // Restore content track criteria so the content AVPlayerItem gets correct tracks.
+            _video?.restoreTrackCriteriaAfterAd()
             _video?.setPaused(false)
             // Unregister friendly obstructions to ensure touch events pass through
             unregisterAllFriendlyObstructions()

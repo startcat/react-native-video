@@ -42,8 +42,12 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	// Manual seeking (CORREGIDO: sin timeout automático)
 	private _isManualSeeking: boolean = false;
 
-	// Seek inicial al live edge pendiente (Android: onLoad llega antes del seekableRange)
+	// Seek inicial al live edge pendiente (onLoad llega antes del seekableRange en iOS y Android)
 	private _needsInitialGoToLive: boolean = false;
+
+	// Seek al live edge en tránsito: evita que _updateLiveEdgePosition sobreescriba
+	// _isLiveEdgePosition=true mientras el player aún no ha completado físicamente el seek.
+	private _pendingLiveEdgeSeek: boolean = false;
 
 	// Callbacks específicos del DVR
 	private _dvrCallbacks: {
@@ -131,16 +135,22 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		if (isValidNow) {
 			this._currentLogger?.debug("Executing DVR-specific logic");
 
-			// Android: ejecutar goToLive diferido en cuanto tengamos seekableRange válido
-			// Solo aplica al arranque inicial en modo WINDOW (isLiveProgramRestricted=false).
-			// En modo PROGRAM el seek lo gestiona checkInitialSeek con isLiveProgramRestricted=true.
+			// Ejecutar goToLive diferido en cuanto tengamos seekableRange válido.
+			// Solo aplica en modo WINDOW — si para este momento el modo es PROGRAM,
+			// el seek al inicio del programa lo gestiona checkInitialSeek con isLiveProgramRestricted=true.
 			if (this._needsInitialGoToLive) {
 				this._needsInitialGoToLive = false;
-				this._currentLogger?.info(
-					"checkInitialSeek Android: executing deferred goToLive with fresh seekableRange"
-				);
-				this.goToLive();
-				return;
+				if (this._playbackType === DVR_PLAYBACK_TYPE.WINDOW) {
+					this._currentLogger?.info(
+						"Executing deferred goToLive with fresh seekableRange"
+					);
+					this.goToLive();
+					return;
+				} else {
+					this._currentLogger?.info(
+						`Deferred goToLive cancelled - mode is now ${this._playbackType}`
+					);
+				}
 			}
 
 			// Solo actualizar live edge position si NO estamos en seek manual
@@ -269,7 +279,12 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		this._lastProgressForEPG = null;
 		this._epgRetryCount.clear();
 		this._isManualSeeking = false;
-		this._needsInitialGoToLive = false;
+		this._pendingLiveEdgeSeek = false;
+		// Activar seek diferido al live edge: en iOS el primer onProgress puede llegar
+		// antes que onLoad (y por tanto antes que checkInitialSeek). Este flag garantiza
+		// que goToLive se ejecuta en cuanto lleguen datos válidos, independientemente del
+		// orden. checkInitialSeek puede cancelarlo si isLiveProgramRestricted=true.
+		this._needsInitialGoToLive = true;
 
 		// Limpiar timeouts de EPG
 		this._clearEPGRetryTimeouts();
@@ -331,20 +346,32 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 				this.goToLive();
 			}, 300);
 		} else if (isLiveProgramRestricted) {
-			setTimeout(() => {
-				this._isLiveEdgePosition = false;
-				this._handleSeekTo(0);
-			}, 300);
+			// Cancelar el goToLive diferido: vamos al inicio del programa (pos 0), no al live edge.
+			this._needsInitialGoToLive = false;
+			this._isLiveEdgePosition = false;
+			// Si el player ya está en posición 0 (el stream cargó con ?start=timestamp),
+			// no hacer seek — evitamos disparar onSeekRequest que puede interferir con IMA.
+			if (this._currentTime > 1) {
+				setTimeout(() => {
+					this._handleSeekTo(0);
+				}, 300);
+			} else {
+				this._currentLogger?.info(
+					`checkInitialSeek PROGRAM: already at position 0 (currentTime: ${this._currentTime}), skipping seek`
+				);
+			}
 		} else if (mode === "player" && Platform.OS === "ios") {
-			setTimeout(() => {
-				this.goToLive();
-			}, 300);
+			// iOS: el flag ya fue activado en reset(). checkInitialSeek llegó antes que el primer
+			// onProgress, así que el flag se ejecutará cuando lleguen datos válidos. No hace falta
+			// un setTimeout adicional — evitamos el double-seek.
+			this._currentLogger?.info(
+				"checkInitialSeek iOS: goToLive already deferred via _needsInitialGoToLive from reset()"
+			);
 		} else if (mode === "player" && Platform.OS === "android" && !isLiveProgramRestricted) {
 			// Android: el seekableRange no está disponible en onLoad (llega en el primer onProgress).
-			// Marcamos el flag para ejecutar goToLive en cuanto lleguen datos válidos.
-			this._needsInitialGoToLive = true;
+			// El flag ya fue activado en reset(), solo registramos el log.
 			this._currentLogger?.info(
-				"checkInitialSeek Android: deferring goToLive until first valid seekableRange"
+				"checkInitialSeek Android: goToLive already deferred via _needsInitialGoToLive from reset()"
 			);
 		}
 	}
@@ -433,12 +460,26 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
 	goToLive(): void {
 		if (!this._isValidState()) {
-			this._currentLogger?.warn("goToLive: Invalid state");
+			// Solo diferir si estamos en modo WINDOW. En modo PROGRAM, el seek al inicio
+			// lo gestiona checkInitialSeek con isLiveProgramRestricted=true.
+			if (this._playbackType === DVR_PLAYBACK_TYPE.WINDOW) {
+				this._currentLogger?.warn(
+					"goToLive: Invalid state - deferring until seekableRange is available"
+				);
+				this._needsInitialGoToLive = true;
+			} else {
+				this._currentLogger?.warn(
+					`goToLive: Invalid state in ${this._playbackType} mode - ignoring`
+				);
+			}
 			return;
 		}
 
 		this._currentLogger?.info("goToLive");
 		this._isLiveEdgePosition = true;
+		// Marcar seek en tránsito para que _updateLiveEdgePosition no lo sobreescriba
+		// hasta que el player confirme haber llegado al live edge.
+		this._pendingLiveEdgeSeek = true;
 
 		// Si estamos pausados, actualizar la posición congelada al live edge
 		if (this._isPaused || this._isBuffering) {
@@ -485,6 +526,8 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	onSliderSlidingStart(): void {
 		this._currentLogger?.debug("Slider sliding started - entering manual seeking mode");
 		this._isManualSeeking = true;
+		// El seek manual cancela cualquier seek al live edge en tránsito
+		this._pendingLiveEdgeSeek = false;
 	}
 
 	onSliderSlidingComplete(): void {
@@ -902,6 +945,25 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		}
 
 		const offset = this._seekableRange.end - this._currentTime;
+
+		// Si hay un seek al live edge en tránsito, no sobreescribir _isLiveEdgePosition=true
+		// hasta que el player confirme haber llegado (offset dentro de tolerancia).
+		if (this._pendingLiveEdgeSeek) {
+			if (offset <= LIVE_EDGE_TOLERANCE) {
+				// El player ha llegado al live edge: confirmar y limpiar el flag
+				this._pendingLiveEdgeSeek = false;
+				this._currentLogger?.debug(
+					`Live edge seek confirmed (offset: ${offset}s) - clearing pending flag`
+				);
+			} else {
+				// Seek aún en tránsito: mantener _isLiveEdgePosition=true y no emitir cambio
+				this._currentLogger?.debug(
+					`Live edge seek pending (offset: ${offset}s) - keeping isLiveEdge=true`
+				);
+				return;
+			}
+		}
+
 		const wasLiveEdge = this._isLiveEdgePosition;
 		this._isLiveEdgePosition = offset <= LIVE_EDGE_TOLERANCE;
 
@@ -1176,6 +1238,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		super.destroy();
 
 		this._isManualSeeking = false;
+		this._pendingLiveEdgeSeek = false;
 
 		// Limpiar timeouts EPG pendientes
 		this._clearEPGRetryTimeouts();
