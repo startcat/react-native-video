@@ -132,6 +132,8 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			this._currentLogger?.debug("Executing DVR-specific logic");
 
 			// Android: ejecutar goToLive diferido en cuanto tengamos seekableRange válido
+			// Solo aplica al arranque inicial en modo WINDOW (isLiveProgramRestricted=false).
+			// En modo PROGRAM el seek lo gestiona checkInitialSeek con isLiveProgramRestricted=true.
 			if (this._needsInitialGoToLive) {
 				this._needsInitialGoToLive = false;
 				this._currentLogger?.info(
@@ -968,8 +970,13 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
 		switch (this._playbackType) {
 			case DVR_PLAYBACK_TYPE.PROGRAM:
-				// Programa específico: del inicio del programa al live edge
-				const programStart = this._currentProgram?.startDate || this._getWindowStart();
+				// Programa específico: del inicio del programa al live edge.
+				// Si no hay _currentProgram todavía (EPG pendiente), usar _streamStartTime
+				// que corresponde al ?start= de la URI cargada (= inicio del programa).
+				// Fallback final a _getWindowStart() si tampoco hay streamStartTime.
+				const programStart =
+					this._currentProgram?.startDate ||
+					(this._streamStartTime > 0 ? this._streamStartTime : this._getWindowStart());
 				const result1 = { minimumValue: programStart, maximumValue: liveEdge };
 				this._currentLogger?.debug(
 					`_getSliderBounds PROGRAM result: ${JSON.stringify(result1)}`
