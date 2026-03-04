@@ -104,6 +104,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     #endif
     private var _didRequestAds = false
     private var _adPlaying = false
+    private var _savedAudioTrackCriteria: SelectedTrackCriteria?
+    private var _savedTextTrackCriteria: SelectedTrackCriteria?
 
     private var _resouceLoaderDelegate: RCTResourceLoaderDelegate?
     private var _playerObserver: RCTPlayerObserver = .init()
@@ -1154,9 +1156,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     func setSelectedAudioTrack(_ selectedAudioTrack: SelectedTrackCriteria?) {
         _selectedAudioTrackCriteria = selectedAudioTrack
-        Task {
-            await RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player: _player, characteristic: AVMediaCharacteristic.audible,
-                                                                              criteria: _selectedAudioTrackCriteria)
+        Task { [weak self] in
+            guard let self, !self._adPlaying else { return }
+            await RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player: self._player, characteristic: AVMediaCharacteristic.audible,
+                                                                              criteria: self._selectedAudioTrackCriteria)
         }
     }
 
@@ -1172,9 +1175,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         if _textTracks != nil { // sideloaded text tracks
             RCTPlayerOperations.setSideloadedText(player: _player, textTracks: _textTracks!, criteria: _selectedTextTrackCriteria)
         } else { // text tracks included in the HLS playlist
-            Task {
-                await RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player: _player, characteristic: AVMediaCharacteristic.legible,
-                                                                                  criteria: _selectedTextTrackCriteria)
+            Task { [weak self] in
+                guard let self, !self._adPlaying else { return }
+                await RCTPlayerOperations.setMediaSelectionTrackForCharacteristic(player: self._player, characteristic: AVMediaCharacteristic.legible,
+                                                                                  criteria: self._selectedTextTrackCriteria)
             }
         }
     }
@@ -1450,6 +1454,26 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     #endif
     func setAdPlaying(_ adPlaying: Bool) {
         _adPlaying = adPlaying
+    }
+
+    func saveAndClearTrackCriteriaForAd() {
+        _savedAudioTrackCriteria = _selectedAudioTrackCriteria
+        _savedTextTrackCriteria = _selectedTextTrackCriteria
+        _selectedAudioTrackCriteria = nil
+        _selectedTextTrackCriteria = nil
+        debugPrint("[RCTVideo] saveAndClearTrackCriteriaForAd - saved audio: \(_savedAudioTrackCriteria?.type ?? "nil"), text: \(_savedTextTrackCriteria?.type ?? "nil")")
+    }
+
+    func restoreTrackCriteriaAfterAd() {
+        debugPrint("[RCTVideo] restoreTrackCriteriaAfterAd - restoring audio: \(_savedAudioTrackCriteria?.type ?? "nil"), text: \(_savedTextTrackCriteria?.type ?? "nil")")
+        if let audio = _savedAudioTrackCriteria {
+            setSelectedAudioTrack(audio)
+        }
+        if let text = _savedTextTrackCriteria {
+            setSelectedTextTrack(text)
+        }
+        _savedAudioTrackCriteria = nil
+        _savedTextTrackCriteria = nil
     }
 
     // MARK: - React View Management
@@ -1896,6 +1920,14 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     func handleTracksChange(playerItem _: AVPlayerItem, change _: NSKeyValueObservedChange<[AVPlayerItemTrack]>) {
+        // Skip entirely during ad playback: IMA triggers a KVO change on .tracks when it takes
+        // control of the AVPlayer. Emitting onTextTracks/onAudioTracks during the ad would expose
+        // ad-specific tracks to JS, and re-applying content criteria would freeze the ad.
+        guard !_adPlaying else {
+            debugPrint("[RCTVideo] handleTracksChange - Skipping during ad playback")
+            return
+        }
+
         if onTextTracks != nil {
             Task {
                 let textTracks = await RCTVideoUtils.getTextTrackInfo(self._player)
@@ -1909,10 +1941,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 self.onAudioTracks?(["audioTracks": audioTracks])
             }
         }
-        
-        // Re-apply selected audio and text tracks when tracks become available
+
+        // Re-apply selected audio and text tracks when tracks become available.
         // This fixes the race condition where initial track selection fails because
-        // media selection groups weren't ready yet
+        // media selection groups weren't ready yet.
         debugPrint("[RCTVideo] handleTracksChange - Re-applying track selections. AudioCriteria: \(_selectedAudioTrackCriteria?.type ?? "nil"), TextCriteria: \(_selectedTextTrackCriteria?.type ?? "nil")")
         if _selectedAudioTrackCriteria != nil {
             setSelectedAudioTrack(_selectedAudioTrackCriteria)
