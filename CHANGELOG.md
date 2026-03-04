@@ -1,5 +1,16 @@
 
 
+## [7.1.6](https://github.com/startcat/react-native-video/compare/v7.1.5...v7.1.6) (2026-03-04)
+
+
+### Bug Fixes
+
+* **dvrProgressManager:** _pendingLiveEdgeSeek y skip seek redundante en PROGRAM ([70bf1b3](https://github.com/startcat/react-native-video/commit/70bf1b34a34b46e05a7f5834cf2a69f027eaff67))
+* **dvrProgressManager:** usar streamStartTime como inicio de slider en modo PROGRAM sin EPG ([b7d5ac2](https://github.com/startcat/react-native-video/commit/b7d5ac2f15a75c28ffb3f850063d14681b3415ee))
+* **iOS:** aislar criterios de pista durante ads para evitar freeze de IMA ([7f795a6](https://github.com/startcat/react-native-video/commit/7f795a6411bb9c97162ec9ff8c922c0663ad318f))
+* **normalFlavour:** corregir seek inicial DVR en Android y recarga de source en live ([f9d5615](https://github.com/startcat/react-native-video/commit/f9d561569d6a25053d856c9d885a044f5994e961))
+* **normalFlavour:** corregir seeks en LIVE_START_PROGRAM, race condition de onLoad y ads en iOS MP4 ([d86487a](https://github.com/startcat/react-native-video/commit/d86487a7bd63f89a3aad6fa88f02c4ba10670393))
+
 ## [7.1.5](https://github.com/startcat/react-native-video/compare/v7.1.4...v7.1.5) (2026-03-03)
 
 
