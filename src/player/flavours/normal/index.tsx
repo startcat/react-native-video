@@ -84,6 +84,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const postAdSeekDoneRef = useRef<boolean>(false);
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
 	const isContentLoadedRef = useRef<boolean>(false);
+	const pendingSourceReloadRef = useRef<boolean>(false);
 
 	const cachedAudioTracksRef = useRef<OnLoadData["audioTracks"]>([]);
 	const cachedTextTracksRef = useRef<OnLoadData["textTracks"]>([]);
@@ -980,6 +981,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	}, [menuData]);
 
 	useEffect(() => {
+		if (videoSource === undefined && pendingSourceReloadRef.current) {
+			pendingSourceReloadRef.current = false;
+			setVideoSource(sourceRef.current?.playerSource!);
+		}
+	}, [videoSource]);
+
+	useEffect(() => {
 		return () => {
 			if (vodProgressManagerRef.current) {
 				vodProgressManagerRef.current.destroy();
@@ -1189,9 +1197,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 		if (id === CONTROL_ACTION.LIVE_START_PROGRAM && sourceRef.current?.isDVR) {
 			const timestamp = props.events?.onLiveStartProgram?.();
-			currentLogger.current?.temp(
-				`handleOnControlsPress: ${id} (${value}) - timestamp: ${timestamp}`
-			);
 
 			if (typeof timestamp === "number") {
 				// Reset ad cycle refs so the new source load works correctly:
@@ -1199,6 +1204,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				// - hasAdFinishedRef: allows checkInitialSeek in handleOnLoad to execute with isLiveProgramRestricted=true
 				postAdSeekDoneRef.current = false;
 				hasAdFinishedRef.current = false;
+				// Reset síncronos: handleOnLoad usa isContentLoadedRef y menuDataRef (no el state)
+				// para evitar stale closures cuando el source cambia rápido (iOS).
+				isContentLoadedRef.current = false;
+				menuDataRef.current = undefined;
 
 				isChangingSource.current = true;
 				setVideoSource(undefined);
@@ -1215,15 +1224,17 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					dvrProgressManagerRef.current?.setPlaybackType(DVR_PLAYBACK_TYPE.PROGRAM);
 				}
 
-				setTimeout(() => {
-					setVideoSource(sourceRef.current?.playerSource!);
-				}, 100);
+				pendingSourceReloadRef.current = true;
 			}
 		}
 
 		if (id === CONTROL_ACTION.LIVE && sourceRef.current?.isDVR) {
 			if (isLiveProgramRestricted) {
 				try {
+					// Reset síncronos antes del cambio de source
+					isContentLoadedRef.current = false;
+					menuDataRef.current = undefined;
+
 					isChangingSource.current = true;
 					setVideoSource(undefined);
 					setIsContentLoaded(false);
@@ -1234,10 +1245,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						sourceRef.current.reloadDvrStream();
 					}
 
-					setTimeout(() => {
-						setVideoSource(sourceRef.current?.playerSource!);
-						dvrProgressManagerRef.current?.reset();
-					}, 100);
+					dvrProgressManagerRef.current?.reset();
+					pendingSourceReloadRef.current = true;
 				} catch (error: any) {
 					currentLogger.current?.error(`DVR reload stream failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -1530,7 +1539,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		}
 
 		// Solo procesar onLoad para contenido principal, no para tudum
-		if (currentSourceType.current === "content" && !isContentLoaded) {
+		// Usar isContentLoadedRef.current (síncrono) en lugar de isContentLoaded (state)
+		// para evitar stale closures cuando el source cambia rápido (ej: LIVE_START_PROGRAM).
+		if (currentSourceType.current === "content" && !isContentLoadedRef.current) {
 			currentLogger.current?.debug("handleOnLoad - Processing content load");
 
 			// Para VOD, establecer la duración desde el evento onLoad

@@ -42,6 +42,9 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	// Manual seeking (CORREGIDO: sin timeout automático)
 	private _isManualSeeking: boolean = false;
 
+	// Seek inicial al live edge pendiente (Android: onLoad llega antes del seekableRange)
+	private _needsInitialGoToLive: boolean = false;
+
 	// Callbacks específicos del DVR
 	private _dvrCallbacks: {
 		getEPGProgramAt?: ((timestamp: number) => Promise<any>) | null;
@@ -127,6 +130,16 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		// Solo ejecutar lógica compleja si el estado es válido
 		if (isValidNow) {
 			this._currentLogger?.debug("Executing DVR-specific logic");
+
+			// Android: ejecutar goToLive diferido en cuanto tengamos seekableRange válido
+			if (this._needsInitialGoToLive) {
+				this._needsInitialGoToLive = false;
+				this._currentLogger?.info(
+					"checkInitialSeek Android: executing deferred goToLive with fresh seekableRange"
+				);
+				this.goToLive();
+				return;
+			}
 
 			// Solo actualizar live edge position si NO estamos en seek manual
 			if (!this._isManualSeeking) {
@@ -254,6 +267,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		this._lastProgressForEPG = null;
 		this._epgRetryCount.clear();
 		this._isManualSeeking = false;
+		this._needsInitialGoToLive = false;
 
 		// Limpiar timeouts de EPG
 		this._clearEPGRetryTimeouts();
@@ -323,6 +337,13 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			setTimeout(() => {
 				this.goToLive();
 			}, 300);
+		} else if (mode === "player" && Platform.OS === "android" && !isLiveProgramRestricted) {
+			// Android: el seekableRange no está disponible en onLoad (llega en el primer onProgress).
+			// Marcamos el flag para ejecutar goToLive en cuanto lleguen datos válidos.
+			this._needsInitialGoToLive = true;
+			this._currentLogger?.info(
+				"checkInitialSeek Android: deferring goToLive until first valid seekableRange"
+			);
 		}
 	}
 
