@@ -1246,6 +1246,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				setIsContentLoaded(false);
 				setBuffering(true);
 				setIsLiveProgramRestricted(true);
+				setSliderValues(undefined);
+				setDvrPlaybackType(undefined);
 
 				if (sourceRef.current) {
 					sourceRef.current.changeDvrUriParameters(timestamp);
@@ -1273,6 +1275,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					setIsContentLoaded(false);
 					setBuffering(true);
 					setIsLiveProgramRestricted(false);
+					setSliderValues(undefined);
+					setDvrPlaybackType(undefined);
 
 					if (sourceRef.current) {
 						sourceRef.current.reloadDvrStream();
