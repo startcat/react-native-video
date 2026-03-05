@@ -49,7 +49,7 @@ import { type onSourceChangedProps, SourceClass } from "../../modules/source";
 
 import { TudumClass } from "../../modules/tudum";
 
-import { PlaybackPhaseManager } from "../../core/phase/PlaybackPhaseManager";
+import { PlaybackPhase, PlaybackPhaseManager } from "../../core/phase/PlaybackPhaseManager";
 import {
 	type ModeChangeData,
 	type ProgramChangeData,
@@ -835,6 +835,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				setOfflineTextTracks(undefined);
 			}
 
+			phaseManagerRef.current.transition(PlaybackPhase.LOADING, "source_assigned");
 			setVideoSource(data.source!);
 		} else if (sourceRef.current?.isReady) {
 			currentLogger.current?.debug("setPlayerSource - Using sourceRef");
@@ -870,6 +871,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			currentLogger.current?.info(
 				`setPlayerSource - Setting sourceRef content: ${JSON.stringify(sourceRef.current.playerSource)}`
 			);
+			phaseManagerRef.current.transition(PlaybackPhase.LOADING, "source_assigned");
 			setVideoSource(sourceRef.current.playerSource!);
 		} else {
 			currentLogger.current?.error("setPlayerSource - No valid source available");
@@ -921,6 +923,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const handleOnSeekRequest = useCallback((playerTime: number) => {
 		try {
 			currentLogger.current?.debug(`handleOnSeekRequest: ${playerTime}`);
+			phaseManagerRef.current.transition(PlaybackPhase.SEEKING, "onSeekRequest");
 			refVideoPlayer.current?.seek(playerTime);
 		} catch (error: any) {
 			currentLogger.current?.error(`handleOnSeekRequest failed: ${error?.message}`);
@@ -988,6 +991,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	useEffect(() => {
 		if (videoSource === undefined && pendingSourceReloadRef.current) {
 			pendingSourceReloadRef.current = false;
+			phaseManagerRef.current.transition(PlaybackPhase.LOADING, "new_source_assigned");
 			setVideoSource(sourceRef.current?.playerSource!);
 		}
 	}, [videoSource]);
@@ -1216,6 +1220,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				menuDataRef.current = undefined;
 
 				isChangingSource.current = true;
+				phaseManagerRef.current.transition(
+					PlaybackPhase.CHANGING_SOURCE,
+					"LIVE_START_PROGRAM"
+				);
 				setVideoSource(undefined);
 				setIsContentLoaded(false);
 				setBuffering(true);
@@ -1242,6 +1250,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					menuDataRef.current = undefined;
 
 					isChangingSource.current = true;
+					phaseManagerRef.current.transition(PlaybackPhase.CHANGING_SOURCE, "LIVE");
 					setVideoSource(undefined);
 					setIsContentLoaded(false);
 					setBuffering(true);
@@ -1517,6 +1526,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 		currentLogger.current?.info(`ensureContentLoaded [${source}] - Marking content as loaded`);
 		isChangingSource.current = false;
+		phaseManagerRef.current.transition(PlaybackPhase.CONTENT_PLAYING, "content_loaded");
 		setIsContentLoaded(true);
 		if (props.events?.onStart) {
 			props.events.onStart();
@@ -1549,6 +1559,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// para evitar stale closures cuando el source cambia rápido (ej: LIVE_START_PROGRAM).
 		if (currentSourceType.current === "content" && !isContentLoadedRef.current) {
 			currentLogger.current?.debug("handleOnLoad - Processing content load");
+			phaseManagerRef.current.transition(PlaybackPhase.CONTENT_STARTING, "onLoad");
 
 			// Para VOD, establecer la duración desde el evento onLoad
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
@@ -1894,6 +1905,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (e.event === "AD_BREAK_STARTED" || e.event === "STARTED") {
 			currentLogger.current?.info(`[ADS] Ad break/ad started: ${e.event}`);
 			isPlayingAdRef.current = true;
+			phaseManagerRef.current.transition(PlaybackPhase.AD_PREROLL, "AD_BREAK_STARTED");
 			setIsPlayingAd(true);
 			// Deshabilitar subtítulos durante anuncios para evitar mostrarlos sobre el ad
 			setSelectedTextTrack({ type: SelectedTrackType.DISABLED });
@@ -1914,6 +1926,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			currentLogger.current?.info(`[ADS] Ad break finished: ${e.event}`);
 			isPlayingAdRef.current = false;
 			hasAdFinishedRef.current = true;
+			phaseManagerRef.current.transition(PlaybackPhase.CONTENT_STARTING, "ad_finished");
 			setIsPlayingAd(false);
 			// Restaurar el estado de subtítulos que tenía el usuario antes del ad
 			restoreSubtitleAfterAd();
@@ -1934,6 +1947,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// En caso de error, asegurar que los controles vuelvan
 			isPlayingAdRef.current = false;
 			hasAdFinishedRef.current = true;
+			phaseManagerRef.current.transition(PlaybackPhase.CONTENT_STARTING, "ad_error");
 			setIsPlayingAd(false);
 			// Restaurar el estado de subtítulos que tenía el usuario antes del ad
 			restoreSubtitleAfterAd();
