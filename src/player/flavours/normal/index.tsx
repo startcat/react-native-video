@@ -118,6 +118,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const videoQualityIndex = useRef<number>(-1);
 	const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
 	const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
+	const isLiveProgramRestrictedRef = useRef<boolean>(false);
 	const [dvrPlaybackType, setDvrPlaybackType] = useState<DVR_PLAYBACK_TYPE | undefined>(
 		undefined
 	);
@@ -1245,6 +1246,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				setVideoSource(undefined);
 				setIsContentLoaded(false);
 				setBuffering(true);
+				isLiveProgramRestrictedRef.current = true;
 				setIsLiveProgramRestricted(true);
 				setSliderValues(undefined);
 				setDvrPlaybackType(undefined);
@@ -1274,6 +1276,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					setVideoSource(undefined);
 					setIsContentLoaded(false);
 					setBuffering(true);
+					isLiveProgramRestrictedRef.current = false;
 					setIsLiveProgramRestricted(false);
 					setSliderValues(undefined);
 					setDvrPlaybackType(undefined);
@@ -1619,12 +1622,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			if (
 				sourceRef.current?.isDVR &&
 				dvrProgressManagerRef.current &&
-				(!hasAdFinishedRef.current || isLiveProgramRestricted)
+				(!hasAdFinishedRef.current || isLiveProgramRestrictedRef.current)
 			) {
 				try {
 					dvrProgressManagerRef.current.checkInitialSeek(
 						"player",
-						isLiveProgramRestricted
+						isLiveProgramRestrictedRef.current
 					);
 				} catch (error: any) {
 					currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
@@ -1870,7 +1873,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					e.seekableDuration > 0
 				) {
 					postAdSeekDoneRef.current = true;
-					if (!isLiveProgramRestricted) {
+					if (!isLiveProgramRestrictedRef.current) {
 						currentLogger.current?.info(
 							`handleOnProgress - Post-ad goToLive (seekableDuration: ${e.seekableDuration})`
 						);
