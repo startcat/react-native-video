@@ -341,6 +341,7 @@ export interface SliderValues {
 	liveEdgeOffset?: number | null; // Segundos por detrás del live edge
 	isProgramLive?: boolean; // Indica si el programa está en directo
 	isLiveEdgePosition?: boolean; // Indica si la posición actual está en el live edge
+	playbackType?: Enums.DVR_PLAYBACK_TYPE; // Modo de reproducción DVR activo
 }
 
 export interface ProgressUpdateData extends SliderValues {

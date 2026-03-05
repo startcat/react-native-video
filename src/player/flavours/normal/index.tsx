@@ -906,6 +906,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					progressDatum: data.progressDatum,
 					liveEdgeOffset: data.liveEdgeOffset,
 					isLiveEdgePosition: data.isLiveEdgePosition,
+					playbackType: data.playbackType,
 				});
 
 				if (data.playbackType !== undefined) {
