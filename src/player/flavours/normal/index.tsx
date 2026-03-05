@@ -977,7 +977,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// Conectar logger al PhaseManager (disponible aquí tras la inicialización del player)
 		if (props.playerContext?.logger) {
 			phaseManagerRef.current.setLogger(
-				props.playerContext.logger.forComponent("PlaybackPhaseManager")
+				props.playerContext.logger.forComponent(
+					"PlaybackPhaseManager",
+					props.logger?.core?.enabled,
+					props.logger?.core?.level
+				)
 			);
 		}
 	}, [
