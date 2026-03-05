@@ -354,17 +354,11 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			// Cancelar el goToLive diferido: vamos al inicio del programa (pos 0), no al live edge.
 			this._needsInitialGoToLive = false;
 			this._isLiveEdgePosition = false;
-			// Si el player ya está en posición 0 (el stream cargó con ?start=timestamp),
-			// no hacer seek — evitamos disparar onSeekRequest que puede interferir con IMA.
-			if (this._currentTime > 1) {
-				setTimeout(() => {
-					this._handleSeekTo(0);
-				}, 300);
-			} else {
-				this._currentLogger?.info(
-					`checkInitialSeek PROGRAM: already at position 0 (currentTime: ${this._currentTime}), skipping seek`
-				);
-			}
+			// Siempre hacer seek a 0: el manager acaba de hacer reset() y _currentTime=0
+			// no refleja la posición real del player (que puede estar en el live edge tras los ads).
+			setTimeout(() => {
+				this._handleSeekTo(0);
+			}, 300);
 		} else if (mode === "player" && Platform.OS === "ios") {
 			// iOS: el flag ya fue activado en reset(). checkInitialSeek llegó antes que el primer
 			// onProgress, así que el flag se ejecutará cuando lleguen datos válidos. No hace falta
