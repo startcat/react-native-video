@@ -200,18 +200,22 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
 		// Bloquear emisión mientras el seek inicial al inicio del programa no se confirme.
 		// El seek puede tardar ~1s; durante ese tiempo el player reporta la posición pre-seek
-		// (~99% del rango PROGRAM), lo que montaría el slider en la posición incorrecta.
-		// Desbloqueamos cuando percentProgress < 5%, lo que confirma que el seek terminó.
+		// (~99% del rango DVR), lo que montaría el slider en la posición incorrecta.
+		// Desbloqueamos cuando currentTime < 5% del seekableRange.end, lo que confirma
+		// que el seek terminó. Usamos _currentTime/_seekableRange directamente en lugar de
+		// percentProgress (que depende de _streamStartTime y puede estar desfasado cuando
+		// el seekableRange cambia tras el seek a una URL con ?start=timestamp).
 		if (this._pendingInitialProgramSeek) {
-			const sliderValues = this.getSliderValues();
-			if (sliderValues.percentProgress < 0.05) {
+			const rawPercent =
+				this._seekableRange.end > 0 ? this._currentTime / this._seekableRange.end : 1;
+			if (rawPercent < 0.05) {
 				this._pendingInitialProgramSeek = false;
 				this._currentLogger?.info(
-					`Initial program seek confirmed (percentProgress: ${sliderValues.percentProgress.toFixed(4)}), unblocking progress emission`
+					`Initial program seek confirmed (currentTime: ${this._currentTime.toFixed(1)}s / seekableRange.end: ${this._seekableRange.end.toFixed(1)}s = ${(rawPercent * 100).toFixed(1)}%), unblocking progress emission`
 				);
 			} else {
 				this._currentLogger?.debug(
-					`Blocking progress emission: pending initial seek (percentProgress: ${sliderValues.percentProgress.toFixed(4)})`
+					`Blocking progress emission: pending initial seek (currentTime: ${this._currentTime.toFixed(1)}s / seekableRange.end: ${this._seekableRange.end.toFixed(1)}s = ${(rawPercent * 100).toFixed(1)}%)`
 				);
 				return;
 			}
