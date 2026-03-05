@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { type SliderValues } from "../../types/types";
+import { type PlaybackPhaseManager } from "../phase/PlaybackPhaseManager";
 import { BaseProgressManager } from "./BaseProgressManager";
 import {
 	EPG_RETRY_DELAYS,
@@ -39,6 +40,9 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	private _epgRetryCount: Map<number, number> = new Map();
 	private _epgRetryTimeouts: Map<number, ReturnType<typeof setTimeout>> = new Map();
 
+	// PlaybackPhaseManager — referencia opcional para consultar la fase activa
+	private _phaseManager?: PlaybackPhaseManager;
+
 	// Manual seeking (CORREGIDO: sin timeout automático)
 	private _isManualSeeking: boolean = false;
 
@@ -64,6 +68,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		// Configuración específica del DVR
 		this._initialTimeWindowSeconds = options.dvrWindowSeconds || null; // Solo referencia
 		this._playbackType = options.playbackType || DVR_PLAYBACK_TYPE.WINDOW;
+		this._phaseManager = options.phaseManager;
 
 		// Callbacks específicos del DVR
 		this._dvrCallbacks = {
@@ -349,17 +354,11 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			// Cancelar el goToLive diferido: vamos al inicio del programa (pos 0), no al live edge.
 			this._needsInitialGoToLive = false;
 			this._isLiveEdgePosition = false;
-			// Si el player ya está en posición 0 (el stream cargó con ?start=timestamp),
-			// no hacer seek — evitamos disparar onSeekRequest que puede interferir con IMA.
-			if (this._currentTime > 1) {
-				setTimeout(() => {
-					this._handleSeekTo(0);
-				}, 300);
-			} else {
-				this._currentLogger?.info(
-					`checkInitialSeek PROGRAM: already at position 0 (currentTime: ${this._currentTime}), skipping seek`
-				);
-			}
+			// Siempre hacer seek a 0: el manager acaba de hacer reset() y _currentTime=0
+			// no refleja la posición real del player (que puede estar en el live edge tras los ads).
+			setTimeout(() => {
+				this._handleSeekTo(0);
+			}, 300);
 		} else if (mode === "player" && Platform.OS === "ios") {
 			// iOS: el flag ya fue activado en reset(). checkInitialSeek llegó antes que el primer
 			// onProgress, así que el flag se ejecutará cuando lleguen datos válidos. No hace falta
