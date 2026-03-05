@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { type SliderValues } from "../../types/types";
+import { type PlaybackPhaseManager } from "../phase/PlaybackPhaseManager";
 import { BaseProgressManager } from "./BaseProgressManager";
 import {
 	EPG_RETRY_DELAYS,
@@ -39,6 +40,9 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	private _epgRetryCount: Map<number, number> = new Map();
 	private _epgRetryTimeouts: Map<number, ReturnType<typeof setTimeout>> = new Map();
 
+	// PlaybackPhaseManager — referencia opcional para consultar la fase activa
+	private _phaseManager?: PlaybackPhaseManager;
+
 	// Manual seeking (CORREGIDO: sin timeout automático)
 	private _isManualSeeking: boolean = false;
 
@@ -64,6 +68,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		// Configuración específica del DVR
 		this._initialTimeWindowSeconds = options.dvrWindowSeconds || null; // Solo referencia
 		this._playbackType = options.playbackType || DVR_PLAYBACK_TYPE.WINDOW;
+		this._phaseManager = options.phaseManager;
 
 		// Callbacks específicos del DVR
 		this._dvrCallbacks = {
