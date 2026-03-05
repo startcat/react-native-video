@@ -973,6 +973,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			});
 			currentLogger.current?.info("DVR Progress Manager initialized");
 		}
+
+		// Conectar logger al PhaseManager (disponible aquí tras la inicialización del player)
+		if (props.playerContext?.logger) {
+			phaseManagerRef.current.setLogger(
+				props.playerContext.logger.forComponent("PlaybackPhaseManager")
+			);
+		}
 	}, [
 		handleOnProgressUpdate,
 		handleOnSeekRequest,
