@@ -1,6 +1,7 @@
 import { type SliderValues } from "../../../types/types";
 import { DVR_PLAYBACK_TYPE } from "./enums";
 
+import { type PlaybackPhaseManager } from "../../../core/phase/PlaybackPhaseManager";
 import { type BaseProgressManagerOptions, type BaseUpdatePlayerData } from "./base";
 
 export interface EPGErrorData {
@@ -28,6 +29,7 @@ export interface DVRProgressManagerOptions extends BaseProgressManagerOptions {
 	// Opciones específicas del DVR
 	dvrWindowSeconds?: number;
 	playbackType?: DVR_PLAYBACK_TYPE;
+	phaseManager?: PlaybackPhaseManager;
 	getEPGProgramAt?: ((timestamp: number) => Promise<any>) | null;
 	onModeChange?: ((data: ModeChangeData) => void) | null;
 	onProgramChange?: ((data: ProgramChangeData) => void) | null;
