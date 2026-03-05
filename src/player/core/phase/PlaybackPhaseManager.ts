@@ -1,11 +1,11 @@
 export enum PlaybackPhase {
-	IDLE = 'idle',
-	LOADING = 'loading',
-	AD_PREROLL = 'ad_preroll',
-	CONTENT_STARTING = 'content_starting',
-	CONTENT_PLAYING = 'content_playing',
-	SEEKING = 'seeking',
-	CHANGING_SOURCE = 'changing_source',
+	IDLE = "idle",
+	LOADING = "loading",
+	AD_PREROLL = "ad_preroll",
+	CONTENT_STARTING = "content_starting",
+	CONTENT_PLAYING = "content_playing",
+	SEEKING = "seeking",
+	CHANGING_SOURCE = "changing_source",
 }
 
 export interface PhaseChangeEvent {
@@ -25,9 +25,7 @@ export interface PlaybackPhaseLogger {
 type TransitionMap = Partial<Record<PlaybackPhase, PlaybackPhase[]>>;
 
 const VALID_TRANSITIONS: TransitionMap = {
-	[PlaybackPhase.IDLE]: [
-		PlaybackPhase.LOADING,
-	],
+	[PlaybackPhase.IDLE]: [PlaybackPhase.LOADING],
 	[PlaybackPhase.LOADING]: [
 		PlaybackPhase.AD_PREROLL,
 		PlaybackPhase.CONTENT_STARTING,
@@ -55,10 +53,7 @@ const VALID_TRANSITIONS: TransitionMap = {
 		PlaybackPhase.CHANGING_SOURCE,
 		PlaybackPhase.IDLE,
 	],
-	[PlaybackPhase.CHANGING_SOURCE]: [
-		PlaybackPhase.LOADING,
-		PlaybackPhase.IDLE,
-	],
+	[PlaybackPhase.CHANGING_SOURCE]: [PlaybackPhase.LOADING, PlaybackPhase.IDLE],
 };
 
 export class PlaybackPhaseManager {
@@ -120,12 +115,10 @@ export class PlaybackPhaseManager {
 		const from = this._currentPhase;
 		this._currentPhase = to;
 
-		this._logger?.info(
-			`[PlaybackPhaseManager] ${from} → ${to} (trigger: ${trigger})`
-		);
+		this._logger?.info(`[PlaybackPhaseManager] ${from} → ${to} (trigger: ${trigger})`);
 
 		const event: PhaseChangeEvent = { from, to, trigger };
-		this._subscribers.forEach((cb) => {
+		this._subscribers.forEach(cb => {
 			try {
 				cb(event);
 			} catch (e) {
@@ -150,15 +143,19 @@ export class PlaybackPhaseManager {
 		const event: PhaseChangeEvent = {
 			from,
 			to: PlaybackPhase.IDLE,
-			trigger: 'reset',
+			trigger: "reset",
 		};
-		this._subscribers.forEach((cb) => {
+		this._subscribers.forEach(cb => {
 			try {
 				cb(event);
 			} catch (e) {
 				this._logger?.warn(`[PlaybackPhaseManager] Subscriber threw on reset: ${e}`);
 			}
 		});
+	}
+
+	setLogger(logger: PlaybackPhaseLogger): void {
+		this._logger = logger;
 	}
 
 	onPhaseChange(cb: PhaseChangeCallback): () => void {
