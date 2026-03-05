@@ -20,6 +20,9 @@ const DVRSliderBase = ({
 	onSlidingMove: propOnSlidingMove,
 	onSlidingComplete: propOnSlidingComplete,
 }: SliderDVRProps): React.ReactElement | null => {
+	console.log(
+		`[DVRSlider] RENDER min=${minimumValue?.toFixed(0)} max=${maximumValue?.toFixed(0)} progress=${progress?.toFixed(1)} liveEdge=${liveEdge?.toFixed(0)}`
+	);
 	const [thumbTintColor, setThumbTintColor] = useState<string>(
 		Platform.OS === "android" ? COLOR.theme.main : "transparent"
 	);
@@ -135,15 +138,18 @@ const DVRSliderBase = ({
 
 // Comparador personalizado para evitar renderizados innecesarios
 const arePropsEqual = (prevProps: SliderDVRProps, nextProps: SliderDVRProps): boolean => {
-	return (
+	const equal =
 		prevProps.minimumValue === nextProps.minimumValue &&
 		prevProps.maximumValue === nextProps.maximumValue &&
 		prevProps.progress === nextProps.progress &&
 		prevProps.liveEdge === nextProps.liveEdge &&
 		prevProps.onSlidingStart === nextProps.onSlidingStart &&
 		prevProps.onSlidingMove === nextProps.onSlidingMove &&
-		prevProps.onSlidingComplete === nextProps.onSlidingComplete
+		prevProps.onSlidingComplete === nextProps.onSlidingComplete;
+	console.log(
+		`[DVRSlider] arePropsEqual=${equal} | prev: min=${prevProps.minimumValue?.toFixed(0)} max=${prevProps.maximumValue?.toFixed(0)} progress=${prevProps.progress?.toFixed(1)} | next: min=${nextProps.minimumValue?.toFixed(0)} max=${nextProps.maximumValue?.toFixed(0)} progress=${nextProps.progress?.toFixed(1)}`
 	);
+	return equal;
 };
 
 export const DVRSlider = React.memo(DVRSliderBase, arePropsEqual);
