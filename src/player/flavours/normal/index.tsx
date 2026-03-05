@@ -49,6 +49,7 @@ import { type onSourceChangedProps, SourceClass } from "../../modules/source";
 
 import { TudumClass } from "../../modules/tudum";
 
+import { PlaybackPhaseManager } from "../../core/phase/PlaybackPhaseManager";
 import {
 	type ModeChangeData,
 	type ProgramChangeData,
@@ -141,6 +142,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
+
+	// PlaybackPhaseManager — máquina de estados explícita del ciclo de reproducción
+	const phaseManagerRef = useRef<PlaybackPhaseManager>(new PlaybackPhaseManager());
 
 	// Track current audio/subtitle indices (para el menú)
 	const [currentAudioIndex, setCurrentAudioIndex] = useState<number | undefined>(
@@ -962,6 +966,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				onProgramChange: handleOnDVRProgramChange,
 				onProgressUpdate: handleOnProgressUpdate,
 				onSeekRequest: handleOnSeekRequest,
+				phaseManager: phaseManagerRef.current,
 			});
 			currentLogger.current?.info("DVR Progress Manager initialized");
 		}
@@ -989,6 +994,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	useEffect(() => {
 		return () => {
+			phaseManagerRef.current.reset();
 			if (vodProgressManagerRef.current) {
 				vodProgressManagerRef.current.destroy();
 			}
