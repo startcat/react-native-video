@@ -83,6 +83,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const hasAdFinishedRef = useRef<boolean>(false);
 	const postAdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const postAdSeekDoneRef = useRef<boolean>(false);
+	const iosInitialLiveEdgeGuardDoneRef = useRef<boolean>(false);
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
 	const isContentLoadedRef = useRef<boolean>(false);
 	const pendingSourceReloadRef = useRef<boolean>(false);
@@ -273,6 +274,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// pueda confiar en seekableDuration como duración del VOD sin esperar un
 			// evento AD_BREAK_ENDED/AD_ERROR que nunca llegará
 			hasAdFinishedRef.current = !props.playerAds?.adTagUrl;
+			iosInitialLiveEdgeGuardDoneRef.current = false;
 
 			// Reset progress managers solo para VOD
 			vodProgressManagerRef.current?.reset();
@@ -1234,6 +1236,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				// - hasAdFinishedRef: allows checkInitialSeek in handleOnLoad to execute with isLiveProgramRestricted=true
 				postAdSeekDoneRef.current = false;
 				hasAdFinishedRef.current = false;
+				iosInitialLiveEdgeGuardDoneRef.current = false;
 				// Reset síncronos: handleOnLoad usa isContentLoadedRef y menuDataRef (no el state)
 				// para evitar stale closures cuando el source cambia rápido (iOS).
 				isContentLoadedRef.current = false;
@@ -1635,6 +1638,24 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
 				}
 			}
+		} else if (currentSourceType.current === "content" && isContentLoadedRef.current) {
+			// iOS: onLoad puede llegar DESPUÉS de que el contenido ya estaba marcado como cargado.
+			// Dos casos:
+			// 1. Ads exitosas: IMA hace seek residual a posición pre-ads (~6s) al restaurar el item.
+			// 2. Ads fallidas silenciosamente: IMA hace replaceCurrentItem con su propio item y
+			//    al restaurar el original el player queda en currentTime=0 (inicio del DVR).
+			// En ambos casos re-lanzamos goToLive para llevar el player al live edge.
+			// La guarda !isLiveProgramRestricted protege el flujo PROGRAM (no queremos goToLive ahí).
+			if (
+				sourceRef.current?.isDVR &&
+				dvrProgressManagerRef.current &&
+				!isLiveProgramRestrictedRef.current
+			) {
+				currentLogger.current?.info(
+					`handleOnLoad - iOS late onLoad in WINDOW DVR mode, re-launching goToLive to counter IMA item restore`
+				);
+				dvrProgressManagerRef.current.goToLive();
+			}
 		} else if (currentSourceType.current === "tudum") {
 			currentLogger.current?.info(`handleOnLoad - Tudum loaded, duration: ${e.duration}`);
 		} else if (currentSourceType.current !== "content") {
@@ -1877,6 +1898,29 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					if (!isLiveProgramRestrictedRef.current) {
 						currentLogger.current?.info(
 							`handleOnProgress - Post-ad goToLive (seekableDuration: ${e.seekableDuration})`
+						);
+						dvrProgressManagerRef.current?.goToLive();
+					}
+				}
+
+				// iOS safety guard: si el goToLive inicial se perdió (IMA interfirió silenciosamente
+				// sin emitir ningún evento de ad), el player queda en el inicio del DVR con un offset
+				// enorme. Detectamos esto en el primer onProgress post-carga y corregimos la posición.
+				// Solo aplica en iOS, solo una vez por carga (iosInitialLiveEdgeGuardDoneRef), y solo
+				// en modo WINDOW (no PROGRAM). El umbral de 300s evita falsos positivos con seeking manual.
+				if (
+					Platform.OS === "ios" &&
+					isContentLoadedRef.current &&
+					!iosInitialLiveEdgeGuardDoneRef.current &&
+					!isLiveProgramRestrictedRef.current &&
+					e.seekableDuration > 0
+				) {
+					iosInitialLiveEdgeGuardDoneRef.current = true;
+					const sliderValues = dvrProgressManagerRef.current?.getSliderValues();
+					const liveEdgeOffset = sliderValues?.liveEdgeOffset ?? 0;
+					if (liveEdgeOffset > 300) {
+						currentLogger.current?.info(
+							`handleOnProgress - iOS initial live edge guard: player at DVR start (offset: ${liveEdgeOffset}s), re-launching goToLive`
 						);
 						dvrProgressManagerRef.current?.goToLive();
 					}

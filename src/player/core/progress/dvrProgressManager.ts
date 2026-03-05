@@ -1073,9 +1073,15 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 				const programStart =
 					this._currentProgram?.startDate ||
 					(this._streamStartTime > 0 ? this._streamStartTime : this._getWindowStart());
-				const result1 = { minimumValue: programStart, maximumValue: liveEdge };
+				// El programa puede empezar antes del DVR window disponible (ej. programa de 2h
+				// pero el DVR solo almacena los últimos 78 min). En ese caso programStart queda
+				// fuera del rango seekable y el slider dibuja el thumb al ~86% en lugar del 0%.
+				// Se clampea al windowStart para que minimumValue no exceda lo que realmente existe.
+				const windowStart = this._getWindowStart();
+				const clampedStart = Math.max(programStart, windowStart);
+				const result1 = { minimumValue: clampedStart, maximumValue: liveEdge };
 				this._currentLogger?.debug(
-					`_getSliderBounds PROGRAM result: ${JSON.stringify(result1)}`
+					`_getSliderBounds PROGRAM result: ${JSON.stringify({ programStart, windowStart, clampedStart, liveEdge })}`
 				);
 				return result1;
 

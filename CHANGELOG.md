@@ -1,5 +1,27 @@
 
 
+## [7.1.8](https://github.com/startcat/react-native-video/compare/v7.1.7...v7.1.8) (2026-03-05)
+
+
+### Bug Fixes
+
+* **dvr:** bloquear sliderValues durante seek inicial en modo PROGRAM ([3abfd0b](https://github.com/startcat/react-native-video/commit/3abfd0bcfb062a8d9a85694bebe34d3c62b68643))
+* **dvr:** corregir criterio de desbloqueo de _pendingInitialProgramSeek ([e6004aa](https://github.com/startcat/react-native-video/commit/e6004aab63671b6902026714501250b7931bf1b2))
+* **dvr:** limpiar sliderValues al hacer source change en DVR ([7299719](https://github.com/startcat/react-native-video/commit/72997198f83869263e876886881221046c5b3faa))
+* **dvr:** mover bloqueo de seek inicial al DVRProgressManager ([f1e119a](https://github.com/startcat/react-native-video/commit/f1e119a5f60a1c97932d550cea2e07281ebe6354))
+* **dvr:** propagar playbackType del DVR Manager a los controles ([631324a](https://github.com/startcat/react-native-video/commit/631324af910d05b7c5140a0edcb84897f4857a18))
+* **dvr:** propagar playbackType en SliderValues para el DVRSlider externo ([77ce31b](https://github.com/startcat/react-native-video/commit/77ce31bbe797695b2e936b1cd3f0f676f0165136))
+* **dvr:** siempre hacer seek a 0 en checkInitialSeek cuando isLiveProgramRestricted=true ([1c5220c](https://github.com/startcat/react-native-video/commit/1c5220c4b3ff9159d1f097d11f4d78a565fd50d2))
+* **dvr:** unlock sliderValues por percentProgress en lugar de onSeek ([d9a0ed3](https://github.com/startcat/react-native-video/commit/d9a0ed310f91aabb6e84588423c5c4a2a33222ea))
+* **dvr:** usar ref síncrona para isLiveProgramRestricted en lógica de seeks ([1b0331a](https://github.com/startcat/react-native-video/commit/1b0331a6f14985f5c3439e72cafebce5e0485685))
+* **phase:** pasar enabled/level al forComponent del PhaseManager logger ([b6c54ac](https://github.com/startcat/react-native-video/commit/b6c54ac1300ad7b300d0b6272015d3856b6c3e46))
+
+
+### Features
+
+* **core:** añadir PlaybackPhaseManager — máquina de estados explícita para ciclo de reproducción ([8553764](https://github.com/startcat/react-native-video/commit/8553764f8b8d5e8342d4fce596820acfd54f547c))
+* **phase:** conectar logger al PlaybackPhaseManager desde el flavour ([9b5bc39](https://github.com/startcat/react-native-video/commit/9b5bc3946b7de102b26cfe8b3e3e3bafa254a05a))
+
 ## [7.1.7](https://github.com/startcat/react-native-video/compare/v7.1.6...v7.1.7) (2026-03-04)
 
 ## [7.1.6](https://github.com/startcat/react-native-video/compare/v7.1.5...v7.1.6) (2026-03-04)
