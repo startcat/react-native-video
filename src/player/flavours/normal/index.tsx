@@ -118,6 +118,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const videoQualityIndex = useRef<number>(-1);
 	const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
 	const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
+	const [dvrPlaybackType, setDvrPlaybackType] = useState<DVR_PLAYBACK_TYPE | undefined>(
+		undefined
+	);
 
 	// Logger
 	if (!currentLogger.current && props.playerContext?.logger) {
@@ -903,6 +906,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					liveEdgeOffset: data.liveEdgeOffset,
 					isLiveEdgePosition: data.isLiveEdgePosition,
 				});
+
+				if (data.playbackType !== undefined) {
+					setDvrPlaybackType(data.playbackType);
+				}
 
 				playerProgressRef.current = {
 					...props.playerProgress,
@@ -2274,6 +2281,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						isPaused: paused,
 						isMuted: muted,
 						sliderValues: sliderValues,
+						liveValues:
+							dvrPlaybackType !== undefined
+								? {
+										...props.playerProgress?.liveValues,
+										playbackType: dvrPlaybackType,
+									}
+								: props.playerProgress?.liveValues,
 					}}
 					playerAnalytics={props.playerAnalytics}
 					playerTimeMarkers={props.playerTimeMarkers}
