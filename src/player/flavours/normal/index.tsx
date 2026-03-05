@@ -894,6 +894,14 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum.
 			// Bloquear mientras haya un seek inicial pendiente (modo PROGRAM) para evitar
 			// que el slider muestre la posición pre-seek durante los ~2s del seek inicial.
+			// Unlock cuando percentProgress < 5%: confirma que el seek al inicio terminó.
+			// No usamos onSeek porque en Android se dispara antes del seek físico.
+			if (pendingInitialSeekRef.current && data.percentProgress < 0.05) {
+				pendingInitialSeekRef.current = false;
+				currentLogger.current?.info(
+					`handleOnProgressUpdate - Initial seek confirmed via percentProgress (${data.percentProgress.toFixed(4)}), unblocking sliderValues`
+				);
+			}
 			if (currentSourceType.current === "content" && !pendingInitialSeekRef.current) {
 				setSliderValues({
 					minimumValue: data.minimumValue,
@@ -938,15 +946,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		} catch (error: any) {
 			currentLogger.current?.error(`handleOnSeekRequest failed: ${error?.message}`);
 			handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
-		}
-	}, []);
-
-	const handleOnInitialSeekConfirmed = useCallback(() => {
-		if (pendingInitialSeekRef.current) {
-			pendingInitialSeekRef.current = false;
-			currentLogger.current?.info(
-				"handleOnInitialSeekConfirmed - Initial seek confirmed, unblocking sliderValues"
-			);
 		}
 	}, []);
 
@@ -2243,10 +2242,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 							videoEvents.onReceiveAdEvent
 						)}
 						onBuffer={combineEventHandlers(handleOnBuffer, videoEvents.onBuffer)}
-						onSeek={combineEventHandlers(
-							handleOnInitialSeekConfirmed,
-							videoEvents.onSeek
-						)}
+						onSeek={videoEvents.onSeek}
 						onPlaybackStateChanged={videoEvents.onPlaybackStateChanged}
 						onPlaybackRateChange={videoEvents.onPlaybackRateChange}
 						onVolumeChange={videoEvents.onVolumeChange}
