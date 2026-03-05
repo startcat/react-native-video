@@ -53,6 +53,11 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	// _isLiveEdgePosition=true mientras el player aún no ha completado físicamente el seek.
 	private _pendingLiveEdgeSeek: boolean = false;
 
+	// Seek inicial al inicio del programa pendiente (modo PROGRAM).
+	// Bloquea _emitProgressUpdate hasta que percentProgress < 5%, evitando
+	// que el slider muestre la posición pre-seek (~99%) durante el seek inicial.
+	private _pendingInitialProgramSeek: boolean = false;
+
 	// Callbacks específicos del DVR
 	private _dvrCallbacks: {
 		getEPGProgramAt?: ((timestamp: number) => Promise<any>) | null;
@@ -193,6 +198,25 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			this._logProgressInfo();
 		}
 
+		// Bloquear emisión mientras el seek inicial al inicio del programa no se confirme.
+		// El seek puede tardar ~1s; durante ese tiempo el player reporta la posición pre-seek
+		// (~99% del rango PROGRAM), lo que montaría el slider en la posición incorrecta.
+		// Desbloqueamos cuando percentProgress < 5%, lo que confirma que el seek terminó.
+		if (this._pendingInitialProgramSeek) {
+			const sliderValues = this.getSliderValues();
+			if (sliderValues.percentProgress < 0.05) {
+				this._pendingInitialProgramSeek = false;
+				this._currentLogger?.info(
+					`Initial program seek confirmed (percentProgress: ${sliderValues.percentProgress.toFixed(4)}), unblocking progress emission`
+				);
+			} else {
+				this._currentLogger?.debug(
+					`Blocking progress emission: pending initial seek (percentProgress: ${sliderValues.percentProgress.toFixed(4)})`
+				);
+				return;
+			}
+		}
+
 		// Siempre emitir update
 		this._currentLogger?.debug(
 			`About to emit progress update: ${JSON.stringify({
@@ -285,6 +309,7 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		this._epgRetryCount.clear();
 		this._isManualSeeking = false;
 		this._pendingLiveEdgeSeek = false;
+		this._pendingInitialProgramSeek = false;
 		// Activar seek diferido al live edge: en iOS el primer onProgress puede llegar
 		// antes que onLoad (y por tanto antes que checkInitialSeek). Este flag garantiza
 		// que goToLive se ejecuta en cuanto lleguen datos válidos, independientemente del
@@ -354,6 +379,12 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 			// Cancelar el goToLive diferido: vamos al inicio del programa (pos 0), no al live edge.
 			this._needsInitialGoToLive = false;
 			this._isLiveEdgePosition = false;
+			// Bloquear emisión de progress hasta confirmar el seek al inicio del programa.
+			// Evita que el slider muestre la posición pre-seek (~99%) durante el seek.
+			this._pendingInitialProgramSeek = true;
+			this._currentLogger?.info(
+				"checkInitialSeek: blocking progress emission until initial seek to program start confirmed"
+			);
 			// Siempre hacer seek a 0: el manager acaba de hacer reset() y _currentTime=0
 			// no refleja la posición real del player (que puede estar en el live edge tras los ads).
 			setTimeout(() => {

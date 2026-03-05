@@ -117,7 +117,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const refVideoPlayer = useRef<VideoRef>(null);
 	const videoQualityIndex = useRef<number>(-1);
 	const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
-	const pendingInitialSeekRef = useRef<boolean>(false);
 	const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
 	const [dvrPlaybackType, setDvrPlaybackType] = useState<DVR_PLAYBACK_TYPE | undefined>(
 		undefined
@@ -892,17 +891,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			currentLogger.current?.debug(`handleOnProgressUpdate ${JSON.stringify(data)}`);
 
 			// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum.
-			// Bloquear mientras haya un seek inicial pendiente (modo PROGRAM) para evitar
-			// que el slider muestre la posición pre-seek durante los ~2s del seek inicial.
-			// Unlock cuando percentProgress < 5%: confirma que el seek al inicio terminó.
-			// No usamos onSeek porque en Android se dispara antes del seek físico.
-			if (pendingInitialSeekRef.current && data.percentProgress < 0.05) {
-				pendingInitialSeekRef.current = false;
-				currentLogger.current?.info(
-					`handleOnProgressUpdate - Initial seek confirmed via percentProgress (${data.percentProgress.toFixed(4)}), unblocking sliderValues`
-				);
-			}
-			if (currentSourceType.current === "content" && !pendingInitialSeekRef.current) {
+			if (currentSourceType.current === "content") {
 				setSliderValues({
 					minimumValue: data.minimumValue,
 					maximumValue: data.maximumValue,
@@ -1249,7 +1238,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				menuDataRef.current = undefined;
 
 				isChangingSource.current = true;
-				pendingInitialSeekRef.current = false;
 				phaseManagerRef.current.transition(
 					PlaybackPhase.CHANGING_SOURCE,
 					"LIVE_START_PROGRAM"
@@ -1282,7 +1270,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					menuDataRef.current = undefined;
 
 					isChangingSource.current = true;
-					pendingInitialSeekRef.current = false;
 					phaseManagerRef.current.transition(PlaybackPhase.CHANGING_SOURCE, "LIVE");
 					setVideoSource(undefined);
 					setIsContentLoaded(false);
@@ -1635,18 +1622,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				(!hasAdFinishedRef.current || isLiveProgramRestricted)
 			) {
 				try {
-					if (isLiveProgramRestricted) {
-						pendingInitialSeekRef.current = true;
-						currentLogger.current?.info(
-							"handleOnLoad - Blocking sliderValues until initial seek confirmed (PROGRAM mode)"
-						);
-					}
 					dvrProgressManagerRef.current.checkInitialSeek(
 						"player",
 						isLiveProgramRestricted
 					);
 				} catch (error: any) {
-					pendingInitialSeekRef.current = false;
 					currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
 					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
 				}
