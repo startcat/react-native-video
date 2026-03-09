@@ -1,5 +1,13 @@
 
 
+## [7.1.9](https://github.com/startcat/react-native-video/compare/v7.1.8...v7.1.9) (2026-03-09)
+
+
+### Bug Fixes
+
+* **ios:** remove automatic caption style injection, make it opt-in ([50e6a4b](https://github.com/startcat/react-native-video/commit/50e6a4bbefdbdef875dd28b41a6db6b61702890e))
+* **ios:** subtítulos invisibles en dispositivos sin config accesibilidad personalizada ([b77af42](https://github.com/startcat/react-native-video/commit/b77af420f3d92ebe0bf1b8c2249a0bb1c31eb217))
+
 ## [7.1.8](https://github.com/startcat/react-native-video/compare/v7.1.7...v7.1.8) (2026-03-05)
 
 
