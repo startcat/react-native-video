@@ -48,12 +48,15 @@ enum RCTCaptionStyleUtils {
         }
         
         // 3. Foreground (Text) Color
-        let fgColorRef = MACaptionAppearanceCopyForegroundColor(.user, nil)
+        var fgColorBehavior: MACaptionAppearanceBehavior = .useValue
+        let fgColorRef = MACaptionAppearanceCopyForegroundColor(.user, &fgColorBehavior)
         let fgColor = fgColorRef.takeRetainedValue()
         let fgUIColor = UIColor(cgColor: fgColor)
         var fgRed: CGFloat = 0, fgGreen: CGFloat = 0, fgBlue: CGFloat = 0, fgAlpha: CGFloat = 0
         fgUIColor.getRed(&fgRed, green: &fgGreen, blue: &fgBlue, alpha: &fgAlpha)
-        styleDict[kCMTextMarkupAttribute_ForegroundColorARGB as String] = [fgAlpha, fgRed, fgGreen, fgBlue]
+        if fgColorBehavior == .useValue {
+            styleDict[kCMTextMarkupAttribute_ForegroundColorARGB as String] = [fgAlpha, fgRed, fgGreen, fgBlue]
+        }
         
         // 4. Foreground Opacity
         var fgOpacityBehavior: MACaptionAppearanceBehavior = .useValue
@@ -67,12 +70,15 @@ enum RCTCaptionStyleUtils {
         }
         
         // 5. Background Color
-        let bgColorRef = MACaptionAppearanceCopyBackgroundColor(.user, nil)
+        var bgColorBehavior: MACaptionAppearanceBehavior = .useValue
+        let bgColorRef = MACaptionAppearanceCopyBackgroundColor(.user, &bgColorBehavior)
         let bgColor = bgColorRef.takeRetainedValue()
         let bgUIColor = UIColor(cgColor: bgColor)
         var bgRed: CGFloat = 0, bgGreen: CGFloat = 0, bgBlue: CGFloat = 0, bgAlpha: CGFloat = 0
         bgUIColor.getRed(&bgRed, green: &bgGreen, blue: &bgBlue, alpha: &bgAlpha)
-        styleDict[kCMTextMarkupAttribute_BackgroundColorARGB as String] = [bgAlpha, bgRed, bgGreen, bgBlue]
+        if bgColorBehavior == .useValue {
+            styleDict[kCMTextMarkupAttribute_BackgroundColorARGB as String] = [bgAlpha, bgRed, bgGreen, bgBlue]
+        }
         
         // 6. Background Opacity
         var bgOpacityBehavior: MACaptionAppearanceBehavior = .useValue
@@ -142,16 +148,22 @@ enum RCTCaptionStyleUtils {
             styleDict[kCMTextMarkupAttribute_ItalicStyle as String] = true
         }
         
-        // 10. Vertical Position - Position subtitles at 85% from top to avoid being cut off
-        // This ensures subtitles stay within the safe area on devices with notch/Dynamic Island
+        // 10. Vertical Position - always apply in an independent rule to ensure subtitles are not cut off
+        // on devices with notch/Dynamic Island. Kept separate from color/font styles intentionally.
         // Value is percentage from top: 0% = top, 100% = bottom
-        // Using 85% to leave room for home indicator and ensure visibility
-        styleDict[kCMTextMarkupAttribute_OrthogonalLinePositionPercentageRelativeToWritingDirection as String] = 85
+        var positionDict: [String: Any] = [:]
+        positionDict[kCMTextMarkupAttribute_OrthogonalLinePositionPercentageRelativeToWritingDirection as String] = 85
+        if let positionRule = AVTextStyleRule(textMarkupAttributes: positionDict) {
+            styleRules.append(positionRule)
+        }
         
-        // Always create style rule to ensure vertical position is applied
-        // This is critical for devices with notch/Dynamic Island where default positioning may cut off subtitles
-        if let styleRule = AVTextStyleRule(textMarkupAttributes: styleDict) {
-            styleRules.append(styleRule)
+        // Color/font styles — only apply when the user has explicitly configured caption preferences.
+        // Applying system default values unconditionally causes subtitles to inherit the device's
+        // default caption color (e.g. black on iPhone 14) making them invisible on dark backgrounds.
+        if hasCustomSettings && !styleDict.isEmpty {
+            if let styleRule = AVTextStyleRule(textMarkupAttributes: styleDict) {
+                styleRules.append(styleRule)
+            }
         }
         
         return styleRules.isEmpty ? nil : styleRules
