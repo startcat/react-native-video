@@ -675,18 +675,13 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
         _player?.pause()
         _playerItem = playerItem
+        _playerObserver.needsLegibleOutputDelegate = onTextTrackDataChanged != nil
         _playerObserver.playerItem = _playerItem
         setPreferredForwardBufferDuration(_preferredForwardBufferDuration)
         setPlaybackRange(playerItem, withCropStart: _source?.cropStart, withCropEnd: _source?.cropEnd)
         setFilter(_filterName)
         if let maxBitRate = _maxBitRate {
             _playerItem?.preferredPeakBitRate = Double(maxBitRate)
-        }
-        
-        // Apply accessibility caption styles when using AVPlayerLayer (controls = false)
-        // This ensures iOS accessibility subtitle settings are respected
-        if !_controls {
-            RCTCaptionStyleUtils.applyAccessibilityCaptionStyles(to: _playerItem)
         }
 
         if _player == nil {

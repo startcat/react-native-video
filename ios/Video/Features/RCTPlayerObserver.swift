@@ -53,6 +53,13 @@ class RCTPlayerObserver: NSObject, AVPlayerItemMetadataOutputPushDelegate, AVPla
 
     var subtitleStyle: SubtitleStyle?
 
+    /// Set to true when onTextTrackDataChanged has a JS listener.
+    /// When false, AVPlayerItemLegibleOutput is NOT added to the playerItem,
+    /// allowing AVPlayer to render subtitles natively via textStyleRules.
+    /// When true, legibleOutput intercepts subtitle cues (AVPlayer stops rendering natively)
+    /// and forwards them to handleLegibleOutput → onTextTrackDataChanged.
+    var needsLegibleOutputDelegate: Bool = false
+
     var playerItem: AVPlayerItem? {
         willSet {
             removePlayerItemObservers()
@@ -64,14 +71,22 @@ class RCTPlayerObserver: NSObject, AVPlayerItemMetadataOutputPushDelegate, AVPla
 
             // handle timedMetadata
             let metadataOutput = AVPlayerItemMetadataOutput()
-            let legibleOutput = AVPlayerItemLegibleOutput()
             playerItem.add(metadataOutput)
-            playerItem.add(legibleOutput)
             metadataOutput.setDelegate(self, queue: .main)
-            legibleOutput.setDelegate(self, queue: .main)
-            let shouldSuppress = subtitleStyle?.opacity == 0 ? true : false
-            legibleOutput.suppressesPlayerRendering = shouldSuppress
-            debugPrint("[RCTPlayerObserver] Legible output configured - subtitleStyle: \(String(describing: subtitleStyle)), opacity: \(String(describing: subtitleStyle?.opacity)), suppressesPlayerRendering: \(shouldSuppress)")
+
+            // Only add legibleOutput when there is a JS consumer for onTextTrackDataChanged.
+            // Adding AVPlayerItemLegibleOutput to a playerItem unconditionally disables AVPlayer's
+            // native subtitle rendering regardless of suppressesPlayerRendering value (AVFoundation behavior).
+            // When needsLegibleOutputDelegate = false, AVPlayer renders subtitles natively via textStyleRules.
+            if needsLegibleOutputDelegate {
+                let legibleOutput = AVPlayerItemLegibleOutput()
+                playerItem.add(legibleOutput)
+                legibleOutput.setDelegate(self, queue: .main)
+                legibleOutput.suppressesPlayerRendering = subtitleStyle?.opacity == 0
+                debugPrint("[RCTPlayerObserver] legibleOutput added (needsLegibleOutputDelegate=true) suppressesPlayerRendering=\(legibleOutput.suppressesPlayerRendering)")
+            } else {
+                debugPrint("[RCTPlayerObserver] legibleOutput NOT added — AVPlayer renders subtitles natively via textStyleRules")
+            }
         }
     }
 
