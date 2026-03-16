@@ -14,6 +14,17 @@ enum RCTPlayerOperations {
 
         let trackCount: Int! = player?.currentItem?.tracks.count ?? 0
 
+        // Fix F: If the current item does not have enough tracks to contain both A/V and text tracks,
+        // it is likely the ad's AVPlayerItem (which only has video + audio). Do not proceed in that
+        // case — operating from firstTextIndex = 0 would corrupt video and audio tracks.
+        // AVMutableComposition tracks have assetTrack == nil so we cannot use
+        // assetTrack?.hasMediaCharacteristic(.legible); instead we check track count.
+        // A valid composition has at least: 1 video + 1 audio + N text tracks (N = textTracks.count).
+        guard trackCount > textTracks.count else {
+            debugPrint("[RCTPlayerOperations] setSideloadedText - Not enough tracks (\(trackCount!) for \(textTracks.count) text tracks), likely ad item — skipping")
+            return
+        }
+
         // The first few tracks will be audio & video track
         var firstTextIndex = 0
         for i in 0 ..< trackCount where player?.currentItem?.tracks[i].assetTrack?.hasMediaCharacteristic(.legible) ?? false {

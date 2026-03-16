@@ -276,7 +276,7 @@ enum RCTVideoUtils {
                 if textUri.lowercased().hasPrefix("http") {
                     textURLAsset = AVURLAsset(
                         url: NSURL(string: textUri)! as URL,
-                        options: (assetOptions as! [String: Any]))
+                        options: (assetOptions as? [String: Any]))
                 } else {
                     let isDisabledTrack: Bool! = textTrack.type == "disabled"
                     let searchPath: FileManager.SearchPathDirectory =

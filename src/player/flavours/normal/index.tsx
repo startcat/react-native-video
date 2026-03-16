@@ -2198,14 +2198,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 								targetOffsetMs: 25000,
 							},
 						}}
-						adTagUrl={
-							// iOS MP4 + IMA ads + sideloaded subtitles = black screen.
-							// Disable ads for MP4 on iOS; HLS with ads works fine.
-							// Use videoSource.type (available at render) instead of sourceRef.current?.isHLS (may be undefined on first render).
-							Platform.OS === "ios" && videoSource?.type === "mp4"
-								? undefined
-								: props?.playerAds?.adTagUrl
-						}
+						adTagUrl={props?.playerAds?.adTagUrl}
 						allowsExternalPlayback={true}
 						//volume={10}
 						controls={false}
