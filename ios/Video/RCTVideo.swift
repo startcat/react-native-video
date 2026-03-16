@@ -74,6 +74,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _filterEnabled = false
     private var _presentingViewController: UIViewController?
     private var _startPosition: Float64 = -1
+    private var _savedStartPositionSeconds: Double = -1
+    private var _isRebuildingComposition = false
     private var _showNotificationControls = false
     private var _pictureInPictureEnabled = false {
         didSet {
@@ -469,6 +471,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
         if let startPosition = source.startPosition {
             _startPosition = startPosition / 1000
+            _savedStartPositionSeconds = startPosition / 1000
+        } else {
+            _savedStartPositionSeconds = -1
         }
 
         #if USE_VIDEO_CACHING
@@ -1168,6 +1173,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         debugPrint("[RCTVideo] setSelectedTextTrack called - type: \(selectedTextTrack?.type ?? "nil"), value: \(selectedTextTrack?.value ?? "nil"), hasSideloadedTracks: \(_textTracks != nil), playerReady: \(_player?.currentItem?.status == .readyToPlay)")
         
         if _textTracks != nil { // sideloaded text tracks
+            guard !_adPlaying else {
+                debugPrint("[RCTVideo] setSelectedTextTrack - Deferring setSideloadedText (ad active)")
+                return
+            }
             RCTPlayerOperations.setSideloadedText(player: _player, textTracks: _textTracks!, criteria: _selectedTextTrackCriteria)
         } else { // text tracks included in the HLS playlist
             Task { [weak self] in
@@ -1191,7 +1200,53 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     func setTextTracks(_ textTracks: [TextTrack]?) {
+        let wasEmpty = _textTracks == nil || _textTracks?.isEmpty == true
         _textTracks = textTracks
+        let becameNonEmpty = !(_textTracks == nil || _textTracks?.isEmpty == true)
+
+        // Fix G (trigger A): textTracks arrived after the 2-track item was already loaded.
+        // The .readyToPlay guard is intentionally omitted: by the time setTextTracks is called
+        // by the bridge the item has video+audio tracks (count==2) but readyToPlay may not
+        // have fired yet. tracks.count > 0 is a safe proxy — an item with 0 tracks hasn't
+        // started loading yet, so we skip it; an item with exactly 2 tracks is the MP4
+        // video+audio-only state that needs to become a composition.
+        if wasEmpty && becameNonEmpty && !_adPlaying && !_isRebuildingComposition,
+           let currentItem = _player?.currentItem,
+           !(currentItem.asset is AVMutableComposition),
+           currentItem.tracks.count > 0,
+           currentItem.tracks.count <= 2 {
+            _isRebuildingComposition = true
+            debugPrint("[RCTVideo] setTextTracks - Fix G trigger A: rebuilding as composition (\(currentItem.tracks.count) tracks → adding \(_textTracks!.count) sideloaded text tracks)")
+            let asset = currentItem.asset
+            let sourceUri = _source?.uri ?? ""
+            Task { [weak self] in
+                guard let self, !self._adPlaying else {
+                    self?._isRebuildingComposition = false
+                    return
+                }
+                let playerItem = await self.playerItemPrepareText(asset: asset, assetOptions: nil, uri: sourceUri)
+                guard !self._adPlaying else {
+                    self._isRebuildingComposition = false
+                    return
+                }
+                // Fix I: re-seed _startPosition using the source's original start position
+                // instead of currentTime. currentTime at this point may reflect a seek
+                // that is still in progress (e.g. 8 s instead of 350 s), leading to wrong
+                // resume position after the composition is installed.
+                if self._startPosition < 0, self._savedStartPositionSeconds >= 0 {
+                    self._startPosition = self._savedStartPositionSeconds
+                }
+                // CRITICAL: keep _playerItem in sync so any restore path (IMA, etc.) uses the
+                // composition and not the original 2-track plain item.
+                self._playerItem = playerItem
+                self._player?.replaceCurrentItem(with: playerItem)
+                self._isRebuildingComposition = false
+                // Fix J: always apply subtitle criteria after composition install so native
+                // and JS states stay in sync (nil criteria → accessibility auto-selection).
+                self.setSelectedTextTrack(self._selectedTextTrackCriteria)
+            }
+            return
+        }
 
         // in case textTracks was set after selectedTextTrack
         if _selectedTextTrackCriteria != nil { setSelectedTextTrack(_selectedTextTrackCriteria) }
@@ -1461,16 +1516,52 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     func restoreTrackCriteriaAfterAd() {
         debugPrint("[RCTVideo] restoreTrackCriteriaAfterAd - restoring audio: \(_savedAudioTrackCriteria?.type ?? "nil"), text: \(_savedTextTrackCriteria?.type ?? "nil")")
-        if let audio = _savedAudioTrackCriteria {
-            setSelectedAudioTrack(audio)
-        }
-        if let text = _savedTextTrackCriteria {
-            setSelectedTextTrack(text)
-        }
+        // Restore criteria values directly WITHOUT calling setters to avoid side-effects.
+        // player.currentItem may still be the ad's item at this point (before IMA's internal
+        // replaceCurrentItem). handleTracksChange (KVO on .tracks) will re-apply these criteria
+        // when the content item is ready.
+        _selectedAudioTrackCriteria = _savedAudioTrackCriteria
+        _selectedTextTrackCriteria = _savedTextTrackCriteria
         _savedAudioTrackCriteria = nil
         _savedTextTrackCriteria = nil
-    }
 
+        // Fix G trigger C: explicit post-ad rebuild.
+        // KVO (handleTracksChange) may have fired while _adPlaying was still true and was
+        // blocked. By this point _adPlaying is already false (setAdPlaying is called before
+        // restoreTrackCriteriaAfterAd in adsManagerDidRequestContentResume), so we can safely
+        // check whether the content item still lacks text tracks and rebuild if needed.
+        if !_isRebuildingComposition,
+           let textTracks = _textTracks, !textTracks.isEmpty,
+           let currentItem = _player?.currentItem,
+           !(currentItem.asset is AVMutableComposition),
+           currentItem.tracks.count > 0,
+           currentItem.tracks.count <= 2 {
+            _isRebuildingComposition = true
+            debugPrint("[RCTVideo] restoreTrackCriteriaAfterAd - Fix G trigger C: rebuilding as composition (\(currentItem.tracks.count) tracks → adding \(textTracks.count) sideloaded text tracks)")
+            let asset = currentItem.asset
+            let sourceUri = _source?.uri ?? ""
+            Task { [weak self] in
+                guard let self, !self._adPlaying else {
+                    self?._isRebuildingComposition = false
+                    return
+                }
+                let playerItem = await self.playerItemPrepareText(asset: asset, assetOptions: nil, uri: sourceUri)
+                guard !self._adPlaying else {
+                    self._isRebuildingComposition = false
+                    return
+                }
+                // Fix I: same as trigger B — use source original position, not currentTime.
+                if self._startPosition < 0, self._savedStartPositionSeconds >= 0 {
+                    self._startPosition = self._savedStartPositionSeconds
+                }
+                self._playerItem = playerItem
+                self._player?.replaceCurrentItem(with: playerItem)
+                self._isRebuildingComposition = false
+                // Fix J: always apply subtitle criteria (nil = accessibility auto-selection).
+                self.setSelectedTextTrack(self._selectedTextTrackCriteria)
+            }
+        }
+    }
     // MARK: - React View Management
 
     func insertReactSubview(view: UIView!, atIndex: Int) {
@@ -1920,6 +2011,48 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         // ad-specific tracks to JS, and re-applying content criteria would freeze the ad.
         guard !_adPlaying else {
             debugPrint("[RCTVideo] handleTracksChange - Skipping during ad playback")
+            return
+        }
+
+        // Fix G (trigger B): handleTracksChange fires (item loaded its tracks) but setTextTracks
+        // was already called before the KVO fired — _textTracks is populated but the item is still
+        // a plain 2-track MP4 (no composition). The .readyToPlay guard is omitted for the same
+        // reason as trigger A: readyToPlay fires after this KVO callback.
+        // tracks.count > 0 is guaranteed here (the KVO fired because tracks changed).
+        if !_isRebuildingComposition,
+           let textTracks = _textTracks, !textTracks.isEmpty,
+           !_adPlaying,
+           let currentItem = _player?.currentItem,
+           !(currentItem.asset is AVMutableComposition),
+           currentItem.tracks.count > 0,
+           currentItem.tracks.count <= 2 {
+            _isRebuildingComposition = true
+            debugPrint("[RCTVideo] handleTracksChange - Fix G: rebuilding as composition (\(currentItem.tracks.count) tracks → adding \(textTracks.count) sideloaded text tracks)")
+            let asset = currentItem.asset
+            let sourceUri = _source?.uri ?? ""
+            Task { [weak self] in
+                guard let self, !self._adPlaying else {
+                    self?._isRebuildingComposition = false
+                    return
+                }
+                let playerItem = await self.playerItemPrepareText(asset: asset, assetOptions: nil, uri: sourceUri)
+                // Double-check: abort if an ad started while VTTs were downloading.
+                guard !self._adPlaying else {
+                    self._isRebuildingComposition = false
+                    return
+                }
+                // Fix I: same as trigger A — use source original position, not currentTime.
+                if self._startPosition < 0, self._savedStartPositionSeconds >= 0 {
+                    self._startPosition = self._savedStartPositionSeconds
+                }
+                // CRITICAL: keep _playerItem in sync so any restore path uses the composition.
+                self._playerItem = playerItem
+                self._player?.replaceCurrentItem(with: playerItem)
+                self._isRebuildingComposition = false
+                // Fix J: always apply subtitle criteria (nil = accessibility auto-selection).
+                self.setSelectedTextTrack(self._selectedTextTrackCriteria)
+            }
+            // Skip criteria re-application now; handleTracksChange will fire again after replaceCurrentItem.
             return
         }
 
