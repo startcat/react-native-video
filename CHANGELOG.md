@@ -1,5 +1,12 @@
 
 
+## [7.1.10](https://github.com/startcat/react-native-video/compare/v7.1.9...v7.1.10) (2026-03-16)
+
+
+### Bug Fixes
+
+* **ios:** subtitles menu sync, correct resume position after ads and restore insertReactSubview ([d61103a](https://github.com/startcat/react-native-video/commit/d61103ad7271a24154a9a3dcc907ca9f2b505c66))
+
 ## [7.1.9](https://github.com/startcat/react-native-video/compare/v7.1.8...v7.1.9) (2026-03-09)
 
 
