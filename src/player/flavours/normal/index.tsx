@@ -83,6 +83,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const hasAdFinishedRef = useRef<boolean>(false);
 	const postAdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const postAdSeekDoneRef = useRef<boolean>(false);
+	const lastContentCurrentTimeRef = useRef<number>(0);
+	const preAdContentPositionRef = useRef<number>(-1);
 	const iosInitialLiveEdgeGuardDoneRef = useRef<boolean>(false);
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
 	const isContentLoadedRef = useRef<boolean>(false);
@@ -274,6 +276,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// pueda confiar en seekableDuration como duración del VOD sin esperar un
 			// evento AD_BREAK_ENDED/AD_ERROR que nunca llegará
 			hasAdFinishedRef.current = !props.playerAds?.adTagUrl;
+			postAdSeekDoneRef.current = false;
+			lastContentCurrentTimeRef.current = 0;
+			preAdContentPositionRef.current = -1;
 			iosInitialLiveEdgeGuardDoneRef.current = false;
 
 			// Reset progress managers solo para VOD
@@ -1872,6 +1877,30 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						isPaused: paused,
 					});
 				}
+
+				// Track last content position for post-ad restore (iOS)
+				lastContentCurrentTimeRef.current = e.currentTime;
+
+				// iOS VOD post-ad position restore
+				if (
+					Platform.OS === "ios" &&
+					hasAdFinishedRef.current &&
+					!postAdSeekDoneRef.current &&
+					isContentLoadedRef.current &&
+					effectiveDuration > 0
+				) {
+					postAdSeekDoneRef.current = true;
+					const savedPosition = preAdContentPositionRef.current;
+					if (savedPosition > 1 && e.currentTime < savedPosition - 5) {
+						currentLogger.current?.info(
+							`handleOnProgress - iOS VOD post-ad position restore: ${e.currentTime}s → ${savedPosition}s`
+						);
+						refVideoPlayer.current?.seek(savedPosition);
+						preAdContentPositionRef.current = -1;
+						return;
+					}
+					preAdContentPositionRef.current = -1;
+				}
 			}
 
 			if (sourceRef.current?.isDVR) {
@@ -1982,6 +2011,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// Notificar cambio de estado de anuncios
 			props.events?.onChangeCommonData?.({ isPlayingAd: true });
 			props.events?.onAdPlayingChange?.(true);
+			// Save VOD content position before ad takes over (iOS only)
+			if (Platform.OS === "ios" && !sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
+				preAdContentPositionRef.current = lastContentCurrentTimeRef.current;
+				currentLogger.current?.debug(
+					`[ADS] Saved pre-ad VOD position: ${preAdContentPositionRef.current}s`
+				);
+			}
 			if (e.event === "STARTED") {
 				onAdStarted(e);
 			}
