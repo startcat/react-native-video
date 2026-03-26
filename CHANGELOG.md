@@ -1,5 +1,12 @@
 
 
+## [7.1.11](https://github.com/startcat/react-native-video/compare/v7.1.10...v7.1.11) (2026-03-26)
+
+
+### Bug Fixes
+
+* **player:** restaurar posición VOD después de anuncios en iOS ([4459c69](https://github.com/startcat/react-native-video/commit/4459c6968000dcf6bb2dbe001c3c54d55a27db90))
+
 ## [7.1.10](https://github.com/startcat/react-native-video/compare/v7.1.9...v7.1.10) (2026-03-16)
 
 
