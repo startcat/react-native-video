@@ -1,5 +1,12 @@
 
 
+## [7.1.12](https://github.com/startcat/react-native-video/compare/v7.1.11...v7.1.12) (2026-03-27)
+
+
+### Bug Fixes
+
+* **player:** mejorar robustez de posición VOD durante anuncios en iOS ([759a695](https://github.com/startcat/react-native-video/commit/759a695e2b0d945ec4f3a0304ede5628444a74d8))
+
 ## [7.1.11](https://github.com/startcat/react-native-video/compare/v7.1.10...v7.1.11) (2026-03-26)
 
 
