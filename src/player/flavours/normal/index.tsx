@@ -406,7 +406,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// Pequeño delay para asegurar que se limpia el source
 		setTimeout(() => {
 			currentLogger.current?.debug(
-				`switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`
+				`switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(
+					pendingContentSource.current
+				)}`
 			);
 
 			// Si hay un source de contenido pendiente, usarlo directamente
@@ -646,7 +648,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			pendingContentSource.current = data;
 
 			currentLogger.current?.debug(
-				`onSourceChanged - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`
+				`onSourceChanged - pendingContentSource.current ${JSON.stringify(
+					pendingContentSource.current
+				)}`
 			);
 
 			// También preparar el progress
@@ -880,7 +884,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 
 			currentLogger.current?.info(
-				`setPlayerSource - Setting sourceRef content: ${JSON.stringify(sourceRef.current.playerSource)}`
+				`setPlayerSource - Setting sourceRef content: ${JSON.stringify(
+					sourceRef.current.playerSource
+				)}`
 			);
 			phaseManagerRef.current.transition(PlaybackPhase.LOADING, "source_assigned");
 			setVideoSource(sourceRef.current.playerSource!);
@@ -1607,6 +1613,19 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					isBuffering: false,
 					isPaused: paused,
 				});
+				// Initialize lastContentCurrentTimeRef from onLoad data (iOS: earlier than first onProgress)
+				// Prevents race condition where preroll ads start before onProgress fires with startPosition
+				currentLogger.current?.info(
+					`handleOnLoad - onLoad e.currentTime: ${
+						e.currentTime
+					}s (will init lastContentCurrentTimeRef: ${e.currentTime > 1})`
+				);
+				if (e.currentTime > 1) {
+					lastContentCurrentTimeRef.current = e.currentTime;
+					currentLogger.current?.info(
+						`handleOnLoad - Initializing lastContentCurrentTimeRef: ${e.currentTime}s`
+					);
+				}
 			}
 
 			isChangingSource.current = false;
@@ -1702,7 +1721,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 
 			currentLogger.current?.info(
-				`handleOnLoad - Checking preferences (contenido sin datos de API, como directos): audioIndex=${props.audioIndex}, subtitleIndex=${props.subtitleIndex}, generatedMenuData=${!!generatedMenuData}, hasHooks=${!!props.hooks?.getUserAudioSubtitlePreferences}`
+				`handleOnLoad - Checking preferences (contenido sin datos de API, como directos): audioIndex=${
+					props.audioIndex
+				}, subtitleIndex=${
+					props.subtitleIndex
+				}, generatedMenuData=${!!generatedMenuData}, hasHooks=${!!props.hooks
+					?.getUserAudioSubtitlePreferences}`
 			);
 
 			// Aplicar preferencias del usuario si no hay defaultAudioIndex/defaultSubtitlesIndex
@@ -1719,7 +1743,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				generatedMenuData
 			) {
 				currentLogger.current?.info(
-					`handleOnLoad - Checking preferences: audioIndex=${props.audioIndex}, subtitleIndex=${props.subtitleIndex}, hasHooks=${!!props.hooks?.getUserAudioSubtitlePreferences}`
+					`handleOnLoad - Checking preferences: audioIndex=${
+						props.audioIndex
+					}, subtitleIndex=${props.subtitleIndex}, hasHooks=${!!props.hooks
+						?.getUserAudioSubtitlePreferences}`
 				);
 
 				if (
@@ -1742,7 +1769,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 							appliedPreferences.subtitleIndex !== undefined)
 					) {
 						currentLogger.current?.info(
-							`handleOnLoad - Applying user preferences from menuData: ${JSON.stringify(appliedPreferences)}`
+							`handleOnLoad - Applying user preferences from menuData: ${JSON.stringify(
+								appliedPreferences
+							)}`
 						);
 						// Actualizar los refs locales para que el menú reciba los valores correctos
 						if (appliedPreferences.audioIndex !== undefined) {
@@ -1763,7 +1792,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						props.events?.onChangePreferences?.(appliedPreferences);
 					} else {
 						currentLogger.current?.debug(
-							`handleOnLoad - No preferences to apply: ${JSON.stringify(appliedPreferences)}`
+							`handleOnLoad - No preferences to apply: ${JSON.stringify(
+								appliedPreferences
+							)}`
 						);
 					}
 				} else {
@@ -1841,7 +1872,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						// - el anuncio ya terminó (el player nativo ya reproduce contenido real)
 						effectiveDuration = e.seekableDuration;
 						currentLogger.current?.info(
-							`handleOnProgress - Initializing VOD duration from seekableDuration: ${e.seekableDuration}s (${isContentLoaded ? "post-onLoad" : "post-ad"} fallback)`
+							`handleOnProgress - Initializing VOD duration from seekableDuration: ${
+								e.seekableDuration
+							}s (${isContentLoaded ? "post-onLoad" : "post-ad"} fallback)`
 						);
 						// En Android 33, handleOnLoad puede no dispararse tras preroll ads.
 						// Si el anuncio ya terminó y tenemos duración válida, marcar contenido como cargado
@@ -1879,7 +1912,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				}
 
 				// Track last content position for post-ad restore (iOS)
-				lastContentCurrentTimeRef.current = e.currentTime;
+				// Guard: don't overwrite a meaningful position (e.g. set from handleOnLoad at startPosition)
+				// with a near-zero value from an early progress event before the seek completes.
+				// This prevents the race condition where progress fires at ~0s between onLoad and AD_BREAK_STARTED.
+				if (e.currentTime > 1 || lastContentCurrentTimeRef.current <= 1) {
+					lastContentCurrentTimeRef.current = e.currentTime;
+				}
 
 				// iOS VOD post-ad position restore
 				if (
@@ -2013,9 +2051,28 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			props.events?.onAdPlayingChange?.(true);
 			// Save VOD content position before ad takes over (iOS only)
 			if (Platform.OS === "ios" && !sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
-				preAdContentPositionRef.current = lastContentCurrentTimeRef.current;
-				currentLogger.current?.debug(
-					`[ADS] Saved pre-ad VOD position: ${preAdContentPositionRef.current}s`
+				// Use lastContentCurrentTimeRef if it has a meaningful value (updated by onProgress or onLoad).
+				// Fallback: use sourceRef startPosition (immutable, set once at source creation) divided by 1000
+				// because startPosition is in ms and refs are in seconds.
+				// NOTE: props.playerProgress?.currentTime is NOT safe as fallback because it's dynamically
+				// updated by the parent and may already reflect near-zero progress from the native player.
+				const sourceStartPositionSec = sourceRef.current?.playerSource?.startPosition
+					? sourceRef.current.playerSource.startPosition / 1000
+					: 0;
+				const capturedPosition =
+					lastContentCurrentTimeRef.current > 1
+						? lastContentCurrentTimeRef.current
+						: sourceStartPositionSec;
+				preAdContentPositionRef.current = capturedPosition;
+				currentLogger.current?.info(
+					`[ADS] Saved pre-ad VOD position: ${preAdContentPositionRef.current}s ` +
+						`(source: ${
+							lastContentCurrentTimeRef.current > 1
+								? "lastContentCurrentTimeRef"
+								: "sourceStartPosition"
+						}, lastContentCurrentTimeRef=${
+							lastContentCurrentTimeRef.current
+						}, sourceStartPosition=${sourceStartPositionSec})`
 				);
 			}
 			if (e.event === "STARTED") {
@@ -2141,14 +2198,18 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			props.events.onEnd();
 		} else {
 			currentLogger.current?.warn(
-				`handleOnEnd: Unknown state - currentSourceType: ${currentSourceType.current}, hasOnEnd: ${!!props.events?.onEnd}`
+				`handleOnEnd: Unknown state - currentSourceType: ${
+					currentSourceType.current
+				}, hasOnEnd: ${!!props.events?.onEnd}`
 			);
 		}
 	};
 
 	const handleOnVideoError = (e: OnVideoErrorData) => {
 		currentLogger.current?.error(
-			`handleOnVideoError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`
+			`handleOnVideoError: ${JSON.stringify(e)} - currentSourceType: ${
+				currentSourceType.current
+			}`
 		);
 
 		// [OFFLINE] Ignore network errors when playing offline content
@@ -2367,7 +2428,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 								? {
 										...props.playerProgress?.liveValues,
 										playbackType: dvrPlaybackType,
-									}
+								  }
 								: props.playerProgress?.liveValues,
 					}}
 					playerAnalytics={props.playerAnalytics}
