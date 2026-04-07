@@ -83,6 +83,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const hasAdFinishedRef = useRef<boolean>(false);
 	const postAdTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const postAdSeekDoneRef = useRef<boolean>(false);
+	const postAdRestoreSafetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const lastContentCurrentTimeRef = useRef<number>(0);
 	const preAdContentPositionRef = useRef<number>(-1);
 	const iosInitialLiveEdgeGuardDoneRef = useRef<boolean>(false);
@@ -277,6 +278,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// evento AD_BREAK_ENDED/AD_ERROR que nunca llegará
 			hasAdFinishedRef.current = !props.playerAds?.adTagUrl;
 			postAdSeekDoneRef.current = false;
+			if (postAdRestoreSafetyTimeoutRef.current) {
+				clearTimeout(postAdRestoreSafetyTimeoutRef.current);
+				postAdRestoreSafetyTimeoutRef.current = null;
+			}
 			lastContentCurrentTimeRef.current = 0;
 			preAdContentPositionRef.current = -1;
 			iosInitialLiveEdgeGuardDoneRef.current = false;
@@ -1040,6 +1045,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 			if (postAdTimeoutRef.current) {
 				clearTimeout(postAdTimeoutRef.current);
+			}
+			if (postAdRestoreSafetyTimeoutRef.current) {
+				clearTimeout(postAdRestoreSafetyTimeoutRef.current);
 			}
 		};
 	}, []);
@@ -1843,10 +1851,80 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// Ignorar eventos de progreso durante anuncios para evitar contaminar
 		// los datos del contenido (currentTime, duration, sliderValues) con datos del anuncio
 		if (isPlayingAdRef.current) {
-			currentLogger.current?.debug(
-				`handleOnProgress: Skipping progress during ad - currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
-			);
-			return;
+			// iOS VOD post-ad restore window: isPlayingAdRef was kept true after ad ended
+			// to block progress events with ~0 currentTime during the seek restore window.
+			// Handle the restore seek here since the rest of handleOnProgress is unreachable.
+			if (
+				hasAdFinishedRef.current &&
+				Platform.OS === "ios" &&
+				!sourceRef.current?.isLive &&
+				!sourceRef.current?.isDVR
+			) {
+				if (!postAdSeekDoneRef.current && isContentLoadedRef.current) {
+					// First progress event in post-ad restore window — execute seek
+					postAdSeekDoneRef.current = true;
+					const savedPosition = preAdContentPositionRef.current;
+					if (savedPosition > 1 && e.currentTime < savedPosition - 5) {
+						currentLogger.current?.info(
+							`handleOnProgress - iOS VOD post-ad restore (guarded): ${e.currentTime}s → ${savedPosition}s`
+						);
+						refVideoPlayer.current?.seek(savedPosition);
+						// Safety timeout: force deactivate if seek never completes
+						postAdRestoreSafetyTimeoutRef.current = setTimeout(() => {
+							if (isPlayingAdRef.current && hasAdFinishedRef.current) {
+								isPlayingAdRef.current = false;
+								preAdContentPositionRef.current = -1;
+								currentLogger.current?.info(
+									`[NormalFlavour] Post-ad restore safety timeout (5s). isPlayingAdRef force deactivated.`
+								);
+							}
+						}, 5000);
+						return;
+					} else {
+						// No seek needed (already near position or savedPosition <= 1)
+						isPlayingAdRef.current = false;
+						preAdContentPositionRef.current = -1;
+						currentLogger.current?.info(
+							`handleOnProgress - Post-ad restore: no seek needed (currentTime: ${e.currentTime}s, savedPos: ${savedPosition}s). isPlayingAdRef deactivated.`
+						);
+						// Fall through to normal progress handling
+					}
+				} else if (postAdSeekDoneRef.current) {
+					// Seek was issued — check if it completed
+					const savedPosition = preAdContentPositionRef.current;
+					if (savedPosition > 0 && e.currentTime >= savedPosition - 5) {
+						// Seek completed! Deactivate guard
+						isPlayingAdRef.current = false;
+						preAdContentPositionRef.current = -1;
+						if (postAdRestoreSafetyTimeoutRef.current) {
+							clearTimeout(postAdRestoreSafetyTimeoutRef.current);
+							postAdRestoreSafetyTimeoutRef.current = null;
+						}
+						currentLogger.current?.info(
+							`[NormalFlavour] Post-ad restore complete (${e.currentTime}s ≈ target ${savedPosition}s). isPlayingAdRef deactivated.`
+						);
+						// Fall through to normal progress handling
+					} else {
+						// Still waiting for seek — block this event with ~0 currentTime
+						currentLogger.current?.debug(
+							`handleOnProgress: Blocking post-ad restore - currentTime: ${e.currentTime}s, target: ${savedPosition}s`
+						);
+						return;
+					}
+				} else {
+					// Waiting for isContentLoaded — keep blocking
+					currentLogger.current?.debug(
+						`handleOnProgress: Blocking post-ad (waiting for content load) - currentTime: ${e.currentTime}s`
+					);
+					return;
+				}
+			} else {
+				// Normal ad playback — block everything
+				currentLogger.current?.debug(
+					`handleOnProgress: Skipping progress during ad - currentTime: ${e.currentTime}, seekableDuration: ${e.seekableDuration}`
+				);
+				return;
+			}
 		}
 
 		if (typeof e.currentTime === "number" && currentTime !== e.currentTime) {
@@ -2087,7 +2165,21 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			// ALL_ADS_COMPLETED: todos los anuncios han terminado
 			// CONTENT_RESUME_REQUESTED: el SDK solicita reanudar el contenido
 			currentLogger.current?.info(`[ADS] Ad break finished: ${e.event}`);
-			isPlayingAdRef.current = false;
+			// For iOS VOD with a saved position, keep isPlayingAdRef=true to block
+			// progress events with ~0 currentTime during the post-ad seek restore window.
+			// handleOnProgress will deactivate it when the seek completes or via safety timeout.
+			const keepAdGuardForRestore =
+				Platform.OS === "ios" &&
+				!sourceRef.current?.isLive &&
+				!sourceRef.current?.isDVR &&
+				preAdContentPositionRef.current > 1;
+			if (!keepAdGuardForRestore) {
+				isPlayingAdRef.current = false;
+			} else {
+				currentLogger.current?.info(
+					`[ADS] Keeping isPlayingAdRef=true for iOS VOD post-ad restore (savedPos: ${preAdContentPositionRef.current}s)`
+				);
+			}
 			hasAdFinishedRef.current = true;
 			phaseManagerRef.current.transition(PlaybackPhase.CONTENT_STARTING, "ad_finished");
 			setIsPlayingAd(false);
