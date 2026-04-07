@@ -1,5 +1,13 @@
 
 
+## [7.1.13](https://github.com/startcat/react-native-video/compare/v7.1.12...v7.1.13) (2026-04-07)
+
+
+### Bug Fixes
+
+* **player:** block post-ad progress leak during iOS VOD seek restore ([3682923](https://github.com/startcat/react-native-video/commit/3682923c61ce5134052be26b3a987dbffbe9ea4b))
+* **player:** prevent handleOnLoad/handleOnProgress deadlock in post-ad restore window ([f233ce9](https://github.com/startcat/react-native-video/commit/f233ce94b857e34bc5ae8e90bcc78493e0d1d117))
+
 ## [7.1.12](https://github.com/startcat/react-native-video/compare/v7.1.11...v7.1.12) (2026-03-27)
 
 
