@@ -1589,7 +1589,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	};
 
 	const handleOnLoad = (e: OnLoadData) => {
-		currentLogger.current?.info(`handleOnLoad (${sourceRef.current?.playerSource?.uri})`);
+		currentLogger.current?.info(
+			`handleOnLoad (${sourceRef.current?.playerSource?.uri}) - isPlayingAdRef=${isPlayingAdRef.current}, hasAdFinished=${hasAdFinishedRef.current}, isContentLoaded=${isContentLoadedRef.current}`
+		);
 		// currentLogger.current?.temp(`handleOnLoad currentSourceType: ${currentSourceType.current}`);
 		// currentLogger.current?.temp(`handleOnLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
 		// currentLogger.current?.temp(`handleOnLoad isContentLoaded ${isContentLoaded}`);
@@ -1912,10 +1914,16 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						return;
 					}
 				} else {
-					// Waiting for isContentLoaded — keep blocking
-					currentLogger.current?.debug(
-						`handleOnProgress: Blocking post-ad (waiting for content load) - currentTime: ${e.currentTime}s`
+					// Waiting for isContentLoaded — keep blocking.
+					// Preventive deadlock fix: if handleOnLoad fired during the post-ad
+					// restore window, it was blocked by isPlayingAdRef.current === true
+					// and never called setIsContentLoaded(true). Call ensureContentLoaded
+					// to break the cycle — the NEXT progress event will see the updated ref
+					// and proceed with the restore seek.
+					currentLogger.current?.info(
+						`handleOnProgress: Post-ad waiting for content load (currentTime: ${e.currentTime}s) — calling ensureContentLoaded to prevent deadlock`
 					);
+					ensureContentLoaded("post-ad-deadlock-recovery");
 					return;
 				}
 			} else {
@@ -2114,7 +2122,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			event: e.event,
 			data: e.data,
 		});
-
 		// Usar AD_BREAK para manejar pods de múltiples ads correctamente
 		// AD_BREAK_STARTED se emite al inicio del pod, AD_BREAK_ENDED al final
 		if (e.event === "AD_BREAK_STARTED" || e.event === "STARTED") {
