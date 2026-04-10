@@ -45,6 +45,7 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     private static final String REACT_CLASS = "RCTVideo";
     private static final String PROP_SRC = "src";
     private static final String PROP_AD_TAG_URL = "adTagUrl";
+    private static final String PROP_AD_LANGUAGE = "adLanguage";
     private static final String PROP_DRM = "drm";
     private static final String PROP_DRM_TYPE = "type";
     private static final String PROP_DRM_LICENSE_SERVER = "licenseServer";
@@ -177,6 +178,11 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         Uri adTagUrl = Uri.parse(uriString);
 
         videoView.setAdTagUrl(adTagUrl);
+    }
+
+    @ReactProp(name = PROP_AD_LANGUAGE)
+    public void setAdLanguage(final ReactExoplayerView videoView, final String language) {
+        videoView.setAdLanguage(TextUtils.isEmpty(language) ? null : language);
     }
 
     @ReactProp(name = PROP_RESIZE_MODE)

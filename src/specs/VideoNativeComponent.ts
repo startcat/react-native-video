@@ -333,6 +333,7 @@ export interface VideoNativeProps extends ViewProps {
 	playOffline?: boolean;
 	multiSession?: boolean;
 	adTagUrl?: string;
+	adLanguage?: string;
 	allowsExternalPlayback?: boolean; // ios, true
 	maxBitRate?: Float;
 	resizeMode?: WithDefault<string, "none">;

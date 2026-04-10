@@ -239,6 +239,7 @@ export interface ReactVideoProps extends ReactVideoEvents, ViewProps {
 	multiSession?: boolean; // android
 	style?: StyleProp<ViewStyle>;
 	adTagUrl?: string;
+	adLanguage?: string; // BCP-47 language code for the IMA SDK UI (e.g. "es", "en"). When omitted, iOS falls back to the device locale and Android to the ImaSdkSettings default. Note: `eu` is NOT supported by IMA — use `es` on Basque devices.
 	audioOutput?: AudioOutput; // Mobile
 	automaticallyWaitsToMinimizeStalling?: boolean; // iOS
 	bufferConfig?: BufferConfig; // Android

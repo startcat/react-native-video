@@ -24,8 +24,13 @@
 
         func setUpAdsLoader() {
             let settings = IMASettings()
-            // Use the device's preferred language for IMA SDK UI elements (e.g., "Skip Ad" button)
-            settings.language = Locale.preferredLanguages.first ?? "en"
+            // Language priority:
+            //   1. The `adLanguage` prop forwarded from React Native (if the
+            //      consumer wants to pin IMA's UI to a specific locale).
+            //   2. The device's preferred language (preserves legacy behaviour
+            //      for consumers that do not pass `adLanguage`).
+            //   3. "en" as a last-resort fallback.
+            settings.language = _video?.getAdLanguage() ?? Locale.preferredLanguages.first ?? "en"
             adsLoader = IMAAdsLoader(settings: settings)
             adsLoader.delegate = self
         }
