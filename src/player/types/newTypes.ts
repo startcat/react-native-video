@@ -71,6 +71,29 @@ export interface IPlayerAnalytics {
 
 export interface IPlayerAds {
 	adTagUrl?: string;
+	/**
+	 * BCP-47 language code for the IMA SDK UI (e.g. "es", "eu", "en").
+	 *
+	 * Forces the language of the IMA-rendered ad UI (countdown, "Skip Ad"
+	 * button label, "Learn More" CTA, "Advertisement" tag, AdChoices
+	 * tooltip, error messages) regardless of the device locale.
+	 *
+	 * NOTE: IMA only supports a finite set of languages. Passing a code
+	 * that is not in the supported list will silently fall back to the
+	 * SDK default. Euskera (`eu`) is NOT supported by the IMA SDK — use
+	 * `es` if you want the ad UI in Spanish on Basque devices.
+	 *
+	 * When omitted, iOS falls back to the device preferred language and
+	 * Android falls back to the default `ImaSdkSettings` locale. This
+	 * preserves the legacy behaviour for existing consumers.
+	 *
+	 * The value is read once when the IMA ads loader is created. Changing
+	 * it on a player that is already playing an ad will NOT apply to the
+	 * current ad — only to subsequent ad requests.
+	 *
+	 * Only applies to local playback. Ignored by cast flavours.
+	 */
+	language?: string;
 }
 
 export interface IPlayerTimeMarkers {

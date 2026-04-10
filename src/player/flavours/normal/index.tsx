@@ -2395,6 +2395,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 							},
 						}}
 						adTagUrl={props?.playerAds?.adTagUrl}
+						adLanguage={props?.playerAds?.language}
 						allowsExternalPlayback={true}
 						//volume={10}
 						controls={false}
