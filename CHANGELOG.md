@@ -1,5 +1,12 @@
 
 
+## [7.1.14](https://github.com/startcat/react-native-video/compare/v7.1.13...v7.1.14) (2026-04-10)
+
+
+### Features
+
+* **ads:** añadir prop adLanguage para forzar idioma de la UI del IMA SDK ([e12ccbf](https://github.com/startcat/react-native-video/commit/e12ccbfe271ed30f2a5206ef2561759f879b7bb3))
+
 ## [7.1.13](https://github.com/startcat/react-native-video/compare/v7.1.12...v7.1.13) (2026-04-07)
 
 
