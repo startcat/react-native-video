@@ -56,6 +56,14 @@ public class ImaAdsLoader implements AdsLoader {
             return this;
         }
 
+        public Builder setAdMediaMimeTypes(Object ignoredMimeTypes) {
+            return this;
+        }
+
+        public Builder setImaSdkSettings(Object ignoredImaSdkSettings) {
+            return this;
+        }
+
         public ImaAdsLoader build() {
             return null;
         }

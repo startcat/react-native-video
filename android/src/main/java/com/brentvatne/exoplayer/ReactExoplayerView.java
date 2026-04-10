@@ -133,6 +133,8 @@ import com.facebook.react.uimanager.ThemedReactContext;
 import com.google.ads.interactivemedia.v3.api.AdError;
 import com.google.ads.interactivemedia.v3.api.AdEvent;
 import com.google.ads.interactivemedia.v3.api.AdErrorEvent;
+import com.google.ads.interactivemedia.v3.api.ImaSdkFactory;
+import com.google.ads.interactivemedia.v3.api.ImaSdkSettings;
 import com.google.common.collect.ImmutableList;
 
 import java.net.CookieHandler;
@@ -271,6 +273,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private String[] drmLicenseHeader = null;
     private boolean controls;
     private Uri adTagUrl;
+    private String adLanguage = null;
 
     private boolean showNotificationControls = false;
     // \ End props
@@ -938,10 +941,20 @@ public class ReactExoplayerView extends FrameLayout implements
                         .forceEnableMediaCodecAsynchronousQueueing();
 
         // Create an AdsLoader.
+        // Configure the IMA SDK language so the ad UI (countdown, skip
+        // button labels, etc.) can be forced to a specific locale from JS
+        // via the `adLanguage` prop. When not provided, the SDK falls back
+        // to the system locale, preserving the legacy behaviour.
+        ImaSdkSettings imaSdkSettings = ImaSdkFactory.getInstance().createImaSdkSettings();
+        if (adLanguage != null && !adLanguage.isEmpty()) {
+            imaSdkSettings.setLanguage(adLanguage);
+        }
+
         adsLoader = new ImaAdsLoader
                 .Builder(themedReactContext)
                 .setAdEventListener(this)
                 .setAdErrorListener(this)
+                .setImaSdkSettings(imaSdkSettings)
                 // Prioritize MP4 format for better compatibility
                 .setAdMediaMimeTypes(java.util.Collections.singletonList(MimeTypes.VIDEO_MP4))
                 .build();
@@ -2269,6 +2282,10 @@ public class ReactExoplayerView extends FrameLayout implements
 
     public void setAdTagUrl(final Uri uri) {
         adTagUrl = uri;
+    }
+
+    public void setAdLanguage(final String language) {
+        adLanguage = language;
     }
 
     public void setTextTracks(SideLoadedTextTrackList textTracks) {

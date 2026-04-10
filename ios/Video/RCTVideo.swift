@@ -99,6 +99,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     /* IMA Ads */
     private var _adTagUrl: String?
+    private var _adLanguage: String?
     #if RNUSE_GOOGLE_IMA
         private var _imaAdsManager: RCTIMAAdsManager!
         /* Playhead used by the SDK to track content video progress and insert mid-rolls. */
@@ -1495,6 +1496,15 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc
     func setAdTagUrl(_ adTagUrl: String!) {
         _adTagUrl = adTagUrl
+    }
+
+    func getAdLanguage() -> String? {
+        return _adLanguage
+    }
+
+    @objc
+    func setAdLanguage(_ adLanguage: String!) {
+        _adLanguage = adLanguage
     }
 
     #if RNUSE_GOOGLE_IMA

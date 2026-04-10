@@ -161,6 +161,7 @@ export interface ICastMetadata {
 	description?: string;
 	liveStartDate?: number;
 	adTagUrl?: string;
+	adLanguage?: string;
 	poster?: string;
 	squaredPoster?: string;
 
