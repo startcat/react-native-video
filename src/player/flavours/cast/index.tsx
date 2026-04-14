@@ -212,11 +212,11 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			currentLogger.current?.info(
 				"Cast Manager - Playback ended suppressed: live/DVR content does not end via IDLE"
 			);
-			return false; // Suppressed — do NOT clear lastLoadedContentRef in useCastManager
+			return false; // Suppressed — handleOnEnd not called
 		}
 		currentLogger.current?.info("Cast Manager - Playback ended");
 		onEndRef.current?.();
-		return true; // Real end — allow lastLoadedContentRef cleanup
+		return true;
 	}, []);
 
 	const onSeekCompletedCallback = useCallback((position: number) => {
