@@ -68,6 +68,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const [sliderValuesUpdate, setSliderValuesUpdate] = useState<number>(0);
 	const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
 
+	// Ad break guard — equivalent to isPlayingAdRef in normal flavour
+	const [isPlayingAd, setIsPlayingAd] = useState<boolean>(false);
+	const isPlayingAdRef = useRef<boolean>(false);
+
 	// Estado para metadatos sincronizados desde Cast (para contenido cargado desde otro dispositivo)
 	const [syncedMetadata, setSyncedMetadata] = useState(props.playerMetadata);
 	// Referencia para trackear la URL que nosotros cargamos localmente
@@ -129,6 +133,20 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const castPlaying = useCastPlaying(castLoggerConfig);
 	const castProgress = useCastProgress(castLoggerConfig);
 	const castVolume = useCastVolume(castLoggerConfig);
+
+	// Sync ad playing state from cast media status
+	useEffect(() => {
+		const castIsPlayingAd = castMedia.isPlayingAd;
+		if (castIsPlayingAd !== isPlayingAdRef.current) {
+			currentLogger.current?.info(`Ad playing state changed: ${isPlayingAdRef.current} → ${castIsPlayingAd}`);
+			isPlayingAdRef.current = castIsPlayingAd;
+			setIsPlayingAd(castIsPlayingAd);
+
+			// Notify host — same contract as normal flavour
+			props.events?.onAdPlayingChange?.(castIsPlayingAd);
+			props.events?.onChangeCommonData?.({isPlayingAd: castIsPlayingAd});
+		}
+	}, [castMedia.isPlayingAd, props.events]);
 
 	// CREATE REFS FOR MAIN CALLBACKS to avoid circular dependencies
 	const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
@@ -1375,10 +1393,17 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				}
 
 				if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-					dvrProgressManagerRef.current?.checkInitialSeek(
-						"cast",
-						isLiveProgramRestricted
-					);
+					if (isPlayingAdRef.current) {
+						currentLogger.current?.info(`onLoad - Deferring checkInitialSeek: ad is playing`);
+						// No pending callback needed: when the ad ends, isPlayingAd
+						// becomes false, the first real progress reaches DVR manager,
+						// and _needsInitialGoToLive (still true) triggers goToLive().
+					} else {
+						dvrProgressManagerRef.current?.checkInitialSeek(
+							"cast",
+							isLiveProgramRestricted
+						);
+					}
 				}
 			} else if (currentSourceType.current === "tudum") {
 				currentLogger.current?.debug(`onLoad - Tudum loaded, duration: ${e.duration}`);
@@ -1427,6 +1452,16 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// PROGRESS SIMULATION usando castProgress
 	useEffect(() => {
 		if (!castConnected) {
+			return;
+		}
+
+		// Guard: block progress events during ad breaks to prevent
+		// DVR manager from receiving ad currentTime (typically 0)
+		// which triggers goToLive() → PLAYER_CAST_OPERATION_FAILED
+		if (isPlayingAdRef.current) {
+			currentLogger.current?.debug(
+				`Simulating onProgress - BLOCKED (ad playing), castProgress.currentTime: ${castProgress.currentTime}`
+			);
 			return;
 		}
 
