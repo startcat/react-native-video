@@ -435,8 +435,16 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, [castProgress.duration, castConnected]);
 
 	// Detectar cuando el contenido termina
+	// Guard: durante ad breaks el receiver transiciona el contenido principal a IDLE,
+	// pero eso NO significa que el contenido haya terminado — es solo el ad break.
 	useEffect(() => {
 		if (castMedia.isIdle && isContentLoaded && currentSourceType.current) {
+			if (isPlayingAdRef.current) {
+				currentLogger.current?.debug(
+					"Cast content went IDLE but ad break is active — suppressing handleOnEnd"
+				);
+				return;
+			}
 			currentLogger.current?.debug("Cast content ended from idle state");
 			handleOnEnd();
 		}
