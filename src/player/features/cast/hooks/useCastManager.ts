@@ -676,11 +676,20 @@ export function useCastManager(
 		}
 
 		// Detectar fin de reproducción
+		// Guard: do NOT fire onPlaybackEnded during ad breaks.
+		// The cast receiver transitions main content to IDLE during ad playback,
+		// which would falsely trigger end detection and cause the app to navigate away.
 		if (media.isIdle && lastLoadedContentRef.current && currentCallbacks.onPlaybackEnded) {
-			lastLoadedContentRef.current = null;
-			currentCallbacks.onPlaybackEnded();
+			if (media.isPlayingAd) {
+				currentLogger.current?.info(
+					`Suppressing onPlaybackEnded: media is IDLE but ad break is active (adBreakId: ${media.adBreakStatus?.adBreakId})`
+				);
+			} else {
+				lastLoadedContentRef.current = null;
+				currentCallbacks.onPlaybackEnded();
+			}
 		}
-	}, [castState.media.isPlaying, castState.media.isIdle, castState.media.url]);
+	}, [castState.media.isPlaying, castState.media.isIdle, castState.media.url, castState.media.isPlayingAd]);
 
 	// Callback de cambio de volumen: onVolumeChanged
 	useEffect(() => {
