@@ -144,7 +144,7 @@ export interface CastManagerCallbacks {
 	onContentLoaded?: (contentInfo: CastContentInfo) => void;
 	onError?: (error: PlayerError, contentInfo: CastContentInfo) => void;
 	onPlaybackStarted?: () => void;
-	onPlaybackEnded?: () => void;
+	onPlaybackEnded?: () => boolean | void;
 	onSeekCompleted?: (newPosition: number) => void;
 	onVolumeChanged?: (level: number, isMuted: boolean) => void;
 }

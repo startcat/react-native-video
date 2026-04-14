@@ -685,8 +685,13 @@ export function useCastManager(
 					`Suppressing onPlaybackEnded: media is IDLE but ad break is active (adBreakId: ${media.adBreakStatus?.adBreakId})`
 				);
 			} else {
-				lastLoadedContentRef.current = null;
-				currentCallbacks.onPlaybackEnded();
+				const result = currentCallbacks.onPlaybackEnded();
+				// Only clear ref if the callback did NOT suppress the end event.
+				// When result is false, the callback handled it (e.g., live/DVR guard)
+				// and the content is still logically loaded.
+				if (result !== false) {
+					lastLoadedContentRef.current = null;
+				}
 			}
 		}
 	}, [castState.media.isPlaying, castState.media.isIdle, castState.media.url, castState.media.isPlayingAd]);

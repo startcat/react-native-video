@@ -492,6 +492,25 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		this._handleSeekTo(playerTime);
 	}
 
+	/**
+	 * Cancel the deferred goToLive that reset() schedules via _needsInitialGoToLive.
+	 *
+	 * The Cast receiver already starts at the live edge when loading a live stream,
+	 * so the automatic seek is unnecessary. Worse, it fires while the receiver is
+	 * processing the VMAP / pre-roll ad and kills the Cast session with
+	 * PLAYER_CAST_OPERATION_FAILED.
+	 *
+	 * Call this from the Cast flavour's onLoad, before checkInitialSeek.
+	 */
+	cancelDeferredGoToLive(): void {
+		if (this._needsInitialGoToLive) {
+			this._currentLogger?.info(
+				"cancelDeferredGoToLive: Cancelled deferred goToLive (Cast receiver starts at live edge)"
+			);
+			this._needsInitialGoToLive = false;
+		}
+	}
+
 	goToLive(): void {
 		if (!this._isValidState()) {
 			// Solo diferir si estamos en modo WINDOW. En modo PROGRAM, el seek al inicio

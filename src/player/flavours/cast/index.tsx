@@ -96,6 +96,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// En este caso, no debemos sobrescribir los tracks activos del Cast con nuestras preferencias locales
 	const isJoiningExistingSessionRef = useRef<boolean>(false);
 
+	// Sanity check: last known valid DVR duration to detect ad garbage data
+	// without native rebuild (isPlayingAdRef always false in that scenario)
+	const lastValidDVRDurationRef = useRef<number>(0);
+
 	const castLoggerConfig: LoggerConfigBasic = {
 		enabled: props.logger?.cast?.enabled ?? true,
 		level: props.logger?.cast?.level ?? LogLevel.INFO,
@@ -199,17 +203,18 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		}
 	}, [isContentLoaded]);
 
-	const onPlaybackEndedCallback = useCallback(() => {
+	const onPlaybackEndedCallback = useCallback((): boolean => {
 		// Guard: for live/DVR content, the receiver going IDLE during ad breaks
 		// is NOT a real end-of-content event. Suppress early before reaching handleOnEnd.
 		if (sourceRef.current?.isLive || sourceRef.current?.isDVR) {
 			currentLogger.current?.info(
 				"Cast Manager - Playback ended suppressed: live/DVR content does not end via IDLE"
 			);
-			return;
+			return false; // Suppressed — do NOT clear lastLoadedContentRef in useCastManager
 		}
 		currentLogger.current?.info("Cast Manager - Playback ended");
 		onEndRef.current?.();
+		return true; // Real end — allow lastLoadedContentRef cleanup
 	}, []);
 
 	const onSeekCompletedCallback = useCallback((position: number) => {
@@ -1417,11 +1422,17 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				}
 
 				if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
+					// Cancel deferred goToLive: the Cast receiver already starts at the live edge.
+					// The _needsInitialGoToLive flag was designed for native iOS (race condition
+					// onProgress/onLoad). For Cast, the automatic seek conflicts with VMAP/ad
+					// processing and kills the receiver session (PLAYER_CAST_OPERATION_FAILED).
+					dvrProgressManagerRef.current.cancelDeferredGoToLive();
+
 					if (isPlayingAdRef.current) {
 						currentLogger.current?.info(`onLoad - Deferring checkInitialSeek: ad is playing`);
 						// No pending callback needed: when the ad ends, isPlayingAd
-						// becomes false, the first real progress reaches DVR manager,
-						// and _needsInitialGoToLive (still true) triggers goToLive().
+						// becomes false and checkInitialSeek can be called on next content load.
+						// cancelDeferredGoToLive above already prevents the fatal seek.
 					} else {
 						dvrProgressManagerRef.current?.checkInitialSeek(
 							"cast",
@@ -1528,6 +1539,22 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			}
 
 			if (sourceRef.current?.isDVR) {
+				// Sanity check: if duration drops >90% from last known valid value,
+				// this is likely ad garbage data (currentTime: 0, duration: 0) that
+				// slipped through without native rebuild (isPlayingAdRef always false).
+				if (lastValidDVRDurationRef.current > 0 && e.seekableDuration > 0) {
+					const dropRatio = e.seekableDuration / lastValidDVRDurationRef.current;
+					if (dropRatio < 0.1) {
+						currentLogger.current?.info(
+							`DVR progress sanity check: BLOCKED duration drop ${lastValidDVRDurationRef.current.toFixed(1)}→${e.seekableDuration.toFixed(1)} (ratio: ${dropRatio.toFixed(3)})`
+						);
+						return;
+					}
+				}
+				if (e.seekableDuration > 0) {
+					lastValidDVRDurationRef.current = e.seekableDuration;
+				}
+
 				dvrProgressManagerRef.current?.updatePlayerData({
 					currentTime: e.currentTime,
 					duration: e.seekableDuration,
