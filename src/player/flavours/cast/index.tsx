@@ -200,6 +200,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, [isContentLoaded]);
 
 	const onPlaybackEndedCallback = useCallback(() => {
+		// Guard: for live/DVR content, the receiver going IDLE during ad breaks
+		// is NOT a real end-of-content event. Suppress early before reaching handleOnEnd.
+		if (sourceRef.current?.isLive || sourceRef.current?.isDVR) {
+			currentLogger.current?.info(
+				"Cast Manager - Playback ended suppressed: live/DVR content does not end via IDLE"
+			);
+			return;
+		}
 		currentLogger.current?.info("Cast Manager - Playback ended");
 		onEndRef.current?.();
 	}, []);
@@ -434,18 +442,26 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		}
 	}, [castProgress.duration, castConnected]);
 
-	// Detectar cuando el contenido termina
-	// Guard: durante ad breaks el receiver transiciona el contenido principal a IDLE,
-	// pero eso NO significa que el contenido haya terminado — es solo el ad break.
+	// Detectar cuando el contenido termina (solo VOD — live/DVR no termina via IDLE)
+	// Guard 1: live/DVR content never "ends" naturally via IDLE state
+	// Guard 2: durante ad breaks el receiver transiciona el contenido principal a IDLE
 	useEffect(() => {
 		if (castMedia.isIdle && isContentLoaded && currentSourceType.current) {
+			// Guard 1: Live/DVR content — IDLE does not mean stream ended
+			if (sourceRef.current?.isLive || sourceRef.current?.isDVR) {
+				currentLogger.current?.info(
+					"Cast content went IDLE but source is live/DVR — suppressing handleOnEnd"
+				);
+				return;
+			}
+			// Guard 2: Ad break detection (requires native rebuild for adBreakStatus)
 			if (isPlayingAdRef.current) {
-				currentLogger.current?.debug(
+				currentLogger.current?.info(
 					"Cast content went IDLE but ad break is active — suppressing handleOnEnd"
 				);
 				return;
 			}
-			currentLogger.current?.debug("Cast content ended from idle state");
+			currentLogger.current?.info("Cast content ended from idle state");
 			handleOnEnd();
 		}
 	}, [castMedia.isIdle, isContentLoaded]);
@@ -1423,8 +1439,24 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	const handleOnEnd = useCallback(() => {
 		currentLogger.current?.info(
-			`handleOnEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}`
+			`handleOnEnd: currentSourceType ${currentSourceType.current}, isAutoNext: ${props.isAutoNext}, isLive: ${sourceRef.current?.isLive}, isDVR: ${sourceRef.current?.isDVR}`
 		);
+
+		// Guard: live/DVR streams do NOT end naturally via IDLE state.
+		// During Chromecast ad breaks, the receiver transitions the main content to IDLE,
+		// which triggers false end detection. For live content, IDLE never means "content ended":
+		// - Normal viewing: user disconnects manually
+		// - Broadcast failure: arrives as error, not IDLE
+		// This guard works at JS level regardless of whether native adBreakStatus patch is compiled.
+		if (
+			currentSourceType.current === "content" &&
+			(sourceRef.current?.isLive || sourceRef.current?.isDVR)
+		) {
+			currentLogger.current?.info(
+				"handleOnEnd: Suppressed for live/DVR content — IDLE does not mean stream ended"
+			);
+			return;
+		}
 
 		if (currentSourceType.current === "tudum") {
 			currentLogger.current?.debug("handleOnEnd: Tudum finished, switching to main content");
