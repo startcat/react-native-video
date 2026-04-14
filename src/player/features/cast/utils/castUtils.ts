@@ -40,6 +40,8 @@ export function createInitialCastState(): CastStateCustom {
 			mediaTracks: [],
 			customData: null,
 			activeTrackIds: [],
+			isPlayingAd: false,
+			adBreakStatus: null,
 		},
 		volume: {
 			level: 0.5,
@@ -212,9 +214,11 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 						availableAudioTracks: [],
 						availableTextTracks: [],
 						mediaTracks: [],
-						customData: null,
-						activeTrackIds: [],
-					};
+					customData: null,
+					activeTrackIds: [],
+					isPlayingAd: false,
+					adBreakStatus: null,
+				};
 				}
 
 				const playerState = nativeMediaStatus.playerState;
@@ -299,12 +303,23 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 					customData:
 						mediaInfo?.customData || (nativeMediaStatus as any)?.customData || null,
 					activeTrackIds: nativeMediaStatus.activeTrackIds || [],
+					// Ad break detection — adBreakStatus is non-null when an ad is playing
+					adBreakStatus: (nativeMediaStatus as any).adBreakStatus ?? null,
+					isPlayingAd: (nativeMediaStatus as any).adBreakStatus != null,
 				};
 
 				currentLogger?.debug(
 					`Media result - seekableRange: ${JSON.stringify(result.seekableRange)}, currentTime: ${result.currentTime}, duration: ${result.duration}`
 				);
 				currentLogger?.debug(`Media result: ${JSON.stringify(result)}`);
+
+				// Log ad break state transitions
+				if (result.isPlayingAd !== state.castState.media.isPlayingAd) {
+					currentLogger?.info(
+						`Ad break status changed: isPlayingAd ${state.castState.media.isPlayingAd} → ${result.isPlayingAd}` +
+							(result.adBreakStatus ? `, adBreakId: ${result.adBreakStatus.adBreakId}` : ''),
+					);
+				}
 
 				return result;
 			})();

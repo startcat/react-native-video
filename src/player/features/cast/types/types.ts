@@ -45,6 +45,15 @@ export interface CastMediaInfo {
 	mediaTracks: MediaTrack[];
 	customData: any | null; // Custom data from Cast message (includes sourceDescription.metadata.id)
 	activeTrackIds: number[]; // IDs of currently active tracks from Chromecast
+	/** Whether an ad break is currently playing on the cast receiver */
+	isPlayingAd: boolean;
+	/** Raw ad break status from the Cast SDK, null when no ad is playing */
+	adBreakStatus: {
+		currentAdBreakTime: number;
+		currentAdBreakClipTime: number;
+		adBreakId: string;
+		adBreakClipId: string;
+	} | null;
 }
 
 export interface CastVolumeInfo {
