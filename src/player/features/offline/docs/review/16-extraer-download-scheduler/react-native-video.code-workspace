@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../../.."
+		},
+		{
+			"path": "../../../../../../../../overon/docs"
+		}
+	],
+	"settings": {
+		"git.confirmSync": false,
+		"explorer.confirmDragAndDrop": false,
+		"emmet.includeLanguages": {
+			"javascript": "javascriptreact",
+			"typescript": "typescriptreact"
+		},
+		"files.associations": {
+			"*.tsx": "typescriptreact",
+			"*.ts": "typescript"
+		}
+	}
+}

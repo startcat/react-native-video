@@ -142,13 +142,15 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	useEffect(() => {
 		const castIsPlayingAd = castMedia.isPlayingAd;
 		if (castIsPlayingAd !== isPlayingAdRef.current) {
-			currentLogger.current?.info(`Ad playing state changed: ${isPlayingAdRef.current} → ${castIsPlayingAd}`);
+			currentLogger.current?.info(
+				`Ad playing state changed: ${isPlayingAdRef.current} → ${castIsPlayingAd}`
+			);
 			isPlayingAdRef.current = castIsPlayingAd;
 			setIsPlayingAd(castIsPlayingAd);
 
 			// Notify host — same contract as normal flavour
 			props.events?.onAdPlayingChange?.(castIsPlayingAd);
-			props.events?.onChangeCommonData?.({isPlayingAd: castIsPlayingAd});
+			props.events?.onChangeCommonData?.({ isPlayingAd: castIsPlayingAd });
 		}
 	}, [castMedia.isPlayingAd, props.events]);
 
@@ -850,6 +852,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		// Reset progress managers solo para VOD
 		vodProgressManagerRef.current?.reset();
 		dvrProgressManagerRef.current?.reset();
+		// In Cast, always cancel deferred goToLive after reset — prevents fatal seek.
+		dvrProgressManagerRef.current?.cancelDeferredGoToLive();
 
 		const shouldPlayTudum =
 			!!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
@@ -995,6 +999,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		sliderValues.current = undefined;
 		vodProgressManagerRef.current?.reset();
 		dvrProgressManagerRef.current?.reset();
+		// In Cast, the receiver handles live edge positioning — cancel any deferred goToLive
+		// that reset() just armed, to prevent a fatal seek during VMAP/ad processing.
+		dvrProgressManagerRef.current?.cancelDeferredGoToLive();
 
 		// Pequeño delay para asegurar que se limpia el source
 		setTimeout(async () => {
@@ -1157,6 +1164,13 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 			if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
 				dvrProgressManagerRef.current?.reset();
+				// Cancel the deferred goToLive IMMEDIATELY after reset.
+				// reset() sets _needsInitialGoToLive = true, but for Cast the receiver
+				// already starts at the live edge. If we wait until onLoad (which fires
+				// seconds later via onContentLoadedCallback + setTimeout), updatePlayerData
+				// will trigger goToLive() → seek() as soon as castProgress provides valid
+				// data, killing the receiver during VMAP/ad processing.
+				dvrProgressManagerRef.current?.cancelDeferredGoToLive();
 			}
 		},
 		[loadContentWithCastManager]
@@ -1429,7 +1443,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					dvrProgressManagerRef.current.cancelDeferredGoToLive();
 
 					if (isPlayingAdRef.current) {
-						currentLogger.current?.info(`onLoad - Deferring checkInitialSeek: ad is playing`);
+						currentLogger.current?.info(
+							`onLoad - Deferring checkInitialSeek: ad is playing`
+						);
 						// No pending callback needed: when the ad ends, isPlayingAd
 						// becomes false and checkInitialSeek can be called on next content load.
 						// cancelDeferredGoToLive above already prevents the fatal seek.
@@ -1667,6 +1683,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 					if (dvrProgressManagerRef.current) {
 						dvrProgressManagerRef.current?.reset();
+						dvrProgressManagerRef.current?.cancelDeferredGoToLive();
 						dvrProgressManagerRef.current?.setPlaybackType(DVR_PLAYBACK_TYPE.PROGRAM);
 					}
 
@@ -1710,6 +1727,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					};
 
 					dvrProgressManagerRef.current?.reset();
+					dvrProgressManagerRef.current?.cancelDeferredGoToLive();
 
 					setTimeout(() => {
 						loadContentWithCastManager(sourceData);
