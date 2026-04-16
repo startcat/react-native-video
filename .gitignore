@@ -69,3 +69,16 @@ lib/
 
 # Windsurf IDE
 .windsurf/
+
+# Credentials & secrets
+credential/
+*.p12
+*.pem
+*.key
+*.keystore
+!**/debug.keystore
+*.jks
+service-account*.json
+*-credentials.json
+.env
+.env.*
