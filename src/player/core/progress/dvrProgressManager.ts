@@ -1162,6 +1162,14 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 	}
 
 	private _getProgressDatum(): number {
+		// While a live-edge seek is in transit, report live edge position.
+		// This prevents stale castProgress data (Cast SDK delay post-seek)
+		// from overwriting the optimistic position shown to the user.
+		// _pendingLiveEdgeSeek is cleared once currentTime converges to
+		// within LIVE_EDGE_TOLERANCE of seekableRange.end.
+		if (this._pendingLiveEdgeSeek) {
+			return this._getCurrentLiveEdge();
+		}
 		if (this._frozenProgressDatum !== undefined && (this._isPaused || this._isBuffering)) {
 			return this._frozenProgressDatum;
 		}
