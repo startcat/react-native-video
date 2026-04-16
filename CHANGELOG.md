@@ -1,5 +1,12 @@
 
 
+## [7.1.17](https://github.com/startcat/react-native-video/compare/v7.1.16...v7.1.17) (2026-04-16)
+
+
+### Bug Fixes
+
+* **cast:** recuperar posición live edge tras ad breaks en contenido DVR ([2e81245](https://github.com/startcat/react-native-video/commit/2e81245c97d6abdad82dd5eb38725d47e868448f))
+
 ## [7.1.16](https://github.com/startcat/react-native-video/compare/v7.1.15...v7.1.16) (2026-04-16)
 
 ## [7.1.15](https://github.com/startcat/react-native-video/compare/v7.1.14...v7.1.15) (2026-04-16)
