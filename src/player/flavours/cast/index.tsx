@@ -127,6 +127,12 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
 
+	// After an ad break ends on live/DVR content, the receiver starts at position 0
+	// of the DVR window (because we don't send startTime for live to avoid iOS bridge
+	// issues with negative values). This flag triggers a goToLive() after the first
+	// post-ad progress update so the DVR manager has fresh seekableRange data.
+	const needsPostAdGoToLiveRef = useRef(false);
+
 	// Control para evitar mezcla de sources
 	const currentSourceType = useRef<"tudum" | "content" | null>(null);
 	const pendingContentSource = useRef<onSourceChangedProps | null>(null);
@@ -142,8 +148,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	useEffect(() => {
 		const castIsPlayingAd = castMedia.isPlayingAd;
 		if (castIsPlayingAd !== isPlayingAdRef.current) {
+			const wasPlayingAd = isPlayingAdRef.current;
 			currentLogger.current?.info(
-				`Ad playing state changed: ${isPlayingAdRef.current} → ${castIsPlayingAd}`
+				`Ad playing state changed: ${wasPlayingAd} → ${castIsPlayingAd}`
 			);
 			isPlayingAdRef.current = castIsPlayingAd;
 			setIsPlayingAd(castIsPlayingAd);
@@ -151,6 +158,17 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			// Notify host — same contract as normal flavour
 			props.events?.onAdPlayingChange?.(castIsPlayingAd);
 			props.events?.onChangeCommonData?.({ isPlayingAd: castIsPlayingAd });
+
+			// After an ad break ends for live/DVR content, schedule a seek to live edge.
+			// The receiver starts at position 0 of the DVR window when no startTime is set,
+			// so we need to explicitly seek to the live edge once post-ad progress data
+			// flows into the DVR manager (handled in the progress simulation useEffect).
+			if (wasPlayingAd && !castIsPlayingAd && sourceRef.current?.isDVR) {
+				currentLogger.current?.info(
+					"Ad break ended for live/DVR content — will goToLive after next progress update"
+				);
+				needsPostAdGoToLiveRef.current = true;
+			}
 		}
 	}, [castMedia.isPlayingAd, props.events]);
 
@@ -1333,17 +1351,33 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, []);
 
 	const onSeekRequest = useCallback((playerTime: number) => {
-		if (castManagerRef.current) {
-			try {
-				currentLogger.current?.debug(`onSeekRequest: ${playerTime}`);
-				castManagerRef.current.seek(playerTime);
-			} catch (error: any) {
-				currentLogger.current?.error(`onSeekRequest failed: ${error?.message}`);
-				handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
-			}
-		} else {
+		if (!castManagerRef.current) {
 			currentLogger.current?.warn("onSeekRequest - castManager is not initialized");
 			handleOnError(new PlayerError("PLAYER_CAST_NOT_READY"));
+			return;
+		}
+
+		try {
+			// For DVR live-edge seeks, use seekToInfinite instead of absolute position.
+			// The Cast SDK seekToInfinite is more reliable for finding the live edge
+			// than seeking to an absolute position that may already be stale.
+			const isLiveEdgeSeek =
+				sourceRef.current?.isDVR && dvrProgressManagerRef.current?.isPendingLiveEdgeSeek;
+
+			if (isLiveEdgeSeek) {
+				currentLogger.current?.info(
+					`onSeekRequest: live-edge seek detected (playerTime=${playerTime.toFixed(1)}s) — using seekToInfinite`
+				);
+				castManagerRef.current.seekToLiveEdge();
+			} else {
+				currentLogger.current?.info(
+					`onSeekRequest: seeking to position ${playerTime.toFixed(1)}s`
+				);
+				castManagerRef.current.seek(playerTime);
+			}
+		} catch (error: any) {
+			currentLogger.current?.error(`onSeekRequest failed: ${error?.message}`);
+			handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
 		}
 	}, []);
 
@@ -1522,12 +1556,32 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			return;
 		}
 
+		// iOS Cast SDK fallback: adBreakStatus may remain non-null after VMAP ad
+		// breaks end, leaving isPlayingAdRef permanently true. Detect when
+		// castProgress.duration indicates real content (>120s — no ad is that long)
+		// and force-clear the stale ad state so progress can flow again.
+		const cpDuration = castProgress.duration ?? 0;
+		if (isPlayingAdRef.current && cpDuration > 120) {
+			currentLogger.current?.info(
+				`Ad state recovery: castProgress.duration=${cpDuration.toFixed(1)}s indicates content, not ad — clearing isPlayingAd`
+			);
+			isPlayingAdRef.current = false;
+			setIsPlayingAd(false);
+			props.events?.onAdPlayingChange?.(false);
+			props.events?.onChangeCommonData?.({ isPlayingAd: false });
+			// Schedule goToLive for live/DVR content (consumed below after updatePlayerData)
+			if (sourceRef.current?.isDVR) {
+				needsPostAdGoToLiveRef.current = true;
+			}
+			// Fall through — don't return, process this progress update normally
+		}
+
 		// Guard: block progress events during ad breaks to prevent
 		// DVR manager from receiving ad currentTime (typically 0)
 		// which triggers goToLive() → PLAYER_CAST_OPERATION_FAILED
 		if (isPlayingAdRef.current) {
-			currentLogger.current?.debug(
-				`Simulating onProgress - BLOCKED (ad playing), castProgress.currentTime: ${castProgress.currentTime}`
+			currentLogger.current?.info(
+				`Simulating onProgress - BLOCKED (ad playing), castProgress: currentTime=${castProgress.currentTime}, duration=${castProgress.duration}`
 			);
 			return;
 		}
@@ -1578,6 +1632,21 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					isBuffering: isBuffering || isLoadingContent,
 					isPaused: paused,
 				});
+
+				// After an ad break ends, seek to live edge once DVR manager has fresh data.
+				// This must happen AFTER updatePlayerData so the seekable range is current.
+				// Uses seekToInfinite (via seekToLiveEdge) instead of position-based seek
+				// because the Cast SDK handles live edge positioning more reliably with it.
+				if (needsPostAdGoToLiveRef.current && e.seekableDuration > 0) {
+					needsPostAdGoToLiveRef.current = false;
+					currentLogger.current?.info(
+						`Post-ad goToLive: seeking to live edge via seekToInfinite (seekableDuration: ${e.seekableDuration.toFixed(1)}s)`
+					);
+					// Native seek to live edge (seekToInfinite)
+					castManagerRef.current?.seekToLiveEdge();
+					// Update DVR manager state without triggering another native seek
+					dvrProgressManagerRef.current?.markAsLiveEdge();
+				}
 			}
 
 			if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData) {

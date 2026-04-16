@@ -546,6 +546,29 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		this._handleSeekTo(liveEdge);
 	}
 
+	/**
+	 * Marks the DVR manager as being at the live edge without triggering a native
+	 * seek via onSeekRequest. Use when the native seek is handled externally
+	 * (e.g. Cast SDK seekToInfinite) and only the manager state needs updating.
+	 */
+	markAsLiveEdge(): void {
+		if (!this._isValidState()) {
+			this._currentLogger?.warn("markAsLiveEdge: Invalid state - deferring");
+			this._needsInitialGoToLive = true;
+			return;
+		}
+
+		this._currentLogger?.info("markAsLiveEdge (external seek)");
+		this._isLiveEdgePosition = true;
+		this._pendingLiveEdgeSeek = true;
+
+		if (this._isPaused || this._isBuffering) {
+			this._frozenProgressDatum = this._getCurrentLiveEdge();
+		}
+
+		this._emitProgressUpdate();
+	}
+
 	seekToTime(time: number): void {
 		if (!this._isValidState()) {
 			this._currentLogger?.warn("seekToTime: Invalid state - operation queued until ready");
@@ -632,6 +655,11 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 
 	get isDVRWindowConfigured(): boolean {
 		return this._isValidState(); // Basado en seekableRange, no en CMS
+	}
+
+	/** Whether a live-edge seek is currently in transit (set by goToLive/markAsLiveEdge). */
+	get isPendingLiveEdgeSeek(): boolean {
+		return this._pendingLiveEdgeSeek;
 	}
 
 	get currentTimeWindowSeconds(): number | null {

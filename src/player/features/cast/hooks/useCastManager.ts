@@ -323,11 +323,18 @@ export function useCastManager(
 	const seek = useCallback(
 		async (position: number): Promise<boolean> => {
 			if (!canPerformAction()) {
+				currentLogger.current?.warn(
+					`seek(${position.toFixed(1)}) - canPerformAction() is false, aborting`
+				);
 				return handleActionError("action", new PlayerError("PLAYER_CAST_NOT_READY"), {
 					action: "seek",
 					position,
 				});
 			}
+
+			currentLogger.current?.info(
+				`seek: sending position=${position.toFixed(1)}s to Chromecast`
+			);
 
 			startAction("seek");
 
@@ -353,6 +360,39 @@ export function useCastManager(
 		},
 		[canPerformAction, handleActionError, startAction, completeAction, nativeClient]
 	);
+
+	// Acción: Seek to live edge (uses seekToInfinite for reliable live edge positioning)
+	const seekToLiveEdge = useCallback(async (): Promise<boolean> => {
+		if (!canPerformAction()) {
+			currentLogger.current?.warn("seekToLiveEdge - canPerformAction() is false, aborting");
+			return handleActionError("action", new PlayerError("PLAYER_CAST_NOT_READY"), {
+				action: "seekToLiveEdge",
+			});
+		}
+
+		currentLogger.current?.info("seekToLiveEdge: sending { infinite: true } to Chromecast");
+		startAction("seekToLiveEdge");
+
+		try {
+			await nativeClient.seek({ infinite: true });
+			completeAction("seekToLiveEdge");
+
+			// Callback de seek completado
+			setTimeout(() => {
+				callbacksRef.current.onSeekCompleted?.(-1); // -1 signals live edge
+			}, 100);
+
+			return true;
+		} catch (error) {
+			return handleActionError(
+				"seekToLiveEdge",
+				error instanceof PlayerError
+					? error
+					: new PlayerError("PLAYER_CAST_OPERATION_FAILED"),
+				{ action: "seekToLiveEdge" }
+			);
+		}
+	}, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
 
 	// Acción: Skip Forward
 	const skipForward = useCallback(
@@ -714,6 +754,7 @@ export function useCastManager(
 		play,
 		pause,
 		seek,
+		seekToLiveEdge,
 		skipForward,
 		skipBackward,
 		stop,
