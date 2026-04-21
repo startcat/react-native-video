@@ -66,7 +66,7 @@ export const useVideoAnalytics = ({
 			return;
 		}
 
-		// Limpiar plugins existentes
+		// Limpiar plugins existentes (removePlugin ya llama a destroy() en cada plugin)
 		const existingPlugins = analyticsEventsRef.current.getPlugins();
 		existingPlugins.forEach((plugin: PlayerAnalyticsPlugin) => {
 			analyticsEventsRef.current!.removePlugin(plugin.name);
@@ -78,7 +78,7 @@ export const useVideoAnalytics = ({
 		});
 
 		return () => {
-			// Cleanup al desmontar
+			// Cleanup al desmontar: destroy() llama a destroy en cada plugin restante
 			if (analyticsEventsRef.current) {
 				analyticsEventsRef.current.destroy();
 			}
