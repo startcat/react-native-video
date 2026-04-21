@@ -115,6 +115,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	// DVR Progress Manager
 	const dvrProgressManagerRef = useRef<DVRProgressManagerClass | null>(null);
 	const hasCalledInitialSeekRef = useRef<boolean>(false);
+	const checkInitialSeekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const dvrTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
 	// Hook para la orientación de la pantalla
@@ -530,6 +531,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			dvrTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
 			dvrTimeoutsRef.current = [];
 
+			// Limpiar timeout de checkInitialSeek si existe
+			if (checkInitialSeekTimeoutRef.current) {
+				clearTimeout(checkInitialSeekTimeoutRef.current);
+				checkInitialSeekTimeoutRef.current = null;
+			}
+
 			if (vodProgressManagerRef.current) {
 				vodProgressManagerRef.current.destroy();
 			}
@@ -859,18 +866,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				props.events.onStart();
 			}
 
-			// Seek inicial al cargar un live con DVR
-			if (sourceRef.current?.isDVR && dvrProgressManagerRef.current) {
-				try {
-					dvrProgressManagerRef.current.checkInitialSeek(
-						"player",
-						isLiveProgramRestricted
-					);
-				} catch (error: any) {
-					currentLogger.current?.error(`DVR checkInitialSeek failed: ${error?.message}`);
-					handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
-				}
-			}
+			// NOTA: checkInitialSeek se llama en handleOnProgress después de recibir datos válidos
+			// para que el DVR Manager tenga seekableRange y pueda calcular el live edge correctamente.
 		}
 	};
 
@@ -917,6 +914,54 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					isBuffering: isBuffering,
 					isPaused: paused,
 				});
+
+				// Ejecutar checkInitialSeek DESPUÉS de que el DVR Manager tenga datos válidos
+				// IMPORTANTE: Esperar 500ms para que el player nativo termine su seek automático al startPosition
+				if (!hasCalledInitialSeekRef.current && dvrProgressManagerRef.current) {
+					// Verificar que el DVR Manager esté listo para operaciones de seek
+					if (dvrProgressManagerRef.current.isReadyForSeek) {
+						// Determinar si estamos restringidos al programa actual
+						const isLiveProgramRestrictedLocal =
+							props.playlistItem?.liveSettings?.playbackType === "playlist" &&
+							!!props.playlistItem?.liveSettings?.currentProgram;
+
+						currentLogger.current?.info(
+							`⏳ DVR Manager ready - Scheduling checkInitialSeek in 500ms (waiting for native seek to complete)`
+						);
+
+						// Limpiar timeout anterior si existe
+						if (checkInitialSeekTimeoutRef.current) {
+							clearTimeout(checkInitialSeekTimeoutRef.current);
+						}
+
+						// Esperar 500ms para que el player nativo complete su seek automático
+						checkInitialSeekTimeoutRef.current = setTimeout(() => {
+							try {
+								currentLogger.current?.info(
+									`✅ Calling checkInitialSeek with isLiveProgramRestricted: ${isLiveProgramRestrictedLocal}, playbackType: ${props.playlistItem?.liveSettings?.playbackType}`
+								);
+
+								dvrProgressManagerRef.current?.checkInitialSeek(
+									"player",
+									isLiveProgramRestrictedLocal
+								);
+							} catch (error: any) {
+								currentLogger.current?.error(
+									`DVR checkInitialSeek failed: ${error?.message}`
+								);
+								handleOnInternalError(
+									handleErrorException(error, "PLAYER_SEEK_FAILED")
+								);
+							}
+						}, 500);
+
+						hasCalledInitialSeekRef.current = true;
+					} else {
+						currentLogger.current?.debug(
+							`⏳ DVR Manager not ready yet for checkInitialSeek - will retry on next progress update`
+						);
+					}
+				}
 			}
 
 			if (!sourceRef.current?.isLive && props?.events?.onChangeCommonData) {
