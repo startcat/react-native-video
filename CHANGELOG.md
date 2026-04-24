@@ -1,5 +1,19 @@
 
 
+## [7.1.20](https://github.com/startcat/react-native-video/compare/v7.1.19...v7.1.20) (2026-04-24)
+
+
+### Bug Fixes
+
+* **cast:** filtrar progress por URL — descartar castProgress del stream previo hasta que el receptor confirme nuestro contentId; evita que el DVR manager consuma el `deferred goToLive` con coordenadas del stream anterior cuando se cambia de directo a directo
+* **cast:** eliminar `setIsContentLoaded(true)` prematuro en `onPlaybackStartedCallback` — el "playing" del receptor puede venir del stream anterior en un mount nuevo; el único camino autoritativo queda `onContentLoadedCallback`
+* **cast:** endurecer la "ad state recovery" (duration > 120 + currentTime > 5) — durante un preroll el receptor ya reporta la duración del contenido aunque el IMA todavía esté reproduciendo; el gate antiguo limpiaba `isPlayingAd` a mitad del anuncio y disparaba un `goToLive` que el receptor rechazaba con `PLAYER_CAST_OPERATION_FAILED`
+* **cast:** cleanup simétrico y `id-guard` al cambiar de contenido — `resetStateForContentSwitch` deja refs, DVR/VOD managers y ancla URL en blanco; el id-guard evita re-entrar en el pipeline de carga en re-renders no relacionados con un cambio de stream
+* **cast:** watchdog post-seek contra el reset silencioso del receptor CAF al inicio del DVR window tras un seek a live edge (hasta 2 reintentos en ventana de 8 s); usa `windowCurrentSizeInSeconds` en segundos para evitar enviar timestamps epoch-ms al receptor
+* **cast:** saltar seek post-anuncios si el receptor ya está dentro de la tolerancia de live edge — algunos receptores auto-posicionan cerca del edge en una carga live nueva y rechazan el seek adicional
+* **cast:** strip de `?start=`/`&end=` del manifest antes de enviarlo al receptor — el consumer los usa para anclar la ventana DVR a un programa, pero el receptor los reaplica en cada refresh del manifest y teletransporta la reproducción tras cada buffer
+* **cast:** quitar `props.events` de las deps de cuatro useEffects (ad-sync, remote sync, track changes, progress simulation) — los consumers reconstruyen el objeto de eventos inline en cada render, lo que re-disparaba los effects cada render y acababa saltando el safeguard "Maximum update depth exceeded" de React tras unos segundos de reproducción
+
 ## [7.1.19](https://github.com/startcat/react-native-video/compare/v7.1.18...v7.1.19) (2026-04-24)
 
 
