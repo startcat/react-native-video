@@ -1369,17 +1369,22 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		}
 
 		try {
-			// For DVR live-edge seeks, use seekToInfinite instead of absolute position.
-			// The Cast SDK seekToInfinite is more reliable for finding the live edge
-			// than seeking to an absolute position that may already be stale.
+			// For DVR live-edge seeks, pass playerTime to seekToLiveEdge so the
+			// native call uses a position-based seek (Math.max(0, playerTime - 2))
+			// rather than the { infinite: true } fallback. The infinite marker is
+			// unreliable with short DVR windows: some receivers accept it but
+			// don't actually move to live edge (observed landing at position 0).
+			// playerTime here is the DVR manager's computed live edge expressed
+			// in player seconds, which maps 1:1 to the receiver's seekable range
+			// end for a fresh load.
 			const isLiveEdgeSeek =
 				sourceRef.current?.isDVR && dvrProgressManagerRef.current?.isPendingLiveEdgeSeek;
 
 			if (isLiveEdgeSeek) {
 				currentLogger.current?.info(
-					`onSeekRequest: live-edge seek detected (playerTime=${playerTime.toFixed(1)}s) — using seekToInfinite`
+					`onSeekRequest: live-edge seek detected (playerTime=${playerTime.toFixed(1)}s) — using absolute seek`
 				);
-				castManagerRef.current.seekToLiveEdge();
+				castManagerRef.current.seekToLiveEdge(playerTime);
 			} else {
 				currentLogger.current?.info(
 					`onSeekRequest: seeking to position ${playerTime.toFixed(1)}s`
