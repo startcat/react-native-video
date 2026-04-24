@@ -144,9 +144,20 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const castProgress = useCastProgress(castLoggerConfig);
 	const castVolume = useCastVolume(castLoggerConfig);
 
-	// Sync ad playing state from cast media status
+	// Sync ad playing state from cast media status.
+	//
+	// The receiver can briefly emit `isPlayingAd=true` with `adBreakId=null`
+	// during a LOAD (seen on stream-to-stream switch: the VMAP metadata arrives
+	// before the ad break has a stable id). Trusting that phantom flag triggered
+	// a loop: ad-sync → needsPostAdGoToLiveRef=true → progress simulation clears
+	// ad state + fires seekToLiveEdge → seek fails (receiver still loading) →
+	// handleOnError modal → and because upstream `castMedia.isPlayingAd` stays
+	// true, the useEffect re-fires and the cycle repeats (~40 times in 2 s).
+	// Gate on `adBreakId !== null` so the flag only flips when an actual ad
+	// break is reported.
 	useEffect(() => {
-		const castIsPlayingAd = castMedia.isPlayingAd;
+		const adBreakId = castMedia.adBreakStatus?.adBreakId ?? null;
+		const castIsPlayingAd = castMedia.isPlayingAd && adBreakId !== null;
 		if (castIsPlayingAd !== isPlayingAdRef.current) {
 			const wasPlayingAd = isPlayingAdRef.current;
 			currentLogger.current?.info(
@@ -170,7 +181,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				needsPostAdGoToLiveRef.current = true;
 			}
 		}
-	}, [castMedia.isPlayingAd, props.events]);
+	}, [castMedia.isPlayingAd, castMedia.adBreakStatus?.adBreakId, props.events]);
 
 	// CREATE REFS FOR MAIN CALLBACKS to avoid circular dependencies
 	const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
