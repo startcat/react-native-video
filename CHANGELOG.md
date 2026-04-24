@@ -1,5 +1,13 @@
 
 
+## [7.1.18](https://github.com/startcat/react-native-video/compare/v7.1.17...v7.1.18) (2026-04-24)
+
+
+### Bug Fixes
+
+* **cast:** ignorar isPlayingAd fantasma cuando adBreakId es null (evita loop de modales durante stream-to-stream switch)
+* **cast:** no propagar fallo de seekToLiveEdge como error fatal del contenido
+
 ## [7.1.17](https://github.com/startcat/react-native-video/compare/v7.1.16...v7.1.17) (2026-04-16)
 
 
