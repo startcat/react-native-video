@@ -52,6 +52,39 @@ import {
 import { handleErrorException, PlayerError } from "../../core/errors";
 import { type CastContentInfo, type CastTrackInfo } from "../../features/cast/types/types";
 
+/**
+ * Strip `start` and `end` query parameters from a live DVR manifest URL before
+ * handing it to the Cast receiver. The consumer adds those params to anchor
+ * the DVR window at a specific program; the receiver reapplies them on every
+ * manifest refresh, teleporting playback back to the anchor after each brief
+ * buffer. For Cast live playback the intent is always live edge (the flavour
+ * passes startTime: -1), so the anchor is redundant and only causes drift.
+ *
+ * Uses pure string manipulation rather than the URL/URLSearchParams APIs,
+ * because the React Native polyfill implements those only partially —
+ * `searchParams.delete` turned out to be a no-op on some RN runtimes,
+ * leaving the param in place and appending a stray `&` to the output.
+ */
+function stripLiveStartAnchorForCast(uri: string): string {
+	if (!uri || typeof uri !== "string") return uri;
+	const qIdx = uri.indexOf("?");
+	if (qIdx === -1) return uri;
+
+	const base = uri.substring(0, qIdx);
+	const query = uri.substring(qIdx + 1);
+	if (!query) return base;
+
+	const kept = query
+		.split("&")
+		.filter((pair) => {
+			if (!pair) return false;
+			const key = pair.split("=", 1)[0];
+			return key !== "start" && key !== "end";
+		});
+
+	return kept.length > 0 ? `${base}?${kept.join("&")}` : base;
+}
+
 export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const currentLogger = useRef<ComponentLogger | null>(null);
 
@@ -133,6 +166,19 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// post-ad progress update so the DVR manager has fresh seekableRange data.
 	const needsPostAdGoToLiveRef = useRef(false);
 
+	// Post-live-edge-seek watchdog. Some Cast receivers (observed on Chromecast
+	// with CAF live/DVR + VMAP prerolls) accept the seek and report progress
+	// at the live edge for a brief window (~100-500 ms), then *internally reset*
+	// position to the start of the DVR window — producing a sudden jump of
+	// several minutes with no client-side trigger. When the DVR manager detects
+	// this drift (`_isLiveEdgePosition: true → false`) inside the watch window
+	// and no user-initiated seek happened in between, re-fire the seek. Capped
+	// at 2 retries to avoid fighting a receiver that genuinely can't hold the
+	// edge (or a user who just moved the slider off). Disarmed on a real user
+	// seek or when the window expires.
+	const postSeekWatchdogRef = useRef<{ until: number; retriesLeft: number } | null>(null);
+	const lastUserSeekAtRef = useRef<number>(0);
+
 	// Control para evitar mezcla de sources
 	const currentSourceType = useRef<"tudum" | "content" | null>(null);
 	const pendingContentSource = useRef<onSourceChangedProps | null>(null);
@@ -181,7 +227,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				needsPostAdGoToLiveRef.current = true;
 			}
 		}
-	}, [castMedia.isPlayingAd, castMedia.adBreakStatus?.adBreakId, props.events]);
+		// `props.events` omitted on purpose. Parent consumers typically
+		// rebuild the `events` object inline on every render, so including
+		// it here re-fires this effect on every parent render — compounded
+		// with the Cast SDK's 1 Hz stream-position setState, that eventually
+		// tripped React's "Maximum update depth exceeded" safeguard. The
+		// closure still reads the latest callback because castMedia changes
+		// trigger re-creation of the effect function.
+	}, [castMedia.isPlayingAd, castMedia.adBreakStatus?.adBreakId]);
 
 	// CREATE REFS FOR MAIN CALLBACKS to avoid circular dependencies
 	const onLoadRef = useRef<(e: { currentTime: number; duration: number }) => void>();
@@ -227,11 +280,16 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		setPaused(false);
 		setBuffering(false);
 
-		// Si no estaba cargado, marcarlo como cargado
-		if (!isContentLoaded) {
-			setIsContentLoaded(true);
-			isChangingSource.current = false;
-		}
+		// setIsContentLoaded(true) fallback removed on purpose.
+		// onContentLoadedCallback is the authoritative signal that the Cast
+		// receiver accepted our loadContent call. onPlaybackStartedCallback
+		// also fires when the receiver is playing the *previous* stream
+		// during a fresh mount — accepting that as "content loaded" caused
+		// stale castProgress to feed into DVR manager and consume the
+		// pending live-edge seek on old-stream coordinates. If there is a
+		// race where onContentLoadedCallback genuinely does not fire, that
+		// is a bug in the Cast Manager layer and should be surfaced, not
+		// masked here.
 	}, [isContentLoaded]);
 
 	const onPlaybackEndedCallback = useCallback((): boolean => {
@@ -590,6 +648,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			setIsContentLoaded(true);
 			isChangingSource.current = false;
 		}
+		// `props.events` omitted to avoid re-firing on every parent render —
+		// see ad-sync useEffect comment. Latest callback read via closure.
 	}, [
 		castConnected,
 		castMedia.url,
@@ -597,7 +657,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		castMedia.subtitle,
 		castMedia.imageUrl,
 		castMedia.customData,
-		props.events,
 	]);
 
 	// Sincronizar metadatos cuando cambian las props (contenido local)
@@ -717,7 +776,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		setTimeout(() => {
 			isLocalTrackChangeRef.current = false;
 		}, 2000);
-	}, [castMedia.activeTrackIds, menuData, audioIndex, subtitleIndex, props.events]);
+		// `props.events` omitted — see ad-sync useEffect comment.
+	}, [castMedia.activeTrackIds, menuData, audioIndex, subtitleIndex]);
 
 	// Procesar media tracks cuando estén disponibles (independiente de onLoad)
 	useEffect(() => {
@@ -804,9 +864,27 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		}
 	}, [castVolume.isMuted, muted]);
 
+	// Track which content the flavour has actually processed. Parent consumers
+	// often regenerate `props.manifests` as a fresh array reference on every
+	// render, which makes the useEffect below re-fire without any real content
+	// change. Before this guard, each re-fire ran handleLiveContent → helper →
+	// setIsContentLoaded(false) + setHasTriedLoading(false) + setIsPlayingAd
+	// (false), churning React state; combined with the Cast SDK's stream-
+	// position setState firing on every 1 s tick, the component eventually
+	// tripped React's "Maximum update depth exceeded" safeguard. Gating on
+	// content id + isLive keeps the effect idempotent for normal renders and
+	// only lets the full reset run on a real content switch.
+	const lastProcessedContentRef = useRef<{ id: unknown; isLive: boolean } | null>(null);
+
 	useEffect(() => {
-		// Verificar si es contenido live/DVR vs VOD
+		const currentId = props.playerMetadata?.id;
 		const isLiveContent = !!props.playerProgress?.isLive;
+
+		const prev = lastProcessedContentRef.current;
+		if (prev && prev.id === currentId && prev.isLive === isLiveContent) {
+			return;
+		}
+		lastProcessedContentRef.current = { id: currentId, isLive: isLiveContent };
 
 		if (isLiveContent) {
 			handleLiveContent();
@@ -815,8 +893,50 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		}
 	}, [props.manifests, props.isAutoNext, props.playerMetadata?.id]);
 
+	// Clears per-content state that would otherwise leak between streams on a
+	// live→live or live→VOD switch. Before this existed, handleLiveContent did
+	// no cleanup: the DVR progress manager kept the old stream's seekable range,
+	// the ad flags stayed armed from the previous break, and the receiver —
+	// which keeps reporting old-stream progress for ~500 ms during the switch —
+	// fed garbage tuples (new duration + old currentTime) into the DVR manager,
+	// producing bogus "live edge lost" transitions and surprise goToLive seeks.
+	//
+	// Must run BEFORE changeSource, synchronously, so progress simulation is
+	// already gated (isChangingSource=true) by the time the receiver delivers
+	// the next tick. Cleared in onContentLoadedCallback.
+	const resetStateForContentSwitch = useCallback(() => {
+		currentSourceType.current = null;
+		pendingContentSource.current = null;
+		sliderValues.current = undefined;
+		setIsContentLoaded(false);
+		setHasTriedLoading(false);
+		isChangingSource.current = true;
+
+		isPlayingAdRef.current = false;
+		setIsPlayingAd(false);
+		needsPostAdGoToLiveRef.current = false;
+		lastValidDVRDurationRef.current = 0;
+		localLoadedUrlRef.current = null;
+		postSeekWatchdogRef.current = null;
+		lastUserSeekAtRef.current = 0;
+
+		// reset() re-arms `_needsInitialGoToLive=true`. Leave it armed so the
+		// DVR manager fires its own deferred goToLive the moment the first
+		// valid progress tuple arrives — that covers both the no-ads case
+		// (receiver reports position 0 of the DVR window, not live edge, once
+		// the `?start=` anchor is stripped) and the preroll case (progress is
+		// gated during ads, so the deferred seek still fires at post-ad). The
+		// cast flavour's own needsPostAdGoToLive path then only needs to handle
+		// the mid-roll case; a duplicate-seek guard below uses
+		// isPendingLiveEdgeSeek to detect when the DVR manager already fired.
+		dvrProgressManagerRef.current?.reset();
+		vodProgressManagerRef.current?.reset();
+	}, []);
+
 	const handleLiveContent = () => {
 		currentLogger.current?.debug("handleLiveContent");
+
+		resetStateForContentSwitch();
 
 		if (!tudumRef.current) {
 			tudumRef.current = new TudumClass({
@@ -846,7 +966,6 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		}
 
 		currentSourceType.current = "content";
-		isChangingSource.current = true;
 
 		try {
 			sourceRef.current.changeSource({
@@ -871,18 +990,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const handleVODContent = () => {
 		currentLogger.current?.debug("handleVODContent");
 
-		// Reset completo solo para VOD
-		currentSourceType.current = null;
-		pendingContentSource.current = null;
-		sliderValues.current = undefined;
-		setIsContentLoaded(false);
-		setHasTriedLoading(false);
-
-		// Reset progress managers solo para VOD
-		vodProgressManagerRef.current?.reset();
-		dvrProgressManagerRef.current?.reset();
-		// In Cast, always cancel deferred goToLive after reset — prevents fatal seek.
-		dvrProgressManagerRef.current?.cancelDeferredGoToLive();
+		resetStateForContentSwitch();
 
 		const shouldPlayTudum =
 			!!props.showExternalTudum && !props.isAutoNext && !props.playerProgress?.isLive;
@@ -1057,8 +1165,33 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				setIsLoadingContent(true);
 				drm.current = data.drm;
 
+				// For live DVR content on Cast, strip the `start` / `end` query
+				// parameters that the consumer adds to anchor the DVR window at a
+				// specific program. The receiver keeps reapplying that anchor every
+				// time it refreshes the manifest — observed in practice: every brief
+				// buffer (1-2 s) causes the receiver to teleport back to the program
+				// start, breaking live-edge playback after ~30 s of watching.
+				//
+				// For Cast live playback the intent is always live edge (the flavour
+				// sends startTime: -1 / startingPoint: 0 regardless of program
+				// selection), so the anchor is redundant and only causes drift.
+				// The native (non-cast) player keeps receiving the original URL with
+				// the anchor intact, since it handles the start position correctly.
+				const castSource =
+					sourceRef.current?.isLive && sourceRef.current?.isDVR
+						? {
+								...data.source,
+								uri: stripLiveStartAnchorForCast(data.source.uri),
+							}
+						: data.source;
+				if (castSource.uri !== data.source.uri) {
+					currentLogger.current?.info(
+						`loadContentWithCastManager - stripped live-start anchor for Cast: ${data.source.uri} → ${castSource.uri}`
+					);
+				}
+
 				// Verificar si ya estamos reproduciendo el mismo contenido
-				if (castMedia.url === data.source.uri && !castMedia.isIdle) {
+				if (castMedia.url === castSource.uri && !castMedia.isIdle) {
 					currentLogger.current?.info(
 						"Content already loaded in Cast, joining existing session - will sync tracks from Cast"
 					);
@@ -1101,12 +1234,12 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					);
 
 					// Guardar la URL que estamos cargando localmente para detectar cambios remotos
-					localLoadedUrlRef.current = data.source.uri;
+					localLoadedUrlRef.current = castSource.uri;
 					// Resetear el flag de contenido remoto ya que estamos cargando contenido local
 					isRemoteContentRef.current = false;
 
 					const success = await castManagerRef.current?.loadContent({
-						source: data.source,
+						source: castSource,
 						manifest: sourceRef.current?.currentManifest || {},
 						drm: data.drm,
 						youbora: youboraForVideo.current,
@@ -1192,14 +1325,15 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			}
 
 			if (sourceRef.current?.isLive && sourceRef.current?.isDVR) {
+				// Keep `_needsInitialGoToLive` armed after reset (do NOT cancel).
+				// The old assumption — "for Cast the receiver already starts at
+				// the live edge" — is false once we strip the `?start=` anchor:
+				// the receiver now starts at position 0 of the DVR window (5+ min
+				// behind live). The progress simulation gate blocks
+				// updatePlayerData while ads are playing, so the deferred goToLive
+				// cannot fire during VMAP processing — it only fires once real
+				// content progress arrives.
 				dvrProgressManagerRef.current?.reset();
-				// Cancel the deferred goToLive IMMEDIATELY after reset.
-				// reset() sets _needsInitialGoToLive = true, but for Cast the receiver
-				// already starts at the live edge. If we wait until onLoad (which fires
-				// seconds later via onContentLoadedCallback + setTimeout), updatePlayerData
-				// will trigger goToLive() → seek() as soon as castProgress provides valid
-				// data, killing the receiver during VMAP/ad processing.
-				dvrProgressManagerRef.current?.cancelDeferredGoToLive();
 			}
 		},
 		[loadContentWithCastManager]
@@ -1356,6 +1490,50 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 			updatePlayerProgressRef();
 
+			// Post-seek watchdog: the Chromecast CAF receiver has been seen to
+			// accept a live-edge seek, report progress there for a few hundred
+			// ms, then internally reset position to the start of the DVR window
+			// (no user action, no log entry — just a sudden offset jump of
+			// several minutes). Catch that transition here and re-seek, bounded
+			// by retries + time window. Ignore drift that coincides with a
+			// recent user-initiated seek (the user moved off live edge on
+			// purpose).
+			const guard = postSeekWatchdogRef.current;
+			if (guard && sourceRef.current?.isDVR) {
+				if (Date.now() >= guard.until) {
+					postSeekWatchdogRef.current = null;
+				} else if (
+					data.isLiveEdgePosition === false &&
+					guard.retriesLeft > 0 &&
+					Date.now() - lastUserSeekAtRef.current > 2000
+				) {
+					// Use `windowCurrentSizeInSeconds` (seekable range size in seconds)
+					// — NOT `maximumValue` / `duration` from ProgressUpdateData: for
+					// live DVR those are absolute epoch-ms timestamps that the slider
+					// uses, and passing them to seekToLiveEdge produced a seek target
+					// of ~1.77 × 10¹² s, corrupting the DVR manager into offset
+					// -29617545667:32. The manager exposes the correct value
+					// directly via currentTimeWindowSeconds.
+					const seekableDuration = data.windowCurrentSizeInSeconds ?? 0;
+					if (seekableDuration > 0 && castManagerRef.current) {
+						currentLogger.current?.info(
+							`Post-seek watchdog: live-edge drift detected (offset ${typeof data.liveEdgeOffset === "number" ? data.liveEdgeOffset.toFixed(1) : "?"}s), re-seeking to ${seekableDuration.toFixed(1)}s — retries left: ${guard.retriesLeft - 1}`
+						);
+						guard.retriesLeft -= 1;
+						castManagerRef.current
+							.seekToLiveEdge(seekableDuration)
+							.then((ok) => {
+								if (ok) {
+									dvrProgressManagerRef.current?.markAsLiveEdge();
+								}
+							})
+							.catch(() => {
+								// seekToLiveEdge logs non-fatal failures itself.
+							});
+					}
+				}
+			}
+
 			// Trigger re-render del useEffect para emitir eventos con nuevos sliderValues
 			setSliderValuesUpdate((prev: number) => prev + 1);
 		}
@@ -1384,11 +1562,17 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				currentLogger.current?.info(
 					`onSeekRequest: live-edge seek detected (playerTime=${playerTime.toFixed(1)}s) — using absolute seek`
 				);
+				postSeekWatchdogRef.current = {
+					until: Date.now() + 8000,
+					retriesLeft: 2,
+				};
 				castManagerRef.current.seekToLiveEdge(playerTime);
 			} else {
 				currentLogger.current?.info(
 					`onSeekRequest: seeking to position ${playerTime.toFixed(1)}s`
 				);
+				lastUserSeekAtRef.current = Date.now();
+				postSeekWatchdogRef.current = null;
 				castManagerRef.current.seek(playerTime);
 			}
 		} catch (error: any) {
@@ -1572,14 +1756,51 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			return;
 		}
 
+		// Guard against stale receiver progress during a content switch. When
+		// the consumer swaps streams, the receiver keeps reporting the OLD
+		// stream's currentTime for roughly half a second until its own
+		// loadContent completes. If we feed that into the DVR manager while
+		// seekableDuration has already flipped to the new stream, we get
+		// nonsense offsets (previously seen: old-stream currentTime=295 on a
+		// new-stream duration=297 → offset of ~2 s from live edge, then a
+		// jump of 5 minutes the moment the receiver finally updates to the
+		// new content's position 0). isChangingSource is re-armed in
+		// resetStateForContentSwitch and cleared in onContentLoadedCallback.
+		if (isChangingSource.current) {
+			return;
+		}
+
+		// Gate against stale receiver progress across fresh mounts. When this
+		// flavour mounts while the Cast receiver is still playing the previous
+		// stream, castProgress/castMedia report OLD content until the receiver
+		// finishes loading ours (typically ~2 s after loadContent is issued).
+		// Feeding those values into DVR manager initialises seekableRange from
+		// the previous stream and consumes the deferred live-edge seek on
+		// bogus coordinates — when the new content finally lands at
+		// currentTime=0 there is no pending seek left to recover the live
+		// edge. castMedia.url reports the receiver's current contentId; only
+		// accept progress once it matches what we actually asked to load.
+		if (castMedia.url && castMedia.url !== localLoadedUrlRef.current) {
+			return;
+		}
+
 		// iOS Cast SDK fallback: adBreakStatus may remain non-null after VMAP ad
 		// breaks end, leaving isPlayingAdRef permanently true. Detect when
 		// castProgress.duration indicates real content (>120s — no ad is that long)
-		// and force-clear the stale ad state so progress can flow again.
+		// AND content has actually been progressing (currentTime > 5s) — without
+		// the currentTime gate this recovery fires during preroll ad breaks: the
+		// receiver reports the content's duration as soon as loadContent
+		// completes, even though the IMA ad is still playing and the content
+		// stream has not started (currentTime=0). A premature recovery there
+		// cleared isPlayingAd mid-preroll, let the DVR manager fire goToLive,
+		// and the receiver rejected the seek (PLAYER_CAST_OPERATION_FAILED)
+		// because it was still playing the ad — leaving the user stuck at the
+		// start of the DVR window when the content eventually resumed.
 		const cpDuration = castProgress.duration ?? 0;
-		if (isPlayingAdRef.current && cpDuration > 120) {
+		const cpCurrentTime = castProgress.currentTime ?? 0;
+		if (isPlayingAdRef.current && cpDuration > 120 && cpCurrentTime > 5) {
 			currentLogger.current?.info(
-				`Ad state recovery: castProgress.duration=${cpDuration.toFixed(1)}s indicates content, not ad — clearing isPlayingAd`
+				`Ad state recovery: duration=${cpDuration.toFixed(1)}s currentTime=${cpCurrentTime.toFixed(1)}s indicates content, not ad — clearing isPlayingAd`
 			);
 			isPlayingAdRef.current = false;
 			setIsPlayingAd(false);
@@ -1663,23 +1884,66 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				// stream switch), and the UI lies about the user's position.
 				if (needsPostAdGoToLiveRef.current && e.seekableDuration > 0) {
 					needsPostAdGoToLiveRef.current = false;
-					currentLogger.current?.info(
-						`Post-ad goToLive: seeking to live edge (seekableDuration: ${e.seekableDuration.toFixed(1)}s)`
-					);
-					castManagerRef.current
-						?.seekToLiveEdge(e.seekableDuration)
-						.then((ok) => {
-							if (ok) {
-								dvrProgressManagerRef.current?.markAsLiveEdge();
-							} else {
-								currentLogger.current?.warn(
-									"Post-ad goToLive: seek did not succeed — leaving DVR manager state unchanged"
-								);
-							}
-						})
-						.catch(() => {
-							// seekToLiveEdge already logs non-fatal failures; don't double-handle.
-						});
+
+					// Dedupe with DVR manager's deferred goToLive. When a preroll
+					// ends and this is the first valid progress the manager has
+					// ever seen, updatePlayerData above fired the manager's own
+					// goToLive (which sets isPendingLiveEdgeSeek=true). Running
+					// another seek here produces concurrent requests that the
+					// receiver rejects with PLAYER_CAST_OPERATION_FAILED. The
+					// DVR-manager path already covers this case — bail out.
+					if (dvrProgressManagerRef.current?.isPendingLiveEdgeSeek) {
+						currentLogger.current?.info(
+							"Post-ad goToLive: skipped — DVR manager already dispatched initial live-edge seek"
+						);
+						return;
+					}
+
+					// Pre-check: if the receiver is already within LIVE_EDGE_TOLERANCE
+					// of the live edge, skip the native seek entirely. Some Cast
+					// receivers auto-position near the live edge on a fresh live load
+					// (observed post-preroll: offset already at ~11 s when the post-ad
+					// consumer fires). Issuing a seek to seekableEnd - 2 in that case
+					// targets a position essentially at the edge of the seekable range;
+					// the SDK rejects it with PLAYER_CAST_OPERATION_FAILED and — while
+					// Fix D now keeps markAsLiveEdge from firing — the DVR manager
+					// ends up reporting "not at live edge" briefly even though the
+					// receiver was already there. Skipping the seek and marking
+					// directly matches the actual state the user sees.
+					const currentOffset =
+						e.seekableDuration - (e.currentTime ?? 0);
+					if (currentOffset >= 0 && currentOffset < 15) {
+						currentLogger.current?.info(
+							`Post-ad goToLive: already within live-edge tolerance (offset ${currentOffset.toFixed(1)}s) — skipping native seek and marking live edge directly`
+						);
+						dvrProgressManagerRef.current?.markAsLiveEdge();
+						postSeekWatchdogRef.current = {
+							until: Date.now() + 8000,
+							retriesLeft: 2,
+						};
+					} else {
+						currentLogger.current?.info(
+							`Post-ad goToLive: seeking to live edge (offset ${currentOffset.toFixed(1)}s, seekableDuration ${e.seekableDuration.toFixed(1)}s)`
+						);
+						postSeekWatchdogRef.current = {
+							until: Date.now() + 8000,
+							retriesLeft: 2,
+						};
+						castManagerRef.current
+							?.seekToLiveEdge(e.seekableDuration)
+							.then((ok) => {
+								if (ok) {
+									dvrProgressManagerRef.current?.markAsLiveEdge();
+								} else {
+									currentLogger.current?.warn(
+										"Post-ad goToLive: seek did not succeed — leaving DVR manager state unchanged"
+									);
+								}
+							})
+							.catch(() => {
+								// seekToLiveEdge already logs non-fatal failures; don't double-handle.
+							});
+					}
 				}
 			}
 
@@ -1690,6 +1954,15 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				});
 			}
 		}
+		// `props?.events?.onChangeCommonData` omitted on purpose: parent
+		// consumers typically rebuild the events object inline each render,
+		// so a new function reference arrives every parent render. Keeping
+		// it in the deps re-fired progress-simulation on every render,
+		// compounding with the Cast SDK's 1 Hz stream-position setState and
+		// eventually tripping React's "Maximum update depth exceeded"
+		// safeguard. The closure still reads the latest callback because
+		// castProgress.currentTime changes several times per second in live
+		// content, re-creating the effect function.
 	}, [
 		castProgress.currentTime,
 		castProgress.duration,
@@ -1697,7 +1970,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		paused,
 		isBuffering,
 		isLoadingContent,
-		props?.events?.onChangeCommonData,
+		castMedia.url,
 	]);
 
 	// ASSIGN CALLBACKS TO REFS
