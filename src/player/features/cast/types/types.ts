@@ -155,7 +155,7 @@ export interface CastManagerActions {
 	play: () => Promise<boolean>;
 	pause: () => Promise<boolean>;
 	seek: (position: number) => Promise<boolean>;
-	seekToLiveEdge: () => Promise<boolean>;
+	seekToLiveEdge: (seekableEnd?: number) => Promise<boolean>;
 	skipForward: (seconds?: number) => Promise<boolean>;
 	skipBackward: (seconds?: number) => Promise<boolean>;
 	stop: () => Promise<boolean>;

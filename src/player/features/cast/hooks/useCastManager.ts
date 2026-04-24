@@ -361,9 +361,19 @@ export function useCastManager(
 		[canPerformAction, handleActionError, startAction, completeAction, nativeClient]
 	);
 
-	// Acción: Seek to live edge (uses seekToInfinite for reliable live edge positioning)
+	// Acción: Seek to live edge
 	//
-	// Non-fatal error handling: seekToLiveEdge is opportunistic — it is triggered
+	// Prefers position-based seek (seekableEnd - 2s) over seek({ infinite: true })
+	// because some Cast receivers accept the infinite marker but don't actually
+	// move to the live edge (they stay at the position they were at, or snap to
+	// position 0 of the DVR window — observed with short DVR windows of a few
+	// minutes). When seekableEnd is known, a deterministic position seek near
+	// the end of the seekable range is far more predictable. seek({ infinite:
+	// true }) remains the fallback for the rare case where we don't yet have
+	// a seekable range (e.g. called before the first MediaStatus with valid
+	// duration).
+	//
+	// Non-fatal error handling: this action is opportunistic — it is triggered
 	// automatically after ad breaks, from the DVR manager goToLive() during
 	// onLoad, and from the post-ad verify watcher. The Cast SDK can reject it
 	// with PLAYER_CAST_OPERATION_FAILED (e.g. right after a LOAD while the
@@ -372,47 +382,71 @@ export function useCastManager(
 	// underlying playback is fine. Propagating that rejection as a fatal error
 	// via the onError callback surfaces in consumer apps as a "Content load
 	// error" modal that closes the player, which is strictly worse than just
-	// staying slightly behind the live edge — and during a switch it can spam
-	// dozens of modals per second as the retry loop re-fires.
-	//
-	// We therefore log the native failure as a warning and return false without
-	// invoking handleActionError. Explicit pre-flight failures (e.g.
-	// PLAYER_CAST_NOT_READY) still propagate because the caller can retry.
-	const seekToLiveEdge = useCallback(async (): Promise<boolean> => {
-		if (!canPerformAction()) {
-			currentLogger.current?.warn("seekToLiveEdge - canPerformAction() is false, aborting");
-			return handleActionError("action", new PlayerError("PLAYER_CAST_NOT_READY"), {
-				action: "seekToLiveEdge",
-			});
-		}
+	// staying slightly behind the live edge. We therefore log the native
+	// failure as a warning and return false without invoking handleActionError.
+	// Explicit pre-flight failures (e.g. PLAYER_CAST_NOT_READY) still propagate
+	// because the caller can retry.
+	const seekToLiveEdge = useCallback(
+		async (seekableEnd?: number): Promise<boolean> => {
+			if (!canPerformAction()) {
+				currentLogger.current?.warn(
+					"seekToLiveEdge - canPerformAction() is false, aborting"
+				);
+				return handleActionError("action", new PlayerError("PLAYER_CAST_NOT_READY"), {
+					action: "seekToLiveEdge",
+				});
+			}
 
-		currentLogger.current?.info("seekToLiveEdge: sending { infinite: true } to Chromecast");
-		startAction("seekToLiveEdge");
+			const usePositionSeek =
+				typeof seekableEnd === "number" && seekableEnd > 0;
+			const targetPosition = usePositionSeek
+				? Math.max(0, seekableEnd! - 2)
+				: null;
 
-		try {
-			await nativeClient.seek({ infinite: true });
-			completeAction("seekToLiveEdge");
+			if (usePositionSeek) {
+				currentLogger.current?.info(
+					`seekToLiveEdge: seeking to position ${targetPosition!.toFixed(1)}s (near live edge, seekableEnd=${seekableEnd!.toFixed(1)}s)`
+				);
+			} else {
+				currentLogger.current?.info(
+					"seekToLiveEdge: sending { infinite: true } to Chromecast (no seekableEnd known)"
+				);
+			}
 
-			// Callback de seek completado
-			setTimeout(() => {
-				callbacksRef.current.onSeekCompleted?.(-1); // -1 signals live edge
-			}, 100);
+			startAction("seekToLiveEdge");
 
-			return true;
-		} catch (error) {
-			// Non-fatal: log as warning, do NOT invoke handleActionError
-			// (which would propagate to onError and surface as a fatal modal).
-			const playerError =
-				error instanceof PlayerError
-					? error
-					: new PlayerError("PLAYER_CAST_OPERATION_FAILED");
-			currentLogger.current?.warn(
-				`seekToLiveEdge failed (non-fatal): ${JSON.stringify(playerError)}`
-			);
-			completeAction("seekToLiveEdge");
-			return false;
-		}
-	}, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
+			try {
+				if (usePositionSeek) {
+					await nativeClient.seek({ position: targetPosition! });
+				} else {
+					await nativeClient.seek({ infinite: true });
+				}
+				completeAction("seekToLiveEdge");
+
+				// Callback de seek completado
+				setTimeout(() => {
+					callbacksRef.current.onSeekCompleted?.(
+						usePositionSeek ? targetPosition! : -1
+					);
+				}, 100);
+
+				return true;
+			} catch (error) {
+				// Non-fatal: log as warning, do NOT invoke handleActionError
+				// (which would propagate to onError and surface as a fatal modal).
+				const playerError =
+					error instanceof PlayerError
+						? error
+						: new PlayerError("PLAYER_CAST_OPERATION_FAILED");
+				currentLogger.current?.warn(
+					`seekToLiveEdge failed (non-fatal): ${JSON.stringify(playerError)}`
+				);
+				completeAction("seekToLiveEdge");
+				return false;
+			}
+		},
+		[canPerformAction, handleActionError, startAction, completeAction, nativeClient]
+	);
 
 	// Acción: Skip Forward
 	const skipForward = useCallback(

@@ -1646,15 +1646,17 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 				// After an ad break ends, seek to live edge once DVR manager has fresh data.
 				// This must happen AFTER updatePlayerData so the seekable range is current.
-				// Uses seekToInfinite (via seekToLiveEdge) instead of position-based seek
-				// because the Cast SDK handles live edge positioning more reliably with it.
+				//
+				// Pass seekableDuration so seekToLiveEdge uses a position-based seek
+				// (seekableEnd - 2) rather than seek({ infinite: true }) — the infinite
+				// marker is unreliable with short DVR windows (observed landing at
+				// position 0 of a ~400 s window instead of the live edge).
 				if (needsPostAdGoToLiveRef.current && e.seekableDuration > 0) {
 					needsPostAdGoToLiveRef.current = false;
 					currentLogger.current?.info(
-						`Post-ad goToLive: seeking to live edge via seekToInfinite (seekableDuration: ${e.seekableDuration.toFixed(1)}s)`
+						`Post-ad goToLive: seeking to live edge (seekableDuration: ${e.seekableDuration.toFixed(1)}s)`
 					);
-					// Native seek to live edge (seekToInfinite)
-					castManagerRef.current?.seekToLiveEdge();
+					castManagerRef.current?.seekToLiveEdge(e.seekableDuration);
 					// Update DVR manager state without triggering another native seek
 					dvrProgressManagerRef.current?.markAsLiveEdge();
 				}
