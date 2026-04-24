@@ -1,5 +1,13 @@
 
 
+## [7.1.19](https://github.com/startcat/react-native-video/compare/v7.1.18...v7.1.19) (2026-04-24)
+
+
+### Bug Fixes
+
+* **cast:** usar seek absoluto (seekableEnd-2) en vez de `{ infinite: true }` — el marker infinite es poco fiable con ventanas DVR pequeñas y dejaba al receptor en pos 0 en vez del live edge
+* **cast:** `markAsLiveEdge` solo se aplica si el seek post-ads resuelve con éxito — antes la app mentía diciendo "live edge" cuando el seek había fallado
+
 ## [7.1.18](https://github.com/startcat/react-native-video/compare/v7.1.17...v7.1.18) (2026-04-24)
 
 
