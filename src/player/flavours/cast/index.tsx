@@ -1651,14 +1651,30 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				// (seekableEnd - 2) rather than seek({ infinite: true }) — the infinite
 				// marker is unreliable with short DVR windows (observed landing at
 				// position 0 of a ~400 s window instead of the live edge).
+				//
+				// markAsLiveEdge is deferred until the native seek actually resolves
+				// successfully: otherwise the DVR manager reports "at live edge" while
+				// the receiver is still elsewhere (e.g. when the seek fails during a
+				// stream switch), and the UI lies about the user's position.
 				if (needsPostAdGoToLiveRef.current && e.seekableDuration > 0) {
 					needsPostAdGoToLiveRef.current = false;
 					currentLogger.current?.info(
 						`Post-ad goToLive: seeking to live edge (seekableDuration: ${e.seekableDuration.toFixed(1)}s)`
 					);
-					castManagerRef.current?.seekToLiveEdge(e.seekableDuration);
-					// Update DVR manager state without triggering another native seek
-					dvrProgressManagerRef.current?.markAsLiveEdge();
+					castManagerRef.current
+						?.seekToLiveEdge(e.seekableDuration)
+						.then((ok) => {
+							if (ok) {
+								dvrProgressManagerRef.current?.markAsLiveEdge();
+							} else {
+								currentLogger.current?.warn(
+									"Post-ad goToLive: seek did not succeed — leaving DVR manager state unchanged"
+								);
+							}
+						})
+						.catch(() => {
+							// seekToLiveEdge already logs non-fatal failures; don't double-handle.
+						});
 				}
 			}
 
