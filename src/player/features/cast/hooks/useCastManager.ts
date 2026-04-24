@@ -362,6 +362,22 @@ export function useCastManager(
 	);
 
 	// Acción: Seek to live edge (uses seekToInfinite for reliable live edge positioning)
+	//
+	// Non-fatal error handling: seekToLiveEdge is opportunistic — it is triggered
+	// automatically after ad breaks, from the DVR manager goToLive() during
+	// onLoad, and from the post-ad verify watcher. The Cast SDK can reject it
+	// with PLAYER_CAST_OPERATION_FAILED (e.g. right after a LOAD while the
+	// session hasn't finished settling, or during stream-to-stream switches
+	// where the receiver is still processing the new content) even though the
+	// underlying playback is fine. Propagating that rejection as a fatal error
+	// via the onError callback surfaces in consumer apps as a "Content load
+	// error" modal that closes the player, which is strictly worse than just
+	// staying slightly behind the live edge — and during a switch it can spam
+	// dozens of modals per second as the retry loop re-fires.
+	//
+	// We therefore log the native failure as a warning and return false without
+	// invoking handleActionError. Explicit pre-flight failures (e.g.
+	// PLAYER_CAST_NOT_READY) still propagate because the caller can retry.
 	const seekToLiveEdge = useCallback(async (): Promise<boolean> => {
 		if (!canPerformAction()) {
 			currentLogger.current?.warn("seekToLiveEdge - canPerformAction() is false, aborting");
@@ -384,13 +400,17 @@ export function useCastManager(
 
 			return true;
 		} catch (error) {
-			return handleActionError(
-				"seekToLiveEdge",
+			// Non-fatal: log as warning, do NOT invoke handleActionError
+			// (which would propagate to onError and surface as a fatal modal).
+			const playerError =
 				error instanceof PlayerError
 					? error
-					: new PlayerError("PLAYER_CAST_OPERATION_FAILED"),
-				{ action: "seekToLiveEdge" }
+					: new PlayerError("PLAYER_CAST_OPERATION_FAILED");
+			currentLogger.current?.warn(
+				`seekToLiveEdge failed (non-fatal): ${JSON.stringify(playerError)}`
 			);
+			completeAction("seekToLiveEdge");
+			return false;
 		}
 	}, [canPerformAction, handleActionError, startAction, completeAction, nativeClient]);
 
