@@ -2212,7 +2212,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					}}
 					playerAnalytics={props.playerAnalytics}
 					playerTimeMarkers={props.playerTimeMarkers}
-					playerAds={props.playerAds}
+					playerAds={{
+						...props.playerAds,
+						isPlayingAd: castMedia.isPlayingAd,
+						canSkipAd: castMedia.canSkipAd,
+						secondsUntilSkippable: castMedia.secondsUntilSkippable,
+						currentAdBreakClip: castMedia.currentAdBreakClip,
+						onSkipAd: castManager.skipAd,
+					}}
 					// Custom Components
 					components={props.components}
 					// Events
