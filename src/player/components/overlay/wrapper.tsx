@@ -10,6 +10,7 @@ import React, {
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { type OverlayProps, CONTROL_ACTION } from "../../types";
+import { SkipAdButton } from "./ads";
 import { Controls, TimeMarks } from "./controls";
 import { styles } from "./styles";
 // Importamos los componentes con lazy para carga diferida
@@ -307,6 +308,15 @@ const OverlayBase = (props: OverlayProps): React.ReactElement => {
 					/>
 				</View>
 			)}
+
+			{props.playerAds?.isPlayingAd ? (
+				<SkipAdButton
+					isPlayingAd={props.playerAds.isPlayingAd}
+					canSkip={props.playerAds.canSkipAd ?? false}
+					secondsUntilSkippable={props.playerAds.secondsUntilSkippable ?? null}
+					onPress={props.playerAds.onSkipAd ?? (async () => false)}
+				/>
+			) : null}
 		</Pressable>
 	);
 };
