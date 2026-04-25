@@ -42,6 +42,9 @@ export function createInitialCastState(): CastStateCustom {
 			activeTrackIds: [],
 			isPlayingAd: false,
 			adBreakStatus: null,
+			currentAdBreakClip: null,
+			canSkipAd: false,
+			secondsUntilSkippable: null,
 		},
 		volume: {
 			level: 0.5,
@@ -218,6 +221,9 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 					activeTrackIds: [],
 					isPlayingAd: false,
 					adBreakStatus: null,
+					currentAdBreakClip: null,
+					canSkipAd: false,
+					secondsUntilSkippable: null,
 				};
 				}
 
@@ -277,6 +283,23 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 						? currentTime / effectiveDuration
 						: 0;
 
+				const adBreakStatusFromNative = (nativeMediaStatus as any).adBreakStatus ?? null;
+				const adBreakClipsArr: any[] = (mediaInfo as any)?.adBreakClips ?? [];
+				const currentAdBreakClipFull = adBreakStatusFromNative
+					? adBreakClipsArr.find((c: any) => c?.adBreakClipId === adBreakStatusFromNative.adBreakClipId) ?? null
+					: null;
+				const currentAdBreakClip = currentAdBreakClipFull
+					? {
+							adBreakClipId: currentAdBreakClipFull.adBreakClipId,
+							title: currentAdBreakClipFull.title ?? null,
+							duration: currentAdBreakClipFull.duration ?? 0,
+							whenSkippable:
+								typeof currentAdBreakClipFull.whenSkippable === 'number'
+									? currentAdBreakClipFull.whenSkippable
+									: null,
+						}
+					: null;
+
 				const result = {
 					url: mediaInfo?.contentId || null,
 					title: metadata.title,
@@ -304,8 +327,11 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 						mediaInfo?.customData || (nativeMediaStatus as any)?.customData || null,
 					activeTrackIds: nativeMediaStatus.activeTrackIds || [],
 					// Ad break detection — adBreakStatus is non-null when an ad is playing
-					adBreakStatus: (nativeMediaStatus as any).adBreakStatus ?? null,
-					isPlayingAd: (nativeMediaStatus as any).adBreakStatus != null,
+					adBreakStatus: adBreakStatusFromNative,
+					isPlayingAd: adBreakStatusFromNative != null,
+					currentAdBreakClip,
+					canSkipAd: false,            // wired in Task 2.3
+					secondsUntilSkippable: null, // wired in Task 2.3
 				};
 
 				currentLogger?.debug(
