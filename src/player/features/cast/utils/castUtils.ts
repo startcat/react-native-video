@@ -300,6 +300,18 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 						}
 					: null;
 
+				const FALLBACK_SKIP_GRACE_S = 5;
+				const elapsedInClip = adBreakStatusFromNative?.currentAdBreakClipTime ?? 0;
+				const whenSkippable = currentAdBreakClip?.whenSkippable;
+				const canSkipAd =
+					typeof whenSkippable === 'number'
+						? elapsedInClip >= whenSkippable
+						: adBreakStatusFromNative != null && elapsedInClip >= FALLBACK_SKIP_GRACE_S;
+				const secondsUntilSkippable =
+					typeof whenSkippable === 'number'
+						? Math.max(0, Math.ceil(whenSkippable - elapsedInClip))
+						: null;
+
 				const result = {
 					url: mediaInfo?.contentId || null,
 					title: metadata.title,
@@ -330,8 +342,8 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 					adBreakStatus: adBreakStatusFromNative,
 					isPlayingAd: adBreakStatusFromNative != null,
 					currentAdBreakClip,
-					canSkipAd: false,            // wired in Task 2.3
-					secondsUntilSkippable: null, // wired in Task 2.3
+					canSkipAd,
+					secondsUntilSkippable,
 				};
 
 				currentLogger?.debug(

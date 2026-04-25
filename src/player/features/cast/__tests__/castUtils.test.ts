@@ -104,3 +104,76 @@ describe('castReducer — currentAdBreakClip resolution', () => {
     expect(next.castState.media.currentAdBreakClip).toBeNull();
   });
 });
+
+const buildAdActive = (clipOverrides: any, statusOverrides: any) =>
+  buildSyncPayload({
+    nativeMediaStatus: {
+      playerState: 'PLAYING',
+      mediaInfo: {
+        contentId: 'live://x',
+        adBreakClips: [{ adBreakClipId: 'A', duration: 30, ...clipOverrides }],
+      },
+      adBreakStatus: {
+        adBreakId: 'b1',
+        adBreakClipId: 'A',
+        currentAdBreakTime: 0,
+        currentAdBreakClipTime: 0,
+        ...statusOverrides,
+      },
+    },
+  });
+
+describe('castReducer — canSkipAd / secondsUntilSkippable', () => {
+  test('whenSkippable=5, elapsed=2 → canSkip=false, countdown=3', () => {
+    const next = castReducer(
+      baseInitial(),
+      buildAdActive({ whenSkippable: 5 }, { currentAdBreakClipTime: 2 })
+    );
+    expect(next.castState.media.canSkipAd).toBe(false);
+    expect(next.castState.media.secondsUntilSkippable).toBe(3);
+  });
+
+  test('whenSkippable=5, elapsed=5 → canSkip=true, countdown=0', () => {
+    const next = castReducer(
+      baseInitial(),
+      buildAdActive({ whenSkippable: 5 }, { currentAdBreakClipTime: 5 })
+    );
+    expect(next.castState.media.canSkipAd).toBe(true);
+    expect(next.castState.media.secondsUntilSkippable).toBe(0);
+  });
+
+  test('whenSkippable=5, elapsed=8 → canSkip=true, countdown=0 (clamped)', () => {
+    const next = castReducer(
+      baseInitial(),
+      buildAdActive({ whenSkippable: 5 }, { currentAdBreakClipTime: 8 })
+    );
+    expect(next.castState.media.canSkipAd).toBe(true);
+    expect(next.castState.media.secondsUntilSkippable).toBe(0);
+  });
+
+  test('fallback C — whenSkippable=null, elapsed=2 → canSkip=false, countdown=null', () => {
+    const next = castReducer(
+      baseInitial(),
+      buildAdActive({ whenSkippable: null }, { currentAdBreakClipTime: 2 })
+    );
+    expect(next.castState.media.canSkipAd).toBe(false);
+    expect(next.castState.media.secondsUntilSkippable).toBeNull();
+  });
+
+  test('fallback C — whenSkippable=null, elapsed=5 → canSkip=true, countdown=null', () => {
+    const next = castReducer(
+      baseInitial(),
+      buildAdActive({ whenSkippable: null }, { currentAdBreakClipTime: 5 })
+    );
+    expect(next.castState.media.canSkipAd).toBe(true);
+    expect(next.castState.media.secondsUntilSkippable).toBeNull();
+  });
+
+  test('whenSkippable=2.4, elapsed=0 → countdown=3 (Math.ceil)', () => {
+    const next = castReducer(
+      baseInitial(),
+      buildAdActive({ whenSkippable: 2.4 }, { currentAdBreakClipTime: 0 })
+    );
+    expect(next.castState.media.secondsUntilSkippable).toBe(3);
+  });
+});
