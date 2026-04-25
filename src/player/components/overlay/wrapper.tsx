@@ -314,6 +314,7 @@ const OverlayBase = (props: OverlayProps): React.ReactElement => {
 					isPlayingAd={props.playerAds.isPlayingAd}
 					canSkip={props.playerAds.canSkipAd ?? false}
 					secondsUntilSkippable={props.playerAds.secondsUntilSkippable ?? null}
+					adClipId={props.playerAds.currentAdBreakClip?.adBreakClipId ?? null}
 					onPress={props.playerAds.onSkipAd ?? (async () => false)}
 				/>
 			) : null}

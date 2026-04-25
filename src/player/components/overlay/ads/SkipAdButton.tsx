@@ -1,5 +1,6 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { i18n } from "../../../locales";
 import { getSkipButtonState } from "./getSkipButtonState";
 
@@ -7,16 +8,91 @@ export interface SkipAdButtonProps {
 	isPlayingAd: boolean;
 	canSkip: boolean;
 	secondsUntilSkippable: number | null;
+	/**
+	 * Identifier of the currently playing ad clip. Used to reset the local
+	 * countdown ticker when the receiver moves to a new clip mid-pod.
+	 */
+	adClipId: string | null;
 	onPress: () => Promise<boolean>;
 }
 
 const DEBOUNCE_MS = 250;
+const TICK_MS = 500;
+
+/**
+ * Drives a smooth local countdown for the skip button.
+ *
+ * The receiver-reported `secondsUntilSkippable` only refreshes when MediaStatus
+ * fires (state change events), not on continuous ad progress, so the value
+ * stays frozen during a stable ad clip. We seed an `expiresAt` timestamp the
+ * first time we observe a positive countdown for the current clip and compute
+ * the displayed value from `Date.now()` on every tick.
+ */
+function useEffectiveSkipState(input: {
+	isPlayingAd: boolean;
+	canSkip: boolean;
+	secondsUntilSkippable: number | null;
+	adClipId: string | null;
+}): { effectiveCanSkip: boolean; effectiveSecondsLeft: number | null } {
+	const [, forceTick] = useState(0);
+	const seedRef = useRef<{ clipId: string; expiresAt: number } | null>(null);
+
+	// Reset / seed when clip changes or initial countdown arrives.
+	useEffect(() => {
+		if (!input.isPlayingAd || !input.adClipId) {
+			seedRef.current = null;
+			return;
+		}
+		const sameClip = seedRef.current?.clipId === input.adClipId;
+		if (!sameClip && typeof input.secondsUntilSkippable === "number" && input.secondsUntilSkippable > 0) {
+			seedRef.current = {
+				clipId: input.adClipId,
+				expiresAt: Date.now() + input.secondsUntilSkippable * 1000,
+			};
+		}
+	}, [input.adClipId, input.isPlayingAd, input.secondsUntilSkippable]);
+
+	// Tick at 2Hz while waiting to become skippable.
+	useEffect(() => {
+		const seed = seedRef.current;
+		if (!input.isPlayingAd || input.canSkip || !seed) return;
+		if (Date.now() >= seed.expiresAt) return;
+		const id = setInterval(() => forceTick((t) => t + 1), TICK_MS);
+		return () => clearInterval(id);
+	}, [input.isPlayingAd, input.canSkip, input.adClipId]);
+
+	if (!input.isPlayingAd) return { effectiveCanSkip: false, effectiveSecondsLeft: null };
+
+	// If reducer says we're skippable, trust it.
+	if (input.canSkip) return { effectiveCanSkip: true, effectiveSecondsLeft: 0 };
+
+	// No countdown info at all (clip without whenSkippable in the fallback grace window).
+	if (typeof input.secondsUntilSkippable !== "number") {
+		return { effectiveCanSkip: false, effectiveSecondsLeft: null };
+	}
+
+	const seed = seedRef.current;
+	if (!seed || seed.clipId !== input.adClipId) {
+		// Not seeded yet for this clip — show the prop value as-is for one frame.
+		return { effectiveCanSkip: false, effectiveSecondsLeft: input.secondsUntilSkippable };
+	}
+
+	const remainingMs = seed.expiresAt - Date.now();
+	const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
+	return {
+		effectiveCanSkip: remaining === 0,
+		effectiveSecondsLeft: remaining,
+	};
+}
 
 export function SkipAdButton(props: SkipAdButtonProps): React.ReactElement | null {
+	const insets = useSafeAreaInsets();
+	const { effectiveCanSkip, effectiveSecondsLeft } = useEffectiveSkipState(props);
+
 	const state = getSkipButtonState({
 		isPlayingAd: props.isPlayingAd,
-		canSkip: props.canSkip,
-		secondsUntilSkippable: props.secondsUntilSkippable,
+		canSkip: effectiveCanSkip,
+		secondsUntilSkippable: effectiveSecondsLeft,
 	});
 
 	const lastPressRef = useRef<number>(0);
@@ -37,8 +113,14 @@ export function SkipAdButton(props: SkipAdButtonProps): React.ReactElement | nul
 				.t("cast_skipAd_countdown")
 				.replace("{seconds}", String(state.secondsLeft));
 
+	const wrapperStyle = {
+		...styles.wrapper,
+		bottom: styles.wrapper.bottom + (insets?.bottom || 0),
+		right: styles.wrapper.right + Math.max(insets?.left || 0, insets?.right || 0),
+	};
+
 	return (
-		<View style={styles.wrapper} pointerEvents="box-none">
+		<View style={wrapperStyle} pointerEvents="box-none">
 			<Pressable
 				accessibilityRole="button"
 				accessibilityLabel={label}
@@ -61,7 +143,8 @@ export function SkipAdButton(props: SkipAdButtonProps): React.ReactElement | nul
 const styles = StyleSheet.create({
 	wrapper: {
 		position: "absolute",
-		bottom: 24,
+		// Lifted above the bottom controls block (timeline + bottomBar 50pt + margins).
+		bottom: 110,
 		right: 24,
 		zIndex: 1000,
 	},
