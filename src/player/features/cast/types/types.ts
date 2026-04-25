@@ -24,6 +24,13 @@ export interface CastTrackInfo {
 	type: "AUDIO" | "TEXT" | "VIDEO";
 }
 
+export interface AdBreakClipInfoLite {
+	adBreakClipId: string;
+	title?: string | null;
+	duration: number;
+	whenSkippable?: number | null;
+}
+
 export interface CastMediaInfo {
 	url: string | null;
 	title: string | null;
@@ -54,6 +61,12 @@ export interface CastMediaInfo {
 		adBreakId: string;
 		adBreakClipId: string;
 	} | null;
+	/** Resolved clip info for the currently playing ad clip, matched by adBreakClipId. */
+	currentAdBreakClip: AdBreakClipInfoLite | null;
+	/** True when the user can skip the current ad clip. */
+	canSkipAd: boolean;
+	/** Seconds until the current ad becomes skippable. Null if unknown (fallback path). */
+	secondsUntilSkippable: number | null;
 }
 
 export interface CastVolumeInfo {
@@ -167,6 +180,8 @@ export interface CastManagerActions {
 	setActiveTrackIds: (trackIds: number[]) => Promise<boolean>;
 	disableSubtitles: () => Promise<boolean>;
 	updateMessageBuilderConfig: (newConfig: any) => void;
+	/** Skips the currently playing ad clip via Cast SDK. Returns true if dispatched, false if no ad active or receiver rejected. */
+	skipAd: () => Promise<boolean>;
 }
 
 export interface CastManagerState {
