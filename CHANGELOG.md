@@ -1,5 +1,26 @@
 
 
+## [7.1.21](https://github.com/startcat/react-native-video/compare/v7.1.20...v7.1.21) (2026-04-25)
+
+
+### Bug Fixes
+
+* **overlay:** lift SkipAdButton above progress bar and tick countdown locally ([110a226](https://github.com/startcat/react-native-video/commit/110a22656e6f7ad2d4608a545c5d296c7d4f29d6))
+
+
+### Features
+
+* **cast:** add useCastManager.skipAd() backed by performSkipAd helper ([8ded616](https://github.com/startcat/react-native-video/commit/8ded61647672140f6cdac191860afc76fc1046a9))
+* **cast:** derive canSkipAd and secondsUntilSkippable with fallback C ([5b42616](https://github.com/startcat/react-native-video/commit/5b42616715c725ede7c14ba673e8981607b4fbf0))
+* **cast:** derive currentAdBreakClip in castReducer from adBreakClips lookup ([ab237fa](https://github.com/startcat/react-native-video/commit/ab237fa2b10d87a524f7c1e1929e69f70ee8fc6e))
+* **cast:** extend CastMediaInfo with skip-ad fields and CastManagerAPI.skipAd ([e9a54fa](https://github.com/startcat/react-native-video/commit/e9a54fa76b866ebdb3d49e78f714ac09eaaadd80))
+* **cast:** mount SkipAdButton outside Overlay + custom labels prop ([ae960be](https://github.com/startcat/react-native-video/commit/ae960be11eaf4801f9d56af602f2b547f4bd34df))
+* **cast:** pass skip-ad state and onSkipAd to Overlay via playerAds ([94b003d](https://github.com/startcat/react-native-video/commit/94b003d509ec884176a36b05bd939088c2357ec7))
+* **overlay:** add getSkipButtonState pure helper for skip ad UI states ([b4d75be](https://github.com/startcat/react-native-video/commit/b4d75be5d48df88775b21740dc98084d5407bfef))
+* **overlay:** add SkipAdButton component with countdown and active states ([eeea605](https://github.com/startcat/react-native-video/commit/eeea605bc6df3d97810006bc4b7485e9b77ec5a7))
+* **overlay:** mount SkipAdButton when an ad is playing on cast ([03552a7](https://github.com/startcat/react-native-video/commit/03552a772003e1780fe5110122160da1ede5033f))
+* **types:** extend IPlayerAds with optional cast skip-ad fields ([7965867](https://github.com/startcat/react-native-video/commit/79658678cb79a5923940cdb903351a341c86829e))
+
 ## [7.1.20](https://github.com/startcat/react-native-video/compare/v7.1.19...v7.1.20) (2026-04-24)
 
 
