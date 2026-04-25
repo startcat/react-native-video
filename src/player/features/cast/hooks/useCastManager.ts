@@ -21,6 +21,9 @@ import {
 } from "../types/types";
 import { useCastState } from "./useCastState";
 
+export { performSkipAd, PerformSkipAdParams } from '../utils/performSkipAd';
+import { performSkipAd } from '../utils/performSkipAd';
+
 // Hook principal del Cast Manager
 export function useCastManager(
 	config: LoggerConfigBasic & MessageBuilderConfig = {},
@@ -704,6 +707,19 @@ export function useCastManager(
 		[canPerformAction, handleActionError, startAction, completeAction, nativeClient]
 	);
 
+	// Acción: Skip Ad
+	const skipAd = useCallback(async (): Promise<boolean> => {
+		return performSkipAd({
+			client: nativeClient as any,
+			isPlayingAd: castState.media.isPlayingAd,
+			logger: {
+				info: (m) => currentLogger.current?.info(m),
+				warn: (m) => currentLogger.current?.warn(m),
+				debug: (m) => currentLogger.current?.debug(m),
+			},
+		});
+	}, [nativeClient, castState.media.isPlayingAd]);
+
 	// Acción: Disable Subtitles
 	const disableSubtitles = useCallback(async (): Promise<boolean> => {
 		if (!canPerformAction()) {
@@ -819,6 +835,7 @@ export function useCastManager(
 		setSubtitleTrack,
 		setActiveTrackIds,
 		disableSubtitles,
+		skipAd,
 		updateMessageBuilderConfig,
 
 		// Estado
