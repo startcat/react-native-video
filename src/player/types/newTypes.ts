@@ -94,6 +94,23 @@ export interface IPlayerAds {
 	 * Only applies to local playback. Ignored by cast flavours.
 	 */
 	language?: string;
+
+	// Cast skip-ad — populated by the cast flavour, ignored by the normal flavour.
+	/** True while a Chromecast ad break is playing on the receiver. */
+	isPlayingAd?: boolean;
+	/** True when the user can skip the current ad clip. */
+	canSkipAd?: boolean;
+	/** Seconds until the current ad becomes skippable. Null when unknown (fallback path). */
+	secondsUntilSkippable?: number | null;
+	/** Lite resolved info for the currently playing ad clip on cast. */
+	currentAdBreakClip?: {
+		adBreakClipId: string;
+		title?: string | null;
+		duration: number;
+		whenSkippable?: number | null;
+	} | null;
+	/** Invoked by the SkipAdButton to request skip via Cast SDK. */
+	onSkipAd?: () => Promise<boolean>;
 }
 
 export interface IPlayerTimeMarkers {
