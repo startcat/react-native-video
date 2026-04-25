@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { View } from "react-native";
 
 import { Overlay } from "../../components/overlay";
+import { SkipAdButton } from "../../components/overlay/ads";
 import { BackgroundPoster } from "../../components/poster";
 
 import { styles } from "../styles";
@@ -2228,6 +2229,17 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 						onPress: onControlsPress,
 						onSlidingComplete: onSlidingComplete,
 					}}
+				/>
+			) : null}
+
+			{castMedia.isPlayingAd ? (
+				<SkipAdButton
+					isPlayingAd={castMedia.isPlayingAd}
+					canSkip={castMedia.canSkipAd}
+					secondsUntilSkippable={castMedia.secondsUntilSkippable}
+					adClipId={castMedia.currentAdBreakClip?.adBreakClipId ?? null}
+					onPress={castManager.skipAd}
+					labels={props.playerAds?.skipAdLabels}
 				/>
 			) : null}
 		</View>

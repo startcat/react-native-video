@@ -111,6 +111,22 @@ export interface IPlayerAds {
 	} | null;
 	/** Invoked by the SkipAdButton to request skip via Cast SDK. */
 	onSkipAd?: () => Promise<boolean>;
+	/**
+	 * Custom labels for the skip-ad button on cast. When omitted, falls back
+	 * to the player's internal Spanish strings ("Saltar en {seconds}" /
+	 * "Saltar anuncio"). The `countdown` template MUST contain `{seconds}` —
+	 * it gets replaced at render time with the integer countdown value.
+	 *
+	 * Pass these from the host app to localize without forking the player:
+	 *
+	 *   playerAds={{ ...,
+	 *     skipAdLabels: { countdown: "Skip in {seconds}", action: "Skip Ad" }
+	 *   }}
+	 */
+	skipAdLabels?: {
+		countdown?: string;
+		action?: string;
+	};
 }
 
 export interface IPlayerTimeMarkers {

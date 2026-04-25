@@ -14,6 +14,14 @@ export interface SkipAdButtonProps {
 	 */
 	adClipId: string | null;
 	onPress: () => Promise<boolean>;
+	/**
+	 * Optional custom labels. Falls back to the player's internal Spanish
+	 * strings when omitted. `countdown` must contain `{seconds}`.
+	 */
+	labels?: {
+		countdown?: string;
+		action?: string;
+	};
 }
 
 const DEBOUNCE_MS = 250;
@@ -107,11 +115,11 @@ export function SkipAdButton(props: SkipAdButtonProps): React.ReactElement | nul
 	if (state.variant === "hidden") return null;
 
 	const isActive = state.variant === "active";
+	const actionLabel = props.labels?.action ?? i18n.t("cast_skipAd_action");
+	const countdownTemplate = props.labels?.countdown ?? i18n.t("cast_skipAd_countdown");
 	const label = isActive
-		? i18n.t("cast_skipAd_action")
-		: i18n
-				.t("cast_skipAd_countdown")
-				.replace("{seconds}", String(state.secondsLeft));
+		? actionLabel
+		: countdownTemplate.replace("{seconds}", String(state.secondsLeft));
 
 	const wrapperStyle = {
 		...styles.wrapper,
