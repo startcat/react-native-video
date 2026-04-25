@@ -29,6 +29,8 @@ const TEXTS = {
 	goToLive: "Volver al directo",
 	video_live: "En directo",
 	language_none: "Ninguno",
+	cast_skipAd_countdown: "Saltar en {seconds}",
+	cast_skipAd_action: "Saltar anuncio",
 };
 
 const i18n = {
