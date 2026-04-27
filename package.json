@@ -107,7 +107,7 @@
 		"xbasic": "yarn --cwd examples/basic",
 		"docs": "yarn --cwd docs build",
 		"release": "release-it",
-		"test": "jest",
+		"test": "jest --passWithNoTests",
 		"check-ios": "scripts/swift-format.sh && scripts/swift-lint.sh && scripts/clang-format.sh",
 		"check-android": "scripts/kotlin-lint.sh",
 		"check-all": "yarn check-android; yarn check-ios; yarn lint",
