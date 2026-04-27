@@ -2209,7 +2209,18 @@ public class ReactExoplayerView extends FrameLayout implements
     }
 
     public void setAdTagUrl(final Uri uri) {
+        if (Objects.equals(adTagUrl, uri)) {
+            return;
+        }
         adTagUrl = uri;
+        // If the player is already initialized with a source, the original
+        // MediaSource was built without (or with an outdated) AdsConfiguration.
+        // Force a reload so the new ad tag URL takes effect. Without this,
+        // setting adTagUrl AFTER src — which is the common React Native prop
+        // order — silently no-ops and ads never play.
+        if (player != null && source != null) {
+            reloadSource();
+        }
     }
 
     public void setPlaylistItemId(final String itemId) {
