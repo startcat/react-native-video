@@ -11,6 +11,7 @@ import {
 	type ProgressUpdateData,
 	type SliderValues,
 } from "../../../types";
+import { type OnReceiveAdEventData } from "../../../types/events";
 import Video, { type VideoRef } from "../../../Video";
 
 import { handleErrorException, mapVideoErrorToPlayerError, PlayerError } from "../../core/errors";
@@ -28,6 +29,7 @@ import {
 	VODProgressManagerClass,
 } from "../../core/progress";
 
+import { AudioAdsStateMachine } from "../../features/ads";
 import { ComponentLogger } from "../../features/logger";
 import { playlistsManager } from "../../features/playlists";
 import { SleepTimerControl } from "../../features/sleepTimer";
@@ -68,6 +70,19 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	const refVideoPlayer = useRef<VideoRef>(null);
 	const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
+
+	// --- Ads state machine ---
+	const onAdStateChangedRef = useRef(props.events?.onAdStateChanged);
+	useEffect(() => {
+		onAdStateChangedRef.current = props.events?.onAdStateChanged;
+	}, [props.events?.onAdStateChanged]);
+
+	const adsStateMachineRef = useRef<AudioAdsStateMachine | null>(null);
+	if (!adsStateMachineRef.current) {
+		adsStateMachineRef.current = new AudioAdsStateMachine((state) => {
+			onAdStateChangedRef.current?.(state);
+		});
+	}
 
 	// Logger
 	if (!currentLogger.current && props.playerContext?.logger) {
@@ -1068,6 +1083,11 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		return playerError;
 	};
 
+	const handleOnReceiveAdEvent = (e: OnReceiveAdEventData) => {
+		currentLogger.current?.debug(`[ADS] event=${e.event}`);
+		adsStateMachineRef.current?.handleEvent(e);
+	};
+
 	const handleOnInternalError = (error: PlayerError) => {
 		currentLogger.current?.error(`handleOnInternalError: ${JSON.stringify(error)}`);
 
@@ -1220,7 +1240,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 						handleOnReadyForDisplay,
 						videoEvents.onReadyForDisplay
 					)}
-					onReceiveAdEvent={videoEvents.onReceiveAdEvent}
+					onReceiveAdEvent={combineEventHandlers(handleOnReceiveAdEvent, videoEvents.onReceiveAdEvent)}
 					onBuffer={combineEventHandlers(handleOnBuffer, videoEvents.onBuffer)}
 					onSeek={videoEvents.onSeek}
 					onPlaybackStateChanged={videoEvents.onPlaybackStateChanged}
