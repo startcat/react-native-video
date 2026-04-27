@@ -2854,6 +2854,27 @@ public class ReactExoplayerView extends FrameLayout implements
                 }
             }
         }
+        // For progress / quartile events, read the player's current position
+        // (within the currently-playing ad) so the JS state machine can tick.
+        // media3's IMA wrapper does not embed currentTime in adEvent.getAdData().
+        switch (adEvent.getType()) {
+            case AD_PROGRESS:
+            case FIRST_QUARTILE:
+            case MIDPOINT:
+            case THIRD_QUARTILE:
+            case STARTED:
+            case LOADED:
+            case COMPLETED:
+                if (player != null && !data.containsKey("currentTime")) {
+                    long currentMs = player.getCurrentPosition();
+                    if (currentMs >= 0) {
+                        data.put("currentTime", String.valueOf(currentMs / 1000.0));
+                    }
+                }
+                break;
+            default:
+                break;
+        }
         if (!data.isEmpty()) {
             eventEmitter.receiveAdEvent(adEvent.getType().name(), data);
         } else {
