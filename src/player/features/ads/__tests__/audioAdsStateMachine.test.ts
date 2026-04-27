@@ -156,3 +156,25 @@ describe("deriveAudioAdsState — skippable derivations", () => {
 		expect(next.secondsUntilSkippable).toBeNull();
 	});
 });
+
+describe("deriveAudioAdsState — passive and unknown events", () => {
+	const seeded = { ...INITIAL_AUDIO_ADS_STATE, isPlayingAd: true, currentTime: 5 };
+
+	it.each(["CONTENT_PAUSE_REQUESTED", "AD_BREAK_ENDED", "SKIPPED", "ERROR"])(
+		"%s does not change isPlayingAd",
+		(name) => {
+			const next = deriveAudioAdsState(seeded, evt(name));
+			expect(next.isPlayingAd).toBe(true);
+		},
+	);
+
+	it("unknown event names are no-ops (state strictly equal)", () => {
+		const next = deriveAudioAdsState(seeded, evt("SOMETHING_RANDOM"));
+		expect(next).toBe(seeded);
+	});
+
+	it("known passive events return prev unchanged", () => {
+		const next = deriveAudioAdsState(seeded, evt("AD_BREAK_ENDED"));
+		expect(next).toBe(seeded);
+	});
+});

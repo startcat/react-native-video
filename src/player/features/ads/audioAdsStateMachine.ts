@@ -69,6 +69,11 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 		}
 		case AD_EVENT.COMPLETED:
 			return { ...prev, isPlayingAd: true, currentTime: prev.duration };
+		case AD_EVENT.AD_BREAK_ENDED:
+		case AD_EVENT.CONTENT_PAUSE_REQUESTED:
+		case AD_EVENT.SKIPPED:
+		case AD_EVENT.ERROR:
+			return prev;
 		default:
 			return prev;
 	}
