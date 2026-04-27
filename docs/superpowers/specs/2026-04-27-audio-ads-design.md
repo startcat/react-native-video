@@ -461,3 +461,42 @@ during integration that `isPlayingAd` does not clash with TrackPlayer state.
 - No regressions in existing audio-flavour tests.
 - App `package.json` patch updated to a published commit of `feat/audio-ads`.
 - Spec referenced in PR descriptions.
+
+## 14. Validation log
+
+### 2026-04-27 — Android end-to-end smoke test (Real device)
+
+Tested on Samsung A15 (Android 16, real device) using `portal:` yarn protocol pointing at this branch's local checkout.
+
+**Setup:**
+- Branch: `feat/audio-ads` (rooted at `38eb15551`).
+- App: `eitb-guau-mobile` on `feat/eitb-767-mapping`.
+- Test ad URL temporarily injected in `api/player/main.ts` via:
+  `https://pubads.g.doubleclick.net/gampad/ads?iu=/21775744923/external/single_ad_samples&sz=640x480&...&output=vast&...&correlator=`
+  (Google IMA public test asset, 10s linear non-skippable.)
+
+**Checkpoints passed:**
+
+- ✅ **Checkpoint 1 — Audio ad plays** before podcast content. Native chain confirmed via `RNV_ADS_DEBUG` logs (later removed): `setAdTagUrl → ImaAdsLoader created → initializePlayer with adTagUrl + adsLoader=true → AdsMediaSource constructed → IMA requestAds`.
+
+- ✅ **Checkpoint 2 — `onAdStateChanged` emits state lifecycle**:
+  - First emission at `LOADED`: `{isPlayingAd:true, adTitle:"External - Single Inline Linear", duration:10, adIndex:1, totalAds:1, canSkipAd:false, secondsUntilSkippable:null}`.
+  - 1Hz progress emissions during playback: `currentTime` ticks 0 → 1.156 → 2.165 → 3.182 → 4.184 → 5.188 → 6.201 → 7.012 → 8.021 → 9.029 → 10.007.
+  - Final emission at `CONTENT_RESUME_REQUESTED`: `{isPlayingAd:false, …all-zero IDLE…}`.
+
+**Findings rolled into the branch during validation:**
+
+- `setAdTagUrl` on Android did not trigger a media-source rebuild when called after `setSrc`. Fixed in commit `87d36530` (`reloadSource()` on adTagUrl change with active player).
+- The IMA bridge's `onAdEvent` only forwarded `adEvent.getAdData()`, which is null for STARTED / LOADED / COMPLETED. Enriched in commit `fe561a77` to include `ad.getTitle / getDuration / isSkippable / getSkipTimeOffset` and `pod.getAdPosition / getTotalAds`.
+- AD_PROGRESS events lacked `currentTime` (media3's IMA wrapper doesn't embed elapsed in `getAdData()`). Fixed in commit `b78019ac` to read `player.getCurrentPosition()` for progress / quartile / STARTED / LOADED / COMPLETED events.
+- JS reducer extended in commit `d6c420cd` to defensively coerce string|number / string|boolean (Android bridge serializes everything as strings via `Map<String, String>`).
+
+**Known benign warning** (not introduced by this PR, not actionable from app code):
+```
+W IMASDK Invalid internal message. … Message Type: 4
+        Message: {"type":"isDestroyed", "sid":"...", "name":"adsManager"}
+```
+Emitted by Google IMA SDK during `adsManager` teardown after `ALL_ADS_COMPLETED`. Internal IMA WebView lifecycle race. Documented in IMA SDK community issues; no app-level fix exists. Does not affect playback or state correctness.
+
+**Out of validation scope (Zulora EITB vmap URL):**
+The production vmap URL returned by `https://guau.eus/api/v1/media/zulora-1-deskonexioa` failed with IMA error 1005 (`FAILED_TO_REQUEST_ADS`). The URL has placeholder values: `description_url=https://example.com/podcast/episode-42` and a hardcoded Windows desktop user agent. This is a backend-side issue (EITB), tracked separately. The PR-1 chain itself is validated independently with the Google IMA test asset.
