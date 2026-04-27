@@ -107,6 +107,13 @@ export class AudioAdsStateMachine {
 		}
 	}
 
+	reset(): void {
+		if (!publicStateEqual(this.state, INITIAL_AUDIO_ADS_STATE)) {
+			this.state = { ...INITIAL_AUDIO_ADS_STATE };
+			this.onChange(this.state);
+		}
+	}
+
 	getState(): AudioAdsState {
 		return this.state;
 	}

@@ -215,3 +215,22 @@ describe("AudioAdsStateMachine — emit semantics", () => {
 		expect(onChange.mock.calls[1][0].secondsUntilSkippable).toBe(4);
 	});
 });
+
+describe("AudioAdsStateMachine.reset", () => {
+	it("emits IDLE state when called from a non-idle state", () => {
+		const onChange = jest.fn();
+		const sm = new AudioAdsStateMachine(onChange);
+		sm.handleEvent(evt("AD_BREAK_STARTED", { totalAds: 1 }));
+		onChange.mockClear();
+		sm.reset();
+		expect(onChange).toHaveBeenCalledTimes(1);
+		expect(onChange.mock.calls[0][0]).toEqual(INITIAL_AUDIO_ADS_STATE);
+	});
+
+	it("is a no-op when already in IDLE state", () => {
+		const onChange = jest.fn();
+		const sm = new AudioAdsStateMachine(onChange);
+		sm.reset();
+		expect(onChange).not.toHaveBeenCalled();
+	});
+});
