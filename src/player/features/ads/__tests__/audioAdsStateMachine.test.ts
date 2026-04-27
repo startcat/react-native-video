@@ -1,0 +1,82 @@
+import type { OnReceiveAdEventData } from "../../../../types/events";
+import { deriveAudioAdsState, INITIAL_AUDIO_ADS_STATE } from "../audioAdsStateMachine";
+
+const evt = (event: string, data: Record<string, unknown> = {}): OnReceiveAdEventData =>
+	({ event, data } as unknown as OnReceiveAdEventData);
+
+describe("deriveAudioAdsState — idle transitions", () => {
+	it("returns INITIAL_AUDIO_ADS_STATE shape with all known fields", () => {
+		expect(INITIAL_AUDIO_ADS_STATE).toEqual({
+			isPlayingAd: false,
+			adTitle: undefined,
+			currentTime: 0,
+			duration: 0,
+			adIndex: 0,
+			totalAds: 0,
+			canSkipAd: false,
+			secondsUntilSkippable: null,
+		});
+	});
+
+	it("CONTENT_RESUME_REQUESTED resets any state to IDLE", () => {
+		const dirty = { ...INITIAL_AUDIO_ADS_STATE, isPlayingAd: true, adIndex: 2, currentTime: 5 };
+		expect(deriveAudioAdsState(dirty, evt("CONTENT_RESUME_REQUESTED"))).toEqual(INITIAL_AUDIO_ADS_STATE);
+	});
+
+	it("ALL_ADS_COMPLETED resets any state to IDLE", () => {
+		const dirty = { ...INITIAL_AUDIO_ADS_STATE, isPlayingAd: true, totalAds: 3 };
+		expect(deriveAudioAdsState(dirty, evt("ALL_ADS_COMPLETED"))).toEqual(INITIAL_AUDIO_ADS_STATE);
+	});
+});
+
+describe("deriveAudioAdsState — AD_BREAK_STARTED", () => {
+	it("flips isPlayingAd to true and resets per-creative fields", () => {
+		const dirty = { ...INITIAL_AUDIO_ADS_STATE, isPlayingAd: true, currentTime: 99, adIndex: 2, totalAds: 3 };
+		const next = deriveAudioAdsState(dirty, evt("AD_BREAK_STARTED", { totalAds: 3 }));
+		expect(next.isPlayingAd).toBe(true);
+		expect(next.currentTime).toBe(0);
+		expect(next.duration).toBe(0);
+		expect(next.adIndex).toBe(0);
+		expect(next.totalAds).toBe(3);
+	});
+
+	it("leaves totalAds=0 when not provided", () => {
+		const next = deriveAudioAdsState(INITIAL_AUDIO_ADS_STATE, evt("AD_BREAK_STARTED"));
+		expect(next.isPlayingAd).toBe(true);
+		expect(next.totalAds).toBe(0);
+	});
+});
+
+describe("deriveAudioAdsState — STARTED / LOADED", () => {
+	it("captures creative metadata on STARTED", () => {
+		const after = deriveAudioAdsState(
+			deriveAudioAdsState(INITIAL_AUDIO_ADS_STATE, evt("AD_BREAK_STARTED", { totalAds: 2 })),
+			evt("STARTED", { adTitle: "Hello Ad", duration: 15, adPosition: 1, totalAds: 2 }),
+		);
+		expect(after.isPlayingAd).toBe(true);
+		expect(after.adTitle).toBe("Hello Ad");
+		expect(after.duration).toBe(15);
+		expect(after.adIndex).toBe(1);
+		expect(after.totalAds).toBe(2);
+		expect(after.currentTime).toBe(0);
+	});
+
+	it("LOADED is treated like STARTED (defensive on iOS)", () => {
+		const after = deriveAudioAdsState(
+			INITIAL_AUDIO_ADS_STATE,
+			evt("LOADED", { adTitle: "X", duration: 10, adPosition: 1 }),
+		);
+		expect(after.isPlayingAd).toBe(true);
+		expect(after.adTitle).toBe("X");
+		expect(after.duration).toBe(10);
+		expect(after.adIndex).toBe(1);
+	});
+
+	it("missing fields fall back to previous values", () => {
+		const seeded = { ...INITIAL_AUDIO_ADS_STATE, isPlayingAd: true, adTitle: "Old", duration: 30, adIndex: 1 };
+		const after = deriveAudioAdsState(seeded, evt("STARTED", {}));
+		expect(after.adTitle).toBe("Old");
+		expect(after.duration).toBe(30);
+		expect(after.adIndex).toBe(1);
+	});
+});
