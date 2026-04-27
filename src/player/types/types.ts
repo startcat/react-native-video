@@ -240,6 +240,30 @@ export interface AudioPlayerActionEventProps {
 
 export interface AudioPlayerProgressEventProps {}
 
+/**
+ * Public state of the audio ads playback. Consumed by host apps to render
+ * the "PUBLICIDAD" overlay during ad breaks. Emitted via
+ * IInnerPlayerEvents.onAdStateChanged.
+ */
+export interface AudioAdsState {
+	/** True from AD_BREAK_STARTED until CONTENT_RESUME_REQUESTED / ALL_ADS_COMPLETED. */
+	isPlayingAd: boolean;
+	/** Current creative title from raw event data; undefined if not provided. */
+	adTitle?: string;
+	/** Current creative elapsed seconds. 0 when idle. */
+	currentTime: number;
+	/** Current creative total seconds. 0 when unknown. */
+	duration: number;
+	/** 1-based position of the current creative in the break. 0 when idle. */
+	adIndex: number;
+	/** Total creatives in the current break. 0 when unknown. */
+	totalAds: number;
+	/** True once skipOffset is reached and the user can skip. */
+	canSkipAd: boolean;
+	/** Seconds remaining until skippable. null when the ad is not skippable. */
+	secondsUntilSkippable: number | null;
+}
+
 /*
  *  Props Componentes
  *
