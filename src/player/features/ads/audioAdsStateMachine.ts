@@ -95,6 +95,15 @@ function publicStateEqual(a: AudioAdsState, b: AudioAdsState): boolean {
 	);
 }
 
+/**
+ * @internal
+ *
+ * Wraps `deriveAudioAdsState` and emits the new state via a callback
+ * whenever the public state shape changes. Reachable from within the
+ * package via `src/player/features/ads/index.ts` but NOT re-exported
+ * from the package barrel — host apps subscribe via `events.onAdStateChanged`,
+ * not by instantiating this class directly.
+ */
 export class AudioAdsStateMachine {
 	private state: AudioAdsState = { ...INITIAL_AUDIO_ADS_STATE };
 	private readonly onChange: (state: AudioAdsState) => void;

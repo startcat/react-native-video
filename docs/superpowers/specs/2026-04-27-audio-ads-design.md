@@ -169,8 +169,8 @@ emits arbitrary fields. The state machine narrows defensively:
 | Event | `isPlayingAd` | Fields updated |
 |---|---|---|
 | `AD_BREAK_STARTED` | `true` | reset progress; capture `totalAds` if present |
-| `LOADED` | `true` | `adTitle`, `duration`, `skipOffset`, `adIndex` |
-| `STARTED` | `true` | same as `LOADED` (defensive: iOS sometimes only emits `STARTED`) |
+| `LOADED` | `true` | `adTitle`, `duration`, `adIndex`, `currentTime` (skippable NOT computed here — deferred to first `AD_PROGRESS`) |
+| `STARTED` | `true` | `adTitle`, `duration`, `adIndex`, `currentTime` (skippable NOT computed here — deferred to first `AD_PROGRESS`) |
 | `AD_PROGRESS` / `FIRST_QUARTILE` / `MIDPOINT` / `THIRD_QUARTILE` | `true` | `currentTime`; recompute `canSkipAd` & `secondsUntilSkippable` |
 | `COMPLETED` | `true` | `currentTime = duration` |
 | `SKIPPED` | `true` | (await break end / next ad) |
@@ -191,6 +191,15 @@ else
     secondsUntilSkippable = max(0, ceil(skipOffset - currentTime))
     canSkipAd = secondsUntilSkippable === 0
 ```
+
+**Note on STARTED/LOADED:** the reducer intentionally does NOT compute
+`canSkipAd` / `secondsUntilSkippable` on STARTED or LOADED. The first
+`AD_PROGRESS` event (~250ms after STARTED on both Android ExoPlayer and iOS
+IMA SDK) is the trigger that resolves skippable state. This avoids relying
+on `currentTime` being present on the STARTED payload, which is not
+guaranteed across platforms. The trade-off is a sub-second delay before
+the consumer sees the first `secondsUntilSkippable` value, which is not
+user-visible.
 
 ### 6.5 Throttling
 
