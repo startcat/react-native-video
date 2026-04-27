@@ -1092,17 +1092,18 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	};
 
 	const handleOnReceiveAdEvent = (e: OnReceiveAdEventData) => {
-		// Log only the meaningful lifecycle events — AD_PROGRESS / quartiles fire
-		// 5Hz during ad playback and would flood the console without adding signal.
-		// The change-detected state machine already emits ~1Hz state updates that
-		// tell consumers everything they need to know.
+		// Lifecycle events go through the player's debug logger (only emitted
+		// when the host app enables verbose logging). High-frequency events
+		// (AD_PROGRESS, quartiles) fire ~5Hz during ad playback and would
+		// flood the log without adding signal — the state machine already
+		// emits ~1Hz state updates that tell consumers everything they need.
 		const isHighFrequency =
 			e.event === "AD_PROGRESS" ||
 			e.event === "FIRST_QUARTILE" ||
 			e.event === "MIDPOINT" ||
 			e.event === "THIRD_QUARTILE";
 		if (!isHighFrequency) {
-			console.log(`[ADS] event=${e.event}`, e.data ?? {});
+			currentLogger.current?.debug(`[ADS] event=${e.event}`, e.data ?? {});
 		}
 		adsStateMachineRef.current?.handleEvent(e);
 	};
