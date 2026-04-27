@@ -1202,6 +1202,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					rate={speedRate}
 					//pictureInPicture (ios)
 					playInBackground={true}
+					adTagUrl={props.playlistItem?.ads?.adTagUrl}
 					playWhenInactive={true}
 					poster={props?.playerMetadata?.poster}
 					preventsDisplaySleepDuringVideoPlayback={false}
