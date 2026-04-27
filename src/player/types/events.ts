@@ -8,6 +8,7 @@ import * as Enums from './enums';
 import {
     type ICommonData,
     type IPreferencesCommonData,
+    type AudioAdsState,
 } from './types';
 
 export interface IPlayerEvents {
@@ -39,4 +40,6 @@ export interface IInnerPlayerEvents extends IPlayerEvents {
     onSlidingMove?: (value: number) => void;
     onSlidingComplete?: (value: number) => void;
     onClose?: () => void;
+    /** Emitted whenever the audio ad state changes. Idle state has isPlayingAd=false. */
+    onAdStateChanged?: (state: AudioAdsState) => void;
 }
