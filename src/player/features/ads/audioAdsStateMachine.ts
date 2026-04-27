@@ -1,6 +1,6 @@
 import type { OnReceiveAdEventData } from "../../../types/events";
 import type { AudioAdsState } from "../../types";
-import { AD_EVENT } from "./types";
+import { AD_EVENT, type RawAdEventData } from "./types";
 
 export const INITIAL_AUDIO_ADS_STATE: AudioAdsState = {
 	isPlayingAd: false,
@@ -18,6 +18,14 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 		case AD_EVENT.CONTENT_RESUME_REQUESTED:
 		case AD_EVENT.ALL_ADS_COMPLETED:
 			return { ...INITIAL_AUDIO_ADS_STATE };
+		case AD_EVENT.AD_BREAK_STARTED: {
+			const raw = (event.data ?? {}) as RawAdEventData;
+			return {
+				...INITIAL_AUDIO_ADS_STATE,
+				isPlayingAd: true,
+				totalAds: raw.totalAds ?? 0,
+			};
+		}
 		default:
 			return prev;
 	}
