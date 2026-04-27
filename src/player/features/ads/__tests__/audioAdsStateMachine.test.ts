@@ -109,3 +109,50 @@ describe("deriveAudioAdsState — progress events", () => {
 		expect(next.isPlayingAd).toBe(true);
 	});
 });
+
+describe("deriveAudioAdsState — skippable derivations", () => {
+	it("non-skippable ad: canSkipAd=false, secondsUntilSkippable=null", () => {
+		const next = deriveAudioAdsState(
+			INITIAL_AUDIO_ADS_STATE,
+			evt("STARTED", { duration: 15, isSkippable: false }),
+		);
+		expect(next.canSkipAd).toBe(false);
+		expect(next.secondsUntilSkippable).toBeNull();
+	});
+
+	it("skippable but not yet reached: secondsUntilSkippable counts down (ceil)", () => {
+		const next = deriveAudioAdsState(
+			INITIAL_AUDIO_ADS_STATE,
+			evt("AD_PROGRESS", { currentTime: 1.4, duration: 15, isSkippable: true, skipOffset: 5 }),
+		);
+		expect(next.canSkipAd).toBe(false);
+		expect(next.secondsUntilSkippable).toBe(4);
+	});
+
+	it("skippable threshold reached: canSkipAd=true, secondsUntilSkippable=0", () => {
+		const next = deriveAudioAdsState(
+			INITIAL_AUDIO_ADS_STATE,
+			evt("AD_PROGRESS", { currentTime: 5.2, duration: 15, isSkippable: true, skipOffset: 5 }),
+		);
+		expect(next.canSkipAd).toBe(true);
+		expect(next.secondsUntilSkippable).toBe(0);
+	});
+
+	it("negative skipOffset (sentinel) treated as non-skippable", () => {
+		const next = deriveAudioAdsState(
+			INITIAL_AUDIO_ADS_STATE,
+			evt("AD_PROGRESS", { currentTime: 5, duration: 15, isSkippable: true, skipOffset: -1 }),
+		);
+		expect(next.canSkipAd).toBe(false);
+		expect(next.secondsUntilSkippable).toBeNull();
+	});
+
+	it("missing skipOffset treated as non-skippable", () => {
+		const next = deriveAudioAdsState(
+			INITIAL_AUDIO_ADS_STATE,
+			evt("AD_PROGRESS", { currentTime: 5, duration: 15, isSkippable: true }),
+		);
+		expect(next.canSkipAd).toBe(false);
+		expect(next.secondsUntilSkippable).toBeNull();
+	});
+});
