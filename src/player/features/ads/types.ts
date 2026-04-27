@@ -1,5 +1,5 @@
 /**
- * Internal-only types for the audio ads state machine.
+ * Internal-only types and constants for the audio ads state machine.
  * NOT exported from the package barrel.
  */
 
@@ -11,7 +11,10 @@
 export type RawAdEventData = {
 	adId?: string;
 	adTitle?: string;
-	/** 1-based position of the current creative in the break. */
+	/**
+	 * 1-based position of the current creative in the break.
+	 * Maps to AudioAdsState.adIndex when emitted publicly.
+	 */
 	adPosition?: number;
 	totalAds?: number;
 	/** Seconds elapsed within the current creative. */
