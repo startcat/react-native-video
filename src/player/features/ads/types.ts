@@ -7,6 +7,9 @@
  * Shape of the `data` payload that the native module emits inside
  * OnReceiveAdEventData. Spec types it as `{}`; actual runtime values are
  * platform-dependent and may be partial. Always read defensively.
+ *
+ * Note: Android's bridge serializes everything as strings (Map<String, String>).
+ * iOS may pass numbers/booleans natively. The reducer normalizes both shapes.
  */
 export type RawAdEventData = {
 	adId?: string;
@@ -15,15 +18,15 @@ export type RawAdEventData = {
 	 * 1-based position of the current creative in the break.
 	 * Maps to AudioAdsState.adIndex when emitted publicly.
 	 */
-	adPosition?: number;
-	totalAds?: number;
+	adPosition?: number | string;
+	totalAds?: number | string;
 	/** Seconds elapsed within the current creative. */
-	currentTime?: number;
+	currentTime?: number | string;
 	/** Total seconds of the current creative. */
-	duration?: number;
+	duration?: number | string;
 	/** Seconds until the ad becomes skippable. Negative or absent means non-skippable. */
-	skipOffset?: number;
-	isSkippable?: boolean;
+	skipOffset?: number | string;
+	isSkippable?: boolean | string;
 };
 
 /**

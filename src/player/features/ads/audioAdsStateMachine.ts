@@ -2,6 +2,22 @@ import type { OnReceiveAdEventData } from "../../../types/events";
 import type { AudioAdsState } from "../../types";
 import { AD_EVENT, type RawAdEventData } from "./types";
 
+const toNumber = (v: unknown): number | undefined => {
+	if (v == null) return undefined;
+	if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+	if (typeof v === "string") {
+		const n = parseFloat(v);
+		return Number.isFinite(n) ? n : undefined;
+	}
+	return undefined;
+};
+
+const toBool = (v: unknown): boolean => {
+	if (typeof v === "boolean") return v;
+	if (typeof v === "string") return v === "true";
+	return false;
+};
+
 export const INITIAL_AUDIO_ADS_STATE: AudioAdsState = {
 	isPlayingAd: false,
 	adTitle: undefined,
@@ -17,8 +33,8 @@ function deriveSkippable(
 	raw: RawAdEventData,
 	currentTime: number,
 ): Pick<AudioAdsState, "canSkipAd" | "secondsUntilSkippable"> {
-	const skipOffset = raw.skipOffset;
-	if (raw.isSkippable !== true || skipOffset == null || skipOffset < 0) {
+	const skipOffset = toNumber(raw.skipOffset);
+	if (!toBool(raw.isSkippable) || skipOffset == null || skipOffset < 0) {
 		return { canSkipAd: false, secondsUntilSkippable: null };
 	}
 	const remaining = Math.max(0, Math.ceil(skipOffset - currentTime));
@@ -35,7 +51,7 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 			return {
 				...INITIAL_AUDIO_ADS_STATE,
 				isPlayingAd: true,
-				totalAds: raw.totalAds ?? 0,
+				totalAds: toNumber(raw.totalAds) ?? 0,
 			};
 		}
 		case AD_EVENT.STARTED:
@@ -45,14 +61,14 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 			// event (~250ms later) computes canSkipAd / secondsUntilSkippable
 			// correctly, and the change-detected emitter forwards that update.
 			const raw = (event.data ?? {}) as RawAdEventData;
-			const currentTime = raw.currentTime ?? 0;
+			const currentTime = toNumber(raw.currentTime) ?? 0;
 			return {
 				...prev,
 				isPlayingAd: true,
 				adTitle: raw.adTitle ?? prev.adTitle,
-				duration: raw.duration ?? prev.duration,
-				adIndex: raw.adPosition ?? prev.adIndex,
-				totalAds: raw.totalAds ?? prev.totalAds,
+				duration: toNumber(raw.duration) ?? prev.duration,
+				adIndex: toNumber(raw.adPosition) ?? prev.adIndex,
+				totalAds: toNumber(raw.totalAds) ?? prev.totalAds,
 				currentTime,
 			};
 		}
@@ -61,12 +77,12 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 		case AD_EVENT.MIDPOINT:
 		case AD_EVENT.THIRD_QUARTILE: {
 			const raw = (event.data ?? {}) as RawAdEventData;
-			const currentTime = raw.currentTime ?? prev.currentTime;
+			const currentTime = toNumber(raw.currentTime) ?? prev.currentTime;
 			return {
 				...prev,
 				isPlayingAd: true,
 				currentTime,
-				duration: raw.duration ?? prev.duration,
+				duration: toNumber(raw.duration) ?? prev.duration,
 				...deriveSkippable(raw, currentTime),
 			};
 		}

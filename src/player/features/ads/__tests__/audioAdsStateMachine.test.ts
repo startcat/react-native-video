@@ -234,3 +234,35 @@ describe("AudioAdsStateMachine.reset", () => {
 		expect(onChange).not.toHaveBeenCalled();
 	});
 });
+
+describe("deriveAudioAdsState — string-number coercion (Android bridge)", () => {
+	it("STARTED with string fields parses correctly", () => {
+		const after = deriveAudioAdsState(
+			INITIAL_AUDIO_ADS_STATE,
+			evt("STARTED", {
+				adTitle: "X",
+				duration: "15.0",
+				adPosition: "1",
+				totalAds: "2",
+			}),
+		);
+		expect(after.duration).toBe(15);
+		expect(after.adIndex).toBe(1);
+		expect(after.totalAds).toBe(2);
+	});
+
+	it("AD_PROGRESS with string isSkippable + skipOffset parses correctly", () => {
+		const next = deriveAudioAdsState(
+			INITIAL_AUDIO_ADS_STATE,
+			evt("AD_PROGRESS", {
+				currentTime: "1.4",
+				duration: "15.0",
+				isSkippable: "true",
+				skipOffset: "5.0",
+			}),
+		);
+		expect(next.currentTime).toBe(1.4);
+		expect(next.canSkipAd).toBe(false);
+		expect(next.secondsUntilSkippable).toBe(4);
+	});
+});
