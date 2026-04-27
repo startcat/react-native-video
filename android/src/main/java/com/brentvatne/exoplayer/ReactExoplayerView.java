@@ -905,6 +905,7 @@ public class ReactExoplayerView extends FrameLayout implements
                 .setAdEventListener(this)
                 .setAdErrorListener(this)
                 .build();
+        android.util.Log.i("RNV_ADS_DEBUG", "ImaAdsLoader created");
         DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(mediaDataSourceFactory);
         if (useCache) {
             mediaSourceFactory.setDataSourceFactory(RNVSimpleCache.INSTANCE.getCacheFactory(buildHttpDataSourceFactory(true)));
@@ -1058,6 +1059,8 @@ public class ReactExoplayerView extends FrameLayout implements
         ArrayList<MediaSource> mediaSourceList = buildTextSources();
         MediaSource videoSource = buildMediaSource(source.getUri(), source.getExtension(), drmSessionManager, source.getCropStartMs(), source.getCropEndMs());
         MediaSource mediaSourceWithAds = null;
+        android.util.Log.i("RNV_ADS_DEBUG", "initializePlayer: building media source. adTagUrl=" + adTagUrl
+                + " adsLoader=" + (adsLoader != null));
         if (adTagUrl != null && adsLoader != null) {
             DefaultMediaSourceFactory mediaSourceFactory = new DefaultMediaSourceFactory(mediaDataSourceFactory)
                     .setLocalAdInsertionComponents(unusedAdTagUri -> adsLoader, exoPlayerView);
@@ -2209,7 +2212,12 @@ public class ReactExoplayerView extends FrameLayout implements
     }
 
     public void setAdTagUrl(final Uri uri) {
+        android.util.Log.i("RNV_ADS_DEBUG", "setAdTagUrl called uri=" + uri
+                + " prev=" + adTagUrl
+                + " player=" + (player != null)
+                + " source=" + (source != null));
         if (Objects.equals(adTagUrl, uri)) {
+            android.util.Log.i("RNV_ADS_DEBUG", "setAdTagUrl: no change, skip");
             return;
         }
         adTagUrl = uri;
@@ -2219,7 +2227,10 @@ public class ReactExoplayerView extends FrameLayout implements
         // setting adTagUrl AFTER src — which is the common React Native prop
         // order — silently no-ops and ads never play.
         if (player != null && source != null) {
+            android.util.Log.i("RNV_ADS_DEBUG", "setAdTagUrl: reloading source");
             reloadSource();
+        } else {
+            android.util.Log.i("RNV_ADS_DEBUG", "setAdTagUrl: NOT reloading (player/source not ready yet)");
         }
     }
 
