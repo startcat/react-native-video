@@ -84,6 +84,12 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		});
 	}
 
+	useEffect(() => {
+		if (videoSource) {
+			adsStateMachineRef.current?.reset();
+		}
+	}, [videoSource]);
+
 	// Logger
 	if (!currentLogger.current && props.playerContext?.logger) {
 		currentLogger.current = props.playerContext?.logger?.forComponent(
