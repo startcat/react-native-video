@@ -39,6 +39,20 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 				currentTime: raw.currentTime ?? 0,
 			};
 		}
+		case AD_EVENT.AD_PROGRESS:
+		case AD_EVENT.FIRST_QUARTILE:
+		case AD_EVENT.MIDPOINT:
+		case AD_EVENT.THIRD_QUARTILE: {
+			const raw = (event.data ?? {}) as RawAdEventData;
+			return {
+				...prev,
+				isPlayingAd: true,
+				currentTime: raw.currentTime ?? prev.currentTime,
+				duration: raw.duration ?? prev.duration,
+			};
+		}
+		case AD_EVENT.COMPLETED:
+			return { ...prev, isPlayingAd: true, currentTime: prev.duration };
 		default:
 			return prev;
 	}

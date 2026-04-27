@@ -80,3 +80,32 @@ describe("deriveAudioAdsState — STARTED / LOADED", () => {
 		expect(after.adIndex).toBe(1);
 	});
 });
+
+describe("deriveAudioAdsState — progress events", () => {
+	const seeded = {
+		...INITIAL_AUDIO_ADS_STATE,
+		isPlayingAd: true,
+		adTitle: "Ad",
+		duration: 15,
+		adIndex: 1,
+		totalAds: 1,
+	};
+
+	it("AD_PROGRESS updates currentTime and duration", () => {
+		const next = deriveAudioAdsState(seeded, evt("AD_PROGRESS", { currentTime: 5, duration: 15 }));
+		expect(next.currentTime).toBe(5);
+		expect(next.duration).toBe(15);
+		expect(next.isPlayingAd).toBe(true);
+	});
+
+	it.each(["FIRST_QUARTILE", "MIDPOINT", "THIRD_QUARTILE"])("%s also updates progress", (name) => {
+		const next = deriveAudioAdsState(seeded, evt(name, { currentTime: 7 }));
+		expect(next.currentTime).toBe(7);
+	});
+
+	it("COMPLETED snaps currentTime to duration and stays isPlayingAd", () => {
+		const next = deriveAudioAdsState(seeded, evt("COMPLETED"));
+		expect(next.currentTime).toBe(15);
+		expect(next.isPlayingAd).toBe(true);
+	});
+});
