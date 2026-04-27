@@ -40,6 +40,10 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 		}
 		case AD_EVENT.STARTED:
 		case AD_EVENT.LOADED: {
+			// deriveSkippable intentionally NOT called here: STARTED does not
+			// carry reliable currentTime in all platforms. The first AD_PROGRESS
+			// event (~250ms later) computes canSkipAd / secondsUntilSkippable
+			// correctly, and the change-detected emitter forwards that update.
 			const raw = (event.data ?? {}) as RawAdEventData;
 			const currentTime = raw.currentTime ?? 0;
 			return {
@@ -115,6 +119,6 @@ export class AudioAdsStateMachine {
 	}
 
 	getState(): AudioAdsState {
-		return this.state;
+		return { ...this.state };
 	}
 }
