@@ -84,11 +84,13 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		});
 	}
 
+	// Reset ads state machine when the source URI changes (e.g. next podcast,
+	// stop / re-start). Tracks `uri` rather than the whole source object so
+	// re-creations of the wrapper that don't change the URI don't trigger a
+	// spurious reset.
 	useEffect(() => {
-		if (videoSource) {
-			adsStateMachineRef.current?.reset();
-		}
-	}, [videoSource]);
+		adsStateMachineRef.current?.reset();
+	}, [videoSource?.uri]);
 
 	// Logger
 	if (!currentLogger.current && props.playerContext?.logger) {
