@@ -1,5 +1,5 @@
 import type { OnReceiveAdEventData } from "../../../../types/events";
-import { deriveAudioAdsState, INITIAL_AUDIO_ADS_STATE } from "../audioAdsStateMachine";
+import { deriveAudioAdsState, INITIAL_AUDIO_ADS_STATE, AudioAdsStateMachine } from "../audioAdsStateMachine";
 
 const evt = (event: string, data: Record<string, unknown> = {}): OnReceiveAdEventData =>
 	({ event, data } as unknown as OnReceiveAdEventData);
@@ -176,5 +176,42 @@ describe("deriveAudioAdsState — passive and unknown events", () => {
 	it("known passive events return prev unchanged", () => {
 		const next = deriveAudioAdsState(seeded, evt("AD_BREAK_ENDED"));
 		expect(next).toBe(seeded);
+	});
+});
+
+describe("AudioAdsStateMachine — emit semantics", () => {
+	it("emits only when public state changes", () => {
+		const onChange = jest.fn();
+		const sm = new AudioAdsStateMachine(onChange);
+		sm.handleEvent(evt("AD_BREAK_STARTED", { totalAds: 1 })); // change
+		sm.handleEvent(evt("AD_BREAK_STARTED", { totalAds: 1 })); // no change
+		expect(onChange).toHaveBeenCalledTimes(1);
+		expect(onChange.mock.calls[0][0].isPlayingAd).toBe(true);
+	});
+
+	it("debounces sub-second currentTime changes (integer-second granularity)", () => {
+		const onChange = jest.fn();
+		const sm = new AudioAdsStateMachine(onChange);
+		sm.handleEvent(evt("AD_BREAK_STARTED", { totalAds: 1 }));
+		sm.handleEvent(evt("STARTED", { duration: 15, adPosition: 1, totalAds: 1 }));
+		onChange.mockClear();
+		sm.handleEvent(evt("AD_PROGRESS", { currentTime: 1.1, duration: 15 }));
+		sm.handleEvent(evt("AD_PROGRESS", { currentTime: 1.4, duration: 15 }));
+		sm.handleEvent(evt("AD_PROGRESS", { currentTime: 1.9, duration: 15 }));
+		sm.handleEvent(evt("AD_PROGRESS", { currentTime: 2.0, duration: 15 }));
+		expect(onChange).toHaveBeenCalledTimes(2); // floor 1, then floor 2
+	});
+
+	it("emits when secondsUntilSkippable integer changes", () => {
+		const onChange = jest.fn();
+		const sm = new AudioAdsStateMachine(onChange);
+		sm.handleEvent(evt("AD_BREAK_STARTED"));
+		sm.handleEvent(evt("STARTED", { duration: 15, isSkippable: true, skipOffset: 5 }));
+		onChange.mockClear();
+		sm.handleEvent(evt("AD_PROGRESS", { currentTime: 0.5, isSkippable: true, skipOffset: 5 }));
+		sm.handleEvent(evt("AD_PROGRESS", { currentTime: 1.5, isSkippable: true, skipOffset: 5 }));
+		expect(onChange).toHaveBeenCalledTimes(2);
+		expect(onChange.mock.calls[0][0].secondsUntilSkippable).toBe(5);
+		expect(onChange.mock.calls[1][0].secondsUntilSkippable).toBe(4);
 	});
 });

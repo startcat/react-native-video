@@ -42,7 +42,7 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 		case AD_EVENT.LOADED: {
 			const raw = (event.data ?? {}) as RawAdEventData;
 			const currentTime = raw.currentTime ?? 0;
-			const next: AudioAdsState = {
+			return {
 				...prev,
 				isPlayingAd: true,
 				adTitle: raw.adTitle ?? prev.adTitle,
@@ -51,7 +51,6 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 				totalAds: raw.totalAds ?? prev.totalAds,
 				currentTime,
 			};
-			return { ...next, ...deriveSkippable(raw, currentTime) };
 		}
 		case AD_EVENT.AD_PROGRESS:
 		case AD_EVENT.FIRST_QUARTILE:
@@ -76,5 +75,39 @@ export function deriveAudioAdsState(prev: AudioAdsState, event: OnReceiveAdEvent
 			return prev;
 		default:
 			return prev;
+	}
+}
+
+function publicStateEqual(a: AudioAdsState, b: AudioAdsState): boolean {
+	return (
+		a.isPlayingAd === b.isPlayingAd &&
+		a.adTitle === b.adTitle &&
+		a.duration === b.duration &&
+		a.adIndex === b.adIndex &&
+		a.totalAds === b.totalAds &&
+		a.canSkipAd === b.canSkipAd &&
+		a.secondsUntilSkippable === b.secondsUntilSkippable &&
+		Math.floor(a.currentTime) === Math.floor(b.currentTime)
+	);
+}
+
+export class AudioAdsStateMachine {
+	private state: AudioAdsState = { ...INITIAL_AUDIO_ADS_STATE };
+	private readonly onChange: (state: AudioAdsState) => void;
+
+	constructor(onChange: (state: AudioAdsState) => void) {
+		this.onChange = onChange;
+	}
+
+	handleEvent(event: OnReceiveAdEventData): void {
+		const next = deriveAudioAdsState(this.state, event);
+		if (!publicStateEqual(this.state, next)) {
+			this.state = next;
+			this.onChange(next);
+		}
+	}
+
+	getState(): AudioAdsState {
+		return this.state;
 	}
 }
