@@ -422,6 +422,7 @@ export interface VideoManagerType {
 	setLicenseResultError: (error: string, licenseUrl: string, reactTag: number) => Promise<void>;
 	setVolume: (volume: number, reactTag: number) => Promise<void>;
 	getCurrentPosition: (reactTag: number) => Promise<number>;
+	skipAd: (reactTag: number) => Promise<void>;
 }
 
 export interface VideoDecoderPropertiesType {
