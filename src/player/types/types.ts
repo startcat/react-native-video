@@ -264,6 +264,28 @@ export interface AudioAdsState {
 	secondsUntilSkippable: number | null;
 }
 
+/**
+ * Imperative handle for the audio flavour. Currently only exposes skipAd —
+ * extend as more imperative actions are added (pause / resume / seek-into-ad
+ * are provided via the standard `events` callbacks, not the ref).
+ */
+export interface AudioFlavourRef {
+	/**
+	 * Skip the currently playing ad. Resolves true on a successful skip
+	 * (the SDK reports SKIPPED), false if no ad is playing or the skip
+	 * fails. Does not throw.
+	 */
+	skipAd: () => Promise<boolean>;
+}
+
+/**
+ * Imperative handle for the AudioPlayer wrapper. Delegates to the active
+ * flavour. The audioCast flavour returns false from skipAd in this PR.
+ */
+export interface AudioPlayerRef {
+	skipAd: () => Promise<boolean>;
+}
+
 /*
  *  Props Componentes
  *
