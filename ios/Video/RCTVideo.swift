@@ -633,6 +633,16 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
         #if RNUSE_GOOGLE_IMA
             if _adTagUrl != nil {
+                // Liberar el adsManager del episodio anterior y resetear el
+                // flag `_didRequestAds`. Sin esto, al saltar al siguiente
+                // episodio (mismo `_adTagUrl`), el progress observer ve
+                // `_didRequestAds == true` y nunca vuelve a llamar a
+                // `requestAds()`, por lo que IMA no dispara el preroll del
+                // nuevo episodio. Android resetea su flag equivalente al
+                // re-crear el ExoPlayer, en iOS hay que hacerlo manual.
+                _imaAdsManager.releaseAds()
+                _didRequestAds = false
+
                 // Set up your content playhead and contentComplete callback.
                 _contentPlayhead = IMAAVPlayerContentPlayhead(avPlayer: _player!)
 
@@ -690,7 +700,16 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             self.applyNextSource()
         }
 
-        DispatchQueue.global(qos: .default).async(execute: initializeSource)
+        // initializeSource toca CALayer (`removePlayerLayer()`) y observers KVO
+        // que pueden disparar layout — operaciones que CoreAnimation/UIKit
+        // exigen ejecutar en main thread. Lanzarlo en `.global` provocaba
+        // crashes intermitentes ("Modifications to the layout engine must
+        // not be performed from a background thread") cuando el thread de
+        // background terminaba con una `CATransaction` pendiente en su TLS.
+        // El work I/O pesado (preparePlayerItem / setupPlayer) sigue en
+        // background porque está envuelto en `RCTVideoUtils.delay { ... }`,
+        // que internamente salta a `Task.detached(priority: .userInitiated)`.
+        DispatchQueue.main.async(execute: initializeSource)
     }
 
     @objc

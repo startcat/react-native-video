@@ -951,8 +951,24 @@ export const AudioFlavour = forwardRef<AudioFlavourRef, AudioFlavourProps>(
 		// Procesar progreso para todos los tipos de items (incluido TUDUM) si el contenido está cargado
 		if (isContentLoaded) {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
-				// Para VOD: NO actualizar duration en onProgress, mantener la que se estableció en onLoad
-				const currentDuration = vodProgressManagerRef.current?.duration || 0;
+				// Para VOD: normalmente la duration la establece `handleOnLoad`.
+				// Pero cuando hay un preroll de IMA, en iOS `onLoad` del contenido
+				// puede no volver a dispararse tras el ad break, dejando el
+				// progress manager sin duración. Como fallback, sembramos la
+				// duración con `e.seekableDuration` la primera vez que llega un
+				// progress event con un valor > 0 — para entonces el ad ya
+				// terminó y `seekableDuration` es la del contenido principal.
+				let currentDuration = vodProgressManagerRef.current?.duration || 0;
+				if (
+					currentDuration <= 0 &&
+					typeof e.seekableDuration === "number" &&
+					e.seekableDuration > 0
+				) {
+					currentLogger.current?.info(
+						`handleOnProgress - Seeding VOD duration from progress event: ${e.seekableDuration}s (onLoad fallback)`
+					);
+					currentDuration = e.seekableDuration;
+				}
 
 				if (currentDuration > 0) {
 					vodProgressManagerRef.current?.updatePlayerData({
@@ -1132,6 +1148,28 @@ export const AudioFlavour = forwardRef<AudioFlavourRef, AudioFlavourProps>(
 			currentLogger.current?.debug(`[ADS] event=${e.event}`, e.data ?? {});
 		}
 		adsStateMachineRef.current?.handleEvent(e);
+
+		// Cuando IMA termina el preroll y devuelve control al AVPlayer del
+		// contenido (CONTENT_RESUME_REQUESTED / ALL_ADS_COMPLETED), el evento
+		// `onLoad` del contenido principal puede no volver a dispararse en iOS
+		// (el AVPlayer ya estaba pre-cargado pero su KVO `status=ReadyToPlay`
+		// disparó ANTES de que arrancara el ad break, por lo que `handleOnLoad`
+		// no llega a ejecutarse en este ciclo). Resultado: `isContentLoaded`
+		// se queda en `false`, los progress managers ignoran los `onProgress`,
+		// y los `sliderValues` nunca se pueblan. Como red de seguridad,
+		// forzamos `setIsContentLoaded(true)` aquí: si la fuente ya tiene
+		// duration disponible (vía vodProgressManager) los controles se
+		// desbloquean inmediatamente; si no, el siguiente `handleOnProgress`
+		// rellenará los valores.
+		if (
+			(e.event === "CONTENT_RESUME_REQUESTED" || e.event === "ALL_ADS_COMPLETED") &&
+			!isContentLoaded
+		) {
+			currentLogger.current?.info(
+				`[ADS] ${e.event} → forcing isContentLoaded=true (fallback for missed onLoad)`
+			);
+			setIsContentLoaded(true);
+		}
 	};
 
 	const handleOnInternalError = (error: PlayerError) => {
