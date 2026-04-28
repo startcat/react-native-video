@@ -540,3 +540,86 @@ here** — it requires the native bridge added in PR-2 (`AdsManager.skip()`
 on Android, `IMAAdsManager.skip()` on iOS). The state contract that the UI
 needs to render the countdown and decide button enable state is fully
 exercised with the existing PR-1 work.
+
+### 2026-04-28 — PR-2: native skipAd + iOS parity (Real device)
+
+**Tested on:** Samsung A15 (Android 16) + iPhone (iOS 18) using `portal:`
+yarn protocol against the consumer app, both with the Google IMA test
+asset `/21775744923/external/single_preroll_skippable` (10s linear video
+ad with `skipoffset=00:00:05`).
+
+**Android — what works:**
+- `setAdTagUrl` reload trigger fires `initializePlayer` correctly.
+- `onAdEvent` enrichment: `adTitle`, `duration`, `isSkippable`, `skipOffset`,
+  `adPosition`, `totalAds`, `currentTime` all flow into `[ADS state]`.
+- 1Hz `currentTime` ticking via native `player.getCurrentPosition()` for
+  AD_PROGRESS / quartiles / lifecycle.
+- `canSkipAd` flips false→true exactly at `currentTime ≥ skipOffset` (5s).
+- `audioPlayerRef.skipAd()` reaches Java via `VideoManagerModule.skipAd`
+  → `ReactExoplayerView.skipAd()` → reflection-based call to
+  `AdsManager.skip()` and `AdsManager.discardAdBreak()`. Both invocations
+  are logged.
+
+**iOS — what works:**
+- `setAdTagUrl` reload trigger via `_imaAdsManager.setUpAdsLoader()`.
+- `onReceiveAdEvent` payload now carries the full metadata set
+  (mirroring Android Bundle 6).
+- IMA iOS SDK does not publish `AD_PROGRESS` events — replaced with a
+  Swift `Timer` that fires synthetic `AD_PROGRESS` at 1Hz with
+  wall-clock-derived elapsed time. Confirmed working — full countdown
+  ticks 5→0 cleanly, identical UX to Android.
+- `audioPlayerRef.skipAd()` reaches Swift via
+  `RCTVideoManager.skipAd` → `RCTVideo.skipAd()` → `RCTIMAAdsManager.skip()`
+  which calls `adsManager.skip()` + `adsManager.discardAdBreak()`.
+- `AdEventsHandler.handleAdEvent` updated to handle `AD_PROGRESS`
+  (previously fell to the default branch and threw `PLAYER_AD_EVENT_PROCESSING_ERROR`).
+
+**Known limitation — programmatic skip does NOT shorten audible playback:**
+
+On both Android and iOS, calling `AdsManager.skip()` and
+`AdsManager.discardAdBreak()` programmatically (i.e. not via the IMA
+SDK's own internal skip button) is silently a no-op for the audio
+playback. The SDK acknowledges the call (no error, internal state
+likely updates for analytics tracking), but the ad continues until
+its natural duration:
+
+| t (s) | event |
+|---|---|
+| 5.013 | `canSkipAd` flips true |
+| 5.x | user taps debug skip button |
+| 5.x | `[main] skipAd: AdsManager.skip() invoked` |
+| 5.x | `[main] skipAd: AdsManager.discardAdBreak() invoked` |
+| 6.0 | `[ADS state]` still `isPlayingAd:true currentTime:6.0` |
+| 7.0 | …`currentTime:7.0` |
+| 10.0 | natural end → `CONTENT_RESUME_REQUESTED` → IDLE |
+
+This is a known IMA SDK design constraint — the skip API is intended
+to be backed by the SDK's own UI button (which is rendered for video
+ads only). For audio-only contexts there is no skip UI; publishers are
+expected to render their own button and the programmatic call updates
+analytics but the SDK does not propagate the skip to the underlying
+player timeline.
+
+Workarounds attempted, all unsuccessful:
+- `player.seekTo(adDurationMs)` during ad period — clamped silently.
+- Reflection-based `AdTagLoader.markAdAsSkipped` (not attempted; would
+  require deeper media3 internals access).
+- Replacement of MediaSource (too disruptive — loses content position).
+- `ad_type=audio` test creatives — Google's IMA test inventory does
+  not provide skippable audio fixtures; per the GAM docs, audio ads
+  do not support skip metadata at the SDK level.
+
+**Recommended consumer pattern:**
+
+For PR-3's UI in the consumer app, the skip button should:
+1. Call `audioPlayerRef.skipAd()` for analytics-side ad-tracking pixels.
+2. Optionally call a content seek to `adDuration` immediately after, to
+   shorten the audible portion of the ad. This is implemented in the
+   consumer app, not the player package, because the right behaviour
+   varies by publisher (some markets contractually require the full
+   ad to play even after skip).
+
+**Outcome:** PR-2 ships with state machine + iOS parity + skipAd
+plumbing complete. Audible skip is a documented limitation. The
+state contract that PR-3 needs (countdown, canSkipAd, secondsUntilSkippable)
+is fully working on both platforms.
