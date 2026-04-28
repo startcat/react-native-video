@@ -1,4 +1,5 @@
 #if RNUSE_GOOGLE_IMA
+    import CoreMedia
     import Foundation
     import GoogleInteractiveMediaAds
 
@@ -106,16 +107,68 @@
 
             if _video.onReceiveAdEvent != nil {
                 let type = convertEventToString(event: event.type)
+                var data: [String: Any] = [:]
 
-                if event.adData != nil {
+                // Pass through whatever the SDK already gave us.
+                if let adData = event.adData {
+                    for (key, value) in adData {
+                        if let key = key as? String {
+                            data[key] = value
+                        }
+                    }
+                }
+
+                // Enrich with creative metadata. Mirror of the Android fix in
+                // ReactExoplayerView.onAdEvent (commit fe561a77).
+                if let ad = event.ad {
+                    if data["adTitle"] == nil, let title = ad.adTitle {
+                        data["adTitle"] = title
+                    }
+                    if data["duration"] == nil {
+                        data["duration"] = ad.duration
+                    }
+                    if data["isSkippable"] == nil {
+                        data["isSkippable"] = ad.isSkippable
+                    }
+                    if data["skipOffset"] == nil {
+                        data["skipOffset"] = ad.skipTimeOffset
+                    }
+                    if let pod = ad.adPodInfo {
+                        if data["adPosition"] == nil {
+                            data["adPosition"] = pod.adPosition
+                        }
+                        if data["totalAds"] == nil {
+                            data["totalAds"] = pod.totalAds
+                        }
+                    }
+                }
+
+                // Inject current playhead for progress / quartile / lifecycle events
+                // so the JS state machine can tick. Mirror of the Android fix in
+                // ReactExoplayerView.onAdEvent (commit b78019ac).
+                switch event.type {
+                case .AD_PROGRESS, .FIRST_QUARTILE, .MIDPOINT, .THIRD_QUARTILE,
+                     .STARTED, .LOADED, .COMPLETE:
+                    if data["currentTime"] == nil, let player = _video?.getPlayer() {
+                        let cm = player.currentTime()
+                        let seconds = CMTimeGetSeconds(cm)
+                        if seconds.isFinite && seconds >= 0 {
+                            data["currentTime"] = seconds
+                        }
+                    }
+                default:
+                    break
+                }
+
+                if data.isEmpty {
                     _video.onReceiveAdEvent?([
                         "event": type,
-                        "data": event.adData ?? [String](),
                         "target": _video.reactTag!,
                     ])
                 } else {
                     _video.onReceiveAdEvent?([
                         "event": type,
+                        "data": data,
                         "target": _video.reactTag!,
                     ])
                 }
