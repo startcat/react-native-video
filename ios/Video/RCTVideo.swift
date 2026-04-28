@@ -1537,6 +1537,13 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         setFullscreen(true)
     }
 
+    @objc
+    public func skipAd() {
+        #if RNUSE_GOOGLE_IMA
+            _imaAdsManager.skip()
+        #endif
+    }
+
     // MARK: - RCTPlayerObserverHandler
 
     func handleTimeUpdate(time _: CMTime) {
