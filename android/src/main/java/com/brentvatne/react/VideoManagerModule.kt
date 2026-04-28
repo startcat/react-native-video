@@ -63,6 +63,13 @@ class VideoManagerModule(reactContext: ReactApplicationContext?) : ReactContextB
     }
 
     @ReactMethod
+    fun skipAd(reactTag: Int) {
+        performOnPlayerView(reactTag) {
+            it?.skipAd()
+        }
+    }
+
+    @ReactMethod
     fun getCurrentPosition(reactTag: Int, promise: Promise) {
         performOnPlayerView(reactTag) {
             it?.getCurrentPosition(promise)
