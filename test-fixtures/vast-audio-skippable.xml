@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<VAST version="4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="vast.xsd">
-	<Ad id="audio-test-skippable">
+<VAST version="3.0">
+	<Ad id="1">
 		<InLine>
-			<AdSystem version="1.0">RNV Test Audio Skippable</AdSystem>
+			<AdSystem>RNV Test Audio</AdSystem>
 			<AdTitle>Audio Test Ad — Skippable at 5s</AdTitle>
-			<AdServingId>00000000-0000-0000-0000-000000000001</AdServingId>
 			<Impression><![CDATA[https://example.com/impression]]></Impression>
 			<Creatives>
-				<Creative id="audio-creative-1" sequence="1">
-					<UniversalAdId idRegistry="rnv-test">audio-test-skippable</UniversalAdId>
+				<Creative id="1" sequence="1">
 					<Linear skipoffset="00:00:05">
 						<Duration>00:00:15</Duration>
 						<TrackingEvents>
@@ -20,7 +18,7 @@
 							<Tracking event="skip"><![CDATA[https://example.com/track/skip]]></Tracking>
 						</TrackingEvents>
 						<MediaFiles>
-							<MediaFile id="audio-mp3" delivery="progressive" type="audio/mpeg" bitrate="128" width="0" height="0">
+							<MediaFile delivery="progressive" type="audio/mpeg" bitrate="128">
 								<![CDATA[https://download.samplelib.com/mp3/sample-15s.mp3]]>
 							</MediaFile>
 						</MediaFiles>
