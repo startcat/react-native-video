@@ -114,20 +114,22 @@
                 let type = convertEventToString(event: event.type)
                 var data: [String: Any] = [:]
 
-                // Pass through whatever the SDK already gave us.
+                // Pass through whatever the SDK already gave us. event.adData
+                // is bridged as [String: Any] so the keys are already String.
                 if let adData = event.adData {
                     for (key, value) in adData {
-                        if let key = key as? String {
-                            data[key] = value
-                        }
+                        data[key] = value
                     }
                 }
 
                 // Enrich with creative metadata. Mirror of the Android fix in
                 // ReactExoplayerView.onAdEvent (commit fe561a77).
+                // Note: on iOS, IMAAd's metadata fields are non-optional value
+                // types (String / Double / Bool), unlike the Android nullable
+                // accessors. Empty strings are treated as "no title".
                 if let ad = event.ad {
-                    if data["adTitle"] == nil, let title = ad.adTitle {
-                        data["adTitle"] = title
+                    if data["adTitle"] == nil, !ad.adTitle.isEmpty {
+                        data["adTitle"] = ad.adTitle
                     }
                     if data["duration"] == nil {
                         data["duration"] = ad.duration
@@ -138,23 +140,32 @@
                     if data["skipOffset"] == nil {
                         data["skipOffset"] = ad.skipTimeOffset
                     }
-                    if let pod = ad.adPodInfo {
-                        if data["adPosition"] == nil {
-                            data["adPosition"] = pod.adPosition
-                        }
-                        if data["totalAds"] == nil {
-                            data["totalAds"] = pod.totalAds
-                        }
+                    let pod = ad.adPodInfo
+                    if data["adPosition"] == nil {
+                        data["adPosition"] = pod.adPosition
+                    }
+                    if data["totalAds"] == nil {
+                        data["totalAds"] = pod.totalAds
                     }
                 }
 
-                // Inject current playhead for progress / quartile / lifecycle events
-                // so the JS state machine can tick. Mirror of the Android fix in
+                // Inject current playhead for quartile / lifecycle events so
+                // the JS state machine can tick. Mirror of the Android fix in
                 // ReactExoplayerView.onAdEvent (commit b78019ac).
+                //
+                // IMPORTANT: iOS IMA SDK does NOT publish AD_PROGRESS events
+                // (Android-only). On iOS, currentTime updates only at quartile
+                // events (FIRST_QUARTILE, MIDPOINT, THIRD_QUARTILE) and the
+                // STARTED / LOADED / COMPLETE lifecycle. For a 10s ad, that
+                // means roughly 5 emissions instead of ~10 on Android. The
+                // skip-button countdown will refresh at those points only.
+                // If smoother updates are needed, add a Swift Timer here that
+                // fires synthetic AD_PROGRESS events at 1Hz between STARTED
+                // and AD_BREAK_ENDED.
                 switch event.type {
-                case .AD_PROGRESS, .FIRST_QUARTILE, .MIDPOINT, .THIRD_QUARTILE,
+                case .FIRST_QUARTILE, .MIDPOINT, .THIRD_QUARTILE,
                      .STARTED, .LOADED, .COMPLETE:
-                    if data["currentTime"] == nil, let player = _video?.getPlayer() {
+                    if data["currentTime"] == nil, let player = _video.getPlayer() {
                         let cm = player.currentTime()
                         let seconds = CMTimeGetSeconds(cm)
                         if seconds.isFinite && seconds >= 0 {
