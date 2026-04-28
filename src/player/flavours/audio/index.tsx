@@ -1,4 +1,12 @@
-import React, { createElement, useCallback, useEffect, useRef, useState } from "react";
+import React, {
+	createElement,
+	forwardRef,
+	useCallback,
+	useEffect,
+	useImperativeHandle,
+	useRef,
+	useState,
+} from "react";
 import { EventRegister } from "react-native-event-listeners";
 import Animated, { useSharedValue } from "react-native-reanimated";
 import {
@@ -39,6 +47,7 @@ import { styles } from "../styles";
 import { DeviceEventEmitter, NativeModules, Platform } from "react-native";
 import {
 	type AudioFlavourProps,
+	type AudioFlavourRef,
 	type AudioPlayerActionEventProps,
 	type ICommonData,
 	type IDrm,
@@ -48,7 +57,8 @@ import {
 	YOUBORA_FORMAT,
 } from "../../types";
 
-export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
+export const AudioFlavour = forwardRef<AudioFlavourRef, AudioFlavourProps>(
+	function AudioFlavour(props, ref): React.ReactElement {
 	const currentLogger = useRef<ComponentLogger | null>(null);
 
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
@@ -91,6 +101,22 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	useEffect(() => {
 		adsStateMachineRef.current?.reset();
 	}, [videoSource?.uri]);
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			skipAd: async () => {
+				try {
+					await refVideoPlayer.current?.skipAd();
+					return true;
+				} catch (err) {
+					currentLogger.current?.warn?.(`[ADS] skipAd failed: ${err}`);
+					return false;
+				}
+			},
+		}),
+		[],
+	);
 
 	// Logger
 	if (!currentLogger.current && props.playerContext?.logger) {
@@ -1285,6 +1311,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			{Controls}
 		</Animated.View>
 	);
-}
+	}
+);
 
 export default AudioFlavour;
