@@ -72,6 +72,13 @@ class RCTVideoManager: RCTViewManager {
         })
     }
 
+    @objc(skipAd:)
+    func skipAd(_ reactTag: NSNumber) {
+        performOnVideoView(withReactTag: reactTag, callback: { videoView in
+            videoView?.skipAd()
+        })
+    }
+
     @objc(setPlayerPauseState:reactTag:)
     func setPlayerPauseState(paused: NSNumber, reactTag: NSNumber) {
         performOnVideoView(withReactTag: reactTag, callback: { videoView in
