@@ -500,3 +500,43 @@ Emitted by Google IMA SDK during `adsManager` teardown after `ALL_ADS_COMPLETED`
 
 **Out of validation scope (Zulora EITB vmap URL):**
 The production vmap URL returned by `https://guau.eus/api/v1/media/zulora-1-deskonexioa` failed with IMA error 1005 (`FAILED_TO_REQUEST_ADS`). The URL has placeholder values: `description_url=https://example.com/podcast/episode-42` and a hardcoded Windows desktop user agent. This is a backend-side issue (EITB), tracked separately. The PR-1 chain itself is validated independently with the Google IMA test asset.
+
+### 2026-04-28 — Skippable countdown follow-up (Real device)
+
+Same setup. Test ad URL switched to
+`/21775744923/external/single_preroll_skippable` (Google IMA test asset that
+returns a real VAST 3.0 InLine with `skipoffset="00:00:05"`).
+
+Note: at the time of writing, `single_ad_samples?cust_params=sample_ct=skippablelinear`
+and the `ad_rule_samples?cust_params=sample_ar=premidpostpod` VMAP variants
+return empty bodies from GAM (`<VAST .../>` / `<vmap:VMAP .../>`). The
+`single_preroll_skippable` path is currently the most reliable
+known-skippable Google IMA test endpoint.
+
+**State machine output captured:**
+
+| t (s) | currentTime | canSkipAd | secondsUntilSkippable |
+|---|---|---|---|
+| LOADED | 0 | false | null (no progress yet) |
+| 0.27 | 0.274 | false | 5 |
+| 1.19 | 1.191 | false | 4 |
+| 2.00 | 2.001 | false | 3 |
+| 3.00 | 3.004 | false | 2 |
+| 4.01 | 4.013 | false | 1 |
+| **5.02** | 5.016 | **true** | 0 |
+| 6.03 | 6.028 | true | 0 |
+| … | … | true | 0 |
+| 10.0 | 10.007 | true | 0 |
+| IDLE | 0 | false | null |
+
+✅ `canSkipAd` flips false → true exactly when `currentTime` crosses
+`skipOffset` (5s).
+✅ `secondsUntilSkippable` counts down 5 → 4 → 3 → 2 → 1 → 0 over 5 seconds.
+✅ Once skippable, both fields stay stable until the ad break ends.
+✅ Reset to IDLE at `CONTENT_RESUME_REQUESTED` is clean.
+
+**Programmatic skip (`audioPlayerRef.skipAd()`) is intentionally NOT validated
+here** — it requires the native bridge added in PR-2 (`AdsManager.skip()`
+on Android, `IMAAdsManager.skip()` on iOS). The state contract that the UI
+needs to render the countdown and decide button enable state is fully
+exercised with the existing PR-1 work.
