@@ -69,6 +69,7 @@ export class AdEventsHandler {
                     this.handleContentResumeRequested();
                     break;
                     
+                case 'AD_PROGRESS':
                 case 'FIRST_QUARTILE':
                 case 'MIDPOINT':
                 case 'THIRD_QUARTILE':

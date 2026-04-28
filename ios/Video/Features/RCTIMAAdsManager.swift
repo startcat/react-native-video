@@ -70,7 +70,17 @@
 
         func skip() {
             guard let adsManager else { return }
+            // Two-step skip mirroring the Android workaround:
+            //   1. skip() marks the ad as skipped for analytics / tracking
+            //      pixels in the IMA SDK's internal state.
+            //   2. discardAdBreak() tears down IMA's ad player and tells the
+            //      SDK to fire CONTENT_RESUME_REQUESTED, which restarts
+            //      content playback on the host AVPlayer. Without this step
+            //      `skip()` alone is a no-op for the audible playback —
+            //      the ad keeps playing through the SDK's internal player
+            //      until its natural end (validated 2026-04-28 on iPhone).
             adsManager.skip()
+            adsManager.discardAdBreak()
         }
 
         // MARK: - Synthetic AD_PROGRESS (iOS-only)
