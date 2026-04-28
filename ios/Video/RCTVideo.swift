@@ -1366,8 +1366,29 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     @objc
+    public func getPlayer() -> AVPlayer? {
+        return _player
+    }
+
+    @objc
     func setAdTagUrl(_ adTagUrl: String!) {
+        if _adTagUrl == adTagUrl {
+            return
+        }
         _adTagUrl = adTagUrl
+        #if RNUSE_GOOGLE_IMA
+            // If a player is already running with a source, the ad tag arrived
+            // AFTER setSrc (the common React Native prop apply order). The
+            // existing player session was started without an IMA ads loader, so
+            // we have to recreate it. Mirror of the Android fix in
+            // ReactExoplayerView.setAdTagUrl (commit 87d36530).
+            if _player != nil && _source != nil && adTagUrl != nil {
+                _imaAdsManager.setUpAdsLoader()
+                // requestAds will fire when onVideoProgress observes
+                // currentTime >= 0.0001 (existing pre-roll trigger at line 396).
+                _didRequestAds = false
+            }
+        #endif
     }
 
     #if RNUSE_GOOGLE_IMA
