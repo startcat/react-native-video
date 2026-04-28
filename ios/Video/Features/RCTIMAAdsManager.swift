@@ -55,6 +55,11 @@
             adsManager.destroy()
         }
 
+        func skip() {
+            guard let adsManager else { return }
+            adsManager.skip()
+        }
+
         // MARK: - Getters
 
         func getAdsLoader() -> IMAAdsLoader? {
