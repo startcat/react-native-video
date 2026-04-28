@@ -12,6 +12,18 @@
         /* Main point of interaction with the SDK. Created by the SDK as the result of an ad request. */
         private var adsManager: IMAAdsManager!
 
+        /* Synthetic AD_PROGRESS support for iOS. The IMA iOS SDK does not
+         * publish AD_PROGRESS events the way Android does, and the content
+         * AVPlayer's `currentTime()` is paused at the pre-ad position during
+         * ad playback (it is the CONTENT player, not the ad player). To keep
+         * the JS state machine ticking ~1Hz parity with Android we capture
+         * the wall-clock start of each STARTED event and fire synthetic
+         * AD_PROGRESS events from a Timer until COMPLETE / SKIPPED.
+         */
+        private var currentAd: IMAAd?
+        private var adStartDate: Date?
+        private var progressTimer: Timer?
+
         init(video: RCTVideo!, pipEnabled: @escaping () -> Bool) {
             _video = video
             _pipEnabled = pipEnabled
@@ -46,6 +58,7 @@
         }
 
         func releaseAds() {
+            stopAdProgressTimer()
             guard let adsManager else { return }
             // Destroy AdsManager may be delayed for a few milliseconds
             // But what we want is it stopped producing sound immediately
@@ -58,6 +71,53 @@
         func skip() {
             guard let adsManager else { return }
             adsManager.skip()
+        }
+
+        // MARK: - Synthetic AD_PROGRESS (iOS-only)
+
+        private func startAdProgressTimer(for ad: IMAAd) {
+            stopAdProgressTimer()
+            currentAd = ad
+            adStartDate = Date()
+            progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                self?.fireSyntheticAdProgress()
+            }
+        }
+
+        private func stopAdProgressTimer() {
+            progressTimer?.invalidate()
+            progressTimer = nil
+            currentAd = nil
+            adStartDate = nil
+        }
+
+        private func fireSyntheticAdProgress() {
+            guard let video = _video,
+                  let onReceiveAdEvent = video.onReceiveAdEvent,
+                  let ad = currentAd,
+                  let startDate = adStartDate
+            else { return }
+
+            let elapsed = Date().timeIntervalSince(startDate)
+            let clamped = max(0, min(elapsed, ad.duration))
+
+            var data: [String: Any] = [
+                "currentTime": clamped,
+                "duration": ad.duration,
+                "isSkippable": ad.isSkippable,
+                "skipOffset": ad.skipTimeOffset,
+                "adPosition": ad.adPodInfo.adPosition,
+                "totalAds": ad.adPodInfo.totalAds,
+            ]
+            if !ad.adTitle.isEmpty {
+                data["adTitle"] = ad.adTitle
+            }
+
+            onReceiveAdEvent([
+                "event": "AD_PROGRESS",
+                "data": data,
+                "target": video.reactTag!,
+            ])
         }
 
         // MARK: - Getters
@@ -110,6 +170,21 @@
                 adsManager.start()
             }
 
+            // Drive the synthetic AD_PROGRESS timer for iOS (the IMA iOS SDK
+            // does not publish AD_PROGRESS events natively, and the content
+            // AVPlayer is paused during ad playback, so we have to compute
+            // ad-elapsed time from wall clock).
+            switch event.type {
+            case .STARTED:
+                if let ad = event.ad {
+                    startAdProgressTimer(for: ad)
+                }
+            case .COMPLETE, .SKIPPED, .ALL_ADS_COMPLETED:
+                stopAdProgressTimer()
+            default:
+                break
+            }
+
             if _video.onReceiveAdEvent != nil {
                 let type = convertEventToString(event: event.type)
                 var data: [String: Any] = [:]
@@ -149,32 +224,12 @@
                     }
                 }
 
-                // Inject current playhead for quartile / lifecycle events so
-                // the JS state machine can tick. Mirror of the Android fix in
-                // ReactExoplayerView.onAdEvent (commit b78019ac).
-                //
-                // IMPORTANT: iOS IMA SDK does NOT publish AD_PROGRESS events
-                // (Android-only). On iOS, currentTime updates only at quartile
-                // events (FIRST_QUARTILE, MIDPOINT, THIRD_QUARTILE) and the
-                // STARTED / LOADED / COMPLETE lifecycle. For a 10s ad, that
-                // means roughly 5 emissions instead of ~10 on Android. The
-                // skip-button countdown will refresh at those points only.
-                // If smoother updates are needed, add a Swift Timer here that
-                // fires synthetic AD_PROGRESS events at 1Hz between STARTED
-                // and AD_BREAK_ENDED.
-                switch event.type {
-                case .FIRST_QUARTILE, .MIDPOINT, .THIRD_QUARTILE,
-                     .STARTED, .LOADED, .COMPLETE:
-                    if data["currentTime"] == nil, let player = _video.getPlayer() {
-                        let cm = player.currentTime()
-                        let seconds = CMTimeGetSeconds(cm)
-                        if seconds.isFinite && seconds >= 0 {
-                            data["currentTime"] = seconds
-                        }
-                    }
-                default:
-                    break
-                }
+                // NOTE: We intentionally do NOT inject `_video.getPlayer().currentTime()`
+                // for quartile / lifecycle events here. On iOS the content
+                // AVPlayer is paused during ad playback, so its `currentTime()`
+                // is the pre-ad CONTENT position — not the ad's elapsed time.
+                // Synthetic AD_PROGRESS events emitted by `progressTimer`
+                // provide accurate ad-elapsed time at 1Hz instead.
 
                 if data.isEmpty {
                     _video.onReceiveAdEvent?([
