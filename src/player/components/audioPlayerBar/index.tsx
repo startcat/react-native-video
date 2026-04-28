@@ -1,5 +1,5 @@
 import { Spinner } from "@ui-kitten/components";
-import React, { createElement, useCallback, useEffect, useRef, useState } from "react";
+import React, { createElement, forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { View } from "react-native";
 import BackgroundTimer from "react-native-background-timer";
 import { EventRegister } from "react-native-event-listeners";
@@ -31,6 +31,7 @@ import {
 	type IPreferencesCommonData,
 	CONTROL_ACTION,
 } from "../../types";
+import { type AudioPlayerRef, type AudioFlavourRef } from "../../types";
 
 // Declaraciones globales para TypeScript
 declare var __DEV__: boolean;
@@ -43,10 +44,25 @@ const PLAYER_MAX_HEIGHT = 80;
  *
  */
 
-export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null {
+export const AudioPlayer = forwardRef<AudioPlayerRef, AudioPlayerProps>(
+	function AudioPlayer(props, ref): React.ReactElement | null {
 	const playerContext = useRef<PlayerContext | null>(null);
 	const playerLogger = useRef<Logger | null>(null);
 	const currentLogger = useRef<ComponentLogger | null>(null);
+
+	const audioFlavourRef = useRef<AudioFlavourRef | null>(null);
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			skipAd: async () => {
+				const flavour = audioFlavourRef.current;
+				if (!flavour) return false;
+				return flavour.skipAd();
+			},
+		}),
+		[],
+	);
 
 	const playerMaxHeight = useRef<number | string>(props.playerMaxHeight || PLAYER_MAX_HEIGHT);
 	const audioPlayerHeight = useSharedValue(0);
@@ -445,6 +461,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			nativeCastState !== NativeCastState.CONNECTING &&
 			nativeCastState !== NativeCastState.CONNECTED ? (
 				<AudioFlavour
+					ref={audioFlavourRef}
 					playerContext={playerContext.current}
 					playlistItem={currentPlaylistItem}
 					// Styles
@@ -485,6 +502,8 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			currentPlaylistItem &&
 			(nativeCastState === NativeCastState.CONNECTING ||
 				nativeCastState === NativeCastState.CONNECTED) ? (
+				<>
+				{/* Cast flavour does not implement skipAd in PR-2; see audio-ads-design.md §2. */}
 				<AudioCastFlavour
 					playerContext={playerContext.current}
 					playlistItem={currentPlaylistItem}
@@ -519,7 +538,9 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 					// Player Logger
 					logger={dpoData.logger}
 				/>
+				</>
 			) : null}
 		</Animated.View>
 	);
-}
+	}
+);
