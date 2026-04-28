@@ -545,6 +545,7 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 		commands.put("requestAudioFocus", 4);
 		commands.put("abandonAudioFocus", 5);
 		commands.put("getAudioFocusState", 6);
+		commands.put("skipAd", 7);
 		return commands;
 	}
 
@@ -584,6 +585,10 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 				Log.d(TAG, "🔊 [ViewManager] getAudioFocusState case matched (handled by module)");
 				// getAudioFocusState se maneja a través de VideoAudioFocusModule
 				// ya que receiveCommand no puede retornar valores directamente
+				break;
+			case "skipAd":
+				Log.d(TAG, "[ViewManager] skipAd case matched");
+				view.skipAd();
 				break;
 			default:
 				Log.w(TAG, "🔔 [ViewManager] Unknown command: " + commandId);
