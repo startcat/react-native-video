@@ -2223,6 +2223,59 @@ public class ReactExoplayerView extends FrameLayout implements
         }
     }
 
+    /**
+     * Programmatically skip the currently playing ad on the underlying
+     * IMA AdsManager. media3 1.5.1's ImaAdsLoader does not expose this
+     * publicly; we reach into the IMA SDK via reflection. If reflection
+     * fails (e.g. media3 internals change), this method logs a warning
+     * and returns — the caller sees a no-op rather than a crash.
+     */
+    public void skipAd() {
+        if (adsLoader == null) {
+            DebugLog.w(TAG, "skipAd: adsLoader is null, ignoring");
+            return;
+        }
+        try {
+            // ImaAdsLoader holds adTagLoaderByAdsId: Map<Object, AdTagLoader>.
+            java.lang.reflect.Field tagLoadersField =
+                adsLoader.getClass().getDeclaredField("adTagLoaderByAdsId");
+            tagLoadersField.setAccessible(true);
+            Object tagLoadersMap = tagLoadersField.get(adsLoader);
+            if (!(tagLoadersMap instanceof java.util.Map)) {
+                DebugLog.w(TAG, "skipAd: adTagLoaderByAdsId is not a Map");
+                return;
+            }
+            java.util.Map<?, ?> map = (java.util.Map<?, ?>) tagLoadersMap;
+            if (map.isEmpty()) {
+                DebugLog.w(TAG, "skipAd: no AdTagLoader registered");
+                return;
+            }
+            // There is at most one ad tag per playing media item in our usage.
+            Object adTagLoader = map.values().iterator().next();
+            if (adTagLoader == null) {
+                DebugLog.w(TAG, "skipAd: AdTagLoader instance is null");
+                return;
+            }
+            java.lang.reflect.Field adsManagerField =
+                adTagLoader.getClass().getDeclaredField("adsManager");
+            adsManagerField.setAccessible(true);
+            Object maybeAdsManager = adsManagerField.get(adTagLoader);
+            if (maybeAdsManager instanceof com.google.ads.interactivemedia.v3.api.AdsManager) {
+                ((com.google.ads.interactivemedia.v3.api.AdsManager) maybeAdsManager).skip();
+                DebugLog.d(TAG, "skipAd: AdsManager.skip() invoked");
+            } else {
+                DebugLog.w(TAG, "skipAd: adsManager field is null or wrong type: "
+                        + (maybeAdsManager == null ? "null" : maybeAdsManager.getClass().getName()));
+            }
+        } catch (NoSuchFieldException e) {
+            DebugLog.w(TAG, "skipAd: media3 internal layout changed (NoSuchFieldException): " + e.getMessage());
+        } catch (IllegalAccessException e) {
+            DebugLog.w(TAG, "skipAd: reflection access denied: " + e.getMessage());
+        } catch (Exception e) {
+            DebugLog.w(TAG, "skipAd: unexpected error: " + e);
+        }
+    }
+
     public void setPlaylistItemId(final String itemId) {
         playlistItemId = itemId;
         if (eventEmitter != null) {
