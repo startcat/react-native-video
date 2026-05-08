@@ -4,6 +4,10 @@
 
 Este documento lista todos los eventos disponibles en la interfaz `PlayerAnalyticsPlugin` que pueden implementar los plugins de analytics. Cada evento incluye sus parámetros opcionales y su propósito.
 
+> **Alcance**: la pipeline `PlayerAnalyticsPlugin` cubre el flavour `normal` del player (reproducción RN-side). Las sesiones de **Cast** son responsabilidad del receptor CAF, que tiene su propio sistema de analíticas; durante una sesión Cast los plugins RN no reciben eventos de progreso/anuncio.
+
+> **Semántica de progreso**: `onProgress` y `onPositionUpdate` se disparan **únicamente** durante la reproducción del contenido principal. Mientras hay un anuncio activo (entre `onAdBreakBegin` y `onAdBreakEnd`) el reloj del contenido no avanza y estos eventos no se emiten. Para medir el avance del clip de anuncio, usar `onAdProgress`.
+
 ## Propiedades Básicas
 
 | Propiedad | Tipo | Descripción | Requerido |
@@ -67,6 +71,7 @@ Este documento lista todos los eventos disponibles en la interfaz `PlayerAnalyti
 | `onAdPause` | [`AdPauseParams`](#adpauseparams) | Se ejecuta cuando se pausa un anuncio |
 | `onAdResume` | [`AdResumeParams`](#adresumeparams) | Se ejecuta cuando se reanuda un anuncio |
 | `onAdSkip` | [`AdSkipParams`](#adskipparams) | Se ejecuta cuando se salta un anuncio |
+| `onAdProgress` | [`AdProgressParams`](#adprogressparams) | Se dispara periódicamente (~250 ms) durante la reproducción del clip de anuncio. Se suspende durante `onAdPause` y se reanuda con `onAdResume`. |
 | `onAdBreakBegin` | [`AdBreakBeginParams`](#adbreakbeginparams) | Se ejecuta cuando inicia un bloque de anuncios |
 | `onAdBreakEnd` | [`AdBreakEndParams`](#adbreakendparams) | Se ejecuta cuando termina un bloque de anuncios |
 | `onContentResume` | Ninguno | Se ejecuta cuando se reanuda el contenido después de anuncios |
@@ -235,6 +240,19 @@ Extiende [`PositionParams`](#positionparams)
 |-------|------|-------------|-----------|
 | `adId` | `string` | ID del anuncio | ❌ |
 | `skipPosition` | `number` | Posición donde se saltó en milisegundos | ❌ |
+
+## AdProgressParams
+
+Extiende [`PositionParams`](#positionparams).
+
+| Campo | Tipo | Descripción | Requerido |
+|-------|------|-------------|-----------|
+| `position` | `number` | Posición actual dentro del clip de anuncio en milisegundos | ✅ |
+| `duration` | `number` | Duración total del clip de anuncio en milisegundos | ❌ |
+| `adId` | `string` | ID del anuncio en curso | ❌ |
+| `adBreakId` | `string` | ID del bloque de anuncios | ❌ |
+| `adType` | `'preroll' \| 'midroll' \| 'postroll'` | Tipo del anuncio | ❌ |
+| `percentageWatched` | `number` | Porcentaje del anuncio visto, 0..100 | ❌ |
 
 ## AdBreakBeginParams
 
