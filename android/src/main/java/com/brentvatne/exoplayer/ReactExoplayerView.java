@@ -2832,7 +2832,22 @@ public class ReactExoplayerView extends FrameLayout implements
             DebugLog.d(TAG, "  Content Type: " + adEvent.getAd().getContentType());
             DebugLog.d(TAG, "  Duration: " + adEvent.getAd().getDuration());
         }
-        if (adEvent.getAdData() != null) {
+        // Para AD_PROGRESS, enriquecer el payload con position/duration del clip de anuncio.
+        // Cuando isPlayingAd() es true, player.getCurrentPosition() y getDuration() devuelven
+        // la posición/duración relativa al ad actual (no al contenido) en milisegundos.
+        // Esto permite a la pipeline JS de analytics emitir onAdProgress con datos reales.
+        if (adEvent.getType() == AdEvent.AdEventType.AD_PROGRESS && player != null && player.isPlayingAd()) {
+            Map<String, String> adProgressData = new HashMap<>();
+            if (adEvent.getAdData() != null) {
+                adProgressData.putAll(adEvent.getAdData());
+            }
+            adProgressData.put("position", String.valueOf(player.getCurrentPosition()));
+            long durationMs = player.getDuration();
+            if (durationMs > 0) {
+                adProgressData.put("duration", String.valueOf(durationMs));
+            }
+            eventEmitter.receiveAdEvent(adEvent.getType().name(), adProgressData);
+        } else if (adEvent.getAdData() != null) {
             eventEmitter.receiveAdEvent(adEvent.getType().name(), adEvent.getAdData());
         } else {
             eventEmitter.receiveAdEvent(adEvent.getType().name());
