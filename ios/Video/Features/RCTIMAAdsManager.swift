@@ -212,6 +212,23 @@
             }
         }
 
+        // Canonical IMA iOS ad progress callback. Fires periodically (~250 ms) while
+        // an ad is playing. We synthesize an AD_PROGRESS event with currentTime/duration
+        // so the JS analytics pipeline can emit onAdProgress with real ad-clip time.
+        // mediaTime and totalTime are NSTimeInterval (seconds).
+        func adsManager(_: IMAAdsManager, adDidProgressToTime mediaTime: TimeInterval, totalTime: TimeInterval) {
+            guard let _video, _video.onReceiveAdEvent != nil else { return }
+
+            _video.onReceiveAdEvent?([
+                "event": "AD_PROGRESS",
+                "data": [
+                    "currentTime": mediaTime,
+                    "duration": totalTime,
+                ],
+                "target": _video.reactTag!,
+            ])
+        }
+
         // MARK: - IMALinkOpenerDelegate
 
         func linkOpenerDidClose(inAppLink _: NSObject) {
