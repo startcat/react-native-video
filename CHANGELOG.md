@@ -1,5 +1,14 @@
 
 
+# [7.2.0](https://github.com/startcat/react-native-video/compare/v7.1.21...v7.2.0) (2026-05-08)
+
+
+### Features
+
+* **ads/android:** enrich AD_PROGRESS with position and duration ([c8b1551](https://github.com/startcat/react-native-video/commit/c8b1551a66e48b5d6e779e608456fc366bbb0938))
+* **ads/ios:** synthesize AD_PROGRESS via adDidProgressToTime ([0129ec9](https://github.com/startcat/react-native-video/commit/0129ec90ec7979663f9ba1a12bcd8cfc337ec890))
+* **analytics:** split ad and media progress in plugin pipeline ([cbe6958](https://github.com/startcat/react-native-video/commit/cbe6958e1d6092087aac34929c9d10b4312c6651))
+
 ## [7.1.21](https://github.com/startcat/react-native-video/compare/v7.1.20...v7.1.21) (2026-04-25)
 
 
