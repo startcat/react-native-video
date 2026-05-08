@@ -23,7 +23,20 @@ export class PlaybackEventsHandler {
 		this.analyticsEvents = analyticsEvents;
 	}
 
-	handleProgress = (data: OnProgressData, positionMs: number, durationMs: number) => {
+	handleProgress = (
+		data: OnProgressData,
+		positionMs: number,
+		durationMs: number,
+		isAdActive: boolean = false
+	) => {
+		// Durante un break: no emitir onPositionUpdate ni onProgress (el progreso
+		// del Video nativo no se refiere al contenido). Tampoco actuamos sobre el
+		// seek-detection: en IMA el contenido está pausado durante el ad y no
+		// concurren seeks; el próximo onProgress real del contenido lo cerrará.
+		if (isAdActive) {
+			return;
+		}
+
 		// Si hay un seek en progreso, verificar si ya llegamos a la posición objetivo
 		if (this.isSeekInProgress && this.seekToPosition !== undefined) {
 			const tolerance = 1000; // 1 segundo de tolerancia

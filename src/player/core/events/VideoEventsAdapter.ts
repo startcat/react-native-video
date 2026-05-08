@@ -103,12 +103,21 @@ export class VideoEventsAdapter {
 		const positionMs = data.currentTime * 1000;
 		const durationMs = data.seekableDuration * 1000;
 
-		this.playbackHandler.handleProgress(data, positionMs, durationMs);
+		// Gate ad/media: durante un break el progreso del Video nativo se refiere al ad
+		// (o queda congelado en el contenido); en ningún caso debe propagarse a los plugins
+		// de analytics como progreso de contenido. AdEventsHandler.handleAdProgress emite
+		// onAdProgress por su propio canal con datos reales del clip de anuncio.
+		const isAdActive = this.adHandler.getIsAdPlaying();
 
-		// Actualizar posición interna
-		this.currentPosition = positionMs;
-		if (durationMs > this.duration) {
-			this.duration = durationMs;
+		this.playbackHandler.handleProgress(data, positionMs, durationMs, isAdActive);
+
+		// Actualizar posición interna sólo si NO estamos en ad — durante un break el
+		// `data.currentTime` no refleja la posición del contenido.
+		if (!isAdActive) {
+			this.currentPosition = positionMs;
+			if (durationMs > this.duration) {
+				this.duration = durationMs;
+			}
 		}
 	};
 

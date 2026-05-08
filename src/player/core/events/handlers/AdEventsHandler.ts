@@ -7,12 +7,21 @@ import { PlayerAnalyticsEvents } from "@overon/react-native-overon-player-analyt
 
 import type { OnReceiveAdEventData } from "../../../../types/events";
 
+// Cadencia mínima entre ticks de onAdProgress emitidos a los plugins (ms).
+// Compensa la diferencia entre iOS (~4/s) y Android (~5-10/s) y se alinea con
+// la cadencia natural de onProgress del contenido en este repo.
+const AD_PROGRESS_THROTTLE_MS = 250;
+
 export class AdEventsHandler {
 	private analyticsEvents: PlayerAnalyticsEvents;
 	private currentAdId?: string;
 	private currentAdBreakId?: string;
 	private adStartTime?: number;
 	private isAdPlaying = false;
+	private isAdPaused = false;
+	private lastAdProgressTickTs = 0;
+	private currentAdDurationMs?: number;
+	private currentAdType?: "preroll" | "midroll" | "postroll";
 
 	constructor(analyticsEvents: PlayerAnalyticsEvents) {
 		this.analyticsEvents = analyticsEvents;
@@ -117,14 +126,18 @@ export class AdEventsHandler {
 
 	private handleAdStarted = (data: OnReceiveAdEventData) => {
 		this.isAdPlaying = true;
+		this.isAdPaused = false;
 		this.adStartTime = Date.now();
+		this.lastAdProgressTickTs = 0;
 		this.currentAdId = this.extractAdId(data);
+		this.currentAdDurationMs = this.extractAdDuration(data);
+		this.currentAdType = this.extractAdType(data);
 
 		this.analyticsEvents.onAdBegin({
 			adId: this.currentAdId,
-			adDuration: this.extractAdDuration(data),
+			adDuration: this.currentAdDurationMs,
 			adPosition: this.extractAdPosition(data),
-			adType: this.extractAdType(data),
+			adType: this.currentAdType,
 		});
 	};
 
@@ -134,9 +147,7 @@ export class AdEventsHandler {
 			completed: true,
 		});
 
-		this.isAdPlaying = false;
-		this.currentAdId = undefined;
-		this.adStartTime = undefined;
+		this.resetAdState();
 	};
 
 	private handleAdSkipped = () => {
@@ -152,18 +163,18 @@ export class AdEventsHandler {
 			completed: false,
 		});
 
-		this.isAdPlaying = false;
-		this.currentAdId = undefined;
-		this.adStartTime = undefined;
+		this.resetAdState();
 	};
 
 	private handleAdPaused = () => {
+		this.isAdPaused = true;
 		this.analyticsEvents.onAdPause({
 			adId: this.currentAdId,
 		});
 	};
 
 	private handleAdResumed = () => {
+		this.isAdPaused = false;
 		this.analyticsEvents.onAdResume({
 			adId: this.currentAdId,
 		});
@@ -175,9 +186,17 @@ export class AdEventsHandler {
 			completed: false,
 		});
 
+		this.resetAdState();
+	};
+
+	private resetAdState = () => {
 		this.isAdPlaying = false;
+		this.isAdPaused = false;
 		this.currentAdId = undefined;
 		this.adStartTime = undefined;
+		this.lastAdProgressTickTs = 0;
+		this.currentAdDurationMs = undefined;
+		this.currentAdType = undefined;
 	};
 
 	private handleAdBreakStarted = (data: OnReceiveAdEventData) => {
@@ -196,6 +215,10 @@ export class AdEventsHandler {
 		});
 
 		this.currentAdBreakId = undefined;
+		// Fix: el flag isAdPlaying se quedaba colgado si AD_BREAK_ENDED llegaba
+		// sin un COMPLETED previo (caso conocido en streams DAI/SSAI). Asegurar
+		// reset aquí para que el gate del adapter se libere correctamente.
+		this.resetAdState();
 	};
 
 	private handleAllAdsCompleted = () => {
@@ -206,7 +229,7 @@ export class AdEventsHandler {
 		}
 
 		this.currentAdBreakId = undefined;
-		this.isAdPlaying = false;
+		this.resetAdState();
 	};
 
 	private handleContentResumeRequested = () => {
@@ -214,10 +237,45 @@ export class AdEventsHandler {
 	};
 
 	private handleAdProgress = (data: OnReceiveAdEventData) => {
-		// Solo loguear quartiles, no cada tick de AD_PROGRESS (~4/s)
+		// Quartiles: log informativo, no emisión propia (los plugins ya tienen
+		// resolución sub-quartil vía onAdProgress).
 		if (data.event !== "AD_PROGRESS") {
 			console.log(`[AdEventsHandler] Ad progress: ${data.event}`);
+			return;
 		}
+
+		// Suspender la emisión durante pausas del anuncio. El plugin tiene
+		// onAdPause/onAdResume para medir pausa; onAdProgress significa
+		// "el reloj del anuncio avanzó".
+		if (this.isAdPaused) {
+			return;
+		}
+
+		// Throttle: garantizar al menos AD_PROGRESS_THROTTLE_MS entre emisiones,
+		// independientemente de la cadencia nativa (iOS ~4/s, Android ~5-10/s).
+		const now = Date.now();
+		if (now - this.lastAdProgressTickTs < AD_PROGRESS_THROTTLE_MS) {
+			return;
+		}
+		this.lastAdProgressTickTs = now;
+
+		const positionMs = this.extractAdProgressPositionMs(data);
+		const durationMs = this.extractAdProgressDurationMs(data);
+
+		// Sin duración no podemos calcular percentageWatched de forma estable;
+		// emitimos igualmente el evento con duration=0 para que el plugin
+		// reciba el tick. percentageWatched queda en 0.
+		const percentageWatched =
+			durationMs > 0 ? Math.min(100, (positionMs / durationMs) * 100) : 0;
+
+		this.analyticsEvents.onAdProgress({
+			adId: this.currentAdId,
+			adBreakId: this.currentAdBreakId,
+			adType: this.currentAdType,
+			position: positionMs,
+			duration: durationMs,
+			percentageWatched,
+		});
 	};
 
 	private handleAdClick = (data: OnReceiveAdEventData) => {
@@ -274,6 +332,55 @@ export class AdEventsHandler {
 		return (data.data as any)?.adBreakPosition
 			? (data.data as any).adBreakPosition * 1000
 			: undefined;
+	};
+
+	/*
+	 * Extractors específicos del payload de AD_PROGRESS.
+	 *
+	 * iOS (RCTIMAAdsManager.swift, delegate adDidProgressToTime:totalTime:):
+	 *   { currentTime: number (seconds), duration: number (seconds) }
+	 *
+	 * Android (ReactExoplayerView.java, onAdEvent AD_PROGRESS):
+	 *   { position: string (ms), duration: string (ms) }
+	 *
+	 * Si el payload nativo no trae los campos (versión antigua de la lib o
+	 * fallo del IMA SDK), fallback al timer wallclock + duration cacheada de
+	 * STARTED para no perder la emisión.
+	 */
+
+	private extractAdProgressPositionMs = (data: OnReceiveAdEventData): number => {
+		const raw = data.data as any;
+		// iOS: currentTime en segundos (TimeInterval).
+		if (typeof raw?.currentTime === "number") {
+			return Math.round(raw.currentTime * 1000);
+		}
+		// Android: position en ms como string.
+		if (raw?.position !== undefined) {
+			const parsed = Number(raw.position);
+			if (Number.isFinite(parsed)) {
+				return Math.max(0, Math.round(parsed));
+			}
+		}
+		// Fallback: estimación por wallclock desde STARTED.
+		return this.adStartTime ? Date.now() - this.adStartTime : 0;
+	};
+
+	private extractAdProgressDurationMs = (data: OnReceiveAdEventData): number => {
+		const raw = data.data as any;
+		const rawDuration = raw?.duration;
+		if (typeof rawDuration === "number") {
+			// iOS: duration en segundos.
+			return Math.round(rawDuration * 1000);
+		}
+		if (rawDuration !== undefined) {
+			// Android: duration en ms como string.
+			const parsed = Number(rawDuration);
+			if (Number.isFinite(parsed) && parsed > 0) {
+				return Math.round(parsed);
+			}
+		}
+		// Fallback: duración capturada en STARTED.
+		return this.currentAdDurationMs ?? 0;
 	};
 
 	/*
