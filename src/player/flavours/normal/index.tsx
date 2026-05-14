@@ -1951,28 +1951,55 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				const currentDuration = vodProgressManagerRef.current?.duration || 0;
 				let effectiveDuration = currentDuration;
 
-				if (currentDuration === 0 && e.seekableDuration > 0) {
-					if (isContentLoaded || hasAdFinishedRef.current) {
-						// Podemos confiar en seekableDuration:
-						// - onLoad ya se recibió, o
-						// - el anuncio ya terminó (el player nativo ya reproduce contenido real)
-						effectiveDuration = e.seekableDuration;
+				if (currentDuration === 0) {
+					// PRIORIDAD 1: la duración inyectada por el consumidor vía
+					// props.playerProgress.duration (suele venir de mediaData.duration). Es la
+					// fuente más fiable para VOD: el consumidor conoce la duración real desde la
+					// API antes incluso de empezar a reproducir, y NO crece con el buffer.
+					//
+					// IMPORTANTE: el consumidor pasa duration en ms (consistente con el callback
+					// props.events.onProgress(time, duration) y con la convención del plugin de
+					// analytics Adobe), pero VodProgressManager opera en segundos (alineado con
+					// e.currentTime de react-native-video). Convertimos ms → seg al cruzar la
+					// barrera. Sin esta división el slider muestra max enorme y el thumb queda
+					// pegado al inicio (currentTime[seg] / max[ms] ≈ 0).
+					const propDurationMs = props.playerProgress?.duration || 0;
+					const propDuration = propDurationMs > 0 ? propDurationMs / 1000 : 0;
+
+					if (propDuration > 0) {
+						effectiveDuration = propDuration;
 						currentLogger.current?.info(
-							`handleOnProgress - Initializing VOD duration from seekableDuration: ${
-								e.seekableDuration
-							}s (${isContentLoaded ? "post-onLoad" : "post-ad"} fallback)`
+							`handleOnProgress - Initializing VOD duration from props.playerProgress.duration: ${propDurationMs}ms (${propDuration}s)`
 						);
 						// En Android 33, handleOnLoad puede no dispararse tras preroll ads.
-						// Si el anuncio ya terminó y tenemos duración válida, marcar contenido como cargado
-						// para que los controles (overlay) muestren la duración correctamente.
+						// Si el anuncio ya terminó y tenemos duración válida del consumidor,
+						// marcar contenido como cargado para que los controles muestren la
+						// duración correctamente sin depender de handleOnLoad.
 						if (!isContentLoaded && hasAdFinishedRef.current) {
-							ensureContentLoaded("onProgress-VOD-post-ad");
+							ensureContentLoaded("onProgress-VOD-prop-duration");
 						}
-					} else {
-						// Ni onLoad ni fin de anuncio - seekableDuration podría ser la del anuncio
-						currentLogger.current?.debug(
-							`handleOnProgress - Skipping seekableDuration ${e.seekableDuration}s (pre-ad/pre-onLoad, could be ad duration)`
-						);
+					} else if (e.seekableDuration > 0) {
+						// PRIORIDAD 2 (legacy fallback): seekableDuration. CUIDADO: para VOD con
+						// streaming progresivo crece junto con el buffer, NO es la duración real
+						// del contenido. Sólo válido en formatos donde seekableDuration es estable
+						// (HLS VOD con playlist completa, MP4, etc.). Para HLS con buffering
+						// incremental, esto producirá un slider cuyo max crece 1s por segundo.
+						if (isContentLoaded || hasAdFinishedRef.current) {
+							effectiveDuration = e.seekableDuration;
+							currentLogger.current?.info(
+								`handleOnProgress - Initializing VOD duration from seekableDuration: ${
+									e.seekableDuration
+								}s (${isContentLoaded ? "post-onLoad" : "post-ad"} fallback, may grow with buffer)`
+							);
+							if (!isContentLoaded && hasAdFinishedRef.current) {
+								ensureContentLoaded("onProgress-VOD-post-ad");
+							}
+						} else {
+							// Ni onLoad ni fin de anuncio - seekableDuration podría ser la del anuncio
+							currentLogger.current?.debug(
+								`handleOnProgress - Skipping seekableDuration ${e.seekableDuration}s (pre-ad/pre-onLoad, could be ad duration)`
+							);
+						}
 					}
 				}
 

@@ -355,9 +355,15 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 
 		const onVideoLoad = useCallback(
 			(e: NativeSyntheticEvent<OnLoadData>) => {
-				if (Platform.OS === "windows") {
-					hasPoster && setShowPoster(false);
-				}
+				// Ocultar el poster en cuanto el player nativo confirma `onLoad` del
+				// contenido. Antes esto sólo se hacía en Windows: Android e iOS dependían
+				// exclusivamente de `_onReadyForDisplay` (línea ~447) para apagarlo. Tras
+				// un pre-roll de IMA, `onReadyForDisplay` no siempre vuelve a emitirse
+				// cuando el item se restaura, dejando `showPoster=true` durante toda la
+				// reproducción real → el usuario ve la imagen de fondo aunque el vídeo
+				// esté reproduciéndose por debajo. `onLoad` sí llega en ese escenario,
+				// así que lo usamos como señal universal para apagar el poster.
+				hasPoster && setShowPoster(false);
 				onLoad?.(e.nativeEvent);
 			},
 			[onLoad, hasPoster, setShowPoster]
@@ -649,7 +655,17 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 					}
 				/>
 				{hasPoster && showPoster ? (
-					<Image style={posterStyle} source={{ uri: poster }} />
+					<Image
+						style={posterStyle}
+						source={{ uri: poster }}
+						// Sin esta prop, Android decodifica el JPEG a su tamaño intrínseco y
+						// luego lo escala en GPU: para un poster grande con density alta el
+						// bitmap RGBA8888 resultante puede llegar a varios cientos de MB y
+						// Canvas tira `trying to draw too large bitmap` al redibujar (ej. al
+						// mostrar los controles). `resize` baja la resolución en el decode al
+						// tamaño del layout (no-op en iOS).
+						resizeMethod="resize"
+					/>
 				) : null}
 			</View>
 		);

@@ -273,14 +273,22 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 
 	const handleChangeCommonData = (data: ICommonData) => {
 		const preferencesData: IPreferencesCommonData = {};
+		// Durante un ad, NO actualizamos currentTime/duration en playerProgress ni
+		// emitimos onProgress: los controles y los plugins de analytics deben ver
+		// los valores del contenido principal (mismo patrón que el gate del
+		// watchingProgress en el efecto inicial, y que `freeze playhead during ad
+		// break` del plugin Adobe). Sin esto, la duración del ad se queda pegada
+		// en playerProgress.duration tras un pre-roll y los controles muestran
+		// la duración del anuncio en lugar de la del media.
+		const isAd = isPlayingAd.current === true;
 
 		currentLogger.current?.debug(`handleChangeCommonData ${JSON.stringify(data)}`);
 
-		if (data?.time !== undefined && playerProgress.current) {
+		if (data?.time !== undefined && playerProgress.current && !isAd) {
 			playerProgress.current.currentTime = data.time;
 		}
 
-		if (data?.duration !== undefined && playerProgress.current) {
+		if (data?.duration !== undefined && playerProgress.current && !isAd) {
 			playerProgress.current.duration = data.duration;
 
 			if (!hasBeenLoaded.current) {
@@ -290,7 +298,8 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 
 		if (
 			(data?.time !== undefined || data?.duration !== undefined) &&
-			props.events?.onProgress
+			props.events?.onProgress &&
+			!isAd
 		) {
 			props.events.onProgress(
 				playerProgress.current?.currentTime || 0,

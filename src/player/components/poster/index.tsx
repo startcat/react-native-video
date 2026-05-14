@@ -19,6 +19,11 @@ const BackgroundPosterComponent = ({
 					resizeMode="cover"
 					source={imageUri}
 					blurRadius={5}
+					// Sin esta prop, Android decodifica el JPEG a su tamaño intrínseco
+					// y con density alta genera bitmaps RGBA enormes → Canvas tira
+					// `trying to draw too large bitmap`. `resize` baja la resolución
+					// en el decode al tamaño del layout (no-op en iOS).
+					resizeMethod="resize"
 				/>
 			)}
 			{children}

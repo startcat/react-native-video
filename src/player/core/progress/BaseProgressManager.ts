@@ -238,9 +238,19 @@ export abstract class BaseProgressManager {
 			data.seekableRange = { start: 0, end: Math.max(data.currentTime, 1) };
 		}
 
+		const seekableEndDiff = Math.abs(data.seekableRange.end - this._seekableRange.end);
+
+		// Normalización de seekableRange: smoothing para jitter pequeño en Live/DVR
+		// (donde native puede oscilar ±1 sec entre ticks alrededor del live edge).
+		// IMPORTANTE: requiere `seekableEndDiff > 0`. Sin esa guarda, cuando native
+		// devuelve EXACTAMENTE el mismo valor tick tras tick (caso típico VOD con
+		// duración estable, e.g. seekableDuration constante en HLS VOD), la fórmula
+		// `end + currentTimeVariation` añade ~1 sec por tick aunque no haya nada que
+		// suavizar — el max del slider crece 1/sec indefinidamente.
 		if (
 			this._seekableRange.end > 0 &&
-			Math.abs(data.seekableRange.end - this._seekableRange.end) < 10 &&
+			seekableEndDiff > 0 &&
+			seekableEndDiff < 10 &&
 			currentTimeVariation < 2
 		) {
 			this._currentLogger?.debug("Normalizing seekableRange, correcting");
