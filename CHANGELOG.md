@@ -1,5 +1,12 @@
 
 
+## [7.2.1](https://github.com/startcat/react-native-video/compare/v7.2.0...v7.2.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* **player:** corregir progreso, poster y memoria bitmap tras pre-roll IMA ([7390f3b](https://github.com/startcat/react-native-video/commit/7390f3b32d2f00c476f516c7ef3b1163c2a3072b))
+
 # [7.2.0](https://github.com/startcat/react-native-video/compare/v7.1.21...v7.2.0) (2026-05-08)
 
 
