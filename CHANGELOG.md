@@ -1,5 +1,12 @@
 
 
+## [7.2.2](https://github.com/startcat/react-native-video/compare/v7.2.1...v7.2.2) (2026-05-19)
+
+
+### Bug Fixes
+
+* **player:** habilitar ir al inicio del programa en Cast DVR ([03b93f4](https://github.com/startcat/react-native-video/commit/03b93f40d3532e3b196be5515f0ec8eef5322d9f))
+
 ## [7.2.1](https://github.com/startcat/react-native-video/compare/v7.2.0...v7.2.1) (2026-05-14)
 
 

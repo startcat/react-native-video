@@ -1,6 +1,6 @@
 {
 	"name": "react-native-video",
-	"version": "7.2.1",
+	"version": "7.2.2",
 	"description": "A <Video /> element for react-native",
 	"main": "lib/index",
 	"source": "src/index",
