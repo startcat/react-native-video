@@ -53,39 +53,6 @@ import {
 import { handleErrorException, PlayerError } from "../../core/errors";
 import { type CastContentInfo, type CastTrackInfo } from "../../features/cast/types/types";
 
-/**
- * Strip `start` and `end` query parameters from a live DVR manifest URL before
- * handing it to the Cast receiver. The consumer adds those params to anchor
- * the DVR window at a specific program; the receiver reapplies them on every
- * manifest refresh, teleporting playback back to the anchor after each brief
- * buffer. For Cast live playback the intent is always live edge (the flavour
- * passes startTime: -1), so the anchor is redundant and only causes drift.
- *
- * Uses pure string manipulation rather than the URL/URLSearchParams APIs,
- * because the React Native polyfill implements those only partially —
- * `searchParams.delete` turned out to be a no-op on some RN runtimes,
- * leaving the param in place and appending a stray `&` to the output.
- */
-function stripLiveStartAnchorForCast(uri: string): string {
-	if (!uri || typeof uri !== "string") return uri;
-	const qIdx = uri.indexOf("?");
-	if (qIdx === -1) return uri;
-
-	const base = uri.substring(0, qIdx);
-	const query = uri.substring(qIdx + 1);
-	if (!query) return base;
-
-	const kept = query
-		.split("&")
-		.filter((pair) => {
-			if (!pair) return false;
-			const key = pair.split("=", 1)[0];
-			return key !== "start" && key !== "end";
-		});
-
-	return kept.length > 0 ? `${base}?${kept.join("&")}` : base;
-}
-
 export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const currentLogger = useRef<ComponentLogger | null>(null);
 
@@ -1166,30 +1133,20 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				setIsLoadingContent(true);
 				drm.current = data.drm;
 
-				// For live DVR content on Cast, strip the `start` / `end` query
-				// parameters that the consumer adds to anchor the DVR window at a
-				// specific program. The receiver keeps reapplying that anchor every
-				// time it refreshes the manifest — observed in practice: every brief
-				// buffer (1-2 s) causes the receiver to teleport back to the program
-				// start, breaking live-edge playback after ~30 s of watching.
-				//
-				// For Cast live playback the intent is always live edge (the flavour
-				// sends startTime: -1 / startingPoint: 0 regardless of program
-				// selection), so the anchor is redundant and only causes drift.
-				// The native (non-cast) player keeps receiving the original URL with
-				// the anchor intact, since it handles the start position correctly.
-				const castSource =
-					sourceRef.current?.isLive && sourceRef.current?.isDVR
-						? {
-								...data.source,
-								uri: stripLiveStartAnchorForCast(data.source.uri),
-							}
-						: data.source;
-				if (castSource.uri !== data.source.uri) {
-					currentLogger.current?.info(
-						`loadContentWithCastManager - stripped live-start anchor for Cast: ${data.source.uri} → ${castSource.uri}`
-					);
-				}
+				// EITB-866: send the consumer's URI as-is, including any
+				// ?start=<programStart> anchor. Historically the cast flavour
+				// stripped that anchor for live DVR because earlier receivers
+				// kept re-applying it on every manifest refresh, teleporting
+				// playback back to the program start after ~30 s. A controlled
+				// experiment (May 2026) on current Chromecast firmware showed
+				// the receiver now (a) honors the anchor only on the initial
+				// load, (b) exposes the full DVR window declared by the
+				// manifest (~24 min observed vs ~5 min when stripped), and (c)
+				// does not teleport on subsequent buffers. Preserving the
+				// anchor lets the user reach the start of the current program
+				// via a plain seek inside the seekable range — which is what
+				// SEEK_OVER_EPG needs to work on Cast in parity with native.
+				const castSource = data.source;
 
 				// Verificar si ya estamos reproduciendo el mismo contenido
 				if (castMedia.url === castSource.uri && !castMedia.isIdle) {

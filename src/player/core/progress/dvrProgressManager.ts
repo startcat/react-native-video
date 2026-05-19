@@ -471,9 +471,27 @@ export class DVRProgressManagerClass extends BaseProgressManager {
 		this._emitProgressUpdate();
 	}
 
-	goToProgramStart(): void {
-		if (!this._isValidState() || !this._currentProgram) {
-			this._currentLogger?.warn("goToProgramStart: Invalid state or no program");
+	async goToProgramStart(): Promise<void> {
+		if (!this._isValidState()) {
+			this._currentLogger?.warn("goToProgramStart: Invalid state");
+			return;
+		}
+
+		// Lazy fetch: if _currentProgram is null (e.g. the EPG callback was wired up
+		// late or returned null on the single invalid→valid initial fetch), retry
+		// on demand. Without this, WINDOW mode never re-fetches the program (only
+		// PLAYLIST/PROGRAM call _checkProgramChange) and the "go to program start"
+		// button stays a no-op for the whole session — most commonly on Cast, where
+		// the receiver becomes valid before epgItem has propagated through the prop.
+		if (!this._currentProgram && this._dvrCallbacks.getEPGProgramAt) {
+			this._currentLogger?.info(
+				"goToProgramStart: _currentProgram missing, fetching on demand"
+			);
+			await this.getCurrentProgramInfo();
+		}
+
+		if (!this._currentProgram) {
+			this._currentLogger?.warn("goToProgramStart: no program available after fetch attempt");
 			return;
 		}
 
