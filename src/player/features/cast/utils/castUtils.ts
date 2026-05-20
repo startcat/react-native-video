@@ -45,6 +45,7 @@ export function createInitialCastState(): CastStateCustom {
 			currentAdBreakClip: null,
 			canSkipAd: false,
 			secondsUntilSkippable: null,
+			adClipSkippableAt: null,
 		},
 		volume: {
 			level: 0.5,
@@ -224,6 +225,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 					currentAdBreakClip: null,
 					canSkipAd: false,
 					secondsUntilSkippable: null,
+					adClipSkippableAt: null,
 				};
 				}
 
@@ -312,6 +314,30 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 						? Math.max(0, Math.ceil(whenSkippable - elapsedInClip))
 						: null;
 
+				// Re-anchor adClipSkippableAt only when the receiver pushes a new
+				// `currentAdBreakClipTime` (or transitions to a new clip). Holding the
+				// anchor across stream-position-only ticks prevents the countdown from
+				// drifting backwards — `Date.now()` advances faster than stale receiver
+				// data, so naive recomputation would freeze the displayed seconds.
+				const adClipSkippableAt: number | null = (() => {
+					if (typeof whenSkippable !== 'number' || adBreakStatusFromNative == null) {
+						return null;
+					}
+					const prevElapsed =
+						state.castState.media.adBreakStatus?.currentAdBreakClipTime;
+					const prevClipId =
+						state.castState.media.currentAdBreakClip?.adBreakClipId;
+					const prevAnchor = state.castState.media.adClipSkippableAt;
+					const newClipId = currentAdBreakClip?.adBreakClipId;
+					const clipChanged = prevClipId !== newClipId;
+					const elapsedChanged = prevElapsed !== elapsedInClip;
+					if (!clipChanged && !elapsedChanged && typeof prevAnchor === 'number') {
+						return prevAnchor;
+					}
+					const remainingSec = Math.max(0, whenSkippable - elapsedInClip);
+					return Date.now() + remainingSec * 1000;
+				})();
+
 				const result = {
 					url: mediaInfo?.contentId || null,
 					title: metadata.title,
@@ -344,6 +370,7 @@ export function castReducer(state: InternalCastState, action: CastAction): Inter
 					currentAdBreakClip,
 					canSkipAd,
 					secondsUntilSkippable,
+					adClipSkippableAt,
 				};
 
 				currentLogger?.debug(

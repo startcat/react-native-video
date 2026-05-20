@@ -67,6 +67,15 @@ export interface CastMediaInfo {
 	canSkipAd: boolean;
 	/** Seconds until the current ad becomes skippable. Null if unknown (fallback path). */
 	secondsUntilSkippable: number | null;
+	/**
+	 * Local-clock epoch ms at which the current ad clip becomes skippable.
+	 *
+	 * Used by `SkipAdButton` to drive a smooth local countdown between MediaStatus
+	 * pushes. Re-anchored every time the receiver reports a new `currentAdBreakClipTime`
+	 * (or a clip change), so drift between mobile UI and cast receiver stays bounded
+	 * by one MediaStatus refresh cycle. Null when no whenSkippable info is known.
+	 */
+	adClipSkippableAt: number | null;
 }
 
 export interface CastVolumeInfo {

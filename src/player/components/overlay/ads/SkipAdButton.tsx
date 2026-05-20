@@ -2,15 +2,28 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { i18n } from "../../../locales";
+import { getEffectiveSkipState } from "./getEffectiveSkipState";
 import { getSkipButtonState } from "./getSkipButtonState";
 
 export interface SkipAdButtonProps {
 	isPlayingAd: boolean;
 	canSkip: boolean;
-	secondsUntilSkippable: number | null;
 	/**
-	 * Identifier of the currently playing ad clip. Used to reset the local
-	 * countdown ticker when the receiver moves to a new clip mid-pod.
+	 * Local-clock epoch ms at which the current ad clip becomes skippable, as
+	 * published by the cast reducer. Re-anchored every time the receiver pushes
+	 * a new `currentAdBreakClipTime`, so the local countdown stays bounded by
+	 * one MediaStatus refresh cycle. Null when no whenSkippable info is known.
+	 */
+	adClipSkippableAt: number | null;
+	/**
+	 * Whether the cast receiver is currently PLAYING. When false during an ad
+	 * (paused / buffering on the TV), the local ticker freezes so the displayed
+	 * countdown stays in sync with the receiver instead of running ahead.
+	 */
+	isReceiverPlaying: boolean;
+	/**
+	 * Identifier of the currently playing ad clip. Used to reset the freeze
+	 * snapshot when the receiver moves to a new clip mid-pod.
 	 */
 	adClipId: string | null;
 	onPress: () => Promise<boolean>;
@@ -28,69 +41,74 @@ const DEBOUNCE_MS = 250;
 const TICK_MS = 500;
 
 /**
- * Drives a smooth local countdown for the skip button.
+ * Drives the smooth local countdown using `adClipSkippableAt` as the receiver-
+ * anchored truth and re-rendering at 2Hz between MediaStatus pushes.
  *
- * The receiver-reported `secondsUntilSkippable` only refreshes when MediaStatus
- * fires (state change events), not on continuous ad progress, so the value
- * stays frozen during a stable ad clip. We seed an `expiresAt` timestamp the
- * first time we observe a positive countdown for the current clip and compute
- * the displayed value from `Date.now()` on every tick.
+ * Pause/buffer handling: when `isReceiverPlaying` flips false, snapshot the
+ * value we were showing so the helper holds it instead of letting `Date.now()`
+ * keep advancing past a paused receiver. On resume, the next reducer update
+ * will re-anchor `adClipSkippableAt` forward and the snapshot is cleared.
  */
-function useEffectiveSkipState(input: {
+function useEffectiveSkipState(props: {
 	isPlayingAd: boolean;
 	canSkip: boolean;
-	secondsUntilSkippable: number | null;
+	adClipSkippableAt: number | null;
+	isReceiverPlaying: boolean;
 	adClipId: string | null;
 }): { effectiveCanSkip: boolean; effectiveSecondsLeft: number | null } {
 	const [, forceTick] = useState(0);
-	const seedRef = useRef<{ clipId: string; expiresAt: number } | null>(null);
+	const frozenRef = useRef<{ clipId: string | null; secondsLeft: number } | null>(null);
 
-	// Reset / seed when clip changes or initial countdown arrives.
+	// Tick at 2Hz while a countdown is in flight on a playing receiver.
 	useEffect(() => {
-		if (!input.isPlayingAd || !input.adClipId) {
-			seedRef.current = null;
-			return;
-		}
-		const sameClip = seedRef.current?.clipId === input.adClipId;
-		if (!sameClip && typeof input.secondsUntilSkippable === "number" && input.secondsUntilSkippable > 0) {
-			seedRef.current = {
-				clipId: input.adClipId,
-				expiresAt: Date.now() + input.secondsUntilSkippable * 1000,
-			};
-		}
-	}, [input.adClipId, input.isPlayingAd, input.secondsUntilSkippable]);
-
-	// Tick at 2Hz while waiting to become skippable.
-	useEffect(() => {
-		const seed = seedRef.current;
-		if (!input.isPlayingAd || input.canSkip || !seed) return;
-		if (Date.now() >= seed.expiresAt) return;
+		if (!props.isPlayingAd || props.canSkip || !props.isReceiverPlaying) return;
+		if (typeof props.adClipSkippableAt !== "number") return;
+		if (Date.now() >= props.adClipSkippableAt) return;
 		const id = setInterval(() => forceTick((t) => t + 1), TICK_MS);
 		return () => clearInterval(id);
-	}, [input.isPlayingAd, input.canSkip, input.adClipId]);
+	}, [
+		props.isPlayingAd,
+		props.canSkip,
+		props.isReceiverPlaying,
+		props.adClipSkippableAt,
+	]);
 
-	if (!input.isPlayingAd) return { effectiveCanSkip: false, effectiveSecondsLeft: null };
+	// Snapshot/release the frozen seconds on pause edges and clip transitions.
+	useEffect(() => {
+		if (!props.isReceiverPlaying && props.isPlayingAd && !props.canSkip) {
+			if (
+				frozenRef.current?.clipId !== props.adClipId &&
+				typeof props.adClipSkippableAt === "number"
+			) {
+				const remainingMs = props.adClipSkippableAt - Date.now();
+				frozenRef.current = {
+					clipId: props.adClipId,
+					secondsLeft: Math.max(0, Math.ceil(remainingMs / 1000)),
+				};
+			}
+		} else {
+			frozenRef.current = null;
+		}
+	}, [
+		props.isReceiverPlaying,
+		props.isPlayingAd,
+		props.canSkip,
+		props.adClipId,
+		props.adClipSkippableAt,
+	]);
 
-	// If reducer says we're skippable, trust it.
-	if (input.canSkip) return { effectiveCanSkip: true, effectiveSecondsLeft: 0 };
-
-	// No countdown info at all (clip without whenSkippable in the fallback grace window).
-	if (typeof input.secondsUntilSkippable !== "number") {
-		return { effectiveCanSkip: false, effectiveSecondsLeft: null };
-	}
-
-	const seed = seedRef.current;
-	if (!seed || seed.clipId !== input.adClipId) {
-		// Not seeded yet for this clip — show the prop value as-is for one frame.
-		return { effectiveCanSkip: false, effectiveSecondsLeft: input.secondsUntilSkippable };
-	}
-
-	const remainingMs = seed.expiresAt - Date.now();
-	const remaining = Math.max(0, Math.ceil(remainingMs / 1000));
-	return {
-		effectiveCanSkip: remaining === 0,
-		effectiveSecondsLeft: remaining,
-	};
+	return getEffectiveSkipState({
+		isPlayingAd: props.isPlayingAd,
+		canSkip: props.canSkip,
+		adClipSkippableAt: props.adClipSkippableAt,
+		adClipId: props.adClipId,
+		isReceiverPlaying: props.isReceiverPlaying,
+		now: Date.now(),
+		frozenSecondsLeftWhenPaused:
+			frozenRef.current?.clipId === props.adClipId
+				? frozenRef.current.secondsLeft
+				: null,
+	});
 }
 
 export function SkipAdButton(props: SkipAdButtonProps): React.ReactElement | null {

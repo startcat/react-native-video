@@ -2193,7 +2193,8 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				<SkipAdButton
 					isPlayingAd={castMedia.isPlayingAd}
 					canSkip={castMedia.canSkipAd}
-					secondsUntilSkippable={castMedia.secondsUntilSkippable}
+					adClipSkippableAt={castMedia.adClipSkippableAt}
+					isReceiverPlaying={castMedia.isPlaying}
 					adClipId={castMedia.currentAdBreakClip?.adBreakClipId ?? null}
 					onPress={castManager.skipAd}
 					labels={props.playerAds?.skipAdLabels}
