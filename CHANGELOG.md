@@ -1,5 +1,12 @@
 
 
+## [7.2.3](https://github.com/startcat/react-native-video/compare/v7.2.2...v7.2.3) (2026-05-20)
+
+
+### Bug Fixes
+
+* **cast:** sincronizar countdown del SkipAdButton con el receptor ([e399a21](https://github.com/startcat/react-native-video/commit/e399a212b462e486b185272b6de363300b2bd324))
+
 ## [7.2.2](https://github.com/startcat/react-native-video/compare/v7.2.1...v7.2.2) (2026-05-19)
 
 
