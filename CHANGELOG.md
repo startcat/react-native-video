@@ -1,5 +1,7 @@
 
 
+# [7.3.0](https://github.com/startcat/react-native-video/compare/v7.2.3...v7.3.0) (2026-05-21)
+
 ## [7.2.3](https://github.com/startcat/react-native-video/compare/v7.2.2...v7.2.3) (2026-05-20)
 
 
