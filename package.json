@@ -69,7 +69,7 @@
 		"axios": "*",
 		"qs": "*",
 		"react": "*",
-		"react-airplay": "^1.2.0",
+		"react-airplay": "^1.2.0 || ^2.0.0",
 		"react-native": "*",
 		"react-native-actions-sheet": "*",
 		"react-native-background-timer": "^2.4.1",
