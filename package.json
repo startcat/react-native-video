@@ -61,7 +61,7 @@
 		"@overon/react-native-overon-errors": "^0.1.1",
 		"@overon/react-native-overon-player-analytics-plugins": "^0.3.0",
 		"@react-native-async-storage/async-storage": "*",
-		"@react-native-community/netinfo": "^11.2.1",
+		"@react-native-community/netinfo": "^11.2.1 || ^12.0.0",
 		"@react-native-community/slider": "^4.5.2",
 		"@react-navigation/native": "*",
 		"@sayem314/react-native-keep-awake": "^1.3.0",
