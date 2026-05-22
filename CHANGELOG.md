@@ -1,5 +1,12 @@
 
 
+## [7.3.1](https://github.com/startcat/react-native-video/compare/v7.3.0...v7.3.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **airplay:** evitar crash en Android al cargar react-airplay ([c5db84a](https://github.com/startcat/react-native-video/commit/c5db84a2979000083dd9a4623ceede7353a27ccd))
+
 # [7.3.0](https://github.com/startcat/react-native-video/compare/v7.2.3...v7.3.0) (2026-05-21)
 
 ## [7.2.3](https://github.com/startcat/react-native-video/compare/v7.2.2...v7.2.3) (2026-05-20)
