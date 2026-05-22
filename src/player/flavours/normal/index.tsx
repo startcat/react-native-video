@@ -1,6 +1,11 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { useAirplayConnectivity } from "react-airplay";
 import { Platform, View } from "react-native";
+
+// react-airplay@2 migró a TurboModuleRegistry.getEnforcing("NativeAirplay") al
+// cargar el módulo, lo que crashea en Android (AirPlay es iOS-only). Conditional
+// require evita que el JS de react-airplay se evalúe en Android.
+const useAirplayConnectivity: () => boolean =
+	Platform.OS === "ios" ? require("react-airplay").useAirplayConnectivity : () => false;
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
 	type OnAudioTracksData,
