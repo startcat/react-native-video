@@ -46,6 +46,26 @@ var styles = StyleSheet.create({
 });
 ```
 
+## Overon fork — legacy Youbora kill-switch
+
+This fork carries an inlined NPAW / Youbora analytics chain wired to the `youbora` prop on `<Video>`. While the dedicated [`@overon/react-native-overon-player-analytics-plugins-youbora`](https://gitlab.overon.es/ott/modules/player/react-native-overon-player-analytics-plugins-youbora) module (PLAYER-170) is being validated side-by-side, the legacy chain can be disabled per build via a single flag:
+
+| Platform | How to set |
+|----------|------------|
+| iOS | Add to your app's `Info.plist`: `<key>OVERON_DISABLE_LEGACY_YOUBORA</key><true/>` |
+| Android | Add inside `<application>` in your app's `AndroidManifest.xml`: `<meta-data android:name="OVERON_DISABLE_LEGACY_YOUBORA" android:value="true" />` |
+
+Default: **false** (legacy enabled). Existing apps are unaffected.
+
+When the flag resolves to true:
+
+- `NpawPluginProvider.initialize` is skipped on both platforms
+- No `videoAdapter` is built, no `fireInit` / `fireStart` fires
+- The `youbora` JS prop is silently ignored
+- Cleanup paths remain idempotent (no crash if disposed)
+
+Tracked as **PLAYER-175** (kill-switch) and **PLAYER-171** (full removal once the new plugin is validated).
+
 ## Community support
 We have an discord server where you can ask questions and get help. [Join the discord server](https://discord.gg/WXuM4Tgb9X)
 
