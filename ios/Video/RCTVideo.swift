@@ -9,6 +9,17 @@ import Foundation
 import NpawPlugin
 import React
 
+// MARK: - Legacy Youbora kill-switch (PLAYER-175)
+//
+// Set OVERON_DISABLE_LEGACY_YOUBORA = YES in the consumer app's Info.plist to
+// bypass the legacy NPAW / Youbora wiring inside this Video component. When the
+// flag is true, no `NpawPluginProvider.initialize` or `videoBuilder()` runs and
+// the `youbora` JS prop is silently ignored. Default is false (legacy enabled)
+// so existing apps are unaffected. Removed entirely in PLAYER-171.
+private func isLegacyYouboraDisabled() -> Bool {
+    return (Bundle.main.object(forInfoDictionaryKey: "OVERON_DISABLE_LEGACY_YOUBORA") as? Bool) ?? false
+}
+
 // MARK: - RCTVideo
 
 class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverHandler {
@@ -283,10 +294,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         #endif
 
         // Dani Youbora
-        guard let npawPlugin = NpawPluginProvider.shared else { return }
-        
-        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
-        NpawPluginProvider.destroy()
+        if let npawPlugin = NpawPluginProvider.shared {
+            if let adapter = self._videoAdapter {
+                npawPlugin.removeAdapter(adapter: adapter)
+            }
+            NpawPluginProvider.destroy()
+        }
     }
 
     // MARK: - App lifecycle handlers
@@ -606,8 +619,10 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
           DANI: Youbora
          */
 
-        if (self._youbora?.accountCode != nil) {
-        
+        if isLegacyYouboraDisabled() {
+            NSLog("[Youbora] Legacy NPAW chain disabled via Info.plist OVERON_DISABLE_LEGACY_YOUBORA (PLAYER-175)")
+        } else if (self._youbora?.accountCode != nil) {
+
             let analyticsOptions = AnalyticsOptions()
             
             analyticsOptions.contentTransactionCode = self._youbora?.contentTransactionCode
@@ -1675,10 +1690,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         super.removeFromSuperview()
 
         // Dani Youbora
-        guard let npawPlugin = NpawPluginProvider.shared else { return }
-        
-        npawPlugin.removeAdapter(adapter: self._videoAdapter!)
-        NpawPluginProvider.destroy()
+        if let npawPlugin = NpawPluginProvider.shared {
+            if let adapter = self._videoAdapter {
+                npawPlugin.removeAdapter(adapter: adapter)
+            }
+            NpawPluginProvider.destroy()
+        }
     }
 
     // MARK: - Export

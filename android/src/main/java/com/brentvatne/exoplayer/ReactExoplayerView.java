@@ -1193,7 +1193,13 @@ public class ReactExoplayerView extends FrameLayout implements
          *
          */
 
-        npawPlugin = NpawPluginProvider.getInstance();
+        if (isLegacyYouboraDisabled()) {
+            // PLAYER-175: short-circuit even if another module initialized
+            // NpawPluginProvider — legacy chain is fully off.
+            npawPlugin = null;
+        } else {
+            npawPlugin = NpawPluginProvider.getInstance();
+        }
 
         if (npawPlugin != null) {
             videoAdapter = npawPlugin.videoBuilder()
@@ -2907,7 +2913,33 @@ public class ReactExoplayerView extends FrameLayout implements
      *
      */
 
+    // Legacy Youbora kill-switch (PLAYER-175)
+    //
+    // Set <meta-data android:name="OVERON_DISABLE_LEGACY_YOUBORA" android:value="true" />
+    // inside the consumer app's AndroidManifest.xml to bypass the legacy NPAW
+    // wiring inside this view. When the flag is true, setYoubora() is a no-op
+    // and no videoAdapter is built in setMediaSource. Default false (legacy
+    // enabled) for backwards compatibility. Removed entirely in PLAYER-171.
+    private boolean isLegacyYouboraDisabled() {
+        try {
+            android.content.pm.ApplicationInfo ai = this.themedReactContext
+                    .getPackageManager()
+                    .getApplicationInfo(
+                            this.themedReactContext.getPackageName(),
+                            android.content.pm.PackageManager.GET_META_DATA);
+            return ai.metaData != null
+                    && ai.metaData.getBoolean("OVERON_DISABLE_LEGACY_YOUBORA", false);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public void setYoubora(String accountCode, AnalyticsOptions youboraOptions) {
+
+        if (isLegacyYouboraDisabled()) {
+            android.util.Log.i("Youbora", "Legacy NPAW chain disabled via AndroidManifest meta-data OVERON_DISABLE_LEGACY_YOUBORA (PLAYER-175)");
+            return;
+        }
 
         if (youboraOptions != null) {
 
