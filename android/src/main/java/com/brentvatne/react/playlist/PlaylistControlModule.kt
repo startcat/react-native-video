@@ -63,6 +63,10 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     private var standalonePlayer: ExoPlayer? = null
     private var audioFocusRequest: AudioFocusRequestCompat? = null
     private var hasAudioFocus = false
+    // Whether the standalonePlayer was paused due to a focus loss (any kind).
+    // Used to decide whether to auto-resume on AUDIOFOCUS_GAIN. False means the
+    // user explicitly paused / nothing was playing — don't auto-resume.
+    private var pausedDueToFocusLoss = false
 
     private val broadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -818,34 +822,49 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 Log.d(TAG, "[Standalone] Audio focus changed: $focusChange")
                 when (focusChange) {
                     AudioManager.AUDIOFOCUS_GAIN -> {
-                        Log.d(TAG, "[Standalone] Audio focus GAINED - restoring volume and playback")
+                        Log.d(TAG, "[Standalone] Audio focus GAINED")
                         hasAudioFocus = true
                         standalonePlayer?.volume = 1.0f
-                        // Siempre reanudar la reproducción cuando ganamos el focus
-                        standalonePlayer?.play()
-                        Log.d(TAG, "[Standalone] Playback resumed after gaining focus")
+                        if (pausedDueToFocusLoss && isPlaybackActive) {
+                            pausedDueToFocusLoss = false
+                            standalonePlayer?.play()
+                            Log.d(TAG, "[Standalone] Resumed after focus loss")
+                        } else {
+                            Log.d(TAG, "[Standalone] Not auto-resuming (no focus-loss pause pending)")
+                        }
                     }
                     AudioManager.AUDIOFOCUS_LOSS -> {
-                        Log.d(TAG, "[Standalone] Audio focus LOST - attempting to reclaim")
+                        // Permanent loss. Typical sources:
+                        //   - Another in-app focus owner (RNTP MusicService) requesting GAIN
+                        //     while we are playing. This is an internal sync glitch and we
+                        //     want to reclaim quickly so playback continues uninterrupted.
+                        //   - An external media app (Spotify, YouTube Music…) taking over.
+                        //     Reclaiming here is aggressive but preserves prior behaviour.
+                        //
+                        // We cannot tell the two apart from the callback alone, so we keep
+                        // the reclaim-with-delay strategy. Driver-distraction-safe because
+                        // Assistant / calls / navigation use AUDIOFOCUS_LOSS_TRANSIENT, not
+                        // AUDIOFOCUS_LOSS — handled in the branch below.
+                        Log.d(TAG, "[Standalone] Audio focus LOST - will attempt reclaim")
                         hasAudioFocus = false
-                        // Intentar recuperar el focus después de un breve delay
+                        pausedDueToFocusLoss = true
+                        standalonePlayer?.pause()
                         handler.postDelayed({
-                            if (standalonePlayer != null && isPlaybackActive) {
+                            if (standalonePlayer != null && isPlaybackActive && !hasAudioFocus) {
                                 Log.d(TAG, "[Standalone] Re-requesting audio focus after loss...")
                                 requestAudioFocus()
                             }
-                        }, 500) // Esperar 500ms antes de re-solicitar
+                        }, 500)
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                        Log.d(TAG, "[Standalone] Audio focus LOST TRANSIENT - will reclaim when possible")
+                        // Transient loss. This is the Android Auto driver-distraction case:
+                        // Google Assistant, phone call, navigation turn-by-turn prompt.
+                        // Policy mandates we pause and wait for the system to grant focus
+                        // back. Reclaiming here would re-fail the Play Store review.
+                        Log.d(TAG, "[Standalone] Audio focus LOST transient - pausing, waiting for GAIN")
                         hasAudioFocus = false
-                        // Para pérdidas transitorias, esperamos un poco más
-                        handler.postDelayed({
-                            if (standalonePlayer != null && isPlaybackActive) {
-                                Log.d(TAG, "[Standalone] Re-requesting audio focus after transient loss...")
-                                requestAudioFocus()
-                            }
-                        }, 1000)
+                        pausedDueToFocusLoss = true
+                        standalonePlayer?.pause()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                         Log.d(TAG, "[Standalone] Audio focus DUCK - reducing volume")
@@ -856,10 +875,10 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             .setAudioAttributes(
                 AudioAttributesCompat.Builder()
                     .setUsage(AudioAttributesCompat.USAGE_MEDIA)
-                    .setContentType(AudioAttributesCompat.CONTENT_TYPE_MUSIC)
+                    .setContentType(AudioAttributesCompat.CONTENT_TYPE_SPEECH)
                     .build()
             )
-            .setWillPauseWhenDucked(false)
+            .setWillPauseWhenDucked(true)
             .build()
         
         audioFocusRequest = focusRequest
