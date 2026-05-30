@@ -13,6 +13,7 @@ import type {
 	OnBandwidthUpdateData,
 	OnBufferData,
 	OnLoadStartData,
+	OnPlaybackMetricsData,
 	OnPlaybackRateChangeData,
 	OnPlaybackStateChangedData,
 	OnProgressData,
@@ -178,6 +179,10 @@ export class VideoEventsAdapter {
 
 	onBandwidthUpdate = (data: OnBandwidthUpdateData) => {
 		this.qualityHandler.handleBandwidthUpdate(data);
+	};
+
+	onPlaybackMetrics = (data: OnPlaybackMetricsData) => {
+		this.qualityHandler.handlePlaybackMetrics(data);
 	};
 
 	onAspectRatio = (data: OnVideoAspectRatioData) => {

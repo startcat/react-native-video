@@ -21,6 +21,7 @@ import type {
 	OnBufferData,
 	OnExternalPlaybackChangeData,
 	OnLoadStartData,
+	OnPlaybackMetricsData,
 	OnPlaybackRateChangeData,
 	OnPlaybackStateChangedData,
 	OnProgressData,
@@ -298,6 +299,23 @@ export const useVideoAnalytics = ({
 				try {
 					adapterRef.current.onBandwidthUpdate(e);
 				} catch (error) {
+					onInternalError?.(
+						createHandlerError("BANDWIDTH_UPDATE_FAILED", {
+							originalError: error as Error,
+						})
+					);
+				}
+			}
+		}, []),
+
+		onPlaybackMetrics: useCallback((e: OnPlaybackMetricsData) => {
+			if (adapterRef.current) {
+				try {
+					adapterRef.current.onPlaybackMetrics(e);
+				} catch (error) {
+					// El paquete 0.3.x no define un código dedicado para playback
+					// metrics; reutilizamos BANDWIDTH_UPDATE_FAILED (misma cadena QoE
+					// throughput/bandwidth).
 					onInternalError?.(
 						createHandlerError("BANDWIDTH_UPDATE_FAILED", {
 							originalError: error as Error,

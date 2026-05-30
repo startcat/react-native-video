@@ -1213,6 +1213,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					onTextTracks={videoEvents.onTextTracks}
 					onVideoTracks={videoEvents.onVideoTracks}
 					onBandwidthUpdate={videoEvents.onBandwidthUpdate}
+					onPlaybackMetrics={videoEvents.onPlaybackMetrics}
 					onAspectRatio={videoEvents.onAspectRatio}
 					onTimedMetadata={videoEvents.onTimedMetadata}
 					onAudioBecomingNoisy={videoEvents.onAudioBecomingNoisy}
