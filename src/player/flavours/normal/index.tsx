@@ -2509,6 +2509,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 							videoEvents.onVideoTracks
 						)}
 						onBandwidthUpdate={videoEvents.onBandwidthUpdate}
+						onPlaybackMetrics={videoEvents.onPlaybackMetrics}
 						onAspectRatio={videoEvents.onAspectRatio}
 						onTimedMetadata={videoEvents.onTimedMetadata}
 						onAudioBecomingNoisy={videoEvents.onAudioBecomingNoisy}
