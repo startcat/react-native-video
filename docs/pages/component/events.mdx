@@ -101,6 +101,30 @@ Example on Android:
 
 Note: On Android, you must set the [reportBandwidth](#reportbandwidth) prop to enable this event. This is due to the high volume of events generated.
 
+### `onPlaybackMetrics`
+
+<PlatformsList types={['Android', 'iOS']} />
+
+Callback function that periodically reports QoE (Quality of Experience) playback telemetry, intended for analytics consumers such as NPAW/Youbora.
+
+Payload:
+
+| Property              | Type   | Description                                                           |
+| --------------------- | ------ | --------------------------------------------------------------------- |
+| bitrate               | number | Indicated/selected rendition bitrate in bits/sec                      |
+| throughput            | number | Observed/estimated bandwidth in bits/sec (`-1` if unknown)            |
+| framesPerSecond       | number | Frames per second of the current video format (`0` if unknown)        |
+| droppedFrames         | number | Session-cumulative dropped video frames                               |
+| totalBytesTransferred | number | Session-cumulative network bytes transferred (`-1` if unknown)        |
+| width                 | number | Width of the selected video rendition                                 |
+| height                | number | Height of the selected video rendition                                |
+
+Notes:
+
+- **No `reportBandwidth` requirement.** Unlike `onBandwidthUpdate`, this event is not gated by the `reportBandwidth` prop on Android; it emits whenever a JS handler is attached.
+- **`trackId` is intentionally omitted.** Android exposes the rendition id as a `String` (`Format.id`) while AVFoundation has no stable HLS rendition id, so there is no codegen-safe shared type. The selected rendition is conveyed via `width`/`height` instead.
+- **Cadence differs by platform.** Android emits once per ExoPlayer `BandwidthMeter` sample (sub-second under load); iOS emits once per `AVPlayerItemNewAccessLogEntry` (~1/s, roughly per HLS segment). Consumers should tolerate or decimate the stream to their desired rate.
+
 ### `onBuffer`
 
 <PlatformsList types={['Android', 'iOS']} />

@@ -217,6 +217,27 @@ export type OnBandwidthUpdateData = Readonly<{
 	trackId?: Int32;
 }>;
 
+/**
+ * QoE playback telemetry forwarded per-tick to JS (PLAYER-195).
+ * Byte counts are typed as `Double` (not `Int32`) to avoid 32-bit overflow on
+ * long sessions / high bitrates. `trackId` is intentionally omitted: Android
+ * exposes `Format.id` as a String while AVFoundation has no stable HLS
+ * rendition id, so there is no codegen-safe shared type — width/height carry
+ * the selected rendition instead.
+ * Cadence differs by platform: Android emits per BandwidthMeter sample
+ * (sub-second under load), iOS emits per AVPlayerItemAccessLog entry (~1/s).
+ * Consumers (e.g. NPAW) should tolerate / decimate as needed.
+ */
+export type OnPlaybackMetricsData = Readonly<{
+	throughput?: Double; // observed/estimated bandwidth (bps); omitted/-1 if unknown
+	bitrate?: Double; // indicated/selected rendition bitrate (bps)
+	framesPerSecond?: Double; // 0 if unknown
+	droppedFrames?: Int32; // session-cumulative dropped video frames
+	totalBytesTransferred?: Double; // session-cumulative network bytes; -1 if unknown
+	width?: Float; // selected video rendition width
+	height?: Float; // selected video rendition height
+}>;
+
 export type OnSeekData = Readonly<{
 	currentTime: Float;
 	seekTime: Float;
@@ -385,6 +406,7 @@ export interface VideoNativeProps extends ViewProps {
 	onVideoError?: DirectEventHandler<OnVideoErrorData>;
 	onVideoProgress?: DirectEventHandler<OnProgressData>;
 	onVideoBandwidthUpdate?: DirectEventHandler<OnBandwidthUpdateData>;
+	onVideoPlaybackMetrics?: DirectEventHandler<OnPlaybackMetricsData>;
 	onVideoSeek?: DirectEventHandler<OnSeekData>;
 	onVideoEnd?: DirectEventHandler<{}>; // all
 	onVideoAudioBecomingNoisy?: DirectEventHandler<{}>;

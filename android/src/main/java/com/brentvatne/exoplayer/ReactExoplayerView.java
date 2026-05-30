@@ -62,6 +62,7 @@ import androidx.media3.datasource.HttpDataSource;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
 import androidx.media3.exoplayer.dash.DashMediaSource;
 import androidx.media3.exoplayer.dash.DashUtil;
 import androidx.media3.exoplayer.dash.DefaultDashChunkSource;
@@ -224,6 +225,13 @@ public class ReactExoplayerView extends FrameLayout implements
     private EventLogger debugEventLogger = null;
     private boolean enableDebug = false;
     private static final String TAG_EVENT_LOGGER = "RNVExoplayer";
+
+    // PLAYER-195: QoE telemetry accumulators (session-cumulative, reset on player release).
+    // onBandwidthSample delivers bytes per-sample and onDroppedVideoFrames a delta, so both
+    // are accumulated here for the onPlaybackMetrics event.
+    private long totalBytesTransferred = 0;
+    private int droppedFrames = 0;
+    private AnalyticsListener playbackMetricsAnalyticsListener = null;
 
     private int resumeWindow;
     private long resumePosition;
@@ -471,6 +479,9 @@ public class ReactExoplayerView extends FrameLayout implements
     //BandwidthMeter.EventListener implementation
     @Override
     public void onBandwidthSample(int elapsedMs, long bytes, long bitrate) {
+        if (bytes > 0) {
+            totalBytesTransferred += bytes;
+        }
         if (mReportBandwidth) {
             if (player == null) {
                 eventEmitter.bandwidthReport(bitrate, 0, 0, "-1");
@@ -481,6 +492,20 @@ public class ReactExoplayerView extends FrameLayout implements
                 String trackId = videoFormat != null ? videoFormat.id : "-1";
                 eventEmitter.bandwidthReport(bitrate, height, width, trackId);
             }
+        }
+        // PLAYER-195: emit QoE telemetry on every bandwidth sample (NOT gated by mReportBandwidth,
+        // so QoE does not depend on the reportBandwidth prop). Cadence = BandwidthMeter sample tick
+        // (sub-second under load); the JS consumer decimates to ~1/s if needed. throughput is the
+        // instantaneous per-sample value (bytes*8000/elapsedMs); -1 when elapsedMs is unknown.
+        if (player != null) {
+            Format videoFormat = player.getVideoFormat();
+            int width = videoFormat != null ? videoFormat.width : 0;
+            int height = videoFormat != null ? videoFormat.height : 0;
+            double fps = (videoFormat != null && videoFormat.frameRate != Format.NO_VALUE)
+                    ? videoFormat.frameRate : 0d;
+            double throughput = elapsedMs > 0 ? ((double) bytes * 8000d / elapsedMs) : -1d;
+            eventEmitter.playbackMetrics(
+                    bitrate, throughput, fps, droppedFrames, totalBytesTransferred, width, height);
         }
     }
 
@@ -987,6 +1012,17 @@ public class ReactExoplayerView extends FrameLayout implements
 
         refreshDebugState();
         player.addListener(self);
+        // PLAYER-195: reset QoE accumulators and subscribe a dropped-frames listener for the
+        // lifetime of this player instance (independent of the debug EventLogger).
+        totalBytesTransferred = 0;
+        droppedFrames = 0;
+        playbackMetricsAnalyticsListener = new AnalyticsListener() {
+            @Override
+            public void onDroppedVideoFrames(AnalyticsListener.EventTime eventTime, int dropped, long elapsedMs) {
+                droppedFrames += dropped; // onDroppedVideoFrames reports a delta -> accumulate
+            }
+        };
+        player.addAnalyticsListener(playbackMetricsAnalyticsListener);
         player.setVolume(muted ? 0.f : audioVolume * 1);
         exoPlayerView.setPlayer(player);
         if (adsLoader != null) {
@@ -1587,6 +1623,10 @@ public class ReactExoplayerView extends FrameLayout implements
             }
 
             updateResumePosition();
+            if (playbackMetricsAnalyticsListener != null) {
+                player.removeAnalyticsListener(playbackMetricsAnalyticsListener);
+                playbackMetricsAnalyticsListener = null;
+            }
             player.release();
             player.removeListener(this);
             trackSelector = null;
