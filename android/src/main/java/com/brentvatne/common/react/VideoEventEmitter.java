@@ -37,6 +37,7 @@ public class VideoEventEmitter {
     private static final String EVENT_ERROR = "onVideoError";
     private static final String EVENT_PROGRESS = "onVideoProgress";
     private static final String EVENT_BANDWIDTH = "onVideoBandwidthUpdate";
+    private static final String EVENT_PLAYBACK_METRICS = "onVideoPlaybackMetrics";
     private static final String EVENT_SEEK = "onVideoSeek";
     private static final String EVENT_END = "onVideoEnd";
     private static final String EVENT_FULLSCREEN_WILL_PRESENT = "onVideoFullscreenPlayerWillPresent";
@@ -89,6 +90,7 @@ public class VideoEventEmitter {
             EVENT_TEXT_TRACK_DATA_CHANGED,
             EVENT_VIDEO_TRACKS,
             EVENT_BANDWIDTH,
+            EVENT_PLAYBACK_METRICS,
             EVENT_ON_RECEIVE_AD_EVENT
     };
 
@@ -120,6 +122,7 @@ public class VideoEventEmitter {
             EVENT_TEXT_TRACK_DATA_CHANGED,
             EVENT_VIDEO_TRACKS,
             EVENT_BANDWIDTH,
+            EVENT_PLAYBACK_METRICS,
             EVENT_ON_RECEIVE_AD_EVENT
     })
     @interface VideoEvents {
@@ -161,6 +164,12 @@ public class VideoEventEmitter {
     private static final String EVENT_PROP_TIMED_METADATA = "metadata";
 
     private static final String EVENT_PROP_BITRATE = "bitrate";
+
+    // PLAYER-195 QoE playback metrics props
+    private static final String EVENT_PROP_THROUGHPUT = "throughput";
+    private static final String EVENT_PROP_FRAMES_PER_SECOND = "framesPerSecond";
+    private static final String EVENT_PROP_DROPPED_FRAMES = "droppedFrames";
+    private static final String EVENT_PROP_TOTAL_BYTES_TRANSFERRED = "totalBytesTransferred";
 
     private static final String EVENT_PROP_IS_PLAYING = "isPlaying";
 
@@ -321,6 +330,23 @@ public class VideoEventEmitter {
         event.putInt(EVENT_PROP_HEIGHT, height);
         event.putString(EVENT_PROP_TRACK_ID, id);
         receiveEvent(EVENT_BANDWIDTH, event);
+    }
+
+    // PLAYER-195: QoE playback telemetry. trackId intentionally omitted (Android
+    // Format.id is a String, iOS has no stable rendition id) — width/height carry
+    // the selected rendition. Byte counts use putDouble to avoid Int32 overflow.
+    public void playbackMetrics(double bitrate, double throughput, double framesPerSecond,
+                                int droppedFrames, double totalBytesTransferred,
+                                int width, int height) {
+        WritableMap event = Arguments.createMap();
+        event.putDouble(EVENT_PROP_BITRATE, bitrate);
+        event.putDouble(EVENT_PROP_THROUGHPUT, throughput);
+        event.putDouble(EVENT_PROP_FRAMES_PER_SECOND, framesPerSecond);
+        event.putInt(EVENT_PROP_DROPPED_FRAMES, droppedFrames);
+        event.putDouble(EVENT_PROP_TOTAL_BYTES_TRANSFERRED, totalBytesTransferred);
+        event.putInt(EVENT_PROP_WIDTH, width);
+        event.putInt(EVENT_PROP_HEIGHT, height);
+        receiveEvent(EVENT_PLAYBACK_METRICS, event);
     }
 
     public void seek(long currentPosition, long seekTime) {

@@ -7,6 +7,7 @@ import type {
 	OnExternalPlaybackChangeData,
 	OnLoadStartData,
 	OnPictureInPictureStatusChangedData,
+	OnPlaybackMetricsData,
 	OnPlaybackRateChangeData,
 	OnPlaybackStateChangedData,
 	OnProgressData,
@@ -236,6 +237,7 @@ export interface ReactVideoEvents {
 	onAudioFocusChanged?: (e: OnAudioFocusChangedData) => void; // Android
 	onIdle?: () => void; // Android
 	onBandwidthUpdate?: (e: OnBandwidthUpdateData) => void; //Android
+	onPlaybackMetrics?: (e: OnPlaybackMetricsData) => void; // Android, iOS
 	onBuffer?: (e: OnBufferData) => void; //Android, iOS
 	onEnd?: () => void; //All
 	onError?: (e: OnVideoErrorData) => void; //Android, iOS

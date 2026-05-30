@@ -142,6 +142,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc var onVideoError: RCTDirectEventBlock?
     @objc var onVideoProgress: RCTDirectEventBlock?
     @objc var onVideoBandwidthUpdate: RCTDirectEventBlock?
+    @objc var onVideoPlaybackMetrics: RCTDirectEventBlock?
     @objc var onVideoSeek: RCTDirectEventBlock?
     @objc var onVideoEnd: RCTDirectEventBlock?
     @objc var onTimedMetadata: RCTDirectEventBlock?
@@ -2022,14 +2023,52 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     @objc
     func handleAVPlayerAccess(notification: NSNotification!) {
-        guard onVideoBandwidthUpdate != nil else { return }
+        // Bail out only if no consumer is subscribed to either event.
+        guard onVideoBandwidthUpdate != nil || onVideoPlaybackMetrics != nil else { return }
 
         guard let accessLog = (notification.object as? AVPlayerItem)?.accessLog() else {
             return
         }
 
         guard let lastEvent = accessLog.events.last else { return }
-        onVideoBandwidthUpdate?(["bitrate": lastEvent.observedBitrate, "target": reactTag])
+
+        // Existing event, unchanged shape for backward-compatibility.
+        if onVideoBandwidthUpdate != nil {
+            onVideoBandwidthUpdate?(["bitrate": lastEvent.observedBitrate, "target": reactTag])
+        }
+
+        // PLAYER-195: QoE telemetry. trackId intentionally omitted (no stable HLS rendition id
+        // on AVFoundation, String on Android) — width/height carry the selected rendition.
+        // Byte/frame counts are aggregated over the whole access log -> session-cumulative,
+        // matching Android. Cadence = one AVPlayerItemNewAccessLogEntry (~1/s, per HLS segment);
+        // Android emits per BandwidthMeter sample (sub-second). Consumers tolerate/decimate.
+        if onVideoPlaybackMetrics != nil {
+            let totalBytes = accessLog.events.reduce(0.0) { $0 + Double(max(0, $1.numberOfBytesTransferred)) }
+            let droppedFrames = accessLog.events.reduce(0) { $0 + max(0, $1.numberOfDroppedVideoFrames) }
+            let size = _playerItem?.presentationSize ?? .zero
+            let fps = currentSelectedVideoTrackNominalFrameRate()
+            onVideoPlaybackMetrics?([
+                "bitrate": lastEvent.indicatedBitrate,
+                "throughput": lastEvent.observedBitrate,
+                "framesPerSecond": fps,
+                "droppedFrames": droppedFrames,
+                "totalBytesTransferred": totalBytes,
+                "width": Float(size.width),
+                "height": Float(size.height),
+                "target": reactTag,
+            ])
+        }
+    }
+
+    // PLAYER-195: nominal frame rate of the currently enabled video track, 0 if unavailable.
+    private func currentSelectedVideoTrackNominalFrameRate() -> Float {
+        guard let tracks = _player?.currentItem?.tracks else { return 0 }
+        for track in tracks where track.isEnabled {
+            if let assetTrack = track.assetTrack, assetTrack.mediaType == .video {
+                return assetTrack.nominalFrameRate
+            }
+        }
+        return 0
     }
 
     func handleTracksChange(playerItem _: AVPlayerItem, change _: NSKeyValueObservedChange<[AVPlayerItemTrack]>) {
