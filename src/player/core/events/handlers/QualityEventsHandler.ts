@@ -25,7 +25,7 @@ import type {
  * dispatch para no perder telemetría ni romper el typecheck contra 0.3.x.
  */
 type QualityChangePayload = {
-	quality: string;
+	quality?: string;
 	width?: number;
 	height?: number;
 	bitrate?: number;
@@ -92,55 +92,43 @@ export class QualityEventsHandler {
 		}
 	};
 
-	handleBandwidthUpdate = (data: OnBandwidthUpdateData) => {
-		// La medición de ancho de banda del player. NPAW/Youbora la usa como
-		// `throughput` (igual que el adaptador del framework: throughput = el valor
-		// de ancho de banda medido). Guardamos el centinela `-1`/`<= 0` (Android
-		// emite `-1` cuando el BandwidthMeter aún no tiene una estimación válida):
-		// en ese caso NO emitimos nada para no contaminar las métricas con ceros.
-		const bandwidth = data.bitrate;
-		if (typeof bandwidth !== "number" || bandwidth <= 0) {
-			return;
-		}
-
-		// onBitrateChange sólo cuando el bitrate medido cambia (dedup), como hace
-		// handleVideoTracks.
-		if (bandwidth !== this.currentBitrate) {
-			this.analyticsEvents.onBitrateChange({
-				bitrate: bandwidth,
-				previousBitrate: this.currentBitrate,
-				adaptive: true,
-			});
-			this.currentBitrate = bandwidth;
-		}
-
-		// onQualityChange con throughput = el ancho de banda medido (mapeo del
-		// framework). `quality` es requerido; usamos String(bandwidth) cuando no
-		// disponemos de una etiqueta de resolución.
-		const quality = this.getQualityLabel(data.width, data.height);
-		this.emitQualityChange({
-			quality: quality !== "Unknown" ? quality : String(bandwidth),
-			bitrate: bandwidth,
-			throughput: bandwidth,
-			...(this.isValid(data.width) ? { width: data.width } : {}),
-			...(this.isValid(data.height) ? { height: data.height } : {}),
-		});
+	handleBandwidthUpdate = (_data: OnBandwidthUpdateData) => {
+		// No-op deliberado (PLAYER-200 fix). `OnBandwidthUpdateData.bitrate` es la
+		// estimación del BandwidthMeter (getBitrateEstimate) — ancho de banda de
+		// RED, NO el bitrate del medio. Enrutarla a onBitrateChange/onQualityChange
+		// contaminaba el bitrate de Youbora con el throughput (p.ej. 262 Mbps en
+		// vez de los ~4 Mbps de la rendición). El throughput se publica ahora desde
+		// handlePlaybackMetrics, y el bitrate real de la rendición proviene de
+		// handleVideoTracks (selectedTrack.bitrate = Format.bitrate). Además este
+		// evento sólo se emite si la prop `reportBandwidth` está activa, así que no
+		// es una fuente fiable. Se mantiene el método porque VideoEventsAdapter lo
+		// cablea, pero no emite nada.
 	};
 
 	handlePlaybackMetrics = (data: OnPlaybackMetricsData) => {
-		// Métricas QoE de reproducción (PLAYER-195/200). Cada campo es opcional y
-		// puede venir como centinela (`-1`) o `0` "desconocido"; sólo propagamos
-		// los que aportan información real. Reflejo del `onPlaybackMetrics` del
-		// adaptador del framework, adaptado al estado de instancia.
+		// Métricas QoE continuas (PLAYER-195/200). IMPORTANTE: el campo `bitrate`
+		// de este evento NO es el bitrate del medio — el nativo reenvía aquí la
+		// estimación del BandwidthMeter (igual que `throughput`, ambos ancho de
+		// banda de red). Por eso NO tocamos `bitrate`: el bitrate real de la
+		// rendición lo fija handleVideoTracks (onBitrateChange → currentBitrate del
+		// pump), y el consumidor lo conserva por continuidad. Aquí publicamos sólo
+		// throughput / fps / droppedFrames / totalBytes y, si el evento trae
+		// dimensiones, la rendición.
 		const { throughput, bitrate, framesPerSecond, droppedFrames, width, height } = data;
 
-		const payload: QualityChangePayload = { quality: "metrics" };
+		const payload: QualityChangePayload = {};
 
-		if (this.isValid(bitrate) && bitrate > 0) {
-			payload.bitrate = bitrate;
-		}
-		if (this.isValid(throughput) && throughput > 0) {
-			payload.throughput = throughput;
+		// throughput = ancho de banda medido. Preferimos el campo `throughput`
+		// (instantáneo); si no es válido usamos `bitrate` (estimación suavizada del
+		// BandwidthMeter). Ambos son ancho de banda de red, NO bitrate de medio.
+		const measuredThroughput =
+			this.isValid(throughput) && throughput > 0
+				? throughput
+				: this.isValid(bitrate) && bitrate > 0
+					? bitrate
+					: undefined;
+		if (measuredThroughput !== undefined) {
+			payload.throughput = measuredThroughput;
 		}
 		if (this.isValid(framesPerSecond) && framesPerSecond > 0) {
 			payload.framesPerSecond = framesPerSecond;
@@ -153,21 +141,23 @@ export class QualityEventsHandler {
 			payload.totalBytes = data.totalBytesTransferred;
 		}
 
-		// Resolución/rendición derivadas del width×height de la rendición
-		// seleccionada (reutiliza getQualityLabel).
+		// Rendición/resolución SÓLO cuando el evento trae dimensiones válidas. Si no
+		// las trae, NO fijamos quality/rendition: el consumidor (`p.rendition ??
+		// p.quality ?? baseline`) conserva la última rendición conocida en vez de
+		// recibir un placeholder como "metrics".
 		const hasResolution =
 			this.isValid(width) && this.isValid(height) && width > 0 && height > 0;
 		if (hasResolution) {
-			const rendition = this.getQualityLabel(width, height);
-			payload.quality = rendition !== "Unknown" ? rendition : payload.quality;
-			payload.rendition = rendition !== "Unknown" ? rendition : `${width}x${height}`;
+			const label = this.getQualityLabel(width, height);
+			const rendition = label !== "Unknown" ? label : `${width}x${height}`;
+			payload.quality = rendition;
+			payload.rendition = rendition;
 			payload.width = width;
 			payload.height = height;
 		}
 
 		// Si no hay ninguna métrica útil, no emitimos.
 		const hasMetric =
-			payload.bitrate !== undefined ||
 			payload.throughput !== undefined ||
 			payload.framesPerSecond !== undefined ||
 			payload.droppedFrames !== undefined ||
