@@ -503,9 +503,15 @@ public class ReactExoplayerView extends FrameLayout implements
             int height = videoFormat != null ? videoFormat.height : 0;
             double fps = (videoFormat != null && videoFormat.frameRate != Format.NO_VALUE)
                     ? videoFormat.frameRate : 0d;
+            // PLAYER-200: onBandwidthSample's `bitrate` arg is the BandwidthMeter estimate
+            // (network throughput), NOT the media bitrate. Send the SELECTED video Format's
+            // bitrate as the rendition bitrate (matches OnPlaybackMetricsData.bitrate's contract:
+            // "indicated/selected rendition bitrate"); `throughput` carries the measured bandwidth.
+            double mediaBitrate = (videoFormat != null && videoFormat.bitrate != Format.NO_VALUE)
+                    ? videoFormat.bitrate : -1d;
             double throughput = elapsedMs > 0 ? ((double) bytes * 8000d / elapsedMs) : -1d;
             eventEmitter.playbackMetrics(
-                    bitrate, throughput, fps, droppedFrames, totalBytesTransferred, width, height);
+                    mediaBitrate, throughput, fps, droppedFrames, totalBytesTransferred, width, height);
         }
     }
 
