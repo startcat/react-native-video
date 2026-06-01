@@ -34,57 +34,24 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 		handler = new QualityEventsHandler(analyticsEvents as any);
 	});
 
-	describe("handleBandwidthUpdate", () => {
-		it("ignora el centinela -1 (no emite nada)", () => {
+	describe("handleBandwidthUpdate (no-op tras PLAYER-200)", () => {
+		it("no emite nada: el `bitrate` del evento de bandwidth es ancho de banda de red, no media bitrate", () => {
+			handler.handleBandwidthUpdate({ bitrate: 262_750_784 } as OnBandwidthUpdateData);
+			handler.handleBandwidthUpdate({ bitrate: 3_000_000 } as OnBandwidthUpdateData);
 			handler.handleBandwidthUpdate({ bitrate: -1 } as OnBandwidthUpdateData);
 
 			expect(analyticsEvents.onQualityChange).not.toHaveBeenCalled();
 			expect(analyticsEvents.onBitrateChange).not.toHaveBeenCalled();
-		});
-
-		it("ignora 0 (no emite nada)", () => {
-			handler.handleBandwidthUpdate({ bitrate: 0 } as OnBandwidthUpdateData);
-
-			expect(analyticsEvents.onQualityChange).not.toHaveBeenCalled();
-			expect(analyticsEvents.onBitrateChange).not.toHaveBeenCalled();
-		});
-
-		it("emite onBitrateChange y onQualityChange (con throughput) para un valor real", () => {
-			handler.handleBandwidthUpdate({ bitrate: 3_000_000 } as OnBandwidthUpdateData);
-
-			expect(analyticsEvents.onBitrateChange).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onBitrateChange).toHaveBeenCalledWith({
-				bitrate: 3_000_000,
-				previousBitrate: 0,
-				adaptive: true,
-			});
-
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledWith(
-				expect.objectContaining({
-					quality: "3000000",
-					bitrate: 3_000_000,
-					throughput: 3_000_000, // throughput = ancho de banda medido
-				})
-			);
-		});
-
-		it("no re-emite onBitrateChange si el bitrate no cambia (dedup)", () => {
-			handler.handleBandwidthUpdate({ bitrate: 3_000_000 } as OnBandwidthUpdateData);
-			handler.handleBandwidthUpdate({ bitrate: 3_000_000 } as OnBandwidthUpdateData);
-
-			expect(analyticsEvents.onBitrateChange).toHaveBeenCalledTimes(1);
-			// onQualityChange sí se emite cada tick (lleva throughput actualizado)
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledTimes(2);
+			expect(analyticsEvents.onResolutionChange).not.toHaveBeenCalled();
 		});
 	});
 
 	describe("handlePlaybackMetrics", () => {
-		it("emite onQualityChange con throughput/bitrate/rendition y onResolutionChange", () => {
+		it("publica throughput/fps/droppedFrames/rendition pero NO bitrate (el `bitrate` del evento es ancho de banda)", () => {
 			handler.handlePlaybackMetrics({
 				throughput: 5_000_000,
-				bitrate: 4_200_000,
-				framesPerSecond: 30,
+				bitrate: 262_750_784, // estimación del BandwidthMeter — NO media bitrate
+				framesPerSecond: 25,
 				droppedFrames: 2,
 				totalBytesTransferred: 1_234_567,
 				width: 1920,
@@ -98,14 +65,16 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 					quality: "1080p",
 					rendition: "1080p",
 					throughput: 5_000_000,
-					bitrate: 4_200_000,
-					framesPerSecond: 30,
+					framesPerSecond: 25,
 					droppedFrames: 2,
 					totalBytes: 1_234_567,
 					width: 1920,
 					height: 1080,
 				})
 			);
+			// CLAVE del fix: el bitrate del evento NO se propaga (es ancho de banda,
+			// no bitrate de medio; el bitrate real lo fija handleVideoTracks).
+			expect(payload.bitrate).toBeUndefined();
 
 			expect(analyticsEvents.onResolutionChange).toHaveBeenCalledTimes(1);
 			expect(analyticsEvents.onResolutionChange).toHaveBeenCalledWith({
@@ -116,26 +85,50 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 			});
 		});
 
+		it("sin resolución, NO fija quality/rendition (preserva la última rendición conocida, sin placeholder)", () => {
+			handler.handlePlaybackMetrics({
+				throughput: 5_000_000,
+				framesPerSecond: 25,
+			} as OnPlaybackMetricsData);
+
+			expect(analyticsEvents.onQualityChange).toHaveBeenCalledTimes(1);
+			const payload = analyticsEvents.onQualityChange.mock.calls[0][0];
+			expect(payload.throughput).toBe(5_000_000);
+			expect(payload.framesPerSecond).toBe(25);
+			expect(payload.quality).toBeUndefined();
+			expect(payload.rendition).toBeUndefined();
+			expect(analyticsEvents.onResolutionChange).not.toHaveBeenCalled();
+		});
+
+		it("throughput cae al `bitrate` (estimación suavizada) si el campo throughput es inválido", () => {
+			handler.handlePlaybackMetrics({
+				throughput: -1,
+				bitrate: 8_000_000,
+			} as OnPlaybackMetricsData);
+
+			const payload = analyticsEvents.onQualityChange.mock.calls[0][0];
+			expect(payload.throughput).toBe(8_000_000);
+			expect(payload.bitrate).toBeUndefined();
+		});
+
 		it("propaga droppedFrames=0 (valor válido acumulativo)", () => {
 			handler.handlePlaybackMetrics({
 				throughput: 5_000_000,
 				droppedFrames: 0,
 			} as OnPlaybackMetricsData);
 
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledTimes(1);
 			expect(analyticsEvents.onQualityChange).toHaveBeenCalledWith(
 				expect.objectContaining({ throughput: 5_000_000, droppedFrames: 0 })
 			);
 		});
 
-		it("guarda centinelas/ceros: throughput=-1 y bitrate=0 no se propagan", () => {
+		it("guarda centinelas/ceros: throughput=-1, bitrate=0, fps=0 y sin resolución → no emite", () => {
 			handler.handlePlaybackMetrics({
 				throughput: -1,
 				bitrate: 0,
 				framesPerSecond: 0,
 			} as OnPlaybackMetricsData);
 
-			// Sin métrica útil → no emite
 			expect(analyticsEvents.onQualityChange).not.toHaveBeenCalled();
 			expect(analyticsEvents.onResolutionChange).not.toHaveBeenCalled();
 		});
@@ -154,7 +147,7 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 		});
 	});
 
-	describe("handleVideoTracks (sin regresión)", () => {
+	describe("handleVideoTracks (fuente del bitrate real de la rendición — sin regresión)", () => {
 		it("emite quality/bitrate/resolution para la pista seleccionada", () => {
 			handler.handleVideoTracks({
 				videoTracks: [
