@@ -99,6 +99,24 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 			expect(analyticsEvents.onResolutionChange).not.toHaveBeenCalled();
 		});
 
+		it("PLAYER-201: tras una rendición con resolución, un tick métrico sin resolución re-envía la última rendición", () => {
+			// Primer tick con resolución → fija y cachea "1080p".
+			handler.handlePlaybackMetrics({
+				bitrate: 9_800_000,
+				width: 1920,
+				height: 1080,
+			} as OnPlaybackMetricsData);
+			// Segundo tick SIN resolución (caso Android) → debe re-enviar "1080p", no null.
+			handler.handlePlaybackMetrics({
+				throughput: 5_000_000,
+			} as OnPlaybackMetricsData);
+
+			const second = analyticsEvents.onQualityChange.mock.calls[1][0];
+			expect(second.rendition).toBe("1080p");
+			expect(second.quality).toBe("1080p");
+			expect(second.throughput).toBe(5_000_000);
+		});
+
 		it("emite bitrate de medio aunque throughput no sea válido (campos independientes)", () => {
 			handler.handlePlaybackMetrics({
 				bitrate: 4_200_000,

@@ -42,6 +42,10 @@ export class QualityEventsHandler {
 	private currentWidth = 0;
 	private currentHeight = 0;
 	private currentQuality = "";
+	// PLAYER-201: last known rendition label, carried on every metrics tick so the
+	// downstream NPAW getRendition() stays populated (verified via RNYouboraDiag: the
+	// rendition oscillated to null on metrics-only ticks, and pings caught the null).
+	private lastRenditionLabel = "";
 
 	constructor(analyticsEvents: PlayerAnalyticsEvents) {
 		this.analyticsEvents = analyticsEvents;
@@ -56,6 +60,11 @@ export class QualityEventsHandler {
 			const newBitrate = selectedTrack.bitrate || 0;
 			const newWidth = selectedTrack.width || 0;
 			const newHeight = selectedTrack.height || 0;
+
+			// PLAYER-201: cache the rendition label so metrics-only ticks can re-send it.
+			if (newQuality !== "Unknown") {
+				this.lastRenditionLabel = newQuality;
+			}
 
 			// Disparar evento de cambio de calidad
 			if (newQuality !== this.currentQuality) {
@@ -143,10 +152,18 @@ export class QualityEventsHandler {
 		if (hasResolution) {
 			const label = this.getQualityLabel(width, height);
 			const rendition = label !== "Unknown" ? label : `${width}x${height}`;
+			this.lastRenditionLabel = rendition;
 			payload.quality = rendition;
 			payload.rendition = rendition;
 			payload.width = width;
 			payload.height = height;
+		} else if (this.lastRenditionLabel) {
+			// PLAYER-201: carry the last-known rendition on metrics-only ticks (Android's
+			// onVideoPlaybackMetrics often has no width/height) so NPAW's getRendition()
+			// stays populated instead of oscillating to null between pings. Symmetric with
+			// bitrate, which is re-supplied on every tick.
+			payload.quality = this.lastRenditionLabel;
+			payload.rendition = this.lastRenditionLabel;
 		}
 
 		// Si no hay ninguna métrica útil, no emitimos.
