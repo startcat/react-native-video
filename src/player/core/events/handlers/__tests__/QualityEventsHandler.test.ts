@@ -47,10 +47,10 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 	});
 
 	describe("handlePlaybackMetrics", () => {
-		it("publica throughput/fps/droppedFrames/rendition pero NO bitrate (el `bitrate` del evento es ancho de banda)", () => {
+		it("publica bitrate(medio)/throughput/fps/droppedFrames/rendition como campos distintos", () => {
 			handler.handlePlaybackMetrics({
-				throughput: 5_000_000,
-				bitrate: 262_750_784, // estimación del BandwidthMeter — NO media bitrate
+				bitrate: 4_200_000, // videoFormat.bitrate — bitrate de MEDIO de la rendición
+				throughput: 220_000_000, // ancho de banda de RED (campo separado)
 				framesPerSecond: 25,
 				droppedFrames: 2,
 				totalBytesTransferred: 1_234_567,
@@ -64,7 +64,6 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 				expect.objectContaining({
 					quality: "1080p",
 					rendition: "1080p",
-					throughput: 5_000_000,
 					framesPerSecond: 25,
 					droppedFrames: 2,
 					totalBytes: 1_234_567,
@@ -72,9 +71,9 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 					height: 1080,
 				})
 			);
-			// CLAVE del fix: el bitrate del evento NO se propaga (es ancho de banda,
-			// no bitrate de medio; el bitrate real lo fija handleVideoTracks).
-			expect(payload.bitrate).toBeUndefined();
+			// CLAVE del fix: bitrate (medio) y throughput (red) son valores DISTINTOS.
+			expect(payload.bitrate).toBe(4_200_000);
+			expect(payload.throughput).toBe(220_000_000);
 
 			expect(analyticsEvents.onResolutionChange).toHaveBeenCalledTimes(1);
 			expect(analyticsEvents.onResolutionChange).toHaveBeenCalledWith({
@@ -100,15 +99,15 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 			expect(analyticsEvents.onResolutionChange).not.toHaveBeenCalled();
 		});
 
-		it("throughput cae al `bitrate` (estimación suavizada) si el campo throughput es inválido", () => {
+		it("emite bitrate de medio aunque throughput no sea válido (campos independientes)", () => {
 			handler.handlePlaybackMetrics({
+				bitrate: 4_200_000,
 				throughput: -1,
-				bitrate: 8_000_000,
 			} as OnPlaybackMetricsData);
 
 			const payload = analyticsEvents.onQualityChange.mock.calls[0][0];
-			expect(payload.throughput).toBe(8_000_000);
-			expect(payload.bitrate).toBeUndefined();
+			expect(payload.bitrate).toBe(4_200_000);
+			expect(payload.throughput).toBeUndefined();
 		});
 
 		it("propaga droppedFrames=0 (valor válido acumulativo)", () => {

@@ -106,29 +106,22 @@ export class QualityEventsHandler {
 	};
 
 	handlePlaybackMetrics = (data: OnPlaybackMetricsData) => {
-		// Métricas QoE continuas (PLAYER-195/200). IMPORTANTE: el campo `bitrate`
-		// de este evento NO es el bitrate del medio — el nativo reenvía aquí la
-		// estimación del BandwidthMeter (igual que `throughput`, ambos ancho de
-		// banda de red). Por eso NO tocamos `bitrate`: el bitrate real de la
-		// rendición lo fija handleVideoTracks (onBitrateChange → currentBitrate del
-		// pump), y el consumidor lo conserva por continuidad. Aquí publicamos sólo
-		// throughput / fps / droppedFrames / totalBytes y, si el evento trae
-		// dimensiones, la rendición.
+		// Métricas QoE continuas (PLAYER-195/200). Tras el fix nativo de PLAYER-200,
+		// el campo `bitrate` de este evento es el bitrate de MEDIO de la rendición
+		// seleccionada (videoFormat.bitrate), y `throughput` el ancho de banda de
+		// RED medido — son campos distintos. Publicamos bitrate/throughput/fps/
+		// droppedFrames/totalBytes y, si el evento trae dimensiones, la rendición.
 		const { throughput, bitrate, framesPerSecond, droppedFrames, width, height } = data;
 
 		const payload: QualityChangePayload = {};
 
-		// throughput = ancho de banda medido. Preferimos el campo `throughput`
-		// (instantáneo); si no es válido usamos `bitrate` (estimación suavizada del
-		// BandwidthMeter). Ambos son ancho de banda de red, NO bitrate de medio.
-		const measuredThroughput =
-			this.isValid(throughput) && throughput > 0
-				? throughput
-				: this.isValid(bitrate) && bitrate > 0
-					? bitrate
-					: undefined;
-		if (measuredThroughput !== undefined) {
-			payload.throughput = measuredThroughput;
+		// bitrate = bitrate de medio de la rendición seleccionada (≠ ancho de banda).
+		if (this.isValid(bitrate) && bitrate > 0) {
+			payload.bitrate = bitrate;
+		}
+		// throughput = ancho de banda de red medido (campo separado del bitrate).
+		if (this.isValid(throughput) && throughput > 0) {
+			payload.throughput = throughput;
 		}
 		if (this.isValid(framesPerSecond) && framesPerSecond > 0) {
 			payload.framesPerSecond = framesPerSecond;
@@ -158,6 +151,7 @@ export class QualityEventsHandler {
 
 		// Si no hay ninguna métrica útil, no emitimos.
 		const hasMetric =
+			payload.bitrate !== undefined ||
 			payload.throughput !== undefined ||
 			payload.framesPerSecond !== undefined ||
 			payload.droppedFrames !== undefined ||
