@@ -240,8 +240,6 @@ public class ReactExoplayerView extends FrameLayout implements
     private boolean isInBackground;
     private boolean isPaused;
     private boolean isBuffering;
-    // PLAYER-200 diagnostic: last logged resolved media bitrate (gate to avoid log spam).
-    private double lastLoggedVideoBitrate = Double.NaN;
     private boolean muted = false;
     private boolean hasAudioFocus = false;
     private float rate = 1f;
@@ -512,14 +510,6 @@ public class ReactExoplayerView extends FrameLayout implements
             // the measured bandwidth.
             double mediaBitrate = getSelectedVideoBitrate(videoFormat);
             double throughput = elapsedMs > 0 ? ((double) bytes * 8000d / elapsedMs) : -1d;
-            // PLAYER-200 diagnostic (temporary): logs once per resolved-bitrate change so the
-            // logcat confirms this native build is live and what variant bitrate it resolves.
-            if (mediaBitrate != lastLoggedVideoBitrate) {
-                android.util.Log.i("RNVideoQoE", "PLAYER-200 mediaBitrate=" + mediaBitrate
-                        + " sampleFormatBitrate=" + (videoFormat != null ? videoFormat.bitrate : -2)
-                        + " res=" + width + "x" + height);
-                lastLoggedVideoBitrate = mediaBitrate;
-            }
             eventEmitter.playbackMetrics(
                     mediaBitrate, throughput, fps, droppedFrames, totalBytesTransferred, width, height);
         }
