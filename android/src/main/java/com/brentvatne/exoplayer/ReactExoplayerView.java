@@ -240,6 +240,8 @@ public class ReactExoplayerView extends FrameLayout implements
     private boolean isInBackground;
     private boolean isPaused;
     private boolean isBuffering;
+    // PLAYER-200 diagnostic: last logged resolved media bitrate (gate to avoid log spam).
+    private double lastLoggedVideoBitrate = Double.NaN;
     private boolean muted = false;
     private boolean hasAudioFocus = false;
     private float rate = 1f;
@@ -504,15 +506,55 @@ public class ReactExoplayerView extends FrameLayout implements
             double fps = (videoFormat != null && videoFormat.frameRate != Format.NO_VALUE)
                     ? videoFormat.frameRate : 0d;
             // PLAYER-200: onBandwidthSample's `bitrate` arg is the BandwidthMeter estimate
-            // (network throughput), NOT the media bitrate. Send the SELECTED video Format's
-            // bitrate as the rendition bitrate (matches OnPlaybackMetricsData.bitrate's contract:
-            // "indicated/selected rendition bitrate"); `throughput` carries the measured bandwidth.
-            double mediaBitrate = (videoFormat != null && videoFormat.bitrate != Format.NO_VALUE)
-                    ? videoFormat.bitrate : -1d;
+            // (network throughput), NOT the media bitrate. Resolve the current rendition's
+            // media bitrate from the manifest variant track groups (HLS/DASH BANDWIDTH);
+            // getVideoFormat().bitrate is NO_VALUE for adaptive streams. `throughput` carries
+            // the measured bandwidth.
+            double mediaBitrate = getSelectedVideoBitrate(videoFormat);
             double throughput = elapsedMs > 0 ? ((double) bytes * 8000d / elapsedMs) : -1d;
+            // PLAYER-200 diagnostic (temporary): logs once per resolved-bitrate change so the
+            // logcat confirms this native build is live and what variant bitrate it resolves.
+            if (mediaBitrate != lastLoggedVideoBitrate) {
+                android.util.Log.i("RNVideoQoE", "PLAYER-200 mediaBitrate=" + mediaBitrate
+                        + " sampleFormatBitrate=" + (videoFormat != null ? videoFormat.bitrate : -2)
+                        + " res=" + width + "x" + height);
+                lastLoggedVideoBitrate = mediaBitrate;
+            }
             eventEmitter.playbackMetrics(
                     mediaBitrate, throughput, fps, droppedFrames, totalBytesTransferred, width, height);
         }
+    }
+
+    /**
+     * PLAYER-200: resolve the media bitrate of the currently rendered video rendition.
+     * For adaptive streams (HLS/DASH) {@code player.getVideoFormat()} returns the rendered
+     * sample format whose {@code bitrate} is usually {@link Format#NO_VALUE}; the real media
+     * bitrate is the manifest VARIANT's bitrate (HLS BANDWIDTH). We look it up in the same
+     * video track groups the JS video-track list uses, matching by rendered resolution.
+     * Returns -1 when unknown so the JS consumer keeps the last known value.
+     */
+    private double getSelectedVideoBitrate(Format videoFormat) {
+        if (trackSelector != null && videoFormat != null
+                && videoFormat.width != Format.NO_VALUE && videoFormat.height != Format.NO_VALUE) {
+            MappingTrackSelector.MappedTrackInfo info = trackSelector.getCurrentMappedTrackInfo();
+            int index = getTrackRendererIndex(C.TRACK_TYPE_VIDEO);
+            if (info != null && index != C.INDEX_UNSET) {
+                TrackGroupArray groups = info.getTrackGroups(index);
+                for (int i = 0; i < groups.length; i++) {
+                    TrackGroup group = groups.get(i);
+                    for (int t = 0; t < group.length; t++) {
+                        Format f = group.getFormat(t);
+                        if (f.width == videoFormat.width && f.height == videoFormat.height
+                                && f.bitrate != Format.NO_VALUE) {
+                            return f.bitrate;
+                        }
+                    }
+                }
+            }
+        }
+        // Fallback to the sample format's own bitrate when present.
+        return (videoFormat != null && videoFormat.bitrate != Format.NO_VALUE)
+                ? videoFormat.bitrate : -1d;
     }
 
     // Internal methods
