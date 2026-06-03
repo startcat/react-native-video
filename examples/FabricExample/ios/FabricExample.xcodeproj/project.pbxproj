@@ -14,8 +14,6 @@
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		7699B88040F8A987B510C191 /* libPods-FabricExample-FabricExampleTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-FabricExample-FabricExampleTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
-		FA4D23232F4520F70026F7EA /* DownloadsModule2ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4D23212F4520F70026F7EA /* DownloadsModule2ConfigTests.swift */; };
-		FA4D23242F4520F70026F7EA /* DownloadsModule2StateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4D23222F4520F70026F7EA /* DownloadsModule2StateTests.swift */; };
 		FA050001AAAA000100000001 /* ContentKeyPersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000001 /* ContentKeyPersistenceTests.swift */; };
 		FA050001AAAA000100000002 /* DataStructureParsingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000002 /* DataStructureParsingTests.swift */; };
 		FA050001AAAA000100000003 /* DownloadInfoSerializationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000003 /* DownloadInfoSerializationTests.swift */; };
@@ -23,6 +21,8 @@
 		FA050001AAAA000100000005 /* DownloadTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000005 /* DownloadTypesTests.swift */; };
 		FA050001AAAA000100000006 /* DownloadValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000006 /* DownloadValidationTests.swift */; };
 		FA050001AAAA000100000007 /* DownloadsModule2PersistenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA050001AAAA000000000007 /* DownloadsModule2PersistenceTests.swift */; };
+		FA4D23232F4520F70026F7EA /* DownloadsModule2ConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4D23212F4520F70026F7EA /* DownloadsModule2ConfigTests.swift */; };
+		FA4D23242F4520F70026F7EA /* DownloadsModule2StateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA4D23222F4520F70026F7EA /* DownloadsModule2StateTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,9 +53,6 @@
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = FabricExample/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-FabricExample-FabricExampleTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FabricExample-FabricExampleTests.release.xcconfig"; path = "Target Support Files/Pods-FabricExample-FabricExampleTests/Pods-FabricExample-FabricExampleTests.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		FA4D23212F4520F70026F7EA /* DownloadsModule2ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsModule2ConfigTests.swift; sourceTree = "<group>"; };
-		FA4D23222F4520F70026F7EA /* DownloadsModule2StateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsModule2StateTests.swift; sourceTree = "<group>"; };
-		FA4D23252F4520FB0026F7EA /* FabricExampleTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "FabricExampleTests-Bridging-Header.h"; sourceTree = "<group>"; };
 		FA050001AAAA000000000001 /* ContentKeyPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentKeyPersistenceTests.swift; sourceTree = "<group>"; };
 		FA050001AAAA000000000002 /* DataStructureParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStructureParsingTests.swift; sourceTree = "<group>"; };
 		FA050001AAAA000000000003 /* DownloadInfoSerializationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadInfoSerializationTests.swift; sourceTree = "<group>"; };
@@ -63,6 +60,9 @@
 		FA050001AAAA000000000005 /* DownloadTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadTypesTests.swift; sourceTree = "<group>"; };
 		FA050001AAAA000000000006 /* DownloadValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadValidationTests.swift; sourceTree = "<group>"; };
 		FA050001AAAA000000000007 /* DownloadsModule2PersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsModule2PersistenceTests.swift; sourceTree = "<group>"; };
+		FA4D23212F4520F70026F7EA /* DownloadsModule2ConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsModule2ConfigTests.swift; sourceTree = "<group>"; };
+		FA4D23222F4520F70026F7EA /* DownloadsModule2StateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsModule2StateTests.swift; sourceTree = "<group>"; };
+		FA4D23252F4520FB0026F7EA /* FabricExampleTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "FabricExampleTests-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */

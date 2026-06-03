@@ -3,13 +3,11 @@ require_relative '../node_modules/react-native/scripts/react_native_pods'
 require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
 
 source 'https://cdn.cocoapods.org'
-source 'https://repo.plugin.npaw.com/release/plugin-ios-cocoapods.git'
 
 platform :ios, '13.0'
 install! 'cocoapods', :deterministic_uuids => false
 use_modular_headers!
 
-$RNVideoUseYoubora = true
 $RNVideoUseVideoCaching = true
 
 target 'FabricExample' do

@@ -11,14 +11,11 @@ PODS:
     - React-jsi (= 0.71.19)
     - ReactCommon/turbomodule/core (= 0.71.19)
   - fmt (6.2.1)
-  - GCDWebServer (3.5.8)
   - glog (0.3.5)
   - hermes-engine (0.71.19):
     - hermes-engine/Pre-built (= 0.71.19)
   - hermes-engine/Pre-built (0.71.19)
   - libevent (2.1.12)
-  - NpawPluginPkg (7.2.22):
-    - GCDWebServer (= 3.5.8)
   - PromisesObjC (2.4.0)
   - PromisesSwift (2.4.0):
     - PromisesObjC (= 2.4.0)
@@ -600,19 +597,18 @@ PODS:
   - React-jsinspector (0.71.19)
   - React-logger (0.71.19):
     - glog
-  - react-native-video (6.2.1):
+  - react-native-video (7.3.1):
     - RCT-Folly (= 2021.07.22.00)
     - RCTRequired
     - RCTTypeSafety
     - React-Codegen
     - React-Core
-    - react-native-video/Video (= 6.2.1)
+    - react-native-video/Video (= 7.3.1)
     - React-RCTFabric
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-  - react-native-video/Video (6.2.1):
+  - react-native-video/Video (7.3.1):
     - DVAssetLoaderDelegate (~> 0.3.1)
-    - NpawPluginPkg (= 7.2.22)
     - PromisesSwift (= 2.4.0)
     - RCT-Folly (= 2021.07.22.00)
     - RCTRequired
@@ -763,9 +759,6 @@ DEPENDENCIES:
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 SPEC REPOS:
-  https://repo.plugin.npaw.com/release/plugin-ios-cocoapods.git:
-    - GCDWebServer
-    - NpawPluginPkg
   trunk:
     - DVAssetLoaderDelegate
     - fmt
@@ -861,11 +854,9 @@ SPEC CHECKSUMS:
   FBLazyVector: 038aa5ab388c9eec7a6a65b71596afd9ff99c949
   FBReactNativeSpec: 30fe19a0183c4b1788cdf3799c69de52a0ae35ef
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
-  GCDWebServer: 362e66052432ce445b842638c135010c6aa8e7bf
   glog: 04b94705f318337d7ead9e6d17c019bd9b1f6b1b
   hermes-engine: 1468b458e81705fcd55ed6e29c32ff069f04b69c
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
-  NpawPluginPkg: 5768515e25140b6fa41dfd88aa27273ec7bc7ca0
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PromisesSwift: 9d77319bbe72ebf6d872900551f7eeba9bce2851
   RCT-Folly: 424b8c9a7a0b9ab2886ffe9c3b041ef628fd4fb1
@@ -884,7 +875,7 @@ SPEC CHECKSUMS:
   React-jsiexecutor: 7263801e44e004967685dd40672bfcedcda00834
   React-jsinspector: e591d9ecb571456fc929ee10409d8847a442d6a7
   React-logger: 70ddbe0e07179c8adb94c4bffc36c6abc952d3d4
-  react-native-video: 04c30b23db5e94a52ba324ee952ee30ca076c52c
+  react-native-video: 8bda242d1e9c2437deb49690ca16cf2915342fef
   React-perflogger: 0ba097528e325435aca94b32b5330f58f6acb6fb
   React-RCTActionSheet: 805b3a83f3dd7ae5a1213ea9df0ed748eeb74b85
   React-RCTAnimation: 2a0233681dee47e468302b8233652b35b68329cb
@@ -903,6 +894,6 @@ SPEC CHECKSUMS:
   SPTPersistentCache: df36ea46762d7cf026502bbb86a8b79d0080dff4
   Yoga: d4f5b037672e6b68ba484c7cf7fe6790122df792
 
-PODFILE CHECKSUM: f1ab8064b6e910b09ee1fcf80dbf6d00dc2b817f
+PODFILE CHECKSUM: 2e955eb3a14755ab1717648eff37089acfe2e2cf
 
 COCOAPODS: 1.16.2
