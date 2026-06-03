@@ -370,7 +370,6 @@ export const ReactNativeVideoAdapter = forwardRef<
 				metadata: props.contentInfo.source.metadata,
 			}}
 			drm={props.contentInfo.drm}
-			youbora={props.contentInfo.youbora}
 			// Configuración básica
 			playOffline={props.playOffline}
 			multiSession={props.multiSession}

@@ -71,13 +71,11 @@ import { styles } from "../styles";
 import {
 	type ICommonData,
 	type IDrm,
-	type IMappedYoubora,
 	type IPlayerMenuData,
 	type IVideoSource,
 	type NormalFlavourProps,
 	CONTROL_ACTION,
 	PLAYER_MENU_DATA_TYPE,
-	YOUBORA_FORMAT,
 } from "../../types";
 
 export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
@@ -102,7 +100,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const insets = useSafeAreaInsets();
 
-	const youboraForVideo = useRef<IMappedYoubora>();
 	const drm = useRef<IDrm>();
 	const [videoSource, setVideoSource] = useState<IVideoSource | undefined>(undefined);
 
@@ -770,14 +767,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			setBuffering(true);
 			drm.current = data.drm;
 
-			// Preparamos los datos de Youbora
-			if (props.hooks?.getYouboraOptions) {
-				youboraForVideo.current = props.hooks.getYouboraOptions(
-					props.playerAnalytics?.youbora!,
-					YOUBORA_FORMAT.MOBILE
-				);
-			}
-
 			currentLogger.current?.info(
 				`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`
 			);
@@ -866,14 +855,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			currentLogger.current?.debug("setPlayerSource - Using sourceRef");
 			setBuffering(true);
 			drm.current = sourceRef.current.playerSourceDrm;
-
-			// Preparamos los datos de Youbora
-			if (props.hooks?.getYouboraOptions) {
-				youboraForVideo.current = props.hooks.getYouboraOptions(
-					props.playerAnalytics?.youbora!,
-					YOUBORA_FORMAT.MOBILE
-				);
-			}
 
 			// Configure sideloaded textTracks from manifest (MP4 online)
 			if (
@@ -2406,8 +2387,6 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						source={videoSource}
 						// @ts-ignore
 						drm={drm.current}
-						// @ts-ignore
-						youbora={youboraForVideo.current}
 						playOffline={!!props.playOffline}
 						multiSession={props.playerProgress?.liveValues?.multiSession}
 						disableDisconnectError={true}
