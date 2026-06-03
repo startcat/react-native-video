@@ -3,7 +3,10 @@
  *
  */
 
-import { PlayerAnalyticsEvents } from "@overon/react-native-overon-player-analytics-plugins";
+import {
+	PlayerAnalyticsEvents,
+	type AnalyticsEventMap,
+} from "@overon/react-native-overon-player-analytics-plugins";
 
 import type {
 	OnBandwidthUpdateData,
@@ -68,7 +71,7 @@ export class QualityEventsHandler {
 
 			// Disparar evento de cambio de calidad
 			if (newQuality !== this.currentQuality) {
-				this.analyticsEvents.onQualityChange({
+				this.analyticsEvents.on("onQualityChange", {
 					quality: newQuality,
 					height: newHeight,
 					width: newWidth,
@@ -79,7 +82,7 @@ export class QualityEventsHandler {
 
 			// Disparar evento de cambio de bitrate
 			if (newBitrate !== this.currentBitrate) {
-				this.analyticsEvents.onBitrateChange({
+				this.analyticsEvents.on("onBitrateChange", {
 					bitrate: newBitrate,
 					previousBitrate: this.currentBitrate,
 					adaptive: true,
@@ -89,7 +92,7 @@ export class QualityEventsHandler {
 
 			// Disparar evento de cambio de resolución
 			if (newWidth !== this.currentWidth || newHeight !== this.currentHeight) {
-				this.analyticsEvents.onResolutionChange({
+				this.analyticsEvents.on("onResolutionChange", {
 					width: newWidth,
 					height: newHeight,
 					previousWidth: this.currentWidth,
@@ -182,7 +185,7 @@ export class QualityEventsHandler {
 
 		// onResolutionChange cuando width/height presentes y cambiaron.
 		if (hasResolution && (width !== this.currentWidth || height !== this.currentHeight)) {
-			this.analyticsEvents.onResolutionChange({
+			this.analyticsEvents.on("onResolutionChange", {
 				width,
 				height,
 				previousWidth: this.currentWidth,
@@ -207,9 +210,7 @@ export class QualityEventsHandler {
 	 * pump, así que casteamos en este único punto para preservar la telemetría.
 	 */
 	private emitQualityChange = (payload: QualityChangePayload) => {
-		this.analyticsEvents.onQualityChange(
-			payload as Parameters<PlayerAnalyticsEvents["onQualityChange"]>[0]
-		);
+		this.analyticsEvents.on("onQualityChange", payload as AnalyticsEventMap["onQualityChange"]);
 	};
 
 	private getQualityLabel = (width?: number, height?: number): string => {

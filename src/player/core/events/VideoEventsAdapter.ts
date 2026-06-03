@@ -81,10 +81,10 @@ export class VideoEventsAdapter {
 
 	onLoadStart = (data: OnLoadStartData) => {
 		if (!this.isSessionActive) {
-			this.analyticsEvents.onCreatePlaybackSession();
+			this.analyticsEvents.on("onCreatePlaybackSession", undefined);
 			this.isSessionActive = true;
 		}
-		this.analyticsEvents.onSourceChange();
+		this.analyticsEvents.on("onSourceChange", undefined);
 	};
 
 	onLoad = (data: OnLoadData) => {
@@ -94,7 +94,7 @@ export class VideoEventsAdapter {
 		this.metadataHandler.handleLoad(data);
 		this.trackHandler.handleTracksLoad(data);
 
-		this.analyticsEvents.onDurationChange({
+		this.analyticsEvents.on("onDurationChange", {
 			duration: this.duration,
 			previousDuration: 0,
 		});
@@ -138,7 +138,7 @@ export class VideoEventsAdapter {
 	};
 
 	onPlaybackRateChange = (data: OnPlaybackRateChangeData) => {
-		this.analyticsEvents.onPlaybackRateChange({
+		this.analyticsEvents.on("onPlaybackRateChange", {
 			rate: data.playbackRate,
 			previousRate: this.currentPlaybackRate,
 		});
@@ -152,7 +152,7 @@ export class VideoEventsAdapter {
 	};
 
 	onEnd = () => {
-		this.analyticsEvents.onEnd();
+		this.analyticsEvents.on("onEnd", undefined);
 		this.isPlaying = false;
 		this.isSessionActive = false;
 	};
@@ -195,7 +195,7 @@ export class VideoEventsAdapter {
 
 	onReadyForDisplay = () => {
 		// El contenido está listo para mostrar
-		this.analyticsEvents.onBufferStop();
+		this.analyticsEvents.on("onBufferStop", undefined);
 	};
 
 	/*
@@ -204,19 +204,19 @@ export class VideoEventsAdapter {
 	 */
 
 	onApplicationForeground = () => {
-		this.analyticsEvents.onApplicationForeground();
+		this.analyticsEvents.on("onApplicationForeground", undefined);
 	};
 
 	onApplicationBackground = () => {
-		this.analyticsEvents.onApplicationBackground();
+		this.analyticsEvents.on("onApplicationBackground", undefined);
 	};
 
 	onApplicationActive = () => {
-		this.analyticsEvents.onApplicationActive();
+		this.analyticsEvents.on("onApplicationActive", undefined);
 	};
 
 	onApplicationInactive = () => {
-		this.analyticsEvents.onApplicationInactive();
+		this.analyticsEvents.on("onApplicationInactive", undefined);
 	};
 
 	/*

@@ -16,10 +16,19 @@ jest.mock(
 
 function buildAnalyticsEventsSpy() {
 	return {
-		onQualityChange: jest.fn(),
-		onBitrateChange: jest.fn(),
-		onResolutionChange: jest.fn(),
+		on: jest.fn(),
 	};
+}
+
+// Helper: devuelve los payloads de las llamadas a `on(event, payload)` cuya
+// clave de evento coincide, en orden de emisión.
+function payloadsFor(
+	spy: ReturnType<typeof buildAnalyticsEventsSpy>,
+	event: string
+): Array<Record<string, unknown>> {
+	return spy.on.mock.calls
+		.filter(call => call[0] === event)
+		.map(call => call[1] as Record<string, unknown>);
 }
 
 describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
@@ -40,9 +49,18 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 			handler.handleBandwidthUpdate({ bitrate: 3_000_000 } as OnBandwidthUpdateData);
 			handler.handleBandwidthUpdate({ bitrate: -1 } as OnBandwidthUpdateData);
 
-			expect(analyticsEvents.onQualityChange).not.toHaveBeenCalled();
-			expect(analyticsEvents.onBitrateChange).not.toHaveBeenCalled();
-			expect(analyticsEvents.onResolutionChange).not.toHaveBeenCalled();
+			expect(analyticsEvents.on).not.toHaveBeenCalledWith(
+				"onQualityChange",
+				expect.anything()
+			);
+			expect(analyticsEvents.on).not.toHaveBeenCalledWith(
+				"onBitrateChange",
+				expect.anything()
+			);
+			expect(analyticsEvents.on).not.toHaveBeenCalledWith(
+				"onResolutionChange",
+				expect.anything()
+			);
 		});
 	});
 
@@ -58,8 +76,9 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 				height: 1080,
 			} as OnPlaybackMetricsData);
 
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledTimes(1);
-			const payload = analyticsEvents.onQualityChange.mock.calls[0][0];
+			const qualityCalls = payloadsFor(analyticsEvents, "onQualityChange");
+			expect(qualityCalls).toHaveLength(1);
+			const payload = qualityCalls[0]!;
 			expect(payload).toEqual(
 				expect.objectContaining({
 					quality: "1080p",
@@ -75,8 +94,8 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 			expect(payload.bitrate).toBe(4_200_000);
 			expect(payload.throughput).toBe(220_000_000);
 
-			expect(analyticsEvents.onResolutionChange).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onResolutionChange).toHaveBeenCalledWith({
+			expect(payloadsFor(analyticsEvents, "onResolutionChange")).toHaveLength(1);
+			expect(analyticsEvents.on).toHaveBeenCalledWith("onResolutionChange", {
 				width: 1920,
 				height: 1080,
 				previousWidth: 0,
@@ -90,13 +109,17 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 				framesPerSecond: 25,
 			} as OnPlaybackMetricsData);
 
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledTimes(1);
-			const payload = analyticsEvents.onQualityChange.mock.calls[0][0];
+			const qualityCalls = payloadsFor(analyticsEvents, "onQualityChange");
+			expect(qualityCalls).toHaveLength(1);
+			const payload = qualityCalls[0]!;
 			expect(payload.throughput).toBe(5_000_000);
 			expect(payload.framesPerSecond).toBe(25);
 			expect(payload.quality).toBeUndefined();
 			expect(payload.rendition).toBeUndefined();
-			expect(analyticsEvents.onResolutionChange).not.toHaveBeenCalled();
+			expect(analyticsEvents.on).not.toHaveBeenCalledWith(
+				"onResolutionChange",
+				expect.anything()
+			);
 		});
 
 		it("PLAYER-201: tras una rendición con resolución, un tick métrico sin resolución re-envía la última rendición", () => {
@@ -111,7 +134,8 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 				throughput: 5_000_000,
 			} as OnPlaybackMetricsData);
 
-			const second = analyticsEvents.onQualityChange.mock.calls[1][0];
+			const qualityCalls = payloadsFor(analyticsEvents, "onQualityChange");
+			const second = qualityCalls[1]!;
 			expect(second.rendition).toBe("1080p");
 			expect(second.quality).toBe("1080p");
 			expect(second.throughput).toBe(5_000_000);
@@ -123,7 +147,7 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 				throughput: -1,
 			} as OnPlaybackMetricsData);
 
-			const payload = analyticsEvents.onQualityChange.mock.calls[0][0];
+			const payload = payloadsFor(analyticsEvents, "onQualityChange")[0]!;
 			expect(payload.bitrate).toBe(4_200_000);
 			expect(payload.throughput).toBeUndefined();
 		});
@@ -134,7 +158,8 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 				droppedFrames: 0,
 			} as OnPlaybackMetricsData);
 
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledWith(
+			expect(analyticsEvents.on).toHaveBeenCalledWith(
+				"onQualityChange",
 				expect.objectContaining({ throughput: 5_000_000, droppedFrames: 0 })
 			);
 		});
@@ -146,8 +171,14 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 				framesPerSecond: 0,
 			} as OnPlaybackMetricsData);
 
-			expect(analyticsEvents.onQualityChange).not.toHaveBeenCalled();
-			expect(analyticsEvents.onResolutionChange).not.toHaveBeenCalled();
+			expect(analyticsEvents.on).not.toHaveBeenCalledWith(
+				"onQualityChange",
+				expect.anything()
+			);
+			expect(analyticsEvents.on).not.toHaveBeenCalledWith(
+				"onResolutionChange",
+				expect.anything()
+			);
 		});
 
 		it("no emite onResolutionChange si la resolución no cambia", () => {
@@ -159,8 +190,8 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 			handler.handlePlaybackMetrics(data);
 			handler.handlePlaybackMetrics(data);
 
-			expect(analyticsEvents.onResolutionChange).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledTimes(2);
+			expect(payloadsFor(analyticsEvents, "onResolutionChange")).toHaveLength(1);
+			expect(payloadsFor(analyticsEvents, "onQualityChange")).toHaveLength(2);
 		});
 	});
 
@@ -172,18 +203,18 @@ describe("QualityEventsHandler — QoE telemetry (PLAYER-200)", () => {
 				],
 			} as OnVideoTracksData);
 
-			expect(analyticsEvents.onQualityChange).toHaveBeenCalledWith({
+			expect(analyticsEvents.on).toHaveBeenCalledWith("onQualityChange", {
 				quality: "1080p",
 				height: 1080,
 				width: 1920,
 				bitrate: 5_000_000,
 			});
-			expect(analyticsEvents.onBitrateChange).toHaveBeenCalledWith({
+			expect(analyticsEvents.on).toHaveBeenCalledWith("onBitrateChange", {
 				bitrate: 5_000_000,
 				previousBitrate: 0,
 				adaptive: true,
 			});
-			expect(analyticsEvents.onResolutionChange).toHaveBeenCalledWith({
+			expect(analyticsEvents.on).toHaveBeenCalledWith("onResolutionChange", {
 				width: 1920,
 				height: 1080,
 				previousWidth: 0,

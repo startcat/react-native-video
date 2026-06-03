@@ -687,7 +687,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 				props.events.onNext();
 
 				// Evento analíticas
-				analyticsEvents.onStop({ reason: "navigation" });
+				analyticsEvents.on("onStop", { reason: "navigation" });
 			}
 
 			if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious) {
@@ -695,7 +695,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 				props.events.onPrevious();
 
 				// Evento analíticas
-				analyticsEvents.onStop({ reason: "navigation" });
+				analyticsEvents.on("onStop", { reason: "navigation" });
 			}
 
 			if (id === CONTROL_ACTION.SPEED_RATE && typeof value === "number") {
