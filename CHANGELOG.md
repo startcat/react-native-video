@@ -1,5 +1,22 @@
 
 
+## [7.3.2](https://github.com/startcat/react-native-video/compare/v7.3.1...v7.3.2) (2026-06-03)
+
+
+### Bug Fixes
+
+* **analytics:** carry last-known rendition on every metrics tick (PLAYER-201) ([f20edbe](https://github.com/startcat/react-native-video/commit/f20edbe325d8abd36e7f34f40cd18394c52bf2ee))
+* **analytics:** forward bitrate/throughput/rendition QoE metrics to plugins (PLAYER-200) ([435ee1c](https://github.com/startcat/react-native-video/commit/435ee1cca61fae18af0b4436c815fd1f4989c5ab))
+* **analytics:** stop polluting media bitrate with bandwidth estimate (PLAYER-200) ([fe13333](https://github.com/startcat/react-native-video/commit/fe13333dba9bbaf870da115b3ff3b34ef7495ad3))
+* **android:** resolve media bitrate from manifest variant, not getVideoFormat (PLAYER-200) ([6ecc468](https://github.com/startcat/react-native-video/commit/6ecc46825aa9ceb71a9d9a8af1ad8c30e6132dab))
+* **android:** send selected Format bitrate as media bitrate in playbackMetrics (PLAYER-200) ([dbcd140](https://github.com/startcat/react-native-video/commit/dbcd14050ea3bd57b1a38883bc79fd12f5fe656b))
+
+
+### Features
+
+* expose playback QoE telemetry via onPlaybackMetrics (PLAYER-195) ([dee803d](https://github.com/startcat/react-native-video/commit/dee803deb1b8e27beb749eed29a021daf4e73d42))
+* **PLAYER-175:** kill-switch for legacy Youbora chain on iOS + Android ([dbbb815](https://github.com/startcat/react-native-video/commit/dbbb815428ea7ed0a0d97106b0f22f9bf731af49))
+
 ## [7.3.1](https://github.com/startcat/react-native-video/compare/v7.3.0...v7.3.1) (2026-05-22)
 
 
