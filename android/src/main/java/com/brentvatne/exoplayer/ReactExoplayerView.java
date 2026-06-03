@@ -153,14 +153,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-// Dani Youbora
-import com.npaw.NpawPlugin;
-import com.npaw.NpawPluginProvider;
-import com.npaw.analytics.video.VideoAdapter;
-import com.npaw.core.options.AnalyticsOptions;
-import com.npaw.media3.exoplayer.*;
-//import com.npaw.ima.ImaAdapter;
-
 // Dani Offline
 import android.util.Log;
 import java.util.HashMap;
@@ -298,12 +290,6 @@ public class ReactExoplayerView extends FrameLayout implements
     private long lastDuration = -1;
 
     private boolean viewHasDropped = false;
-
-    // Dani Youbora
-    private NpawPlugin npawPlugin = null;
-    private VideoAdapter videoAdapter = null;
-    private AnalyticsOptions currentYouboraOptions = null;
-    //private ImaAdapter imaAdapter = null;
 
     // Dani Offline
     private boolean playOffline = false;
@@ -1261,38 +1247,6 @@ public class ReactExoplayerView extends FrameLayout implements
             player.setMediaSource(mediaSource, true);
         }
 
-        /*
-         * Dani Youbora
-         * Begin
-         *
-         */
-
-        if (isLegacyYouboraDisabled()) {
-            // PLAYER-175: short-circuit even if another module initialized
-            // NpawPluginProvider — legacy chain is fully off.
-            npawPlugin = null;
-        } else {
-            npawPlugin = NpawPluginProvider.getInstance();
-        }
-
-        if (npawPlugin != null) {
-            videoAdapter = npawPlugin.videoBuilder()
-                    .setPlayerAdapter(new Media3ExoPlayerAdapter(this.themedReactContext, player))
-                    .build();
-            
-            // Re-apply contentMetadata to videoAdapter options after creation
-            if (currentYouboraOptions != null && currentYouboraOptions.getContentMetadata() != null) {
-                videoAdapter.getOptions().setContentMetadata(currentYouboraOptions.getContentMetadata());
-            }
-            
-            videoAdapter.getPlayerAdapter().fireStart();
-        }
-
-        /*
-         * End
-         *
-         */
-
         player.prepare();
         playerNeedsSource = false;
 
@@ -1680,9 +1634,6 @@ public class ReactExoplayerView extends FrameLayout implements
         progressHandler.removeMessages(SHOW_PROGRESS);
         audioBecomingNoisyReceiver.removeListener();
         bandwidthMeter.removeEventListener(this);
-
-        // Dani Youbora
-        clearYoubora();
 
         if (mainHandler != null && mainRunnable != null) {
             mainHandler.removeCallbacks(mainRunnable);
@@ -2983,90 +2934,6 @@ public class ReactExoplayerView extends FrameLayout implements
     public void setControlsStyles(ControlsConfig controlsStyles) {
         controlsConfig = controlsStyles;
         refreshProgressBarVisibility();
-    }
-
-    /*
-     * Dani Youbora
-     * Begin
-     *
-     */
-
-    // Legacy Youbora kill-switch (PLAYER-175)
-    //
-    // Set <meta-data android:name="OVERON_DISABLE_LEGACY_YOUBORA" android:value="true" />
-    // inside the consumer app's AndroidManifest.xml to bypass the legacy NPAW
-    // wiring inside this view. When the flag is true, setYoubora() is a no-op
-    // and no videoAdapter is built in setMediaSource. Default false (legacy
-    // enabled) for backwards compatibility. Removed entirely in PLAYER-171.
-    private boolean isLegacyYouboraDisabled() {
-        try {
-            android.content.pm.ApplicationInfo ai = this.themedReactContext
-                    .getPackageManager()
-                    .getApplicationInfo(
-                            this.themedReactContext.getPackageName(),
-                            android.content.pm.PackageManager.GET_META_DATA);
-            return ai.metaData != null
-                    && ai.metaData.getBoolean("OVERON_DISABLE_LEGACY_YOUBORA", false);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    public void setYoubora(String accountCode, AnalyticsOptions youboraOptions) {
-
-        if (isLegacyYouboraDisabled()) {
-            android.util.Log.i("Youbora", "Legacy NPAW chain disabled via AndroidManifest meta-data OVERON_DISABLE_LEGACY_YOUBORA (PLAYER-175)");
-            return;
-        }
-
-        if (youboraOptions != null) {
-
-            // Guardar las opciones para re-aplicar contentMetadata después
-            currentYouboraOptions = youboraOptions;
-
-            if (npawPlugin != null) {
-                this.clearYoubora();
-            }
-
-            if (npawPlugin == null) {
-                NpawPlugin.Builder builder = new NpawPlugin.Builder(
-                        this.themedReactContext.getCurrentActivity(),
-                        accountCode);
-
-                builder.setAnalyticsOptions(youboraOptions);
-                builder.setLogLevel(com.npaw.core.util.extensions.Log.Level.DEBUG);
-
-                NpawPluginProvider.initialize(builder);
-            }
-
-        }
-
-    }
-
-    public void stopYouboraAdapter() {
-
-        if (videoAdapter != null) {
-            videoAdapter.getPlayerAdapter().fireStop();
-
-        }
-
-    }
-
-    public void clearYoubora() {
-
-        if (videoAdapter != null) {
-            videoAdapter.destroy();
-            videoAdapter = null;
-        }
-
-        if (npawPlugin != null) {
-            npawPlugin.destroy();
-            npawPlugin = null;
-        }
-
-        // No limpiar currentYouboraOptions aquí porque se necesita para el próximo videoAdapter
-        // Se actualiza en setYoubora cuando llegan nuevas opciones
-
     }
 
     public void setPlayOffline(boolean playOffline) {
