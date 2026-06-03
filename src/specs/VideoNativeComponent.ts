@@ -61,39 +61,6 @@ type Drm = Readonly<{
 	useExternalGetLicense?: boolean; // ios
 }>;
 
-type Youbora = Readonly<{
-	accountCode: string;
-	contentTransactionCode?: string;
-	transactionCode?: string;
-	username?: string;
-	contentId?: string;
-	seriesId?: string;
-	contentType?: string;
-	contentTitle?: string;
-	contentTitle2?: string;
-	contentIsLive?: boolean;
-	contentPlaybackType?: string;
-	contentSaga?: string;
-	contentTvShow?: string;
-	contentSeason?: string;
-	contentEpisodeTitle?: string;
-	contentLanguage?: string;
-	contentSubtitles?: string;
-	contentDrm?: string;
-	contentStreamingProtocol?: string;
-	contentMetadata?: Readonly<{ [key: string]: string }>;
-	extraparam1?: string;
-	extraparam2?: string;
-	extraparam3?: string;
-	extraparam4?: string;
-	extraparam5?: string;
-	extraparam6?: string;
-	extraparam7?: string;
-	extraparam8?: string;
-	extraparam9?: string;
-	extraparam10?: string;
-}>;
-
 type TextTracks = ReadonlyArray<
 	Readonly<{
 		title: string;
@@ -350,7 +317,6 @@ type ControlsStyles = Readonly<{
 export interface VideoNativeProps extends ViewProps {
 	src?: VideoSrc;
 	drm?: Drm;
-	youbora?: Youbora;
 	playOffline?: boolean;
 	multiSession?: boolean;
 	adTagUrl?: string;
