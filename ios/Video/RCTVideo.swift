@@ -3,22 +3,8 @@ import AVKit
 import Foundation
 #if RNUSE_GOOGLE_IMA
     import GoogleInteractiveMediaAds
-    //import NpawPluginIMAAdapter
 #endif
-// Dani Youbora
-import NpawPlugin
 import React
-
-// MARK: - Legacy Youbora kill-switch (PLAYER-175)
-//
-// Set OVERON_DISABLE_LEGACY_YOUBORA = YES in the consumer app's Info.plist to
-// bypass the legacy NPAW / Youbora wiring inside this Video component. When the
-// flag is true, no `NpawPluginProvider.initialize` or `videoBuilder()` runs and
-// the `youbora` JS prop is silently ignored. Default is false (legacy enabled)
-// so existing apps are unaffected. Removed entirely in PLAYER-171.
-private func isLegacyYouboraDisabled() -> Bool {
-    return (Bundle.main.object(forInfoDictionaryKey: "OVERON_DISABLE_LEGACY_YOUBORA") as? Bool) ?? false
-}
 
 // MARK: - RCTVideo
 
@@ -38,10 +24,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     private var _localSourceEncryptionKeyScheme: String?
     
-    /* Dani Youbora */
-    private var _youbora:YouboraParams?
-    private var _videoAdapter:VideoAdapter!
-
     /* Required to publish events */
     private var _eventDispatcher: RCTEventDispatcher?
     private var _videoLoadStarted = false
@@ -275,9 +257,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     deinit {
-        // Dani Youbora
-        _videoAdapter?.playerAdapter.fireStop()
-        
         // Stop player and release resources
         _player?.pause()
         _player = nil
@@ -293,14 +272,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         #if os(iOS)
             _pip = nil
         #endif
-
-        // Dani Youbora
-        if let npawPlugin = NpawPluginProvider.shared {
-            if let adapter = self._videoAdapter {
-                npawPlugin.removeAdapter(adapter: adapter)
-            }
-            NpawPluginProvider.destroy()
-        }
     }
 
     // MARK: - App lifecycle handlers
@@ -615,86 +586,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             return
         }
         
-        /*
-          Begin Modification
-          DANI: Youbora
-         */
-
-        if isLegacyYouboraDisabled() {
-            NSLog("[Youbora] Legacy NPAW chain disabled via Info.plist OVERON_DISABLE_LEGACY_YOUBORA (PLAYER-175)")
-        } else if (self._youbora?.accountCode != nil) {
-
-            let analyticsOptions = AnalyticsOptions()
-            
-            analyticsOptions.contentTransactionCode = self._youbora?.contentTransactionCode
-            analyticsOptions.userName = self._youbora?.username
-            analyticsOptions.contentId = self._youbora?.contentId
-            analyticsOptions.contentType = self._youbora?.contentType
-            analyticsOptions.contentTitle = self._youbora?.contentTitle
-
-            if (self._youbora?.program != nil){
-                analyticsOptions.program = self._youbora?.program
-            } else {
-                analyticsOptions.program = self._youbora?.contentTitle2
-            }
-
-            analyticsOptions.program = self._youbora?.contentTitle2
-            analyticsOptions.live = (self._youbora?.contentIsLive != nil && self._youbora?.contentIsLive == true) ? 1 as NSNumber : 0 as NSNumber
-            analyticsOptions.contentTvShow = self._youbora?.contentTvShow
-            analyticsOptions.contentPlaybackType = self._youbora?.contentPlaybackType
-            analyticsOptions.contentSeason = self._youbora?.contentSeason
-            analyticsOptions.contentEpisodeTitle = self._youbora?.contentEpisodeTitle
-            analyticsOptions.contentLanguage = self._youbora?.contentLanguage
-            analyticsOptions.contentChannel = self._youbora?.contentChannel
-            analyticsOptions.contentSaga = self._youbora?.contentSaga
-            analyticsOptions.contentSubtitles = self._youbora?.contentSubtitles
-            analyticsOptions.contentDrm = self._youbora?.contentDrm
-            analyticsOptions.contentStreamingProtocol = self._youbora?.contentStreamingProtocol
-            
-            if let metadata = self._youbora?.contentMetadata {
-                analyticsOptions.contentMetadata = metadata
-            }
-            
-            analyticsOptions.contentCustomDimension1 = self._youbora?.extraparam1
-            analyticsOptions.contentCustomDimension2 = self._youbora?.extraparam2
-            analyticsOptions.contentCustomDimension3 = self._youbora?.extraparam3
-            analyticsOptions.contentCustomDimension4 = self._youbora?.extraparam4
-            analyticsOptions.contentCustomDimension5 = self._youbora?.extraparam5
-            analyticsOptions.contentCustomDimension6 = self._youbora?.extraparam6
-            analyticsOptions.contentCustomDimension7 = self._youbora?.extraparam7
-            analyticsOptions.contentCustomDimension8 = self._youbora?.extraparam8
-            analyticsOptions.contentCustomDimension9 = self._youbora?.extraparam9
-            analyticsOptions.contentCustomDimension10 = self._youbora?.extraparam10
-            
-            NpawPluginProvider.initialize(
-                accountCode: (self._youbora?.accountCode)!,
-                analyticsOptions: analyticsOptions,
-                balancerOptions: nil,
-                diagnosticOptions: nil,
-                logLevel: .debug
-            )
-            
-            guard let npawPlugin = NpawPluginProvider.shared else { return }
-            
-            #if RNUSE_GOOGLE_IMA
-                _videoAdapter = npawPlugin.videoBuilder()
-                    .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-                    //.setAdAdapter(adAdapter: ImaAdapter(adsManager: _imaAdsManager.getAdsManager()))
-                    .build()
-            #else
-                _videoAdapter = npawPlugin.videoBuilder()
-                    .setPlayerAdapter(playerAdapter: AVPlayerAdapter(player: self._player))
-                    .build()
-            #endif
-
-            _videoAdapter?.fireInit()
-        
-        }
-    
-        /*
-          End
-         */
-
         _player?.pause()
         _playerItem = playerItem
         _playerObserver.needsLegibleOutputDelegate = onTextTrackDataChanged != nil
@@ -798,13 +689,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     
     /*
       Begin Modification
-      DANI: Youbora & Offline
+      DANI: Offline
      */
-
-    @objc
-    func setYoubora(_ youbora:NSDictionary) {
-        _youbora = YouboraParams(youbora)
-    }
 
     @objc
     func setPlayOffline(_ playOffline:Bool) {
@@ -1630,17 +1516,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     override func removeFromSuperview() {
 
-        /*
-            Begin Modification
-            DANI: Release Youbora
-        */
-
-        _videoAdapter?.playerAdapter.fireStop()
-
-        /*
-            End
-         */
-
         if let player = _player {
             // Detect if we're using AirPlay
             let isExternalPlaybackActive = player.isExternalPlaybackActive
@@ -1689,14 +1564,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         NotificationCenter.default.removeObserver(self)
 
         super.removeFromSuperview()
-
-        // Dani Youbora
-        if let npawPlugin = NpawPluginProvider.shared {
-            if let adapter = self._videoAdapter {
-                npawPlugin.removeAdapter(adapter: adapter)
-            }
-            NpawPluginProvider.destroy()
-        }
     }
 
     // MARK: - Export

@@ -29,15 +29,11 @@ import com.facebook.react.uimanager.ThemedReactContext;
 import com.facebook.react.uimanager.ViewGroupManager;
 import com.facebook.react.uimanager.annotations.ReactProp;
 
-import java.util.HashMap; // Dani
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
-
-// Dani Youbora
-import com.npaw.core.options.AnalyticsOptions;
 
 public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerView> {
 
@@ -89,7 +85,6 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     private static final String PROP_SHOW_NOTIFICATION_CONTROLS = "showNotificationControls";
     private static final String PROP_DEBUG = "debug";
     private static final String PROP_CONTROLS_STYLES = "controlsStyles";
-    private static final String PROP_YOUBORA = "youbora"; // Dani Youbora
 	private static final String PROP_PLAY_OFFLINE = "playOffline"; // Dani Offline
     private static final String PROP_MULTI_SESSION = "multiSession"; // Dani Multi DRM Session
 
@@ -155,9 +150,6 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     public void setSrc(final ReactExoplayerView videoView, @Nullable ReadableMap src) {
         Context context = videoView.getContext().getApplicationContext();
         Source source = Source.parse(src, context);
-
-        // Youbora
-        videoView.stopYouboraAdapter();
 
         DebugLog.d(TAG, "ReactExoplayerViewManager setSrc: " + source.getUri());
 
@@ -400,166 +392,6 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
         videoView.setControlsStyles(controlsConfig);
     }
 
-	/*
-	 * Dani Youbora
-	 * Begin
-	 *
-	 */
-
-	@ReactProp(name = PROP_YOUBORA)
-	public void setYoubora(final ReactExoplayerView videoView, @Nullable ReadableMap youbora) {
-		String accountCode = youbora.hasKey("accountCode") ? youbora.getString("accountCode") : null;
-		Map<String, String> metadata = new HashMap<String, String>();
-
-		if (TextUtils.isEmpty(accountCode)) {
-            videoView.clearYoubora();
-			return;
-		} else {
-
-			AnalyticsOptions analyticsOptions = new AnalyticsOptions();
-
-			if (youbora.hasKey("contentTransactionCode")) {
-				analyticsOptions.setContentTransactionCode(youbora.getString("contentTransactionCode"));
-			}
-
-			if (youbora.hasKey("username")) {
-				analyticsOptions.setUsername(youbora.getString("username"));
-			}
-
-			if (youbora.hasKey("contentId")) {
-				analyticsOptions.setContentId(youbora.getString("contentId"));
-			}
-
-			if (youbora.hasKey("contentType")) {
-				analyticsOptions.setContentType(youbora.getString("contentType"));
-			}
-
-			if (youbora.hasKey("contentTitle")) {
-				analyticsOptions.setContentTitle(youbora.getString("contentTitle"));
-			}
-
-            if (youbora.hasKey("program")) {
-				analyticsOptions.setProgram(youbora.getString("program"));
-			} else if (youbora.hasKey("contentTitle2")) {
-				analyticsOptions.setProgram(youbora.getString("contentTitle2"));
-			}
-
-            if (youbora.hasKey("contentChannel")) {
-                analyticsOptions.setContentChannel(youbora.getString("contentChannel"));
-            }
-
-			if (youbora.hasKey("contentIsLive")) {
-				analyticsOptions.setLive(youbora.getBoolean("contentIsLive"));
-			}
-
-			if (youbora.hasKey("contentPlaybackType")) {
-				analyticsOptions.setContentPlaybackType(youbora.getString("contentPlaybackType"));
-			}
-
-			if (youbora.hasKey("contentTvShow")) {
-				analyticsOptions.setContentTvShow(youbora.getString("contentTvShow"));
-			}
-
-			if (youbora.hasKey("contentSeason")) {
-				analyticsOptions.setContentSeason(youbora.getString("contentSeason"));
-			}
-
-			if (youbora.hasKey("contentEpisodeTitle")) {
-				analyticsOptions.setContentEpisodeTitle(youbora.getString("contentEpisodeTitle"));
-			}
-
-			if (youbora.hasKey("contentLanguage")) {
-				analyticsOptions.setContentLanguage(youbora.getString("contentLanguage"));
-			}
-
-			if (youbora.hasKey("contentSaga")) {
-				analyticsOptions.setContentSaga(youbora.getString("contentSaga"));
-			}
-
-			if (youbora.hasKey("contentSubtitles")) {
-				analyticsOptions.setContentSubtitles(youbora.getString("contentSubtitles"));
-			}
-
-			if (youbora.hasKey("contentDrm")) {
-				analyticsOptions.setContentDrm(youbora.getString("contentDrm"));
-			}
-
-			if (youbora.hasKey("contentStreamingProtocol")) {
-				analyticsOptions.setContentStreamingProtocol(youbora.getString("contentStreamingProtocol"));
-			}
-
-			if (youbora.hasKey("contentMetadata")) {
-				ReadableMap metadataMap = youbora.getMap("contentMetadata");
-				if (metadataMap != null) {
-					Map<String, Object> contentMetadata = new HashMap<>();
-					ReadableMapKeySetIterator iterator = metadataMap.keySetIterator();
-					while (iterator.hasNextKey()) {
-						String key = iterator.nextKey();
-						ReadableType type = metadataMap.getType(key);
-						if (type == ReadableType.String) {
-							contentMetadata.put(key, metadataMap.getString(key));
-						} else if (type == ReadableType.Number) {
-							contentMetadata.put(key, metadataMap.getDouble(key));
-						} else if (type == ReadableType.Boolean) {
-							contentMetadata.put(key, metadataMap.getBoolean(key));
-						}
-					}
-					analyticsOptions.setContentMetadata(contentMetadata);
-				}
-			}
-
-			if (youbora.hasKey("extraparam1")) {
-				analyticsOptions.setContentCustomDimension1(youbora.getString("extraparam1"));
-				//metadata.put("appMode", youbora.getString("extraparam1"));
-			}
-
-			if (youbora.hasKey("extraparam2")) {
-				analyticsOptions.setContentCustomDimension2(youbora.getString("extraparam2"));
-				//metadata.put("sessionId", youbora.getString("extraparam2"));
-			}
-
-			if (youbora.hasKey("extraparam3")) {
-				analyticsOptions.setContentCustomDimension3(youbora.getString("extraparam3"));
-				//metadata.put("id", youbora.getString("extraparam3"));
-			}
-
-			if (youbora.hasKey("extraparam4")) {
-				analyticsOptions.setContentCustomDimension4(youbora.getString("extraparam4"));
-				//metadata.put("seriesId", youbora.getString("extraparam4"));
-			}
-
-			if (youbora.hasKey("extraparam5")) {
-				analyticsOptions.setContentCustomDimension5(youbora.getString("extraparam5"));
-			}
-
-			if (youbora.hasKey("extraparam6")) {
-				analyticsOptions.setContentCustomDimension6(youbora.getString("extraparam6"));
-			}
-
-			if (youbora.hasKey("extraparam7")) {
-				analyticsOptions.setContentCustomDimension7(youbora.getString("extraparam7"));
-			}
-
-			if (youbora.hasKey("extraparam8")) {
-				analyticsOptions.setContentCustomDimension8(youbora.getString("extraparam8"));
-			}
-
-			if (youbora.hasKey("extraparam9")) {
-				analyticsOptions.setContentCustomDimension9(youbora.getString("extraparam9"));
-			}
-
-			if (youbora.hasKey("extraparam10")) {
-				analyticsOptions.setContentCustomDimension10(youbora.getString("extraparam10"));
-			}
-
-			//analyticsOptions.setContentMetadata(metadata);
-
-			videoView.setYoubora(accountCode, analyticsOptions);
-
-		}
-
-	}
-
 	@ReactProp(name = PROP_PLAY_OFFLINE)
 	public void setPlayOffline(final ReactExoplayerView videoView, final boolean playOffline) {
 		videoView.setPlayOffline(playOffline);
@@ -569,10 +401,5 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
 	public void setMultiSession(final ReactExoplayerView videoView, final boolean multiSession) {
 		videoView.setMultiSession(multiSession);
 	}
-
-	/*
-	 * End
-	 *
-	 */
 
 }

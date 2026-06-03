@@ -45,10 +45,8 @@ import {
 	type AudioPlayerActionEventProps,
 	type ICommonData,
 	type IDrm,
-	type IMappedYoubora,
 	type IVideoSource,
 	CONTROL_ACTION,
-	YOUBORA_FORMAT,
 } from "../../types";
 
 export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
@@ -57,7 +55,6 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	const [isContentLoaded, setIsContentLoaded] = useState<boolean>(false);
 	const audioPlayerHeight = useSharedValue(0);
 
-	const youboraForVideo = useRef<IMappedYoubora>();
 	const drm = useRef<IDrm>();
 	const [videoSource, setVideoSource] = useState<IVideoSource | undefined>(undefined);
 
@@ -464,14 +461,6 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			setBuffering(true);
 			drm.current = data.drm;
 
-			// Preparamos los datos de Youbora
-			if (props.hooks?.getYouboraOptions) {
-				youboraForVideo.current = props.hooks.getYouboraOptions(
-					props.playerAnalytics?.youbora!,
-					YOUBORA_FORMAT.MOBILE
-				);
-			}
-
 			currentLogger.current?.info(
 				`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`
 			);
@@ -480,14 +469,6 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			currentLogger.current?.debug("setPlayerSource - Using sourceRef");
 			setBuffering(true);
 			drm.current = sourceRef.current.playerSourceDrm;
-
-			// Preparamos los datos de Youbora
-			if (props.hooks?.getYouboraOptions) {
-				youboraForVideo.current = props.hooks.getYouboraOptions(
-					props.playerAnalytics?.youbora!,
-					YOUBORA_FORMAT.MOBILE
-				);
-			}
 
 			currentLogger.current?.info(
 				`setPlayerSource - Setting sourceRef content: ${JSON.stringify(sourceRef.current.playerSource)}`
@@ -1150,8 +1131,6 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					source={videoSource}
 					// @ts-ignore
 					drm={drm.current}
-					// @ts-ignore
-					youbora={youboraForVideo.current}
 					playOffline={props.playOffline}
 					multiSession={props.playerProgress?.liveValues?.multiSession}
 					focusable={false}

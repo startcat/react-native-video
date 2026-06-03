@@ -124,7 +124,6 @@ export interface PlayerContentInfo {
 	};
 	manifest?: any;
 	drm?: any;
-	youbora?: any;
 	metadata: {
 		id: string;
 		title?: string;

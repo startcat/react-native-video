@@ -21,15 +21,6 @@ Pod::Spec.new do |s|
     ss.exclude_files = "ios/Tests/**/*"
     ss.dependency 'PromisesSwift', '2.4.0'
 
-    if defined?($RNVideoUseYoubora)
-      Pod::UI.puts "RNVideo: enable Youbora SDK"
-
-      ss.dependency 'NpawPluginPkg', '7.2.22'
-      ss.pod_target_xcconfig = {
-        'OTHER_SWIFT_FLAGS' => '$(inherited) -D USE_YOUBORA'
-      }
-    end
-
     if defined?($RNVideoUseVideoCaching)
       Pod::UI.puts "RNVideo: enable Video caching"
       ss.dependency "SPTPersistentCache", "~> 1.1.0"
@@ -46,7 +37,6 @@ Pod::Spec.new do |s|
 
       ss.ios.dependency 'GoogleAds-IMA-iOS-SDK', '~> 3.23'
       ss.tvos.dependency 'GoogleAds-IMA-tvOS-SDK', '~> 4.13'
-      #ss.dependency 'NpawPluginIMAAdapter', '1.1.11'
       ss.pod_target_xcconfig = {
         'OTHER_SWIFT_FLAGS' => '$(inherited) -D RNUSE_GOOGLE_IMA'
       }
