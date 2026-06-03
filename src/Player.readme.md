@@ -41,7 +41,7 @@ El changelog incluye:
 | showExternalTudum | boolean | No | Indicador para mostrar Tudum externo |
 | poster | string | No | URL de la imagen de poster |
 | squaredPoster | string | No | URL de la imagen de poster en formato cuadrado, para los widget multimedia de sistema |
-| youbora | IYoubora | No | Configuración para analíticas de Youbora |
+| youbora | IYoubora | No | Configuración Youbora reenviada al receiver de Chromecast (las analíticas locales se gestionan vía plugins en `features.analyticsConfig`) |
 | adTagUrl | string | No | URL para anuncios |
 | hasNext | boolean | No | Indica si hay contenido siguiente disponible |
 | playOffline | boolean | No | Fuerza la reproducción sin conexión del contenido descargado |
@@ -101,7 +101,7 @@ El Player acepta las siguientes funciones personalizadas como props:
 | addContentProgress | (currentTime: number, duration: number, id?: number) => void | Reporta el progreso de visualización |
 | getSourceUri | (manifest: IManifest, dvrWindowMinutes?: number, liveStartProgramTimestamp?: number) => string | Obtiene la URI de origen para un manifiesto |
 | getTudumManifest | () => IManifest \| null \| undefined | Obtiene el manifiesto para Tudum |
-| getYouboraOptions | (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora | Obtiene las opciones de configuración para Youbora |
+| getYouboraOptions | (data: IYoubora, format?: IYouboraSettingsFormat) => IMappedYoubora | Mapea la configuración de Youbora (usado en el path de Chromecast) |
 | mergeMenuData | (loadedData: OnLoadData, languagesMapping?: ILanguagesMapping, isDASH?: boolean) => Array\<IPlayerMenuData> | Combina datos obtenidos del stream al menú |
 | mergeCastMenuData | (loadedData: Array\<MediaTrack> \| undefined, languagesMapping?: ILanguagesMapping) => Array\<IPlayerMenuData> | Combina datos obtenidos del stream al menú para Chromecast |
 
@@ -174,9 +174,8 @@ El Player lanza los siguientes eventos:
 ### 12. Menús personalizados
 <!-- Esta sección explicará cómo crear y personalizar menús del reproductor -->
 
-### 13. Integración con Youbora
-[Ver documentación detallada sobre integración con Youbora](./player/docs/youbora.md)
-<!-- Esta sección explicará cómo integrar analíticas con Youbora -->
+### 13. Analíticas (plugins / Youbora)
+Las analíticas de reproducción local se configuran con el sistema de plugins (`features.analyticsConfig`); la integración NPAW nativa legacy fue eliminada (PLAYER-171). La config `youbora` se conserva para el path de Chromecast. [Ver documentación](./player/docs/youbora.md)
 
 ### 14. Funcionalidad Chromecast
 <!-- Esta sección explicará cómo configurar y utilizar casting -->
