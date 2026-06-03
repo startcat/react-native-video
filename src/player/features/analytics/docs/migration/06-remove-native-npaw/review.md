@@ -13,7 +13,8 @@
 | `grep npaw\|youbora android/src` | ✅ | 0 coincidencias |
 | podspec `NpawPluginPkg`/`RNVideoUseYoubora` | ✅ | 0 |
 | gradle `com.npaw` | ✅ | 0 |
-| Compilación nativa iOS/Android | ⚠️ | **No ejecutada** (sin Xcode/Android SDK en el entorno). Verificación por grep + sanity check estructural. |
+| Compilación nativa iOS | ✅ | `examples/FabricExample`: `pod install` (sin `NpawPluginPkg`) + `xcodebuild` → `libreact-native-video.a`, **BUILD SUCCEEDED**. 0 arreglos en la librería. |
+| Compilación nativa Android | ✅ | `examples/basic` (old-arch): `:react-native-video:compileDebugKotlin` + `compileDebugJavaWithJavac` → **BUILD SUCCESSFUL**. 0 arreglos en la librería. |
 
 ## Cobertura de requisitos
 
@@ -122,9 +123,11 @@ No hubo asunciones del **spec** desmentidas — la frontera eliminar/conservar y
 
 ## Decisión
 
-### MERGE CON NOTAS ⚠️
+### MERGE CON NOTAS ⚠️ → compilación nativa VERIFICADA ✅
 
-La implementación cumple todos los requisitos verificables estáticamente y no introduce regresiones. Mergeable con estas notas de seguimiento:
+La implementación cumple todos los requisitos y **compila en iOS y Android** tras la eliminación (ver tabla de checks). No introduce regresiones. Notas de seguimiento restantes:
 
-1. **Validación de build nativo pendiente**: este entorno no tiene Xcode ni Android SDK, así que iOS/Android no se compilaron. Ejecutar un build de ambas plataformas (y un smoke test de reproducción local + Cast) **antes de mergear a master**. Riesgo de runtime bajo: el kill-switch PLAYER-175 ya demostró que la cadena NPAW era opcional, y los grep + sanity checks estructurales no revelan símbolos colgantes.
-2. **Consumidores**: iOS debe re-ejecutar `pod install`; `lib/` se regenera con `yarn build`. Quien pasara `youbora` directo al `<Video>` de bajo nivel debe migrar al plugin (breaking change intencionado y documentado).
+1. **Validación de build nativo** — ✅ **RESUELTA**. iOS: `libreact-native-video.a` BUILD SUCCEEDED (FabricExample, `pod install` ya sin `NpawPluginPkg`). Android: `:react-native-video` Kotlin+Java BUILD SUCCESSFUL (examples/basic). **Cero arreglos** necesarios en la librería; la eliminación quedó coherente. Queda pendiente el **smoke test de runtime** (reproducción local con plugin + Cast) que validará el usuario desde su app enlazada al repo local.
+2. **Limpieza del ejemplo**: el `Podfile` de FabricExample tenía un `source` privado muerto de NPAW (bloqueaba `pod install`) y `$RNVideoUseYoubora = true` (ya no-op); ambos eliminados (commit `6f7aa9a8`).
+3. **Toolchain (ajeno a este cambio)**: Xcode 26 promueve a error un literal deprecado en *yoga* (RN bundled) — afecta también a `master`; se sorteó con build-flag, sin tocar fuente. FabricExample Android arrastra blockers de entorno (codegen RN + mismatch Kotlin) ajenos a PLAYER-171; por eso el build Android se validó en `examples/basic`.
+4. **Consumidores**: iOS debe re-ejecutar `pod install`; `lib/` se regenera con `yarn build`. Quien pasara `youbora` directo al `<Video>` de bajo nivel debe migrar al plugin (breaking change intencionado y documentado).
