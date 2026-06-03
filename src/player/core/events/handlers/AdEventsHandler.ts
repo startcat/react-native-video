@@ -133,7 +133,7 @@ export class AdEventsHandler {
 		this.currentAdDurationMs = this.extractAdDuration(data);
 		this.currentAdType = this.extractAdType(data);
 
-		this.analyticsEvents.onAdBegin({
+		this.analyticsEvents.on("onAdBegin", {
 			adId: this.currentAdId,
 			adDuration: this.currentAdDurationMs,
 			adPosition: this.extractAdPosition(data),
@@ -142,7 +142,7 @@ export class AdEventsHandler {
 	};
 
 	private handleAdCompleted = () => {
-		this.analyticsEvents.onAdEnd({
+		this.analyticsEvents.on("onAdEnd", {
 			adId: this.currentAdId,
 			completed: true,
 		});
@@ -153,12 +153,12 @@ export class AdEventsHandler {
 	private handleAdSkipped = () => {
 		const skipPosition = this.adStartTime ? Date.now() - this.adStartTime : undefined;
 
-		this.analyticsEvents.onAdSkip({
+		this.analyticsEvents.on("onAdSkip", {
 			adId: this.currentAdId,
 			skipPosition,
 		});
 
-		this.analyticsEvents.onAdEnd({
+		this.analyticsEvents.on("onAdEnd", {
 			adId: this.currentAdId,
 			completed: false,
 		});
@@ -168,20 +168,20 @@ export class AdEventsHandler {
 
 	private handleAdPaused = () => {
 		this.isAdPaused = true;
-		this.analyticsEvents.onAdPause({
+		this.analyticsEvents.on("onAdPause", {
 			adId: this.currentAdId,
 		});
 	};
 
 	private handleAdResumed = () => {
 		this.isAdPaused = false;
-		this.analyticsEvents.onAdResume({
+		this.analyticsEvents.on("onAdResume", {
 			adId: this.currentAdId,
 		});
 	};
 
 	private handleAdError = () => {
-		this.analyticsEvents.onAdEnd({
+		this.analyticsEvents.on("onAdEnd", {
 			adId: this.currentAdId,
 			completed: false,
 		});
@@ -202,7 +202,7 @@ export class AdEventsHandler {
 	private handleAdBreakStarted = (data: OnReceiveAdEventData) => {
 		this.currentAdBreakId = this.extractAdBreakId(data);
 
-		this.analyticsEvents.onAdBreakBegin({
+		this.analyticsEvents.on("onAdBreakBegin", {
 			adBreakId: this.currentAdBreakId,
 			adCount: this.extractAdCount(data),
 			adBreakPosition: this.extractAdBreakPosition(data),
@@ -210,7 +210,7 @@ export class AdEventsHandler {
 	};
 
 	private handleAdBreakEnded = () => {
-		this.analyticsEvents.onAdBreakEnd({
+		this.analyticsEvents.on("onAdBreakEnd", {
 			adBreakId: this.currentAdBreakId,
 		});
 
@@ -223,7 +223,7 @@ export class AdEventsHandler {
 
 	private handleAllAdsCompleted = () => {
 		if (this.currentAdBreakId) {
-			this.analyticsEvents.onAdBreakEnd({
+			this.analyticsEvents.on("onAdBreakEnd", {
 				adBreakId: this.currentAdBreakId,
 			});
 		}
@@ -233,7 +233,7 @@ export class AdEventsHandler {
 	};
 
 	private handleContentResumeRequested = () => {
-		this.analyticsEvents.onContentResume();
+		this.analyticsEvents.on("onContentResume", undefined);
 	};
 
 	private handleAdProgress = (data: OnReceiveAdEventData) => {
@@ -268,7 +268,7 @@ export class AdEventsHandler {
 		const percentageWatched =
 			durationMs > 0 ? Math.min(100, (positionMs / durationMs) * 100) : 0;
 
-		this.analyticsEvents.onAdProgress({
+		this.analyticsEvents.on("onAdProgress", {
 			adId: this.currentAdId,
 			adBreakId: this.currentAdBreakId,
 			adType: this.currentAdType,

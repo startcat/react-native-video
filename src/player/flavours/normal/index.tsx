@@ -1186,7 +1186,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			props.events?.onNext();
 
 			// Evento analíticas
-			analyticsEvents.onStop({ reason: "navigation" });
+			analyticsEvents.on("onStop", { reason: "navigation" });
 		}
 
 		if (id === CONTROL_ACTION.PREVIOUS && props.events?.onPrevious) {
@@ -1194,7 +1194,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			props.events.onPrevious();
 
 			// Evento analíticas
-			analyticsEvents.onStop({ reason: "navigation" });
+			analyticsEvents.on("onStop", { reason: "navigation" });
 		}
 
 		if (

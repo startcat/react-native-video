@@ -369,7 +369,7 @@ export const useVideoAnalytics = ({
 		onAudioBecomingNoisy: useCallback(() => {
 			if (analyticsEventsRef.current) {
 				try {
-					analyticsEventsRef.current.onPause();
+					analyticsEventsRef.current.on("onPause", undefined);
 				} catch (error) {
 					onInternalError?.(
 						createHandlerError("AUDIO_BECOMING_NOISY_FAILED", {
@@ -383,7 +383,7 @@ export const useVideoAnalytics = ({
 		onIdle: useCallback(() => {
 			if (analyticsEventsRef.current) {
 				try {
-					analyticsEventsRef.current.onPause();
+					analyticsEventsRef.current.on("onPause", undefined);
 				} catch (error) {
 					onInternalError?.(
 						createHandlerError("IDLE_FAILED", { originalError: error as Error })

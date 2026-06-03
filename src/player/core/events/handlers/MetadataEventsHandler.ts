@@ -26,7 +26,7 @@ export class MetadataEventsHandler {
 			videoTracks: data.videoTracks,
 		};
 
-		this.analyticsEvents.onMetadataLoaded({
+		this.analyticsEvents.on("onMetadataLoaded", {
 			metadata,
 		});
 	};
@@ -35,7 +35,7 @@ export class MetadataEventsHandler {
 		// Manejar metadatos temporales (captions, chapters, etc.)
 		console.log("[MetadataEventsHandler] Timed metadata:", data.metadata);
 
-		this.analyticsEvents.onMetadataUpdate({
+		this.analyticsEvents.on("onMetadataUpdate", {
 			metadata: data.metadata,
 		});
 	};

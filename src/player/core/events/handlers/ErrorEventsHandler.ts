@@ -21,7 +21,7 @@ export class ErrorEventsHandler {
 
 			switch (errorType) {
 				case "network":
-					this.analyticsEvents.onNetworkError({
+					this.analyticsEvents.on("onNetworkError", {
 						errorCode: data.error.code,
 						errorMessage: data.error.localizedDescription,
 						errorType: "network",
@@ -32,7 +32,7 @@ export class ErrorEventsHandler {
 					break;
 
 				case "drm":
-					this.analyticsEvents.onContentProtectionError({
+					this.analyticsEvents.on("onContentProtectionError", {
 						errorCode: data.error.code,
 						errorMessage: data.error.localizedDescription,
 						errorType: "drm",
@@ -42,7 +42,7 @@ export class ErrorEventsHandler {
 					break;
 
 				case "stream":
-					this.analyticsEvents.onStreamError({
+					this.analyticsEvents.on("onStreamError", {
 						errorCode: data.error.code,
 						errorMessage: data.error.localizedDescription,
 						errorType: "playback",
@@ -53,7 +53,7 @@ export class ErrorEventsHandler {
 					break;
 
 				default:
-					this.analyticsEvents.onError({
+					this.analyticsEvents.on("onError", {
 						errorCode: data.error.code,
 						errorMessage: data.error.localizedDescription,
 						errorType: "other",

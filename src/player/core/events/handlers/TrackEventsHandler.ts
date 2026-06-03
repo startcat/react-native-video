@@ -25,7 +25,7 @@ export class TrackEventsHandler {
 		const selectedAudio = data.audioTracks.find(track => track.selected);
 		if (selectedAudio) {
 			this.currentAudioIndex = selectedAudio.index;
-			this.analyticsEvents.onAudioTrackChange({
+			this.analyticsEvents.on("onAudioTrackChange", {
 				trackIndex: selectedAudio.index,
 				trackLabel: selectedAudio.title,
 				language: selectedAudio.language,
@@ -36,7 +36,7 @@ export class TrackEventsHandler {
 		const selectedText = data.textTracks.find(track => track.selected);
 		if (selectedText) {
 			this.currentTextIndex = selectedText.index;
-			this.analyticsEvents.onSubtitleTrackChange({
+			this.analyticsEvents.on("onSubtitleTrackChange", {
 				trackIndex: selectedText.index,
 				trackLabel: selectedText.title,
 				language: selectedText.language,
@@ -49,7 +49,7 @@ export class TrackEventsHandler {
 
 		if (selectedTrack && selectedTrack.index !== this.currentAudioIndex) {
 			this.currentAudioIndex = selectedTrack.index;
-			this.analyticsEvents.onAudioTrackChange({
+			this.analyticsEvents.on("onAudioTrackChange", {
 				trackIndex: selectedTrack.index,
 				trackLabel: selectedTrack.title,
 				language: selectedTrack.language,
@@ -62,26 +62,26 @@ export class TrackEventsHandler {
 
 		if (selectedTrack && selectedTrack.index !== this.currentTextIndex) {
 			this.currentTextIndex = selectedTrack.index;
-			this.analyticsEvents.onSubtitleTrackChange({
+			this.analyticsEvents.on("onSubtitleTrackChange", {
 				trackIndex: selectedTrack.index,
 				trackLabel: selectedTrack.title,
 				language: selectedTrack.language,
 			});
 
-			this.analyticsEvents.onSubtitleShow({
+			this.analyticsEvents.on("onSubtitleShow", {
 				trackIndex: selectedTrack.index,
 			});
 		} else if (!selectedTrack && this.currentTextIndex !== -1) {
 			// Los subtítulos se han desactivado
 			this.currentTextIndex = -1;
-			this.analyticsEvents.onSubtitleHide();
+			this.analyticsEvents.on("onSubtitleHide", undefined);
 		}
 	};
 
 	handleVolumeChange = (data: OnVolumeChangeData, previousVolume: number, wasMuted: boolean) => {
 		// Detectar cambios en el volumen
 		if (data.volume !== previousVolume) {
-			this.analyticsEvents.onVolumeChange({
+			this.analyticsEvents.on("onVolumeChange", {
 				volume: data.volume,
 				previousVolume: previousVolume,
 			});
@@ -91,7 +91,7 @@ export class TrackEventsHandler {
 		// Detectar cambios en el estado de silencio
 		const isMuted = data.volume === 0;
 		if (isMuted !== wasMuted) {
-			this.analyticsEvents.onMuteChange({
+			this.analyticsEvents.on("onMuteChange", {
 				muted: isMuted,
 			});
 			this.currentMuted = isMuted;

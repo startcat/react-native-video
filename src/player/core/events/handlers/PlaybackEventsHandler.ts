@@ -50,7 +50,7 @@ export class PlaybackEventsHandler {
 		}
 
 		// Actualizar posición - se dispara con cada evento onProgress del Video
-		this.analyticsEvents.onPositionUpdate({
+		this.analyticsEvents.on("onPositionUpdate", {
 			position: positionMs,
 			duration: durationMs,
 			bufferedPosition: data.seekableDuration * 1000,
@@ -59,7 +59,7 @@ export class PlaybackEventsHandler {
 		// Disparar evento de progreso - ya viene con la frecuencia correcta del reproductor
 		const percentageWatched = durationMs > 0 ? (positionMs / durationMs) * 100 : 0;
 
-		this.analyticsEvents.onProgress({
+		this.analyticsEvents.on("onProgress", {
 			position: positionMs,
 			duration: durationMs,
 			percentageWatched,
@@ -68,17 +68,17 @@ export class PlaybackEventsHandler {
 
 	handlePlaybackStateChange = (data: OnPlaybackStateChangedData, wasPlaying: boolean) => {
 		if (data.isPlaying && !wasPlaying) {
-			this.analyticsEvents.onPlay();
+			this.analyticsEvents.on("onPlay", undefined);
 		} else if (!data.isPlaying && wasPlaying) {
-			this.analyticsEvents.onPause();
+			this.analyticsEvents.on("onPause", undefined);
 		}
 	};
 
 	handleBuffer = (data: OnBufferData, wasBuffering: boolean) => {
 		if (data.isBuffering && !wasBuffering) {
-			this.analyticsEvents.onBufferStart();
+			this.analyticsEvents.on("onBufferStart", undefined);
 		} else if (!data.isBuffering && wasBuffering) {
-			this.analyticsEvents.onBufferStop();
+			this.analyticsEvents.on("onBufferStop", undefined);
 
 			// Si había un seek en progreso y ya no está buffeando,
 			// es posible que el seek haya terminado
@@ -97,7 +97,7 @@ export class PlaybackEventsHandler {
 
 			// Iniciar el seek
 			if (!this.isSeekInProgress) {
-				this.analyticsEvents.onSeekStart();
+				this.analyticsEvents.on("onSeekStart", undefined);
 				this.isSeekInProgress = true;
 				this.seekFromPosition = fromPositionMs;
 				this.seekToPosition = toPositionMs;
@@ -116,12 +116,12 @@ export class PlaybackEventsHandler {
 	private finishSeek = (currentPositionMs: number) => {
 		try {
 			if (this.isSeekInProgress) {
-				this.analyticsEvents.onSeekEnd({
+				this.analyticsEvents.on("onSeekEnd", {
 					position: currentPositionMs,
 					fromPosition: this.seekFromPosition,
 				});
 
-				this.analyticsEvents.onPositionChange({
+				this.analyticsEvents.on("onPositionChange", {
 					position: currentPositionMs,
 					playbackRate: 1.0, // Esto debería venir del estado del reproductor
 				});
@@ -139,7 +139,7 @@ export class PlaybackEventsHandler {
 	};
 
 	stop = (reason: "user" | "error" | "completion" | "navigation" = "user") => {
-		this.analyticsEvents.onStop({ reason });
+		this.analyticsEvents.on("onStop", { reason });
 	};
 
 	// Método para forzar el final del seek si es necesario

@@ -10,22 +10,22 @@ jest.mock(
 
 function buildAnalyticsEventsSpy() {
 	return {
-		onAdBegin: jest.fn(),
-		onAdEnd: jest.fn(),
-		onAdPause: jest.fn(),
-		onAdResume: jest.fn(),
-		onAdSkip: jest.fn(),
-		onAdProgress: jest.fn(),
-		onAdBreakBegin: jest.fn(),
-		onAdBreakEnd: jest.fn(),
-		onContentResume: jest.fn(),
+		on: jest.fn(),
 	};
 }
 
-const buildEvent = (
-	event: string,
-	data?: Record<string, unknown>
-): OnReceiveAdEventData =>
+// Helper: devuelve los payloads de las llamadas a `on(event, payload)` cuya
+// clave de evento coincide, en orden de emisión.
+function payloadsFor(
+	spy: ReturnType<typeof buildAnalyticsEventsSpy>,
+	event: string
+): Array<Record<string, unknown>> {
+	return spy.on.mock.calls
+		.filter(call => call[0] === event)
+		.map(call => call[1] as Record<string, unknown>);
+}
+
+const buildEvent = (event: string, data?: Record<string, unknown>): OnReceiveAdEventData =>
 	({
 		event,
 		data,
@@ -53,16 +53,16 @@ describe("AdEventsHandler", () => {
 					position: 0,
 				})
 			);
-			analyticsEvents.onAdBegin.mockClear();
+			analyticsEvents.on.mockClear();
 		});
 
 		it("emite onAdProgress con shape iOS (currentTime/duration en segundos)", () => {
-			handler.handleAdEvent(
-				buildEvent("AD_PROGRESS", { currentTime: 3.5, duration: 15 })
-			);
+			handler.handleAdEvent(buildEvent("AD_PROGRESS", { currentTime: 3.5, duration: 15 }));
 
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledWith(
+			const progressCalls = payloadsFor(analyticsEvents, "onAdProgress");
+			expect(progressCalls).toHaveLength(1);
+			expect(analyticsEvents.on).toHaveBeenCalledWith(
+				"onAdProgress",
 				expect.objectContaining({
 					adId: "ad-1",
 					adBreakId: "break-1",
@@ -70,7 +70,7 @@ describe("AdEventsHandler", () => {
 					duration: 15000,
 				})
 			);
-			expect(analyticsEvents.onAdProgress.mock.calls[0][0].percentageWatched).toBeCloseTo(
+			expect(progressCalls[0]!.percentageWatched as number).toBeCloseTo(
 				(3500 / 15000) * 100,
 				2
 			);
@@ -81,8 +81,9 @@ describe("AdEventsHandler", () => {
 				buildEvent("AD_PROGRESS", { position: "7000", duration: "15000" })
 			);
 
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledWith(
+			expect(payloadsFor(analyticsEvents, "onAdProgress")).toHaveLength(1);
+			expect(analyticsEvents.on).toHaveBeenCalledWith(
+				"onAdProgress",
 				expect.objectContaining({ position: 7000, duration: 15000 })
 			);
 		});
@@ -97,12 +98,12 @@ describe("AdEventsHandler", () => {
 			now += 100;
 			handler.handleAdEvent(buildEvent("AD_PROGRESS", { currentTime: 1.2, duration: 15 }));
 
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledTimes(1);
+			expect(payloadsFor(analyticsEvents, "onAdProgress")).toHaveLength(1);
 
 			now += 100; // total 300ms desde la 1ª emisión
 			handler.handleAdEvent(buildEvent("AD_PROGRESS", { currentTime: 1.3, duration: 15 }));
 
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledTimes(2);
+			expect(payloadsFor(analyticsEvents, "onAdProgress")).toHaveLength(2);
 
 			(Date.now as jest.Mock).mockRestore();
 		});
@@ -112,7 +113,7 @@ describe("AdEventsHandler", () => {
 			jest.spyOn(Date, "now").mockImplementation(() => now);
 
 			handler.handleAdEvent(buildEvent("AD_PROGRESS", { currentTime: 1, duration: 15 }));
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledTimes(1);
+			expect(payloadsFor(analyticsEvents, "onAdProgress")).toHaveLength(1);
 
 			handler.handleAdEvent(buildEvent("PAUSED"));
 
@@ -121,13 +122,13 @@ describe("AdEventsHandler", () => {
 			now += 1000;
 			handler.handleAdEvent(buildEvent("AD_PROGRESS", { currentTime: 1, duration: 15 }));
 
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledTimes(1); // sigue en 1
+			expect(payloadsFor(analyticsEvents, "onAdProgress")).toHaveLength(1); // sigue en 1
 
 			handler.handleAdEvent(buildEvent("RESUMED"));
 			now += 1000;
 			handler.handleAdEvent(buildEvent("AD_PROGRESS", { currentTime: 5, duration: 15 }));
 
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledTimes(2);
+			expect(payloadsFor(analyticsEvents, "onAdProgress")).toHaveLength(2);
 
 			(Date.now as jest.Mock).mockRestore();
 		});
@@ -138,7 +139,8 @@ describe("AdEventsHandler", () => {
 
 			handler.handleAdEvent(buildEvent("AD_PROGRESS", { currentTime: 5 }));
 
-			expect(analyticsEvents.onAdProgress).toHaveBeenCalledWith(
+			expect(analyticsEvents.on).toHaveBeenCalledWith(
+				"onAdProgress",
 				expect.objectContaining({ position: 5000, duration: 15000 })
 			);
 
@@ -150,7 +152,7 @@ describe("AdEventsHandler", () => {
 			handler.handleAdEvent(buildEvent("MIDPOINT"));
 			handler.handleAdEvent(buildEvent("THIRD_QUARTILE"));
 
-			expect(analyticsEvents.onAdProgress).not.toHaveBeenCalled();
+			expect(analyticsEvents.on).not.toHaveBeenCalledWith("onAdProgress", expect.anything());
 		});
 	});
 
@@ -203,10 +205,10 @@ describe("AdEventsHandler", () => {
 			handler.handleAdEvent(buildEvent("COMPLETED"));
 			handler.handleAdEvent(buildEvent("AD_BREAK_ENDED"));
 
-			expect(analyticsEvents.onAdBreakBegin).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onAdBegin).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onAdEnd).toHaveBeenCalledTimes(1);
-			expect(analyticsEvents.onAdBreakEnd).toHaveBeenCalledTimes(1);
+			expect(payloadsFor(analyticsEvents, "onAdBreakBegin")).toHaveLength(1);
+			expect(payloadsFor(analyticsEvents, "onAdBegin")).toHaveLength(1);
+			expect(payloadsFor(analyticsEvents, "onAdEnd")).toHaveLength(1);
+			expect(payloadsFor(analyticsEvents, "onAdBreakEnd")).toHaveLength(1);
 		});
 	});
 });
