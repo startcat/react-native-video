@@ -848,28 +848,7 @@ To customize the notification controls you can use `metadata` property in the `s
 
 **To test notification controls on iOS you need to run the app on a real device, as the simulator does not support it.**
 
-**For Android you have to add the following code in your `AndroidManifest.xml` file:**
-
-```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    ...
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    ...
-
-    <application>
-      ...
-      <service
-        android:name="com.brentvatne.exoplayer.VideoPlaybackService"
-        android:exported="false"
-        android:foregroundServiceType="mediaPlayback">
-          <intent-filter>
-            <action android:name="androidx.media3.session.MediaSessionService" />
-          </intent-filter>
-      </service>
-    </application>
-</manifest>
-```
+**For Android**, the foreground service and the required `FOREGROUND_SERVICE` / `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permissions are provided automatically by the [`@overon/react-native-overon-player-now-playing`](https://gitlab.overon.es/ott/modules/player/react-native-overon-player-now-playing) module via autolinking (its `MediaPlaybackService` is merged into your app's manifest). No manual `AndroidManifest.xml` changes are required.
 
 ### `useSecureView`
 

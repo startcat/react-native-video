@@ -137,7 +137,7 @@ iOS maneja automáticamente:
 ### 1. Reproducción en segundo plano
 
 **Android:**
-- Servicio `VideoPlaybackService` mantiene la reproducción activa
+- El módulo `@overon/react-native-overon-player-now-playing` mantiene la reproducción activa mediante su `MediaPlaybackService` (foreground service)
 - Notificación persistente con controles multimedia
 - Integración con widgets del sistema
 
@@ -420,7 +420,6 @@ describe('Background Services', () => {
     // Verificar que los servicios usan los tipos correctos
     expect(AxDownloadService.getServiceTypes()).toContain('mediaPlayback');
     expect(AxDownloadService.getServiceTypes()).toContain('dataSync');
-    expect(VideoPlaybackService.getServiceTypes()).toContain('mediaPlayback');
   });
 });
 ```
