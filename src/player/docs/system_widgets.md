@@ -15,6 +15,8 @@ Para que los metadatos se muestren correctamente en los widgets multimedia del s
 
 ### Android
 
+> **Desde PLAYER-210:** la MediaSession y la notificación de reproducción (Now Playing) las aporta el módulo `@overon/react-native-overon-player-now-playing`, que se enlaza por *autolinking* e incluye su propio servicio foreground (`MediaPlaybackService`) y sus permisos. Basta con instalarlo como dependencia de tu app. Los permisos siguientes siguen siendo recomendables; `POST_NOTIFICATIONS` (Android 13+) debe solicitarse en tiempo de ejecución.
+
 Para que funcionen los widgets multimedia en Android, es necesario añadir los siguientes permisos en el archivo `android/app/src/main/AndroidManifest.xml`:
 
 ```xml
@@ -36,16 +38,14 @@ Para que funcionen los widgets multimedia en Android, es necesario añadir los s
 
 ```xml
 <application>
-  <!-- Servicio para reproducción en segundo plano con widgets -->
-  <service
-    android:name="com.brentvatne.exoplayer.VideoPlaybackService"
-    android:exported="false"
-    android:foregroundServiceType="mediaPlayback">
-    <intent-filter>
-      <action android:name="androidx.media3.session.MediaSessionService" />
-    </intent-filter>
-  </service>
-  
+  <!--
+    El servicio de reproducción / MediaSession (Now Playing) lo aporta ahora el
+    módulo `@overon/react-native-overon-player-now-playing` por autolinking
+    (declara su propio MediaPlaybackService y permisos foreground). YA NO se
+    declara `com.brentvatne.exoplayer.VideoPlaybackService`, eliminado de
+    react-native-video en PLAYER-210.
+  -->
+
   <!-- Servicio para descargas offline con sincronización de datos -->
   <service
     android:name="com.brentvatne.offline.AxDownloadService"

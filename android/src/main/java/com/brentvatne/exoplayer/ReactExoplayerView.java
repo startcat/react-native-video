@@ -210,8 +210,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private boolean playerNeedsSource;
     private MediaMetadata customMetadata;
 
-    private ServiceConnection playbackServiceConnection;
-    private PlaybackServiceBinder playbackServiceBinder;
+    private NowPlayingBridge nowPlayingBridge;
 
     // logger to be enable by props
     private EventLogger debugEventLogger = null;
@@ -399,7 +398,7 @@ public class ReactExoplayerView extends FrameLayout implements
                 + " playerState=" + (player != null ? player.getPlaybackState() : "null")
                 + " playWhenReady=" + (player != null ? player.getPlayWhenReady() : "null")
                 + " isPaused=" + isPaused
-                + " serviceBinder=" + (playbackServiceBinder != null ? "bound" : "null"));
+                + " nowPlaying=" + (nowPlayingBridge != null ? "registered" : "null"));
 
         if (!playInBackground || !isInBackground) {
             if (isAdCurrentlyActive && adsLoader != null && player != null && !isPaused) {
@@ -449,7 +448,7 @@ public class ReactExoplayerView extends FrameLayout implements
     protected void onDetachedFromWindow() {
         DebugLog.d(TAG, "ReactExoplayerView onDetachedFromWindow");
         if (!playInBackground || !isInBackground) {
-            cleanupPlaybackService();
+            unregisterNowPlaying();
         }
         super.onDetachedFromWindow();
     }
@@ -1062,7 +1061,7 @@ public class ReactExoplayerView extends FrameLayout implements
         changeAudioOutput(this.audioOutput);
 
         if(showNotificationControls) {
-            setupPlaybackService();
+            registerNowPlaying();
         }
     }
 
@@ -1265,91 +1264,20 @@ public class ReactExoplayerView extends FrameLayout implements
         applyModifiers();
     }
 
-    private void setupPlaybackService() {
+    private void registerNowPlaying() {
         if (!showNotificationControls || player == null) {
             return;
         }
 
-        playbackServiceConnection = new ServiceConnection() {
-            @Override
-            public void onServiceConnected(ComponentName name, IBinder service) {
-                playbackServiceBinder = (PlaybackServiceBinder) service;
-
-                try {
-                    Activity currentActivity = themedReactContext.getCurrentActivity();
-                    if (currentActivity != null) {
-                        playbackServiceBinder.getService().registerPlayer(player,
-                                (Class<Activity>) currentActivity.getClass());
-                    } else {
-                        // Handle the case where currentActivity is null
-                        DebugLog.w(TAG, "Could not register ExoPlayer: currentActivity is null");
-                    }
-                } catch (Exception e) {
-                    DebugLog.e(TAG, "Could not register ExoPlayer: " + e.getMessage());
-                }
-            }
-
-            @Override
-            public void onServiceDisconnected(ComponentName name) {
-                try {
-                    if (playbackServiceBinder != null) {
-                        playbackServiceBinder.getService().unregisterPlayer(player);
-                    }
-                } catch (Exception ignored) {}
-
-                playbackServiceBinder = null;
-            }
-
-            @Override
-            public void onNullBinding(ComponentName name) {
-                DebugLog.e(TAG, "Could not register ExoPlayer");
-            }
-        };
-
-        Intent intent = new Intent(themedReactContext, VideoPlaybackService.class);
-        intent.setAction(MediaSessionService.SERVICE_INTERFACE);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Android 12+ validation for foreground service
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (themedReactContext.checkSelfPermission(android.Manifest.permission.FOREGROUND_SERVICE) == PackageManager.PERMISSION_GRANTED) {
-                    themedReactContext.startForegroundService(intent);
-                } else {
-                    Log.w("ReactExoplayerView", "Cannot start VideoPlaybackService - FOREGROUND_SERVICE permission denied");
-                    // Fallback to regular service if foreground service is not allowed
-                    themedReactContext.startService(intent);
-                }
-            } else {
-                themedReactContext.startForegroundService(intent);
-            }
-        } else {
-            themedReactContext.startService(intent);
-        }
-
-        int flags;
-        if (Build.VERSION.SDK_INT >= 29) {
-            flags = Context.BIND_AUTO_CREATE | Context.BIND_INCLUDE_CAPABILITIES;
-        } else {
-            flags = Context.BIND_AUTO_CREATE;
-        }
-
-        themedReactContext.bindService(intent, playbackServiceConnection, flags);
+        nowPlayingBridge = new NowPlayingBridge(player);
+        nowPlayingBridge.register(themedReactContext);
     }
 
-    private void cleanupPlaybackService() {
-        DebugLog.d(TAG, "ReactExoplayerView cleanupPlaybackService");
-        try {
-            if(player != null && playbackServiceBinder != null) {
-                playbackServiceBinder.getService().unregisterPlayer(player);
-            }
-
-            playbackServiceBinder = null;
-
-            if(playbackServiceConnection != null) {
-                themedReactContext.unbindService(playbackServiceConnection);
-            }
-        } catch(Exception e) {
-            DebugLog.w(TAG, "Cloud not cleanup playback service");
+    private void unregisterNowPlaying() {
+        DebugLog.d(TAG, "ReactExoplayerView unregisterNowPlaying");
+        if (nowPlayingBridge != null) {
+            nowPlayingBridge.unregister();
+            nowPlayingBridge = null;
         }
     }
 
@@ -1609,9 +1537,9 @@ public class ReactExoplayerView extends FrameLayout implements
                 adsLoader.setPlayer(null);
             }
  
-            if(playbackServiceBinder != null && (!playInBackground || !isInBackground)) {
-                playbackServiceBinder.getService().unregisterPlayer(player);
-                themedReactContext.unbindService(playbackServiceConnection);
+            if(nowPlayingBridge != null && (!playInBackground || !isInBackground)) {
+                nowPlayingBridge.unregister();
+                nowPlayingBridge = null;
             }
 
             updateResumePosition();
@@ -2686,10 +2614,10 @@ public class ReactExoplayerView extends FrameLayout implements
     public void setShowNotificationControls(boolean showNotificationControls) {
         this.showNotificationControls = showNotificationControls;
 
-        if (playbackServiceConnection == null && showNotificationControls) {
-            setupPlaybackService();
-        } else if(!showNotificationControls && playbackServiceConnection != null) {
-            cleanupPlaybackService();
+        if (nowPlayingBridge == null && showNotificationControls) {
+            registerNowPlaying();
+        } else if(!showNotificationControls && nowPlayingBridge != null) {
+            unregisterNowPlaying();
         }
     }
 
