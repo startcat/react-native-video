@@ -4,7 +4,7 @@ import XCTest
 // MARK: - Tests de contrato: DataStructures parsing
 // Tarea 04 | Fase A: Red de seguridad
 // Captura el comportamiento actual del parseo de NSDictionary
-// para VideoSource, DRMParams, TextTrack, YouboraParams, Chapter.
+// para VideoSource, DRMParams, TextTrack, Chapter.
 // NO modificar código de producción. Si un test falla, ajustar el test.
 
 class DataStructureParsingTests: XCTestCase {
@@ -181,89 +181,6 @@ class DataStructureParsingTests: XCTestCase {
         // Verificar que el json tiene el index actualizado
         XCTAssertEqual(track.json?["index"] as? Int, 5)
     }
-
-    // MARK: - YouboraParams
-
-    /// Test 24: Dict completo → todos los campos parseados
-    func testYoubora_completeDict_allFieldsParsed() {
-        let dict: NSDictionary = [
-            "accountCode": "startcat",
-            "contentTransactionCode": "tx-001",
-            "username": "user@example.com",
-            "contentId": "content-789",
-            "contentType": "episode",
-            "contentTitle": "Test Episode",
-            "contentTitle2": "Season 1",
-            "program": "Test Show",
-            "contentChannel": "Channel 1",
-            "contentIsLive": false,
-            "contentPlaybackType": "vod",
-            "contentTvShow": "Test Show",
-            "contentSeason": "S01",
-            "contentEpisodeTitle": "Pilot",
-            "contentLanguage": "es",
-            "contentSaga": "Saga 1",
-            "contentSubtitles": "es,en",
-            "contentDrm": "fairplay",
-            "contentStreamingProtocol": "hls",
-            "extraparam1": "extra1",
-            "extraparam2": "extra2"
-        ]
-
-        let youbora = YouboraParams(dict)
-        XCTAssertEqual(youbora.accountCode, "startcat")
-        XCTAssertEqual(youbora.contentTransactionCode, "tx-001")
-        XCTAssertEqual(youbora.username, "user@example.com")
-        XCTAssertEqual(youbora.contentId, "content-789")
-        XCTAssertEqual(youbora.contentType, "episode")
-        XCTAssertEqual(youbora.contentTitle, "Test Episode")
-        XCTAssertEqual(youbora.contentTitle2, "Season 1")
-        XCTAssertEqual(youbora.program, "Test Show")
-        XCTAssertEqual(youbora.contentChannel, "Channel 1")
-        XCTAssertEqual(youbora.contentIsLive, false)
-        XCTAssertEqual(youbora.contentPlaybackType, "vod")
-        XCTAssertEqual(youbora.contentTvShow, "Test Show")
-        XCTAssertEqual(youbora.contentSeason, "S01")
-        XCTAssertEqual(youbora.contentEpisodeTitle, "Pilot")
-        XCTAssertEqual(youbora.contentLanguage, "es")
-        XCTAssertEqual(youbora.contentSaga, "Saga 1")
-        XCTAssertEqual(youbora.contentSubtitles, "es,en")
-        XCTAssertEqual(youbora.contentDrm, "fairplay")
-        XCTAssertEqual(youbora.contentStreamingProtocol, "hls")
-        XCTAssertEqual(youbora.extraparam1, "extra1")
-        XCTAssertEqual(youbora.extraparam2, "extra2")
-        XCTAssertNotNil(youbora.json)
-    }
-
-    /// Test 25: nil dict → defaults (nil, contentIsLive=false)
-    func testYoubora_nilDict_defaults() {
-        let youbora = YouboraParams(nil)
-        XCTAssertNil(youbora.accountCode)
-        XCTAssertNil(youbora.contentId)
-        XCTAssertNil(youbora.contentTitle)
-        XCTAssertEqual(youbora.contentIsLive, false)
-        XCTAssertNil(youbora.extraparam1)
-        XCTAssertNil(youbora.json)
-    }
-
-    /// Test 26: NC-006 — Sin contentIsLive → CRASH por force unwrap
-    /// ⚠️ COMENTADO: Este test documenta el bug NC-006.
-    /// YouboraParams.swift línea 83: `self.contentIsLive = (json["contentIsLive"] as? Bool)!`
-    /// El force unwrap `!` causa un crash si contentIsLive no está en el dict.
-    /// Se corregirá en la tarea 10 (fix force unwrap YouboraParams NC-006).
-    /*
-    func testYoubora_missingContentIsLive_CRASH_NC006() {
-        let dict: NSDictionary = [
-            "accountCode": "startcat",
-            "contentId": "content-789"
-            // contentIsLive NO incluido → (json["contentIsLive"] as? Bool)! → CRASH
-        ]
-        // Este init crashea por force unwrap en línea 83
-        let youbora = YouboraParams(dict)
-        // Si se corrige NC-006, este test debería pasar con contentIsLive = false (default)
-        XCTAssertEqual(youbora.contentIsLive, false)
-    }
-    */
 
     // MARK: - Chapter
 

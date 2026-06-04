@@ -193,7 +193,7 @@ export type OnBandwidthUpdateData = Readonly<{
  * the selected rendition instead.
  * Cadence differs by platform: Android emits per BandwidthMeter sample
  * (sub-second under load), iOS emits per AVPlayerItemAccessLog entry (~1/s).
- * Consumers (e.g. NPAW) should tolerate / decimate as needed.
+ * Consumers should tolerate / decimate as needed.
  */
 export type OnPlaybackMetricsData = Readonly<{
 	throughput?: Double; // observed/estimated bandwidth (bps); omitted/-1 if unknown

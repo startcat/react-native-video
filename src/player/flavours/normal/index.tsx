@@ -65,6 +65,7 @@ import {
 import { ComponentLogger } from "../../features/logger";
 
 import { useVideoAnalytics } from "../../core/events/hooks/useVideoAnalytics";
+import { useNowPlaying } from "../../core/events/hooks/useNowPlaying";
 
 import { styles } from "../styles";
 
@@ -2362,6 +2363,17 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		onInternalError: handleOnInternalError,
 	});
 
+	// Hook para el lock-screen / Control Center (iOS) vía player-now-playing
+	const { nowPlayingEvents } = useNowPlaying({
+		enabled: true,
+		metadata: props.playerMetadata,
+		isLive: !!props.playerProgress?.isLive,
+		isDVR: !!props.playerProgress?.isDVR,
+		paused,
+		refVideoPlayer,
+		setPaused,
+	});
+
 	/*
 	 *  Render
 	 *
@@ -2458,8 +2470,17 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						}
 						// Eventos combinados: originales + analytics
 						onLoadStart={videoEvents.onLoadStart}
-						onLoad={combineEventHandlers(handleOnLoad, videoEvents.onLoad)}
-						onProgress={combineEventHandlers(handleOnProgress, videoEvents.onProgress)}
+						onLoad={combineEventHandlers(
+							handleOnLoad,
+							combineEventHandlers(videoEvents.onLoad, nowPlayingEvents.onLoad)
+						)}
+						onProgress={combineEventHandlers(
+							handleOnProgress,
+							combineEventHandlers(
+								videoEvents.onProgress,
+								nowPlayingEvents.onProgress
+							)
+						)}
 						onEnd={combineEventHandlers(handleOnEnd, videoEvents.onEnd)}
 						onError={combineEventHandlers(handleOnVideoError, videoEvents.onError)}
 						onReadyForDisplay={combineEventHandlers(
@@ -2540,7 +2561,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 								? {
 										...props.playerProgress?.liveValues,
 										playbackType: dvrPlaybackType,
-								  }
+									}
 								: props.playerProgress?.liveValues,
 					}}
 					playerAnalytics={props.playerAnalytics}

@@ -73,16 +73,12 @@ Configura los siguientes servicios en `android/app/src/main/AndroidManifest.xml`
         </intent-filter>
     </service>
 
-    <!-- Servicio de reproducción multimedia -->
-    <service 
-        android:name="com.brentvatne.exoplayer.VideoPlaybackService"
-        android:foregroundServiceType="mediaPlayback"
-        android:exported="false">
-        <intent-filter>
-            <action android:name="com.brentvatne.exoplayer.action.MEDIA_BUTTON"/>
-            <category android:name="android.intent.category.DEFAULT"/>
-        </intent-filter>
-    </service>
+    <!--
+        El servicio de reproducción multimedia (MediaSession / Now Playing) lo
+        aporta ahora el módulo `@overon/react-native-overon-player-now-playing`
+        por autolinking; ya NO se declara `VideoPlaybackService` (eliminado de
+        react-native-video en PLAYER-210).
+    -->
 </application>
 ```
 
@@ -91,7 +87,7 @@ Configura los siguientes servicios en `android/app/src/main/AndroidManifest.xml`
 | Servicio | Funcionalidad | Tipos | Características |
 |----------|-----------|-------------------|-----------------| 
 | `AxDownloadService` | Gestión de descargas | `mediaPlayback`, `dataSync` | Descarga offline, cache persistente, sincronización de metadatos, reanudación tras reinicio |
-| `VideoPlaybackService` | Reproducción multimedia | `mediaPlayback` | Widgets del sistema, reproducción en background |
+| `MediaPlaybackService` (del módulo `player-now-playing`) | Reproducción multimedia | `mediaPlayback` | Widgets del sistema (Now Playing), reproducción en background |
 
 #### Tipos de servicios en primer plano
 
@@ -141,7 +137,7 @@ iOS maneja automáticamente:
 ### 1. Reproducción en segundo plano
 
 **Android:**
-- Servicio `VideoPlaybackService` mantiene la reproducción activa
+- El módulo `@overon/react-native-overon-player-now-playing` mantiene la reproducción activa mediante su `MediaPlaybackService` (foreground service)
 - Notificación persistente con controles multimedia
 - Integración con widgets del sistema
 
@@ -424,7 +420,6 @@ describe('Background Services', () => {
     // Verificar que los servicios usan los tipos correctos
     expect(AxDownloadService.getServiceTypes()).toContain('mediaPlayback');
     expect(AxDownloadService.getServiceTypes()).toContain('dataSync');
-    expect(VideoPlaybackService.getServiceTypes()).toContain('mediaPlayback');
   });
 });
 ```

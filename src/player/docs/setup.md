@@ -272,9 +272,6 @@ target 'TuApp' do
   # Habilitar cache de video para reproducción offline
   $RNVideoUseVideoCaching = true
   
-  # Habilitar Youbora Analytics (opcional)
-  $RNVideoUseYoubora = true
-  
   use_react_native!(
     :path => config[:reactNativePath],
     :app_path => "#{Pod::Config.instance.installation_root}/.."
@@ -297,7 +294,6 @@ end
 |----------|-----------|-------------|
 | `$RNVideoUseGoogleIMA` | Soporte para anuncios Google IMA | `true` |
 | `$RNVideoUseVideoCaching` | Cache de video para offline | `true` |
-| `$RNVideoUseYoubora` | Analytics con Youbora | `true` si lo usas |
 
 ### 2. Configuración del Info.plist
 
@@ -358,9 +354,6 @@ Si usas minificación en Android, añade en `android/app/proguard-rules.pro`:
 
 # Google Cast
 -keep class com.google.android.gms.cast.** { *; }
-
-# Youbora (si lo usas)
--keep class com.npaw.youbora.** { *; }
 ```
 
 ### 2. Configuración de Metro (React Native)

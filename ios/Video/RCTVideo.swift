@@ -601,15 +601,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             _player = AVPlayer()
             _player!.replaceCurrentItem(with: playerItem)
 
-            if _showNotificationControls {
-                // We need to register player after we set current item and only for init
-                NowPlayingInfoCenterManager.shared.registerPlayer(player: _player!)
-            }
+            // Now Playing / lock-screen is owned by the player-now-playing module
+            // (driven by the useNowPlaying JS hook on iOS). See PLAYER-210.
         } else {
             _player?.replaceCurrentItem(with: playerItem)
 
-            // later we can just call "updateNowPlayingInfo:
-            NowPlayingInfoCenterManager.shared.updateNowPlayingInfo()
+            // Now Playing metadata is pushed by the useNowPlaying JS hook (PLAYER-210).
         }
 
         _playerObserver.player = _player
@@ -1314,15 +1311,9 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     func setShowNotificationControls(_ showNotificationControls: Bool) {
         _showNotificationControls = showNotificationControls
         
-        guard let player = _player else {
-            return
-        }
-
-        if showNotificationControls {
-            NowPlayingInfoCenterManager.shared.registerPlayer(player: player)
-        } else {
-            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
-        }
+        // Now Playing / lock-screen is delegated to the player-now-playing module
+        // (iOS: the useNowPlaying JS hook; Android: the native IPlayerAdapter). The
+        // prop is still tracked for behaviour parity. See PLAYER-210.
     }
 
     @objc
@@ -1537,7 +1528,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 }
             }
             
-            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
         }
 
         _player = nil
@@ -1717,10 +1707,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     }
 
     func handlePlaybackFailed() {
-        if let player = _player {
-            NowPlayingInfoCenterManager.shared.removePlayer(player: player)
-        }
-
         guard let _playerItem else { return }
         onVideoError?(
             [
