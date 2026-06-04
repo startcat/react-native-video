@@ -1,5 +1,12 @@
 
 
+# [7.4.0](https://github.com/startcat/react-native-video/compare/v7.3.3...v7.4.0) (2026-06-04)
+
+
+### Features
+
+* **now-playing:** consume player-now-playing module, remove inline (PLAYER-210) ([86b8d33](https://github.com/startcat/react-native-video/commit/86b8d33741391652dc1cf7d82bbb9b9a84dd76eb))
+
 ## [7.3.3](https://github.com/startcat/react-native-video/compare/v7.3.2...v7.3.3) (2026-06-03)
 
 ## [7.3.2](https://github.com/startcat/react-native-video/compare/v7.3.1...v7.3.2) (2026-06-03)
