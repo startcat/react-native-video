@@ -153,7 +153,8 @@ export interface ILanguagesMapping {
 	[code: string]: string;
 }
 
-// Cast types moved to /src/player/features/cast/types.ts for better organization
+// Generic cast plumbing types now live in @overon/react-native-cast (PLAYER-240).
+// The interfaces below are RNV-local orchestration/UI types kept in RNV.
 export interface ICastMetadata {
 	id?: number;
 	title?: string;
