@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
+import Config from "react-native-config";
 
 import { Overlay } from "../../components/overlay";
 import { SkipAdButton } from "../../components/overlay/ads";
@@ -39,7 +40,7 @@ import { useIsBuffering } from "../../core/buffering";
 import { SourceClass, type onSourceChangedProps } from "../../modules/source";
 import { TudumClass } from "../../modules/tudum";
 
-// Importar hooks individuales de Cast como en AudioCastFlavour
+// Importar hooks individuales de Cast desde el módulo @overon/react-native-cast
 import {
 	useCastConnected,
 	useCastManager,
@@ -48,10 +49,14 @@ import {
 	useCastPlaying,
 	useCastProgress,
 	useCastVolume,
-} from "../../features/cast/hooks";
+} from "@overon/react-native-cast";
 
-import { handleErrorException, PlayerError } from "../../core/errors";
-import { type CastContentInfo, type CastTrackInfo } from "../../features/cast/types/types";
+import { handleErrorException, PlayerError, toPlayerError } from "../../core/errors";
+import {
+	type BaseError,
+	type CastContentInfo,
+	type CastTrackInfo,
+} from "@overon/react-native-cast";
 
 export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const currentLogger = useRef<ComponentLogger | null>(null);
@@ -235,10 +240,13 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		[castProgress.duration]
 	);
 
-	const onErrorCallback = useCallback((error: PlayerError, content: CastContentInfo) => {
-		currentLogger.current?.error(`Cast Manager - Content load error: ${error}`);
+	const onErrorCallback = useCallback((error: BaseError) => {
+		// Adapt the module's BaseError to RNV's PlayerError at the seam (PLAYER-240)
+		// so the downstream handleOnError flow stays unchanged.
+		const playerError = toPlayerError(error);
+		currentLogger.current?.error(`Cast Manager - Content load error: ${playerError}`);
 		setIsLoadingContent(false);
-		onErrorRef.current?.(error);
+		onErrorRef.current?.(playerError);
 	}, []);
 
 	const onPlaybackStartedCallback = useCallback(() => {
@@ -290,6 +298,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			enableYoubora: true,
 			enableAds: true,
 			defaultStartPosition: 0,
+			// PLAYER-240: the module absolutizes relative manifest/DRM URIs itself
+			// but stays free of react-native-config; RNV injects its base URL here
+			// (replaces RNV's own absolutization that lived in the deleted builder).
+			siteBaseUrl: Config.SITE_URL,
 		}),
 		[]
 	);
@@ -357,10 +369,12 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			currentLogger.current?.info("Cast Monitor onPause");
 			setPaused(true);
 		},
-		onError: (error: PlayerError) => {
-			currentLogger.current?.info(`Cast Monitor onError ${JSON.stringify(error)}`);
+		onError: (error: BaseError) => {
+			// Adapt the module's BaseError to RNV's PlayerError at the seam (PLAYER-240).
+			const playerError = toPlayerError(error);
+			currentLogger.current?.info(`Cast Monitor onError ${JSON.stringify(playerError)}`);
 			setIsLoadingContent(false);
-			handleOnError(error);
+			handleOnError(playerError);
 		},
 		onAudioTrackChange: (track: CastTrackInfo | null) => {
 			if (track !== null && menuData) {
@@ -379,7 +393,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					if (props.events?.onChangeCommonData) {
 						props.events.onChangeCommonData({
 							audioIndex: newIndex,
-							audioLabel: track.name,
+							audioLabel: track.title,
 							audioCode: track.language ?? undefined,
 						});
 					}
@@ -412,7 +426,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 					if (props.events?.onChangeCommonData) {
 						props.events.onChangeCommonData({
 							subtitleIndex: newIndex,
-							subtitleLabel: track?.name,
+							subtitleLabel: track?.title,
 							subtitleCode: track?.language ?? undefined,
 						});
 					}
@@ -1028,7 +1042,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			const success = await castManagerRef.current?.loadContent({
 				source: tudumRef.current.source,
 				manifest: {},
-				drm: tudumRef.current.drm,
+				// PLAYER-240: RNV's local IDrm and the module's IDrm are structurally
+				// equivalent but nominally distinct (separate packages). Cast at the
+				// loadContent construction site only.
+				drm: tudumRef.current.drm as CastContentInfo["drm"],
 				youbora: undefined,
 				metadata: {
 					id: "tudum",
@@ -1198,8 +1215,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 					const success = await castManagerRef.current?.loadContent({
 						source: castSource,
-						manifest: sourceRef.current?.currentManifest || {},
-						drm: data.drm,
+						// PLAYER-240: RNV's IManifest / IDrm are structurally equivalent
+						// to the module's manifest (Record<string, unknown>) / IDrm but
+						// nominally distinct. The module's builder narrows the manifest
+						// (manifestURL/drmConfig) and absolutizes URLs via siteBaseUrl.
+						// Cast at the loadContent construction site only.
+						manifest: (sourceRef.current?.currentManifest ||
+							{}) as CastContentInfo["manifest"],
+						drm: data.drm as CastContentInfo["drm"],
 						youbora: youboraForVideo.current,
 						metadata: {
 							id: props.playerMetadata?.id?.toString() || "",
