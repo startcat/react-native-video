@@ -24,7 +24,7 @@ function log (message: string) {
 
 }
 
-export const getSourceMessageForCast = (uri:string, manifest: IManifest, drm?: IDrm, youbora?: IMappedYoubora, metadata?: ICastMetadata): CastMessage => {
+export const getSourceMessageForCast = (uri:string, _manifest: IManifest, drm?: IDrm, youbora?: IMappedYoubora, metadata?: ICastMetadata): CastMessage => {
 
     let messageMetadata = {},
         message = {};

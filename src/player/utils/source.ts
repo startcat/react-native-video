@@ -82,7 +82,7 @@ const addLiveTimestamp = (
 export const getBestManifest = (
 	manifests: Array<IManifest>,
 	isCasting?: boolean,
-	isLive?: boolean
+	_isLive?: boolean
 ): IManifest | undefined => {
 	let manifest: IManifest | undefined;
 

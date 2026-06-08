@@ -33,7 +33,7 @@ const TEXTS = {
 
 const i18n = {
     t: (key: string): string => {
-        return TEXTS[key] || key;
+        return TEXTS[key as keyof typeof TEXTS] || key;
     }
 }
 

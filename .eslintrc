@@ -8,10 +8,10 @@
 		"plugin:@typescript-eslint/recommended"
 	],
 	"rules": {
-		"no-trailing-spaces": 1
+		"no-trailing-spaces": 1,
+		"indent": ["error", "tab"]
 	},
 	"parserOptions": {
 		"requireConfigFile": false
-	},
-	"indent": ["error", "tab"]
+	}
 }

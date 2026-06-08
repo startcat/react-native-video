@@ -234,12 +234,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			const errorMsg =
 				"PlaylistItem must have resolvedSources. Please use resolveSourcesFromManifests() to convert manifests to resolvedSources before creating playlist items.";
 			currentLogger.current?.error(errorMsg);
-			return handleOnInternalError(
+			handleOnInternalError(
 				new PlayerError("PLAYER_SOURCE_NO_MANIFESTS_PROVIDED", {
 					message: errorMsg,
 					playlistItem: props.playlistItem,
 				})
 			);
+			return;
 		}
 
 		// Recrear sourceRef con el callback actualizado
@@ -722,7 +723,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.SEEK && sourceRef.current?.isDVR) {
 			try {
 				// Hacer seek en DVR
-				dvrProgressManagerRef.current?.seekToTime(value);
+				dvrProgressManagerRef.current?.seekToTime(Number(value));
 			} catch (error: any) {
 				currentLogger.current?.error(`DVR seekToTime failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -732,7 +733,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.FORWARD && sourceRef.current?.isDVR) {
 			try {
 				// Hacer seek en DVR
-				dvrProgressManagerRef.current?.skipForward(value);
+				dvrProgressManagerRef.current?.skipForward(Number(value));
 			} catch (error: any) {
 				currentLogger.current?.error(`DVR skipForward failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -742,7 +743,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.BACKWARD && sourceRef.current?.isDVR) {
 			try {
 				// Hacer seek en DVR
-				dvrProgressManagerRef.current?.skipBackward(value);
+				dvrProgressManagerRef.current?.skipBackward(Number(value));
 			} catch (error: any) {
 				currentLogger.current?.error(`DVR skipBackward failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -752,7 +753,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.SEEK && !sourceRef.current?.isLive) {
 			try {
 				// Hacer seek en VOD
-				vodProgressManagerRef.current?.seekToTime(value);
+				vodProgressManagerRef.current?.seekToTime(Number(value));
 			} catch (error: any) {
 				currentLogger.current?.error(`VOD seekToTime failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -762,7 +763,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.FORWARD && !sourceRef.current?.isLive) {
 			try {
 				// Hacer seek en VOD
-				vodProgressManagerRef.current?.skipForward(value);
+				vodProgressManagerRef.current?.skipForward(Number(value));
 			} catch (error: any) {
 				currentLogger.current?.error(`VOD skipForward failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));
@@ -772,7 +773,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		if (id === CONTROL_ACTION.BACKWARD && !sourceRef.current?.isLive) {
 			try {
 				// Hacer seek en VOD
-				vodProgressManagerRef.current?.skipBackward(value);
+				vodProgressManagerRef.current?.skipBackward(Number(value));
 			} catch (error: any) {
 				currentLogger.current?.error(`VOD skipBackward failed: ${error?.message}`);
 				handleOnInternalError(handleErrorException(error, "PLAYER_SEEK_FAILED"));

@@ -136,7 +136,7 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
                 type: PLAYER_MENU_DATA_TYPE.AUDIO,
                 index: item.index,
                 code: item.language,
-                label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] : item.title || item.index.toString()
+                label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] ?? '' : item.title || item.index.toString()
             });
 
         });
@@ -159,7 +159,7 @@ export const mergeMenuData = (loadedData: OnLoadData, languagesMapping?:ILanguag
                 type: PLAYER_MENU_DATA_TYPE.TEXT,
                 index: item.index,
                 code: item.language,
-                label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] : item.title || item.index.toString()
+                label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] ?? '' : item.title || item.index.toString()
             });
 
         });
@@ -197,7 +197,7 @@ export const mergeCastMenuData = (loadedData: Array<MediaTrack> | undefined, lan
                     id: item.id,
                     index: totalAudios,
                     code: item.language,
-                    label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] : item.name || item.id.toString()
+                    label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] ?? '' : item.name || item.id.toString()
                 });
 
                 totalAudios++;
@@ -209,7 +209,7 @@ export const mergeCastMenuData = (loadedData: Array<MediaTrack> | undefined, lan
                     id: item.id,
                     index: totalTexts,
                     code: item.language,
-                    label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] : item.name || item.id.toString()
+                    label: (languagesMapping && item.language && languagesMapping[item.language]) ? languagesMapping[item.language] ?? '' : item.name || item.id.toString()
                 });
 
                 totalTexts++;
