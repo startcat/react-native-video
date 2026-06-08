@@ -6,4 +6,5 @@ export { VideoAudioFocus } from './VideoAudioFocus';
 export {VideoDecoderProperties} from './specs/VideoNativeComponent';
 export * from './types';
 export type {VideoRef} from './Video';
+export * from './player/features/androidAuto';
 export default Video;

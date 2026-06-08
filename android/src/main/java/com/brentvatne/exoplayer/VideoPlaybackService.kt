@@ -108,10 +108,25 @@ class VideoPlaybackService : MediaSessionService() {
     // Player Registry
 
     fun registerPlayer(player: ExoPlayer, from: Class<Activity>) {
+        registerPlayerInternal(player, from)
+    }
+
+    // TODO(PLAYER-269): VideoPlaybackService + AndroidAutoMediaBrowserService coexist
+    // temporarily; reconcile to one canonical session/player.
+    /**
+     * Registrar player sin Activity (para Android Auto background)
+     */
+    fun registerPlayerForBackground(player: ExoPlayer) {
+        registerPlayerInternal(player, null)
+    }
+
+    private fun registerPlayerInternal(player: ExoPlayer, from: Class<Activity>?) {
         if (mediaSessionsList.containsKey(player)) {
             return
         }
-        sourceActivity = from
+        if (from != null) {
+            sourceActivity = from
+        }
 
         val mediaSession = MediaSession.Builder(this, player)
             .setId("RNVideoPlaybackService_" + player.hashCode())
@@ -123,12 +138,18 @@ class VideoPlaybackService : MediaSessionService() {
         addSession(mediaSession)
         PlayerInstanceTracker.register(player) // PLAYER-265 S1: count live audio players
 
-        // Solo iniciar foreground service si la app está en primer plano
+        // Para background playback, forzar inicio de foreground service
         if (!isForegroundServiceStarted) {
-            if (!startForegroundServiceSafely(mediaSession.player.hashCode(), buildNotification(mediaSession))) {
-                Log.w(TAG, "Could not start foreground service, continuing without it")
-                // Continuar sin foreground service - la funcionalidad básica seguirá funcionando
+            try {
+                startForeground(mediaSession.player.hashCode(), buildNotification(mediaSession))
+                isForegroundServiceStarted = true
+                Log.d(TAG, "Foreground service started for background playback")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start foreground service", e)
             }
+        } else {
+            // Actualizar notificación
+            createSessionNotification(mediaSession)
         }
     }
 
