@@ -121,6 +121,7 @@ class VideoPlaybackService : MediaSessionService() {
 
         mediaSessionsList[player] = mediaSession
         addSession(mediaSession)
+        PlayerInstanceTracker.register(player) // PLAYER-265 S1: count live audio players
 
         // Solo iniciar foreground service si la app está en primer plano
         if (!isForegroundServiceStarted) {
@@ -135,6 +136,7 @@ class VideoPlaybackService : MediaSessionService() {
         DebugLog.d(TAG, "VideoPlaybackService unregisterPlayer")
         hidePlayerNotification(player)
         val session = mediaSessionsList.remove(player)
+        PlayerInstanceTracker.unregister(player) // PLAYER-265 S1: decrement live audio player count
         session?.release()
         if (mediaSessionsList.isEmpty()) {
             cleanup()
