@@ -1,7 +1,27 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.brentvatne.react">
     <application>
-        <!-- Android Auto MediaBrowserService -->
+        <!--
+            PLAYER-269: VideoPlaybackService promoted to MediaLibraryService.
+            With reconcileEnabled=false (kill-switch default), AndroidAutoMediaBrowserService
+            still serves browse requests (pre-269 behaviour, invariant 5).
+            With reconcileEnabled=true, this single service handles both browse + playback.
+            Phase 6 burn-down removes the AndroidAutoMediaBrowserService entry below.
+        -->
+        <service
+            android:name="com.brentvatne.exoplayer.VideoPlaybackService"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService"/>
+                <action android:name="androidx.media3.session.MediaSessionService"/>
+            </intent-filter>
+        </service>
+
+        <!--
+            PLAYER-269 kill-switch guard: keep AndroidAutoMediaBrowserService registered while
+            reconcileEnabled=false (default). Removed at Phase 6 burn-down once flag validated.
+        -->
         <service
             android:name="com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService"
             android:exported="true">
