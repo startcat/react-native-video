@@ -19,6 +19,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import com.brentvatne.exoplayer.CanonicalPlayerHolder
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 
@@ -739,69 +740,91 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
 
     private fun setupStandaloneMode() {
         Log.d(TAG, "Setting up STANDALONE mode...")
-        
+
         // Release existing player if any
         releaseStandalonePlayer()
-        
+
         try {
-            // Create ExoPlayer
-            standalonePlayer = ExoPlayer.Builder(reactApplicationContext).build().apply {
-                // Add player listener
-                addListener(object : Player.Listener {
-                    override fun onPlaybackStateChanged(playbackState: Int) {
-                        val stateStr = when (playbackState) {
-                            Player.STATE_IDLE -> "IDLE"
-                            Player.STATE_BUFFERING -> "BUFFERING"
-                            Player.STATE_READY -> "READY"
-                            Player.STATE_ENDED -> "ENDED"
-                            else -> "UNKNOWN"
-                        }
-                        Log.d(TAG, "[Standalone] Playback state: $stateStr")
-                        
-                        // Emitir eventos de estado
-                        when (playbackState) {
-                            Player.STATE_BUFFERING -> emitPlaybackStateChanged("buffering")
-                            Player.STATE_ENDED -> {
-                                emitPlaybackStateChanged("ended")
-                                handleStandaloneItemCompleted()
-                            }
-                        }
+            // PLAYER-269: when the canonical reconciliation is enabled, route through
+            // CanonicalPlayerHolder so the standalone player IS the canonical player
+            // (ADR Auto-001, inv. 1 + 2). With reconcileEnabled=false (the default kill-switch
+            // state), behaviour is identical to pre-269 — a fresh standalone ExoPlayer.
+            val playerListener = object : Player.Listener {
+                override fun onPlaybackStateChanged(playbackState: Int) {
+                    val stateStr = when (playbackState) {
+                        Player.STATE_IDLE -> "IDLE"
+                        Player.STATE_BUFFERING -> "BUFFERING"
+                        Player.STATE_READY -> "READY"
+                        Player.STATE_ENDED -> "ENDED"
+                        else -> "UNKNOWN"
                     }
-                    
-                    override fun onIsPlayingChanged(isPlaying: Boolean) {
-                        Log.d(TAG, "[Standalone] Is playing: $isPlaying")
-                        if (isPlaying) {
-                            val currentItem = items.getOrNull(currentIndex)
-                            Log.d(TAG, "[Standalone] Now playing: ${currentItem?.metadata?.title}")
-                            emitPlaybackStateChanged("playing")
-                        } else {
-                            emitPlaybackStateChanged("paused")
+                    Log.d(TAG, "[Standalone] Playback state: $stateStr")
+
+                    // Emitir eventos de estado
+                    when (playbackState) {
+                        Player.STATE_BUFFERING -> emitPlaybackStateChanged("buffering")
+                        Player.STATE_ENDED -> {
+                            emitPlaybackStateChanged("ended")
+                            handleStandaloneItemCompleted()
                         }
                     }
-                    
-                    override fun onPlayerError(error: PlaybackException) {
-                        Log.e(TAG, "[Standalone] Playback error: ${error.message}", error)
-                        handleStandaloneItemError(error)
+                }
+
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    Log.d(TAG, "[Standalone] Is playing: $isPlaying")
+                    if (isPlaying) {
+                        val currentItem = items.getOrNull(currentIndex)
+                        Log.d(TAG, "[Standalone] Now playing: ${currentItem?.metadata?.title}")
+                        emitPlaybackStateChanged("playing")
+                    } else {
+                        emitPlaybackStateChanged("paused")
                     }
-                })
-                
-                // Set audio attributes
-                setAudioAttributes(
-                    androidx.media3.common.AudioAttributes.Builder()
-                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                        .setUsage(C.USAGE_MEDIA)
-                        .build(),
-                    false // NO manejar audio focus automáticamente - lo manejamos manualmente
-                )
-                
-                Log.d(TAG, "[Standalone] ExoPlayer created with audio attributes")
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    Log.e(TAG, "[Standalone] Playback error: ${error.message}", error)
+                    handleStandaloneItemError(error)
+                }
             }
-            
-            // Request audio focus
+
+            if (CanonicalPlayerHolder.reconcileEnabled) {
+                // Route through holder — becomes the canonical (sole) audio player (inv. 1 + 2).
+                // handleAudioFocus = false: focus is owned manually by this module's listener (inv. 4).
+                standalonePlayer = CanonicalPlayerHolder.getOrCreate(reactApplicationContext) { ctx ->
+                    ExoPlayer.Builder(ctx).build().apply {
+                        setAudioAttributes(
+                            androidx.media3.common.AudioAttributes.Builder()
+                                .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+                                .setUsage(C.USAGE_MEDIA)
+                                .build(),
+                            false // sole-owner focus managed manually — invariant 4
+                        )
+                        Log.d(TAG, "[Standalone/Canonical] ExoPlayer created via CanonicalPlayerHolder")
+                    }
+                }.apply {
+                    addListener(playerListener)
+                }
+            } else {
+                // Kill-switch OFF (default): pre-269 behaviour — direct construction.
+                standalonePlayer = ExoPlayer.Builder(reactApplicationContext).build().apply {
+                    addListener(playerListener)
+                    // Set audio attributes
+                    setAudioAttributes(
+                        androidx.media3.common.AudioAttributes.Builder()
+                            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                            .setUsage(C.USAGE_MEDIA)
+                            .build(),
+                        false // NO manejar audio focus automáticamente - lo manejamos manualmente
+                    )
+                    Log.d(TAG, "[Standalone] ExoPlayer created with audio attributes")
+                }
+            }
+
+            // Request audio focus (the canonical focus listener — inv. 4)
             requestAudioFocus()
-            
-            Log.d(TAG, "[Standalone] Setup complete")
-            
+
+            Log.d(TAG, "[Standalone] Setup complete (reconcileEnabled=${CanonicalPlayerHolder.reconcileEnabled})")
+
         } catch (e: Exception) {
             Log.e(TAG, "[Standalone] Failed to setup: ${e.message}", e)
         }
@@ -1026,12 +1049,20 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     private fun releaseStandalonePlayer() {
         standalonePlayer?.let { player ->
             Log.d(TAG, "[Standalone] Releasing player...")
-            player.stop()
-            player.release()
+            // PLAYER-269 (inv. 2): The canonical player's lifetime is owned by
+            // VideoPlaybackService, not the React/module layer. Abandon focus but do NOT
+            // release the player if the service still holds it as canonical.
+            // With reconcileEnabled=false (default kill-switch), always release as before.
+            if (CanonicalPlayerHolder.reconcileEnabled && CanonicalPlayerHolder.isCanonical(player)) {
+                Log.d(TAG, "[Standalone] Skipping release — player is canonical (service-owned, inv. 2)")
+            } else {
+                player.stop()
+                player.release()
+                Log.d(TAG, "[Standalone] Player released")
+            }
             standalonePlayer = null
-            Log.d(TAG, "[Standalone] Player released")
         }
-        
+
         abandonAudioFocus()
         isPlaybackActive = false
     }

@@ -9,7 +9,9 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.brentvatne.exoplayer.androidauto.MediaCache
 import com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService
+import com.brentvatne.exoplayer.CanonicalPlayerHolder
 import com.brentvatne.exoplayer.GlobalPlayerManager
+import com.brentvatne.exoplayer.VideoPlaybackService
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 
@@ -54,6 +56,13 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
                 instance ?: AndroidAutoModule(context).also { instance = it }
             }
         }
+
+        /**
+         * PLAYER-269 Phase 4: zero-arg accessor used by [VideoLibraryCallback] and other
+         * non-RN contexts that cannot provide a [ReactApplicationContext].
+         * Returns null if the module has not been initialized yet (JS not ready).
+         */
+        fun getInstance(): AndroidAutoModule? = instance
     }
     
     private var isEnabled = false
@@ -91,20 +100,31 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
             val stats = mediaCache?.getStats()
             Log.d(TAG, "MediaCache ready: $stats")
             
-            // Iniciar MediaBrowserService
-            val intent = Intent(reactContext, com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService::class.java)
-            reactContext.startService(intent)
-            Log.d(TAG, "MediaBrowserService started")
-            
-            // Inyectar instancia del módulo en el servicio
+            // Iniciar MediaBrowserService (pre-269) o VideoPlaybackService (reconcileEnabled=true)
+            if (CanonicalPlayerHolder.reconcileEnabled) {
+                val svcIntent = Intent(reactContext, VideoPlaybackService::class.java)
+                reactContext.startService(svcIntent)
+                Log.d(TAG, "VideoPlaybackService started (canonical mode)")
+            } else {
+                val intent = Intent(reactContext, com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService::class.java)
+                reactContext.startService(intent)
+                Log.d(TAG, "AndroidAutoMediaBrowserService started (pre-269 mode)")
+            }
+
+            // Inyectar instancia del módulo en el servicio y notificar habilitación
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                val service = com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService.getInstance()
-                service?.setAndroidAutoModule(this)
-                Log.d(TAG, "Module instance injected into service")
-                
-                // Notificar al servicio que Android Auto está habilitado
-                service?.onAndroidAutoEnabled()
-                Log.d(TAG, "Service notified of Android Auto enabled")
+                if (CanonicalPlayerHolder.reconcileEnabled) {
+                    // PLAYER-269 Phase 4.8: repoint to VideoPlaybackService
+                    val canonicalSvc = VideoPlaybackService.liveInstance
+                    canonicalSvc?.setAndroidAutoModule(this)
+                    canonicalSvc?.onAndroidAutoEnabled()
+                    Log.d(TAG, "VideoPlaybackService notified of Android Auto enabled (canonical mode)")
+                } else {
+                    val service = com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService.getInstance()
+                    service?.setAndroidAutoModule(this)
+                    service?.onAndroidAutoEnabled()
+                    Log.d(TAG, "AndroidAutoMediaBrowserService notified of Android Auto enabled (pre-269 mode)")
+                }
             }, 500)
             
             isEnabled = true
@@ -135,10 +155,16 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
                 return
             }
             
-            // Detener MediaBrowserService
-            val intent = Intent(reactContext, com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService::class.java)
-            reactContext.stopService(intent)
-            Log.d(TAG, "MediaBrowserService stopped")
+            // Detener MediaBrowserService / VideoPlaybackService según flag
+            if (CanonicalPlayerHolder.reconcileEnabled) {
+                val svcIntent = Intent(reactContext, VideoPlaybackService::class.java)
+                reactContext.stopService(svcIntent)
+                Log.d(TAG, "VideoPlaybackService stopped (canonical mode)")
+            } else {
+                val intent = Intent(reactContext, com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService::class.java)
+                reactContext.stopService(intent)
+                Log.d(TAG, "AndroidAutoMediaBrowserService stopped (pre-269 mode)")
+            }
             
             isEnabled = false
             jsReady = false
@@ -433,9 +459,12 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
     @ReactMethod
     fun getConnectionStatus(promise: Promise) {
         try {
-            // Verificar si Android Auto está conectado
-            val service = AndroidAutoMediaBrowserService.getInstance()
-            val isConnected = service?.isAndroidAutoConnected() ?: false
+            // PLAYER-269 Phase 4.8: resolve service depending on kill-switch
+            val isConnected = if (CanonicalPlayerHolder.reconcileEnabled) {
+                VideoPlaybackService.liveInstance?.isAndroidAutoConnected() ?: false
+            } else {
+                AndroidAutoMediaBrowserService.getInstance()?.isAndroidAutoConnected() ?: false
+            }
             
             val status = Arguments.createMap().apply {
                 putBoolean("enabled", isEnabled)
@@ -578,11 +607,13 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
     @ReactMethod
     fun isAndroidAutoConnected(promise: Promise) {
         try {
-            // TODO: Implementar detección real de conexión Android Auto
-            // Por ahora, verificamos si el servicio está activo
-            val service = AndroidAutoMediaBrowserService.getInstance()
-            val isConnected = service != null
-            
+            // PLAYER-269 Phase 4.8: resolve service depending on kill-switch
+            val isConnected = if (CanonicalPlayerHolder.reconcileEnabled) {
+                VideoPlaybackService.liveInstance != null
+            } else {
+                AndroidAutoMediaBrowserService.getInstance() != null
+            }
+
             promise.resolve(isConnected)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to check Android Auto connection", e)
@@ -731,9 +762,15 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
     private fun notifyContentChanged(parentId: String) {
         try {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                val service = com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService.getInstance()
-                service?.notifyChildrenChanged(parentId)
-                Log.d(TAG, "Notified service of content change: $parentId")
+                // PLAYER-269 Phase 4.8: resolve service depending on kill-switch
+                if (CanonicalPlayerHolder.reconcileEnabled) {
+                    VideoPlaybackService.liveInstance?.notifyChildrenChanged(parentId)
+                    Log.d(TAG, "Notified VideoPlaybackService of content change: $parentId (canonical mode)")
+                } else {
+                    val service = com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService.getInstance()
+                    service?.notifyChildrenChanged(parentId)
+                    Log.d(TAG, "Notified AndroidAutoMediaBrowserService of content change: $parentId (pre-269 mode)")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to notify content change", e)
