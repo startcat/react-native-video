@@ -226,7 +226,46 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
             promise.reject("SET_LIBRARY_FAILED", "Failed to set media library: ${e.message}", e)
         }
     }
-    
+
+    /**
+     * PLAYER-267 FASE 6: receive a dynamic onBrowseRequest result from JS and cache it for the given parent,
+     * then notify Android Auto to refresh. The static setMediaLibrary path is unaffected.
+     */
+    @ReactMethod
+    fun respondToBrowseRequest(parentId: String, items: ReadableArray, promise: Promise) {
+        try {
+            if (!isEnabled) { promise.reject("NOT_ENABLED", "Android Auto not enabled"); return }
+            val mediaItems = parseMediaItems(items)
+            mediaCache?.updateChildren(parentId, mediaItems)
+            notifyContentChanged(parentId)
+            Log.i(TAG, "respondToBrowseRequest($parentId): cached ${mediaItems.size} items")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "respondToBrowseRequest failed", e)
+            promise.reject("BROWSE_RESPONSE_FAILED", e.message, e)
+        }
+    }
+
+    /**
+     * PLAYER-267 FASE 6: receive a dynamic onSearch result from JS and cache it under a synthetic search
+     * parent so the car can browse the results. parentId convention: "search:<query>".
+     */
+    @ReactMethod
+    fun respondToSearchRequest(query: String, items: ReadableArray, promise: Promise) {
+        try {
+            if (!isEnabled) { promise.reject("NOT_ENABLED", "Android Auto not enabled"); return }
+            val parent = "search:$query"
+            val mediaItems = parseMediaItems(items)
+            mediaCache?.updateChildren(parent, mediaItems)
+            notifyContentChanged(parent)
+            Log.i(TAG, "respondToSearchRequest('$query'): cached ${mediaItems.size} results")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "respondToSearchRequest failed", e)
+            promise.reject("SEARCH_RESPONSE_FAILED", e.message, e)
+        }
+    }
+
     /**
      * Actualizar biblioteca de medios (incremental)
      * 
