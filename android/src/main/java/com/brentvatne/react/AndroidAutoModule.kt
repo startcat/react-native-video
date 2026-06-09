@@ -436,11 +436,44 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
                 return
             }
             
-            // TODO FASE 6: Actualizar MediaSession
-            // La MediaSession existente en VideoPlaybackService se actualizará
-            // automáticamente cuando cambie el contenido en el reproductor.
-            // Este método es principalmente para actualizaciones manuales.
-            
+            // PLAYER-267 FASE 6: push metadata to the live MediaSession's player.
+            // Canonical world (reconcileEnabled=true): update the canonical player's current MediaItem metadata.
+            // Pre-269 (flag OFF): keep the existing GlobalPlayerManager route (updateNowPlayingMetadata path).
+            if (CanonicalPlayerHolder.reconcileEnabled) {
+                val player = CanonicalPlayerHolder.get()
+                if (player != null) {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        try {
+                            val current = player.currentMediaItem
+                            val md = androidx.media3.common.MediaMetadata.Builder()
+                                .setTitle(metadata.getString("title"))
+                                .setArtist(metadata.getString("artist"))
+                                .setArtworkUri(
+                                    metadata.getString("artworkUri")?.let { android.net.Uri.parse(it) }
+                                )
+                                .build()
+                            if (current != null) {
+                                player.replaceMediaItem(
+                                    player.currentMediaItemIndex,
+                                    current.buildUpon().setMediaMetadata(md).build()
+                                )
+                            }
+                            Log.d(TAG, "Now playing pushed to canonical session: $title")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to push now-playing to canonical player", e)
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "reconcileEnabled but canonical player not up; skipping now-playing push")
+                }
+            } else {
+                // Flag OFF: preserve the pre-269 GlobalPlayerManager metadata route.
+                GlobalPlayerManager.updateMetadata(
+                    metadata.getString("title"),
+                    metadata.getString("artist"),
+                    metadata.getString("artworkUri")
+                )
+            }
             Log.d(TAG, "Now playing updated: $title")
             
         } catch (e: Exception) {
