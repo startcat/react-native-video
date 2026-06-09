@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.brentvatne.exoplayer.androidauto.MediaCache
 import com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService
+import com.brentvatne.exoplayer.androidauto.ContentStyle
 import com.brentvatne.exoplayer.CanonicalPlayerHolder
 import com.brentvatne.exoplayer.GlobalPlayerManager
 import com.brentvatne.exoplayer.VideoPlaybackService
@@ -684,6 +685,19 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
                     continue
                 }
                 
+                // Read GUAU content-style extras (PLAYER-267 / PLAYER-273 deferral).
+                val extrasMap = map.getMap("extras")
+                val styleExtras = mutableMapOf<String, String?>()
+                if (extrasMap != null) {
+                    val it = extrasMap.keySetIterator()
+                    while (it.hasNextKey()) {
+                        val k = it.nextKey()
+                        // GUAU sends content-style values as strings ("1"/"2") and groupTitle as a string.
+                        styleExtras[k] = try { extrasMap.getString(k) } catch (_: Exception) { null }
+                    }
+                }
+                val contentStyleBundle = ContentStyle.toBundle(styleExtras)
+
                 // Construir MediaItem
                 val itemBuilder = MediaItem.Builder()
                     .setMediaId(id)
@@ -702,6 +716,7 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
                             .setIsPlayable(
                                 if (map.hasKey("playable")) map.getBoolean("playable") else false
                             )
+                            .setExtras(contentStyleBundle) // PLAYER-267: content-style -> media3 -> Auto
                             .build()
                     )
                 
