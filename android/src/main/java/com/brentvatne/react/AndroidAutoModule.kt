@@ -10,7 +10,6 @@ import androidx.media3.common.MediaMetadata
 import com.brentvatne.exoplayer.CanonicalPlayerHolder
 import com.brentvatne.exoplayer.GlobalPlayerManager
 import com.brentvatne.exoplayer.VideoPlaybackService
-import com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService
 import com.brentvatne.exoplayer.androidauto.ContentStyle
 import com.brentvatne.exoplayer.androidauto.MediaCache
 import com.facebook.react.bridge.*
@@ -87,6 +86,35 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
             instance?.takeIf { it.isJavaScriptReady() }
                 ?.sendEvent(EVENT_SKIP_TO_PREVIOUS, null)
         }
+
+        // PLAYER-280: play pedido por el coche antes de que JS estuviera listo (cold-start).
+        // Vive en el companion (no en la instancia) porque en frío el módulo aún NO existe.
+        // Lo entrega setJavaScriptReady() al completar el bootstrap headless.
+        @Volatile
+        private var pendingCarPlayMediaId: String? = null
+
+        /**
+         * PLAYER-280: encolar (o entregar, si JS ya está listo) un play solicitado por el coche.
+         * Llamado por [com.brentvatne.exoplayer.VideoLibraryCallback] cuando el item no tiene
+         * URI en cache y el contexto JS todavía se está inicializando.
+         */
+        @JvmStatic
+        fun queueCarPlayRequest(mediaId: String) {
+            val ready = instance?.takeIf { it.isJavaScriptReady() }
+            if (ready != null) {
+                // Cierra la carrera "se hizo ready entre el check y el queue".
+                ready.sendEvent(
+                    EVENT_PLAY_FROM_MEDIA_ID,
+                    Arguments.createMap().apply { putString("mediaId", mediaId) }
+                )
+            } else {
+                pendingCarPlayMediaId = mediaId
+            }
+        }
+
+        /** Saca el play pendiente (si lo hay), dejando la cola vacía. */
+        @JvmStatic
+        internal fun consumePendingCarPlay(): String? = pendingCarPlayMediaId?.also { pendingCarPlayMediaId = null }
     }
 
     private var isEnabled = false
@@ -124,35 +152,24 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
             val stats = mediaCache?.getStats()
             Log.d(TAG, "MediaCache ready: $stats")
 
-            // Iniciar MediaBrowserService (pre-269) o VideoPlaybackService (reconcileEnabled=true)
-            if (CanonicalPlayerHolder.reconcileEnabled) {
-                val svcIntent = Intent(reactContext, VideoPlaybackService::class.java)
-                reactContext.startService(svcIntent)
-                Log.d(TAG, "VideoPlaybackService started (canonical mode)")
-            } else {
-                val intent = Intent(reactContext, com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService::class.java)
-                reactContext.startService(intent)
-                Log.d(TAG, "AndroidAutoMediaBrowserService started (pre-269 mode)")
-            }
+            // Iniciar el servicio canónico (único servicio in-car tras el burn-down PLAYER-278)
+            val svcIntent = Intent(reactContext, VideoPlaybackService::class.java)
+            reactContext.startService(svcIntent)
+            Log.d(TAG, "VideoPlaybackService started (canonical)")
 
-            // Inyectar instancia del módulo en el servicio y notificar habilitación
+            // Notificar habilitación al servicio canónico
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                if (CanonicalPlayerHolder.reconcileEnabled) {
-                    // PLAYER-269 Phase 4.8: repoint to VideoPlaybackService
-                    val canonicalSvc = VideoPlaybackService.liveInstance
-                    canonicalSvc?.setAndroidAutoModule(this)
-                    canonicalSvc?.onAndroidAutoEnabled()
-                    Log.d(TAG, "VideoPlaybackService notified of Android Auto enabled (canonical mode)")
-                } else {
-                    val service = com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService.getInstance()
-                    service?.setAndroidAutoModule(this)
-                    service?.onAndroidAutoEnabled()
-                    Log.d(TAG, "AndroidAutoMediaBrowserService notified of Android Auto enabled (pre-269 mode)")
-                }
+                val canonicalSvc = VideoPlaybackService.liveInstance
+                canonicalSvc?.setAndroidAutoModule(this)
+                canonicalSvc?.onAndroidAutoEnabled()
+                Log.d(TAG, "VideoPlaybackService notified of Android Auto enabled")
             }, 500)
 
             isEnabled = true
-            jsReady = true
+            // NO marcar jsReady aquí (PLAYER-280): enable() se llama al PRINCIPIO del bootstrap
+            // JS, antes de registrar onPlayFromMediaId y de poblar la librería. Marcarlo aquí
+            // hacía que el servicio enviase plays "immediately" a un JS sin callback (evento
+            // perdido). jsReady lo marca SOLO setJavaScriptReady(), al final del bootstrap.
 
             Log.i(TAG, "Android Auto enabled successfully")
             promise.resolve(true)
@@ -178,16 +195,10 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
                 return
             }
 
-            // Detener MediaBrowserService / VideoPlaybackService según flag
-            if (CanonicalPlayerHolder.reconcileEnabled) {
-                val svcIntent = Intent(reactContext, VideoPlaybackService::class.java)
-                reactContext.stopService(svcIntent)
-                Log.d(TAG, "VideoPlaybackService stopped (canonical mode)")
-            } else {
-                val intent = Intent(reactContext, com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService::class.java)
-                reactContext.stopService(intent)
-                Log.d(TAG, "AndroidAutoMediaBrowserService stopped (pre-269 mode)")
-            }
+            // Detener el servicio canónico
+            val svcIntent = Intent(reactContext, VideoPlaybackService::class.java)
+            reactContext.stopService(svcIntent)
+            Log.d(TAG, "VideoPlaybackService stopped (canonical)")
 
             isEnabled = false
             jsReady = false
@@ -230,11 +241,24 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
                 return
             }
 
-            // Parsear y guardar en MediaCache
-            val mediaItems = parseMediaItems(items)
-            mediaCache?.updateChildren("root", mediaItems)
+            // Parsear y AGRUPAR por parentId para reconstruir el árbol multinivel.
+            // JS envía una lista PLANA con un parentId por item (tabs -> "/" raíz, items -> tabId,
+            // children -> itemId). Antes TODO se guardaba bajo "root" (parentNodes=1), aplanando el
+            // árbol y dejando getChildren(<subnodo>) vacío. Ahora respetamos parentId; la raíz de
+            // GUAU ("/" en el mapper JS) se normaliza a la raíz nativa ("root").
+            val grouped = LinkedHashMap<String, MutableList<MediaItem>>()
+            for (i in 0 until items.size()) {
+                val map = items.getMap(i) ?: continue
+                val item = buildMediaItem(map) ?: continue
+                val rawParent = map.getString("parentId")
+                val parent = if (rawParent.isNullOrEmpty() || rawParent == "/") "root" else rawParent
+                grouped.getOrPut(parent) { mutableListOf() }.add(item)
+            }
+            grouped.forEach { (parent, children) -> mediaCache?.updateChildren(parent, children) }
+            val totalCached = grouped.values.sumOf { it.size }
+            Log.i(TAG, "setMediaLibrary: cached $totalCached items across ${grouped.size} parent nodes")
 
-            // Notificar al servicio que el contenido cambió
+            // Notificar al servicio que el contenido cambió (refresca desde la raíz)
             notifyContentChanged("root")
 
             // Log estadísticas
@@ -497,43 +521,32 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
                 return
             }
 
-            // PLAYER-267 FASE 6: push metadata to the live MediaSession's player.
-            // Canonical world (reconcileEnabled=true): update the canonical player's current MediaItem metadata.
-            // Pre-269 (flag OFF): keep the existing GlobalPlayerManager route (updateNowPlayingMetadata path).
-            if (CanonicalPlayerHolder.reconcileEnabled) {
-                val player = CanonicalPlayerHolder.get()
-                if (player != null) {
-                    android.os.Handler(android.os.Looper.getMainLooper()).post {
-                        try {
-                            val current = player.currentMediaItem
-                            val md = androidx.media3.common.MediaMetadata.Builder()
-                                .setTitle(metadata.getString("title"))
-                                .setArtist(metadata.getString("artist"))
-                                .setArtworkUri(
-                                    metadata.getString("artworkUri")?.let { android.net.Uri.parse(it) }
-                                )
-                                .build()
-                            if (current != null) {
-                                player.replaceMediaItem(
-                                    player.currentMediaItemIndex,
-                                    current.buildUpon().setMediaMetadata(md).build()
-                                )
-                            }
-                            Log.d(TAG, "Now playing pushed to canonical session: $title")
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to push now-playing to canonical player", e)
+            // PLAYER-267 FASE 6: push metadata to the canonical player's current MediaItem.
+            val player = CanonicalPlayerHolder.get()
+            if (player != null) {
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    try {
+                        val current = player.currentMediaItem
+                        val md = androidx.media3.common.MediaMetadata.Builder()
+                            .setTitle(metadata.getString("title"))
+                            .setArtist(metadata.getString("artist"))
+                            .setArtworkUri(
+                                metadata.getString("artworkUri")?.let { android.net.Uri.parse(it) }
+                            )
+                            .build()
+                        if (current != null) {
+                            player.replaceMediaItem(
+                                player.currentMediaItemIndex,
+                                current.buildUpon().setMediaMetadata(md).build()
+                            )
                         }
+                        Log.d(TAG, "Now playing pushed to canonical session: $title")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to push now-playing to canonical player", e)
                     }
-                } else {
-                    Log.w(TAG, "reconcileEnabled but canonical player not up; skipping now-playing push")
                 }
             } else {
-                // Flag OFF: preserve the pre-269 GlobalPlayerManager metadata route.
-                GlobalPlayerManager.updateMetadata(
-                    metadata.getString("title"),
-                    metadata.getString("artist"),
-                    metadata.getString("artworkUri")
-                )
+                Log.w(TAG, "Canonical player not up; skipping now-playing push")
             }
             Log.d(TAG, "Now playing updated: $title")
         } catch (e: Exception) {
@@ -553,12 +566,7 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
     @ReactMethod
     fun getConnectionStatus(promise: Promise) {
         try {
-            // PLAYER-269 Phase 4.8: resolve service depending on kill-switch
-            val isConnected = if (CanonicalPlayerHolder.reconcileEnabled) {
-                VideoPlaybackService.liveInstance?.isAndroidAutoConnected() ?: false
-            } else {
-                AndroidAutoMediaBrowserService.getInstance()?.isAndroidAutoConnected() ?: false
-            }
+            val isConnected = VideoPlaybackService.liveInstance?.isAndroidAutoConnected() ?: false
 
             val status = Arguments.createMap().apply {
                 putBoolean("enabled", isEnabled)
@@ -589,6 +597,16 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
 
             // Emitir evento para notificar a otros componentes
             sendEvent(EVENT_JS_READY, null)
+
+            // Entregar el play pendiente de un cold-start (PLAYER-280): si el coche pidió
+            // reproducir antes de que JS estuviera listo, VideoLibraryCallback lo dejó encolado.
+            consumePendingCarPlay()?.let { queued ->
+                Log.i(TAG, "JS ready — delivering queued car play request: $queued")
+                sendEvent(
+                    EVENT_PLAY_FROM_MEDIA_ID,
+                    Arguments.createMap().apply { putString("mediaId", queued) }
+                )
+            }
 
             promise.resolve(true)
         } catch (e: Exception) {
@@ -699,12 +717,7 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
     @ReactMethod
     fun isAndroidAutoConnected(promise: Promise) {
         try {
-            // PLAYER-269 Phase 4.8: resolve service depending on kill-switch
-            val isConnected = if (CanonicalPlayerHolder.reconcileEnabled) {
-                VideoPlaybackService.liveInstance != null
-            } else {
-                AndroidAutoMediaBrowserService.getInstance() != null
-            }
+            val isConnected = VideoPlaybackService.liveInstance != null
 
             promise.resolve(isConnected)
         } catch (e: Exception) {
@@ -768,62 +781,7 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
         for (i in 0 until array.size()) {
             try {
                 val map = array.getMap(i) ?: continue
-
-                // ID es requerido
-                val id = map.getString("id")
-                if (id.isNullOrEmpty()) {
-                    Log.w(TAG, "Skipping item at index $i: missing id")
-                    continue
-                }
-
-                // Read GUAU content-style extras (PLAYER-267 / PLAYER-273 deferral).
-                val extrasMap = map.getMap("extras")
-                val styleExtras = mutableMapOf<String, String?>()
-                if (extrasMap != null) {
-                    val it = extrasMap.keySetIterator()
-                    while (it.hasNextKey()) {
-                        val k = it.nextKey()
-                        // GUAU sends content-style values as strings ("1"/"2") and groupTitle as a string.
-                        styleExtras[k] = try {
-                            extrasMap.getString(k)
-                        } catch (_: Exception) {
-                            null
-                        }
-                    }
-                }
-                val contentStyleBundle = ContentStyle.toBundle(styleExtras)
-
-                // Construir MediaItem
-                val itemBuilder = MediaItem.Builder()
-                    .setMediaId(id)
-                    .setMediaMetadata(
-                        MediaMetadata.Builder()
-                            .setTitle(map.getString("title"))
-                            .setSubtitle(map.getString("subtitle"))
-                            .setArtist(map.getString("artist"))
-                            .setAlbumTitle(map.getString("album"))
-                            .setArtworkUri(
-                                map.getString("artworkUri")?.let { Uri.parse(it) }
-                            )
-                            .setIsBrowsable(
-                                if (map.hasKey("browsable")) map.getBoolean("browsable") else false
-                            )
-                            .setIsPlayable(
-                                if (map.hasKey("playable")) map.getBoolean("playable") else false
-                            )
-                            .setExtras(contentStyleBundle) // PLAYER-267: content-style -> media3 -> Auto
-                            .build()
-                    )
-
-                // Añadir URI si está presente (necesario para reproducción)
-                val uri = map.getString("uri")
-                if (!uri.isNullOrEmpty()) {
-                    itemBuilder.setUri(uri)
-                }
-
-                val item = itemBuilder.build()
-
-                items.add(item)
+                buildMediaItem(map)?.let { items.add(it) }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to parse item at index $i", e)
             }
@@ -831,6 +789,68 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
 
         Log.d(TAG, "Parsed ${items.size} media items from ${array.size()} input items")
         return items
+    }
+
+    /**
+     * Build a single Media3 [MediaItem] from a JS map. Shared by [parseMediaItems] (flat) and the
+     * parentId-grouping pass in [setMediaLibrary], so the item-build logic lives in one place.
+     * The per-item `parentId` is intentionally NOT encoded here — the caller reads it to decide
+     * which MediaCache parent bucket the item belongs to.
+     */
+    private fun buildMediaItem(map: ReadableMap): MediaItem? {
+        // ID es requerido
+        val id = map.getString("id")
+        if (id.isNullOrEmpty()) {
+            Log.w(TAG, "Skipping item: missing id")
+            return null
+        }
+
+        // Read GUAU content-style extras (PLAYER-267 / PLAYER-273 deferral).
+        val extrasMap = map.getMap("extras")
+        val styleExtras = mutableMapOf<String, String?>()
+        if (extrasMap != null) {
+            val it = extrasMap.keySetIterator()
+            while (it.hasNextKey()) {
+                val k = it.nextKey()
+                // GUAU sends content-style values as strings ("1"/"2") and groupTitle as a string.
+                styleExtras[k] = try {
+                    extrasMap.getString(k)
+                } catch (_: Exception) {
+                    null
+                }
+            }
+        }
+        val contentStyleBundle = ContentStyle.toBundle(styleExtras)
+
+        // Construir MediaItem
+        val itemBuilder = MediaItem.Builder()
+            .setMediaId(id)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(map.getString("title"))
+                    .setSubtitle(map.getString("subtitle"))
+                    .setArtist(map.getString("artist"))
+                    .setAlbumTitle(map.getString("album"))
+                    .setArtworkUri(
+                        map.getString("artworkUri")?.let { Uri.parse(it) }
+                    )
+                    .setIsBrowsable(
+                        if (map.hasKey("browsable")) map.getBoolean("browsable") else false
+                    )
+                    .setIsPlayable(
+                        if (map.hasKey("playable")) map.getBoolean("playable") else false
+                    )
+                    .setExtras(contentStyleBundle) // PLAYER-267: content-style -> media3 -> Auto
+                    .build()
+            )
+
+        // Añadir URI si está presente (necesario para reproducción)
+        val uri = map.getString("uri")
+        if (!uri.isNullOrEmpty()) {
+            itemBuilder.setUri(uri)
+        }
+
+        return itemBuilder.build()
     }
 
     // ========================================================================
@@ -871,15 +891,8 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
     private fun notifyContentChanged(parentId: String) {
         try {
             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                // PLAYER-269 Phase 4.8: resolve service depending on kill-switch
-                if (CanonicalPlayerHolder.reconcileEnabled) {
-                    VideoPlaybackService.liveInstance?.notifyChildrenChanged(parentId)
-                    Log.d(TAG, "Notified VideoPlaybackService of content change: $parentId (canonical mode)")
-                } else {
-                    val service = com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService.getInstance()
-                    service?.notifyChildrenChanged(parentId)
-                    Log.d(TAG, "Notified AndroidAutoMediaBrowserService of content change: $parentId (pre-269 mode)")
-                }
+                VideoPlaybackService.liveInstance?.notifyChildrenChanged(parentId)
+                Log.d(TAG, "Notified VideoPlaybackService of content change: $parentId")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to notify content change", e)

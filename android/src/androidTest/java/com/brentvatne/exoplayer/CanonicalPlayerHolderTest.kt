@@ -38,12 +38,6 @@ class CanonicalPlayerHolderTest {
         p.release() // manual teardown since holder was cleared
     }
 
-    @Test
-    fun reconcileEnabled_defaultsFalse() {
-        // Kill-switch MUST default to false for safe merge (user requirement PLAYER-269)
-        assertFalse(
-            "reconcileEnabled must default to false so merging is behaviour-neutral",
-            CanonicalPlayerHolder.reconcileEnabled
-        )
-    }
+    // PLAYER-278 burn-down: the reconcileEnabled kill-switch is gone (canonical unconditional),
+    // so the old reconcileEnabled_defaultsFalse safe-merge test no longer applies.
 }

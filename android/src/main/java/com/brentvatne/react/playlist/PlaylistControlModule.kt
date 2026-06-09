@@ -16,16 +16,18 @@ import androidx.media.AudioFocusRequestCompat
 import androidx.media.AudioManagerCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.brentvatne.exoplayer.CanonicalPlayerHolder
+import com.brentvatne.exoplayer.PlaylistQueueState
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 
 /**
  * PlaylistControlModule - Gestión centralizada de playlists
- * 
+ *
  * Similar al módulo iOS, gestiona:
  * - Standalone mode: Player propio con auto-next
  * - Coordinated mode: Sincronización con ReactExoplayerView
@@ -35,10 +37,10 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     companion object {
         private const val TAG = "PlaylistControlModule"
         const val MODULE_NAME = "PlaylistControlModule"
-        
+
         // Broadcast actions (for coordinated mode)
         const val ACTION_VIDEO_ITEM_FINISHED = "com.brentvatne.react.VIDEO_ITEM_FINISHED"
-        
+
         // Event names (match iOS)
         private const val EVENT_ITEM_CHANGED = "onPlaylistItemChanged"
         private const val EVENT_ITEM_STARTED = "onPlaylistItemStarted"
@@ -52,18 +54,30 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
 
     private val handler = Handler(Looper.getMainLooper())
     private val items = mutableListOf<PlaylistItem>()
+
+    // PLAYER-281: republish the playlist "has next" flag on EVERY index change so the canonical
+    // session's PlaylistAwareForwardingPlayer can expose COMMAND_SEEK_TO_NEXT (the single-item
+    // ExoPlayer timeline never does). Using a property setter catches every mutation site
+    // (setPlaylist / next / previous / goToIndex / auto-advance) without scattering publish calls.
+    // setPlaylist publishes once more after config is parsed (repeat-mode affects getNextIndex).
     private var currentIndex: Int = 0
+        set(value) {
+            field = value
+            PlaylistQueueState.hasNext = getNextIndex() != -1
+            PlaylistQueueState.hasPrevious = getPreviousIndex() != -1
+        }
     private var config = PlaylistConfiguration()
     private var isPlaybackActive = false
     private var hasSetupMediaSession = false
-    
+
     // Track which items have already emitted ITEM_STARTED to prevent duplicates
     private val itemsStartedSet = mutableSetOf<String>()
-    
+
     // Standalone mode components
     private var standalonePlayer: ExoPlayer? = null
     private var audioFocusRequest: AudioFocusRequestCompat? = null
     private var hasAudioFocus = false
+
     // Whether the standalonePlayer was paused due to a focus loss (any kind).
     // Used to decide whether to auto-resume on AUDIOFOCUS_GAIN. False means the
     // user explicitly paused / nothing was playing — don't auto-resume.
@@ -87,7 +101,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             val filter = IntentFilter().apply {
                 addAction(ACTION_VIDEO_ITEM_FINISHED)
             }
-            
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 // Android 13+ requires explicit flag
                 reactContext.registerReceiver(
@@ -101,7 +115,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     filter
                 )
             }
-            
+
             Log.d(TAG, "✅ Broadcast receiver registered successfully for playlist coordination")
             Log.d(TAG, "📻 Listening for action: $ACTION_VIDEO_ITEM_FINISHED")
         } catch (e: Exception) {
@@ -113,10 +127,10 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
 
     override fun invalidate() {
         super.invalidate()
-        
+
         // Release standalone player if active
         releaseStandalonePlayer()
-        
+
         try {
             reactApplicationContext.unregisterReceiver(broadcastReceiver)
             Log.d(TAG, "📻 Broadcast receiver unregistered")
@@ -126,8 +140,8 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         }
     }
 
-    override fun getConstants(): Map<String, Any> {
-        return mapOf(
+    override fun getConstants(): Map<String, Any> =
+        mapOf(
             "EVENT_ITEM_CHANGED" to EVENT_ITEM_CHANGED,
             "EVENT_ITEM_STARTED" to EVENT_ITEM_STARTED,
             "EVENT_ITEM_COMPLETED" to EVENT_ITEM_COMPLETED,
@@ -137,7 +151,6 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             "EVENT_CONTROL_ACTION" to EVENT_CONTROL_ACTION,
             "EVENT_PLAYBACK_STATE_CHANGED" to EVENT_PLAYBACK_STATE_CHANGED
         )
-    }
 
     @ReactMethod
     fun addListener(eventName: String) {
@@ -167,7 +180,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 itemsStartedSet.clear() // Clear started items tracking for new playlist
                 var successCount = 0
                 var failCount = 0
-                
+
                 for (i in 0 until itemsArray.size()) {
                     val item = PlaylistItem.fromMap(itemsArray.getMap(i))
                     if (item != null) {
@@ -178,15 +191,15 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         Log.w(TAG, "Failed to parse item at index $i")
                     }
                 }
-                
+
                 Log.d(TAG, "Playlist loaded: $successCount items parsed successfully, $failCount failed")
-                
+
                 // Validate we have at least one item
                 if (items.isEmpty()) {
                     promise.reject("PLAYLIST_ERROR", "No valid items in playlist. All ${itemsArray.size()} items failed to parse.")
                     return@post
                 }
-                
+
                 // Parse config
                 if (configMap.hasKey("startAt")) {
                     val requestedIndex = configMap.getInt("startAt")
@@ -197,30 +210,39 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 } else {
                     currentIndex = 0
                 }
-                
+
                 if (configMap.hasKey("config")) {
                     try {
                         config = PlaylistConfiguration.fromMap(configMap.getMap("config"))
-                        Log.d(TAG, "Config: autoNext=${config.autoNext}, repeatMode=${config.repeatMode}, shuffle=${config.shuffleEnabled}, coordinatedMode=${config.coordinatedMode}")
+                        Log.d(
+                            TAG,
+                            "Config: autoNext=${config.autoNext}, repeatMode=${config.repeatMode}, shuffle=${config.shuffleEnabled}, coordinatedMode=${config.coordinatedMode}"
+                        )
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to parse config, using defaults", e)
                         config = PlaylistConfiguration()
                     }
                 }
-                
+
+                // PLAYER-281: re-publish now that repeatMode (config) is parsed — getNextIndex()/
+                // getPreviousIndex() depend on it for the boundary/repeat-all case (the currentIndex
+                // setter above ran with the previous config).
+                PlaylistQueueState.hasNext = getNextIndex() != -1
+                PlaylistQueueState.hasPrevious = getPreviousIndex() != -1
+
                 Log.d(TAG, "About to check operation mode...")
-                
+
                 // Log operation mode
                 val modeStr = if (config.coordinatedMode) "COORDINATED" else "STANDALONE"
                 Log.d(TAG, "Operation mode: $modeStr (ReactExoplayerView handles playback: ${config.coordinatedMode})")
-                
+
                 Log.d(TAG, "After operation mode log...")
                 Log.d(TAG, "config.coordinatedMode value: ${config.coordinatedMode}")
-                
+
                 // Setup standalone mode if needed (AFTER config is fully parsed)
                 val shouldSetupStandalone = !config.coordinatedMode
                 Log.d(TAG, "shouldSetupStandalone: $shouldSetupStandalone")
-                
+
                 if (shouldSetupStandalone) {
                     Log.d(TAG, "[Standalone] Initializing standalone mode...")
                     try {
@@ -234,7 +256,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     }
                 } else {
                     Log.d(TAG, "Coordinated mode - skipping standalone setup")
-                    
+
                     // En modo coordinated, emitir ITEM_STARTED para que la reproducción comience
                     // notifyItemStarted() verificará si ya se emitió para evitar duplicados
                     val firstItem = items.getOrNull(currentIndex)
@@ -244,13 +266,78 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         Log.d(TAG, "[Coordinated] ITEM_STARTED emitted for initial item: ${firstItem.metadata.title}")
                     }
                 }
-                
+
                 Log.d(TAG, "setPlaylist completed successfully")
                 promise.resolve(true)
             } catch (e: Exception) {
                 Log.e(TAG, "Error setting playlist", e)
                 promise.reject("PLAYLIST_ERROR", e.message, e)
             }
+        }
+    }
+
+    /**
+     * PLAYER-282: append ONE item to the live queue WITHOUT touching playback.
+     *
+     * Backs the incremental-playlist flow (fast-start with the tapped item → append the rest
+     * async). Also the missing native half of the JS `PlaylistsManager.addItems()` loop, which
+     * already calls `nativeModule.addItem(item)` per item (and silently warned before this
+     * existed — the JS list updated but the native queue/next-button never did).
+     */
+    @ReactMethod
+    fun addItem(itemMap: ReadableMap, promise: Promise) {
+        handler.post {
+            try {
+                val item = PlaylistItem.fromMap(itemMap)
+                if (item == null) {
+                    promise.reject("PLAYLIST_ERROR", "Failed to parse item to append")
+                    return@post
+                }
+                if (items.any { it.id == item.id }) {
+                    Log.d(TAG, "[Append] Item already in queue, skipping: ${item.id}")
+                    promise.resolve(false)
+                    return@post
+                }
+
+                items.add(item)
+
+                val hadNext = PlaylistQueueState.hasNext
+                val hadPrevious = PlaylistQueueState.hasPrevious
+                PlaylistQueueState.hasNext = getNextIndex() != -1
+                PlaylistQueueState.hasPrevious = getPreviousIndex() != -1
+                Log.d(
+                    TAG,
+                    "[Append] Added: ${item.metadata.title} (queue=${items.size}, hasNext=${PlaylistQueueState.hasNext})"
+                )
+
+                if (hadNext != PlaylistQueueState.hasNext || hadPrevious != PlaylistQueueState.hasPrevious) {
+                    nudgeSessionCommandsRefresh()
+                }
+
+                promise.resolve(true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error appending item", e)
+                promise.reject("PLAYLIST_ERROR", e.message, e)
+            }
+        }
+    }
+
+    /**
+     * PLAYER-282: media3 only re-queries [PlaylistAwareForwardingPlayer.getAvailableCommands] on a
+     * player EVENT; a queue append alone fires none, so the next/previous buttons would stay
+     * hidden until some unrelated event. [Player.setPlaylistMetadata] is a playback-neutral event
+     * (EVENT_PLAYLIST_METADATA_CHANGED) that makes the session push fresh PlayerInfo. ExoPlayer
+     * no-ops on EQUAL metadata — mirroring the CURRENT item's metadata changes on the first
+     * append (playlistMetadata starts EMPTY), which is the case that matters (hasNext false→true
+     * right after the fast-start).
+     */
+    private fun nudgeSessionCommandsRefresh() {
+        val player = standalonePlayer ?: return
+        try {
+            player.setPlaylistMetadata(player.mediaMetadata)
+            Log.d(TAG, "[Append] Session command refresh nudged (playlistMetadata)")
+        } catch (e: Exception) {
+            Log.w(TAG, "[Append] Failed to nudge session command refresh", e)
         }
     }
 
@@ -262,18 +349,18 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         handler.post {
             try {
                 Log.d(TAG, "Clearing playlist...")
-                
+
                 // Stop playback if active
                 if (!config.coordinatedMode) {
                     releaseStandalonePlayer()
                 }
-                
+
                 // Clear items and reset state
                 items.clear()
                 itemsStartedSet.clear() // Clear started items tracking
                 currentIndex = 0
                 isPlaybackActive = false
-                
+
                 Log.d(TAG, "Playlist cleared successfully")
                 promise.resolve(true)
             } catch (e: Exception) {
@@ -286,7 +373,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     /**
      * Control actions - work in both standalone and coordinated modes
      */
-    
+
     @ReactMethod
     fun play(promise: Promise) {
         handler.post {
@@ -309,7 +396,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             }
         }
     }
-    
+
     @ReactMethod
     fun pause(promise: Promise) {
         handler.post {
@@ -330,7 +417,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             }
         }
     }
-    
+
     @ReactMethod
     fun seekTo(positionMs: Double, promise: Promise) {
         handler.post {
@@ -353,7 +440,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             }
         }
     }
-    
+
     @ReactMethod
     fun next(promise: Promise) {
         handler.post {
@@ -385,7 +472,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             }
         }
     }
-    
+
     @ReactMethod
     fun previous(promise: Promise) {
         handler.post {
@@ -394,7 +481,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     val previousIndex = currentIndex
                     currentIndex = getPreviousIndex()
                     val prevItem = items[currentIndex]
-                    
+
                     if (config.coordinatedMode) {
                         emitControlAction("previous")
                         Log.d(TAG, "[Coordinated] Previous action emitted")
@@ -419,7 +506,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             }
         }
     }
-    
+
     @ReactMethod
     fun stop(promise: Promise) {
         handler.post {
@@ -441,13 +528,13 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             }
         }
     }
-    
+
     @ReactMethod
     fun getPlaybackState(promise: Promise) {
         handler.post {
             try {
                 val state = Arguments.createMap()
-                
+
                 if (config.coordinatedMode) {
                     state.putString("mode", "coordinated")
                     state.putInt("currentIndex", currentIndex)
@@ -460,7 +547,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     state.putDouble("position", standalonePlayer?.currentPosition?.toDouble() ?: 0.0)
                     state.putDouble("duration", standalonePlayer?.duration?.toDouble() ?: 0.0)
                 }
-                
+
                 promise.resolve(state)
             } catch (e: Exception) {
                 Log.e(TAG, "Error getting playback state", e)
@@ -480,22 +567,22 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     promise.reject("INVALID_INDEX", "Index $index out of bounds")
                     return@post
                 }
-                
+
                 val previousIndex = currentIndex
                 currentIndex = index
                 val item = items[index]
-                
+
                 // When moving to a different item, allow it to emit ITEM_STARTED again
                 // (in case user goes back to a previous item)
                 itemsStartedSet.clear()
-                
+
                 Log.d(TAG, "Going to index $index: ${item.metadata.title}")
                 Log.d(TAG, "  Mode: ${if (config.coordinatedMode) "COORDINATED" else "STANDALONE"}")
                 Log.d(TAG, "  Item type: ${item.type}")
-                
+
                 // Emit event to JavaScript
                 emitItemChanged(item, index, previousIndex)
-                
+
                 // Handle based on mode
                 if (config.coordinatedMode) {
                     Log.d(TAG, "🎯 COORDINATED mode: Event emitted, JavaScript will update <Video> source")
@@ -506,7 +593,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     // In standalone mode, we manage our own ExoPlayer
                     loadCurrentItem()
                 }
-                
+
                 Log.d(TAG, "✅ goToIndex completed successfully")
                 promise.resolve(true)
             } catch (e: Exception) {
@@ -589,7 +676,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         handler.post {
             try {
                 Log.d(TAG, "📢 notifyItemFinished called from JavaScript: $itemId")
-                
+
                 // Handle item completion (works in both coordinated and standalone modes)
                 if (config.coordinatedMode) {
                     handleItemCompletionInCoordinatedMode(itemId)
@@ -618,30 +705,30 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         handler.post {
             try {
                 Log.d(TAG, "📢 notifyItemStarted called from JavaScript: $itemId")
-                
+
                 val currentItem = items.getOrNull(currentIndex)
                 if (currentItem == null) {
                     Log.w(TAG, "⚠️ notifyItemStarted: No current item at index $currentIndex")
                     promise.resolve(false)
                     return@post
                 }
-                
+
                 if (itemId != null && currentItem.id != itemId) {
                     Log.w(TAG, "⚠️ notifyItemStarted: Item ID mismatch - expected ${currentItem.id}, got $itemId")
                 }
-                
+
                 // Check if this item already emitted ITEM_STARTED
                 if (itemsStartedSet.contains(currentItem.id)) {
                     Log.d(TAG, "⏭️ Skipping duplicate ITEM_STARTED for: ${currentItem.id}")
                     promise.resolve(true)
                     return@post
                 }
-                
+
                 // Emit item started event (works in both coordinated and standalone modes)
                 emitItemStarted(currentItem)
                 itemsStartedSet.add(currentItem.id)
                 Log.d(TAG, "✅ Item started event emitted for: ${currentItem.metadata.title}")
-                
+
                 promise.resolve(true)
             } catch (e: Exception) {
                 Log.e(TAG, "Error in notifyItemStarted", e)
@@ -652,42 +739,36 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
 
     // ========== Private Methods ==========
 
-    private fun getNextIndex(): Int {
-        return when {
+    private fun getNextIndex(): Int =
+        when {
             currentIndex < items.size - 1 -> currentIndex + 1
             config.repeatMode == PlaylistRepeatMode.ALL -> 0
             else -> -1
         }
-    }
 
-    private fun getPreviousIndex(): Int {
-        return when {
+    private fun getPreviousIndex(): Int =
+        when {
             currentIndex > 0 -> currentIndex - 1
             config.repeatMode == PlaylistRepeatMode.ALL -> items.size - 1
             else -> -1
         }
-    }
 
-    private fun canGoNext(): Boolean {
-        return getNextIndex() != -1
-    }
+    private fun canGoNext(): Boolean = getNextIndex() != -1
 
-    private fun canGoPrevious(): Boolean {
-        return getPreviousIndex() != -1
-    }
+    private fun canGoPrevious(): Boolean = getPreviousIndex() != -1
 
     private fun handleItemCompletionInCoordinatedMode(itemId: String?) {
         val currentItem = items.getOrNull(currentIndex) ?: return
-        
+
         if (itemId != null && currentItem.id != itemId) {
             Log.w(TAG, "Item ID mismatch: expected ${currentItem.id}, got $itemId")
         }
-        
+
         // Emit completion event
         emitItemCompleted(currentItem)
-        
+
         Log.d(TAG, "Item completed: ${currentItem.id}")
-        
+
         // Auto-advance if enabled
         if (config.autoNext || currentItem.type == PlaylistItemType.TUDUM) {
             advanceToNextItem()
@@ -701,24 +782,24 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
      */
     private fun advanceToNextItem() {
         val nextIndex = getNextIndex()
-        
+
         if (nextIndex == -1) {
             Log.d(TAG, "🏁 Playlist ended")
             isPlaybackActive = false
             emitPlaylistEnded()
             return
         }
-        
+
         val previousIndex = currentIndex
         currentIndex = nextIndex
         val nextItem = items[currentIndex]
-        
+
         Log.d(TAG, "Advancing to next item: ${nextItem.metadata.title}")
         Log.d(TAG, "  Mode: ${if (config.coordinatedMode) "COORDINATED" else "STANDALONE"}")
-        
+
         // Emit event to JavaScript
         emitItemChanged(nextItem, currentIndex, previousIndex)
-        
+
         // ❌ NO emitir ITEM_STARTED en modo coordinated aquí
         // En modo coordinated, JavaScript emitirá ITEM_STARTED cuando el contenido
         // realmente esté cargado y listo para reproducirse (en handleOnLoad)
@@ -732,7 +813,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         } else {
             Log.d(TAG, "[Coordinated] Skipping ITEM_STARTED emission - JavaScript will emit when content loads")
         }
-        
+
         // In coordinated mode, JavaScript handles the source update via the event
         // In standalone mode, this is called from player listener which then loads the item
         Log.d(TAG, "✅ advanceToNextItem completed - event emitted")
@@ -745,10 +826,8 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         releaseStandalonePlayer()
 
         try {
-            // PLAYER-269: when the canonical reconciliation is enabled, route through
-            // CanonicalPlayerHolder so the standalone player IS the canonical player
-            // (ADR Auto-001, inv. 1 + 2). With reconcileEnabled=false (the default kill-switch
-            // state), behaviour is identical to pre-269 — a fresh standalone ExoPlayer.
+            // PLAYER-269: route through CanonicalPlayerHolder so the standalone player IS the
+            // canonical player (ADR Auto-001, inv. 1 + 2).
             val playerListener = object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     val stateStr = when (playbackState) {
@@ -763,6 +842,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                     // Emitir eventos de estado
                     when (playbackState) {
                         Player.STATE_BUFFERING -> emitPlaybackStateChanged("buffering")
+
                         Player.STATE_ENDED -> {
                             emitPlaybackStateChanged("ended")
                             handleStandaloneItemCompleted()
@@ -787,59 +867,42 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 }
             }
 
-            if (CanonicalPlayerHolder.reconcileEnabled) {
-                // Route through holder — becomes the canonical (sole) audio player (inv. 1 + 2).
-                // handleAudioFocus = false: focus is owned manually by this module's listener (inv. 4).
-                standalonePlayer = CanonicalPlayerHolder.getOrCreate(reactApplicationContext) { ctx ->
-                    ExoPlayer.Builder(ctx).build().apply {
-                        setAudioAttributes(
-                            androidx.media3.common.AudioAttributes.Builder()
-                                .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
-                                .setUsage(C.USAGE_MEDIA)
-                                .build(),
-                            false // sole-owner focus managed manually — invariant 4
-                        )
-                        Log.d(TAG, "[Standalone/Canonical] ExoPlayer created via CanonicalPlayerHolder")
-                    }
-                }.apply {
-                    addListener(playerListener)
-                }
-            } else {
-                // Kill-switch OFF (default): pre-269 behaviour — direct construction.
-                standalonePlayer = ExoPlayer.Builder(reactApplicationContext).build().apply {
-                    addListener(playerListener)
-                    // Set audio attributes
+            // Route through holder — becomes the canonical (sole) audio player (inv. 1 + 2).
+            standalonePlayer = CanonicalPlayerHolder.getOrCreate(reactApplicationContext) { ctx ->
+                ExoPlayer.Builder(ctx).build().apply {
                     setAudioAttributes(
                         androidx.media3.common.AudioAttributes.Builder()
-                            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                            .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
                             .setUsage(C.USAGE_MEDIA)
                             .build(),
-                        false // NO manejar audio focus automáticamente - lo manejamos manualmente
+                        true // PLAYER-278 (Option C): media3 owns focus for the canonical player
                     )
-                    Log.d(TAG, "[Standalone] ExoPlayer created with audio attributes")
+                    Log.d(TAG, "[Standalone/Canonical] ExoPlayer created via CanonicalPlayerHolder")
                 }
+            }.apply {
+                addListener(playerListener)
             }
 
-            // Request audio focus (the canonical focus listener — inv. 4)
-            requestAudioFocus()
+            // PLAYER-278 (Option C): the canonical player owns focus via media3
+            // (handleAudioFocus=true above). Do NOT also run the manual focus listener — that
+            // double-ownership is what left the COORDINATED path without an owner on AA-connect.
 
-            Log.d(TAG, "[Standalone] Setup complete (reconcileEnabled=${CanonicalPlayerHolder.reconcileEnabled})")
-
+            Log.d(TAG, "[Standalone] Setup complete (canonical)")
         } catch (e: Exception) {
             Log.e(TAG, "[Standalone] Failed to setup: ${e.message}", e)
         }
     }
-    
+
     private fun requestAudioFocus() {
         if (hasAudioFocus) {
             Log.d(TAG, "[Standalone] Already has audio focus")
             return
         }
-        
+
         Log.d(TAG, "[Standalone] Requesting audio focus...")
-        
+
         val manager = ContextCompat.getSystemService(reactApplicationContext, AudioManager::class.java)
-        
+
         val focusRequest = AudioFocusRequestCompat.Builder(AudioManagerCompat.AUDIOFOCUS_GAIN)
             .setOnAudioFocusChangeListener { focusChange ->
                 Log.d(TAG, "[Standalone] Audio focus changed: $focusChange")
@@ -856,6 +919,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                             Log.d(TAG, "[Standalone] Not auto-resuming (no focus-loss pause pending)")
                         }
                     }
+
                     AudioManager.AUDIOFOCUS_LOSS -> {
                         // Permanent loss. Typical sources:
                         //   - Another in-app focus owner (RNTP MusicService) requesting GAIN
@@ -879,6 +943,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                             }
                         }, 500)
                     }
+
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                         // Transient loss. This is the Android Auto driver-distraction case:
                         // Google Assistant, phone call, navigation turn-by-turn prompt.
@@ -889,6 +954,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                         pausedDueToFocusLoss = true
                         standalonePlayer?.pause()
                     }
+
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                         Log.d(TAG, "[Standalone] Audio focus DUCK - reducing volume")
                         standalonePlayer?.volume = 0.3f
@@ -903,37 +969,37 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             )
             .setWillPauseWhenDucked(true)
             .build()
-        
+
         audioFocusRequest = focusRequest
-        
+
         val result: Int = if (manager != null) {
             AudioManagerCompat.requestAudioFocus(manager, focusRequest)
         } else {
             Log.e(TAG, "[Standalone] AudioManager is null")
             AudioManager.AUDIOFOCUS_REQUEST_FAILED
         }
-        
+
         hasAudioFocus = (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
-        
+
         if (hasAudioFocus) {
             Log.d(TAG, "[Standalone] Audio focus GRANTED")
         } else {
             Log.e(TAG, "[Standalone] Audio focus DENIED")
         }
     }
-    
+
     private fun abandonAudioFocus() {
         if (!hasAudioFocus) return
-        
+
         Log.d(TAG, "[Standalone] Abandoning audio focus...")
-        
+
         val manager = ContextCompat.getSystemService(reactApplicationContext, AudioManager::class.java)
         audioFocusRequest?.let { request ->
             if (manager != null) {
                 AudioManagerCompat.abandonAudioFocusRequest(manager, request)
             }
         }
-        
+
         hasAudioFocus = false
         Log.d(TAG, "[Standalone] Audio focus abandoned")
     }
@@ -944,18 +1010,18 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             Log.e(TAG, "[Standalone] Cannot load item: player is null")
             return
         }
-        
+
         val currentItem = items.getOrNull(currentIndex)
         if (currentItem == null) {
             Log.e(TAG, "[Standalone] Cannot load item: no item at index $currentIndex")
             return
         }
-        
+
         try {
             Log.d(TAG, "[Standalone] Loading item: ${currentItem.metadata.title}")
             Log.d(TAG, "[Standalone] URI: ${currentItem.source.uri}")
             Log.d(TAG, "[Standalone] Type: ${currentItem.source.type}")
-            
+
             // Check if item has DRM
             val drm = currentItem.source.drm
             if (drm != null) {
@@ -963,28 +1029,42 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 Log.d(TAG, "[Standalone] License server: ${drm.licenseServer}")
                 Log.d(TAG, "[Standalone] Multi-session: ${drm.multiSession}")
             }
-            
+
             // Build MediaItem with DRM support
+            // PLAYER-278: attach the queue item's metadata to the MediaItem — the MediaSession
+            // derives its public metadata (lock-screen/widget/Android Auto now-playing) from
+            // player.mediaMetadata; without title gearhead cancels the now-playing stream item
+            // ("Invalid metadata, no title and subtitle").
             val mediaItem = DrmHelper.buildMediaItemWithDrm(
                 uri = currentItem.source.uri,
                 drm = drm
-            )
-            
+            ).buildUpon()
+                .setMediaId(currentItem.id)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(currentItem.metadata.title)
+                        .setSubtitle(currentItem.metadata.subtitle)
+                        .setArtist(currentItem.metadata.artist)
+                        .setAlbumTitle(currentItem.metadata.album)
+                        .setArtworkUri(currentItem.metadata.imageUri?.let { Uri.parse(it) })
+                        .build()
+                )
+                .build()
+
             player.setMediaItem(mediaItem)
             player.prepare()
             player.play()
-            
+
             isPlaybackActive = true
-            
+
             Log.d(TAG, "[Standalone] Item loaded and playing")
-            
+
             // Emit started event
             emitItemStarted(currentItem)
             itemsStartedSet.add(currentItem.id)
-            
         } catch (e: Exception) {
             Log.e(TAG, "[Standalone] Failed to load item: ${e.message}", e)
-            
+
             // Emit error event
             val currentItem = items.getOrNull(currentIndex)
             if (currentItem != null) {
@@ -992,39 +1072,39 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             }
         }
     }
-    
+
     private fun handleStandaloneItemCompleted() {
         Log.d(TAG, "[Standalone] Item completed")
-        
+
         val currentItem = items.getOrNull(currentIndex)
         if (currentItem != null) {
             emitItemCompleted(currentItem)
         }
-        
+
         // Auto-advance if enabled
         if (config.autoNext) {
             advanceToNextItemStandalone()
         }
     }
-    
+
     private fun handleStandaloneItemError(error: PlaybackException) {
         Log.e(TAG, "[Standalone] Item error: ${error.message}")
-        
+
         val currentItem = items.getOrNull(currentIndex)
         if (currentItem != null) {
             emitItemError(currentItem, error.message ?: "Unknown error")
         }
-        
+
         // Skip to next if skipOnError is enabled
         if (config.skipOnError) {
             Log.d(TAG, "[Standalone] Skipping to next item due to error")
             advanceToNextItemStandalone()
         }
     }
-    
+
     private fun advanceToNextItemStandalone() {
         val nextIndex = getNextIndex()
-        
+
         if (nextIndex == -1) {
             Log.d(TAG, "🏁 [Standalone] Playlist ended")
             isPlaybackActive = false
@@ -1032,28 +1112,27 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
             emitPlaylistEnded()
             return
         }
-        
+
         val previousIndex = currentIndex
         currentIndex = nextIndex
         val nextItem = items[currentIndex]
-        
+
         Log.d(TAG, "[Standalone] Advancing to next item: ${nextItem.metadata.title}")
-        
+
         // Emit event
         emitItemChanged(nextItem, currentIndex, previousIndex)
-        
+
         // Load next item
         loadCurrentItem()
     }
-    
+
     private fun releaseStandalonePlayer() {
         standalonePlayer?.let { player ->
             Log.d(TAG, "[Standalone] Releasing player...")
             // PLAYER-269 (inv. 2): The canonical player's lifetime is owned by
             // VideoPlaybackService, not the React/module layer. Abandon focus but do NOT
             // release the player if the service still holds it as canonical.
-            // With reconcileEnabled=false (default kill-switch), always release as before.
-            if (CanonicalPlayerHolder.reconcileEnabled && CanonicalPlayerHolder.isCanonical(player)) {
+            if (CanonicalPlayerHolder.isCanonical(player)) {
                 Log.d(TAG, "[Standalone] Skipping release — player is canonical (service-owned, inv. 2)")
             } else {
                 player.stop()
@@ -1071,48 +1150,63 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
 
     private fun emitItemChanged(item: PlaylistItem, index: Int, previousIndex: Int) {
         Log.d(TAG, "📤 Emitting EVENT_ITEM_CHANGED: itemId=${item.id}, index=$index, previousIndex=$previousIndex, title=${item.metadata.title}")
-        sendEvent(EVENT_ITEM_CHANGED, Arguments.createMap().apply {
-            putString("itemId", item.id)
-            putInt("index", index)
-            putInt("previousIndex", previousIndex)
-            putMap("item", item.toMap())
-            putInt("totalItems", items.size)
-            putDouble("timestamp", System.currentTimeMillis().toDouble())
-        })
+        sendEvent(
+            EVENT_ITEM_CHANGED,
+            Arguments.createMap().apply {
+                putString("itemId", item.id)
+                putInt("index", index)
+                putInt("previousIndex", previousIndex)
+                putMap("item", item.toMap())
+                putInt("totalItems", items.size)
+                putDouble("timestamp", System.currentTimeMillis().toDouble())
+            }
+        )
         Log.d(TAG, "✅ EVENT_ITEM_CHANGED emitted successfully")
     }
 
     private fun emitItemStarted(item: PlaylistItem) {
-        sendEvent(EVENT_ITEM_STARTED, Arguments.createMap().apply {
-            putString("itemId", item.id)
-            putInt("index", currentIndex)
-            putDouble("timestamp", System.currentTimeMillis().toDouble())
-        })
+        sendEvent(
+            EVENT_ITEM_STARTED,
+            Arguments.createMap().apply {
+                putString("itemId", item.id)
+                putInt("index", currentIndex)
+                putDouble("timestamp", System.currentTimeMillis().toDouble())
+            }
+        )
     }
-    
+
     private fun emitItemCompleted(item: PlaylistItem) {
-        sendEvent(EVENT_ITEM_COMPLETED, Arguments.createMap().apply {
-            putString("itemId", item.id)
-            putInt("index", currentIndex)
-            putDouble("timestamp", System.currentTimeMillis().toDouble())
-        })
+        sendEvent(
+            EVENT_ITEM_COMPLETED,
+            Arguments.createMap().apply {
+                putString("itemId", item.id)
+                putInt("index", currentIndex)
+                putDouble("timestamp", System.currentTimeMillis().toDouble())
+            }
+        )
     }
-    
+
     private fun emitItemError(item: PlaylistItem, errorMessage: String) {
-        sendEvent(EVENT_ITEM_ERROR, Arguments.createMap().apply {
-            putString("itemId", item.id)
-            putInt("index", currentIndex)
-            putString("errorMessage", errorMessage)
-            putDouble("timestamp", System.currentTimeMillis().toDouble())
-        })
+        sendEvent(
+            EVENT_ITEM_ERROR,
+            Arguments.createMap().apply {
+                putString("itemId", item.id)
+                putInt("index", currentIndex)
+                putString("errorMessage", errorMessage)
+                putDouble("timestamp", System.currentTimeMillis().toDouble())
+            }
+        )
     }
 
     private fun emitPlaylistEnded() {
-        sendEvent(EVENT_PLAYLIST_ENDED, Arguments.createMap().apply {
-            putDouble("timestamp", System.currentTimeMillis().toDouble())
-        })
+        sendEvent(
+            EVENT_PLAYLIST_ENDED,
+            Arguments.createMap().apply {
+                putDouble("timestamp", System.currentTimeMillis().toDouble())
+            }
+        )
     }
-    
+
     private fun emitControlAction(action: String, params: WritableMap? = null) {
         val eventData = params ?: Arguments.createMap()
         eventData.putString("action", action)
@@ -1120,23 +1214,26 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
         eventData.putDouble("timestamp", System.currentTimeMillis().toDouble())
         sendEvent(EVENT_CONTROL_ACTION, eventData)
     }
-    
+
     private fun emitPlaybackStateChanged(state: String) {
         val currentItem = items.getOrNull(currentIndex)
-        sendEvent(EVENT_PLAYBACK_STATE_CHANGED, Arguments.createMap().apply {
-            putString("state", state) // "playing", "paused", "stopped", "buffering", "ended"
-            putString("itemId", currentItem?.id ?: "")
-            putInt("index", currentIndex)
-            putString("mode", if (config.coordinatedMode) "coordinated" else "standalone")
-            putDouble("timestamp", System.currentTimeMillis().toDouble())
-            
-            // Información adicional en modo standalone
-            if (!config.coordinatedMode && standalonePlayer != null) {
-                putBoolean("isPlaying", standalonePlayer?.isPlaying ?: false)
-                putDouble("position", standalonePlayer?.currentPosition?.toDouble() ?: 0.0)
-                putDouble("duration", standalonePlayer?.duration?.toDouble() ?: 0.0)
+        sendEvent(
+            EVENT_PLAYBACK_STATE_CHANGED,
+            Arguments.createMap().apply {
+                putString("state", state) // "playing", "paused", "stopped", "buffering", "ended"
+                putString("itemId", currentItem?.id ?: "")
+                putInt("index", currentIndex)
+                putString("mode", if (config.coordinatedMode) "coordinated" else "standalone")
+                putDouble("timestamp", System.currentTimeMillis().toDouble())
+
+                // Información adicional en modo standalone
+                if (!config.coordinatedMode && standalonePlayer != null) {
+                    putBoolean("isPlaying", standalonePlayer?.isPlaying ?: false)
+                    putDouble("position", standalonePlayer?.currentPosition?.toDouble() ?: 0.0)
+                    putDouble("duration", standalonePlayer?.duration?.toDouble() ?: 0.0)
+                }
             }
-        })
+        )
     }
 
     private fun sendEvent(eventName: String, params: WritableMap) {

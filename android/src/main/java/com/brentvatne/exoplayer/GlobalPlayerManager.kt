@@ -15,15 +15,10 @@ import androidx.media3.session.MediaSession
 
 /**
  * GlobalPlayerManager — PLAYER-269 Phase 3: folded onto CanonicalPlayerHolder.
- *
- * With [CanonicalPlayerHolder.reconcileEnabled] = false (default kill-switch):
- *   Behaviour is identical to pre-269: a local [globalPlayer] field; a 2nd ExoPlayer may coexist
- *   (the known PLAYER-266 dual-player state the harness documents).
- *
- * With [CanonicalPlayerHolder.reconcileEnabled] = true:
- *   [getOrCreatePlayer] delegates entirely to [CanonicalPlayerHolder]; no second ExoPlayer is
- *   ever built here.  [release] does NOT release the canonical player (service-owned, inv. 2).
- *   The local [globalPlayer] field becomes a mirror of the canonical one.
+ * PLAYER-278 burn-down: the `reconcileEnabled` kill-switch is gone — [getOrCreatePlayer]
+ * delegates entirely to [CanonicalPlayerHolder]; no second ExoPlayer is ever built here.
+ * [release] does NOT release the canonical player (service-owned, inv. 2). The local
+ * [globalPlayer] field is a mirror of the canonical one.
  *
  * Invariant 1 (ADR Auto-001): at most one audio ExoPlayer at any instant.
  */
@@ -37,68 +32,36 @@ object GlobalPlayerManager {
     private var isNotificationShown = false
 
     /**
-     * Obtener o crear el player global.
+     * Obtener o crear el player canónico (inv. 1: exactamente UN ExoPlayer de audio).
      *
-     * PLAYER-269: when [CanonicalPlayerHolder.reconcileEnabled] is true, delegates to the holder
-     * so there is exactly ONE audio ExoPlayer (inv. 1).  The factory-built fallback (cold car
-     * start before PlaylistControlModule ran) uses handleAudioFocus=false — focus is owned by the
-     * canonical listener (inv. 4).
+     * El fallback de fábrica (cold car start antes de que PlaylistControlModule corra) se crea
+     * con handleAudioFocus=false; la Opción C (media3 dueño del foco) la aplica
+     * VideoPlaybackService al construir la sesión canónica (applyCanonicalPlayerSideEffects).
      */
     fun getOrCreatePlayer(context: Context): ExoPlayer {
-        if (CanonicalPlayerHolder.reconcileEnabled) {
-            // Inv. 1: no 2nd ExoPlayer.  Return canonical; create bare fallback ONLY if nothing
-            // exists yet (cold car start before the standalone path has run).
-            val canonical = CanonicalPlayerHolder.getOrCreate(context) { ctx ->
-                Log.i(TAG, "[reconcile] Creating canonical ExoPlayer via CanonicalPlayerHolder (cold-car fallback)")
-                ExoPlayer.Builder(ctx.applicationContext).build().apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
-                            .setUsage(C.USAGE_MEDIA)
-                            .build(),
-                        false // sole-owner focus handled by canonical listener, not ExoPlayer-internal (inv. 4)
-                    )
-                }
+        // Inv. 1: no 2nd ExoPlayer.  Return canonical; create bare fallback ONLY if nothing
+        // exists yet (cold car start before the standalone path has run).
+        val canonical = CanonicalPlayerHolder.getOrCreate(context) { ctx ->
+            Log.i(TAG, "Creating canonical ExoPlayer via CanonicalPlayerHolder (cold-car fallback)")
+            ExoPlayer.Builder(ctx.applicationContext).build().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
+                        .setUsage(C.USAGE_MEDIA)
+                        .build(),
+                    false // Option C focus is applied at canonical-session build time
+                )
             }
-            globalPlayer = canonical
-            currentContext = context.applicationContext
-            return canonical
         }
-
-        // Kill-switch OFF (default pre-269 behaviour):
-        if (globalPlayer == null) {
-            Log.i(TAG, "Creating new global ExoPlayer instance")
-
-            // Configurar audio attributes para Android Auto
-            val audioAttributes = AudioAttributes.Builder()
-                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                .setUsage(C.USAGE_MEDIA)
-                .build()
-
-            globalPlayer = ExoPlayer.Builder(context.applicationContext)
-                .setAudioAttributes(audioAttributes, true) // true = handle audio focus
-                .build()
-
-            // PLAYER-265 S1: count live audio players
-            PlayerInstanceTracker.register(globalPlayer!!)
-
-            currentContext = context.applicationContext
-            Log.i(TAG, "ExoPlayer created with audio focus handling")
-        }
-        return globalPlayer!!
+        globalPlayer = canonical
+        currentContext = context.applicationContext
+        return canonical
     }
 
     /**
-     * Obtener el player actual (si existe).
-     * With reconcileEnabled=true returns the canonical holder's player.
+     * Obtener el player canónico actual (si existe).
      */
-    fun getPlayer(): ExoPlayer? {
-        return if (CanonicalPlayerHolder.reconcileEnabled) {
-            CanonicalPlayerHolder.get()
-        } else {
-            globalPlayer
-        }
-    }
+    fun getPlayer(): ExoPlayer? = CanonicalPlayerHolder.get()
 
     /**
      * Reproducir un media item.
@@ -109,13 +72,7 @@ object GlobalPlayerManager {
      * @param artist Artista/autor
      * @param artworkUri URI de la imagen
      */
-    fun playMedia(
-        context: Context,
-        uri: String,
-        title: String? = null,
-        artist: String? = null,
-        artworkUri: String? = null
-    ) {
+    fun playMedia(context: Context, uri: String, title: String? = null, artist: String? = null, artworkUri: String? = null) {
         Log.i(TAG, "Playing media: $uri")
 
         // Ejecutar en main thread (ExoPlayer requirement)
@@ -157,12 +114,7 @@ object GlobalPlayerManager {
      */
     private fun registerWithPlaybackService(context: Context) {
         try {
-            // PLAYER-269: read from holder when reconciliation is active
-            val player = if (CanonicalPlayerHolder.reconcileEnabled) {
-                CanonicalPlayerHolder.get() ?: return
-            } else {
-                globalPlayer ?: return
-            }
+            val player = CanonicalPlayerHolder.get() ?: return
 
             Log.i(TAG, "Registering with VideoPlaybackService")
 
@@ -197,7 +149,6 @@ object GlobalPlayerManager {
 
             context.bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
             isNotificationShown = true
-
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register with service", e)
         }
@@ -253,16 +204,13 @@ object GlobalPlayerManager {
     /**
      * Verificar si el player está reproduciendo
      */
-    fun isPlaying(): Boolean {
-        return getPlayer()?.isPlaying ?: false
-    }
+    fun isPlaying(): Boolean = getPlayer()?.isPlaying ?: false
 
     /**
-     * Detener y liberar el player.
+     * Detener y liberar recursos locales.
      *
-     * PLAYER-269 (inv. 2): with reconcileEnabled=true, the canonical player is owned by
-     * VideoPlaybackService — do NOT release it here; only release the MediaSession and clear
-     * the local mirror.
+     * PLAYER-269 (inv. 2): the canonical player is owned by VideoPlaybackService — do NOT
+     * release it here; only release the MediaSession and clear the local mirror.
      */
     fun release() {
         Log.i(TAG, "Releasing global player")
@@ -278,14 +226,8 @@ object GlobalPlayerManager {
         mediaSession?.release()
         mediaSession = null
 
-        if (CanonicalPlayerHolder.reconcileEnabled) {
-            // Canonical player lifetime is owned by VideoPlaybackService (inv. 2).
-            // Do NOT call globalPlayer?.release() — just drop the local mirror reference.
-            Log.d(TAG, "[reconcile] Skipping player.release() — canonical player is service-owned (inv. 2)")
-        } else {
-            // Pre-269 behaviour: release the local player
-            globalPlayer?.release()
-        }
+        // Canonical player lifetime is owned by VideoPlaybackService (inv. 2).
+        // Do NOT call globalPlayer?.release() — just drop the local mirror reference.
         globalPlayer = null
     }
 }

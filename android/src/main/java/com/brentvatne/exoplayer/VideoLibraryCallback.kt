@@ -12,6 +12,7 @@ import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionResult
+import com.brentvatne.exoplayer.androidauto.AndroidAutoBootstrapService
 import com.brentvatne.exoplayer.androidauto.MediaCache
 import com.brentvatne.react.AndroidAutoModule
 import com.facebook.react.bridge.Arguments
@@ -20,15 +21,16 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 
 /**
- * PLAYER-269 Phase 4: MediaLibrarySession.Callback lifted from AndroidAutoMediaBrowserService
- * and adapted so that [VideoPlaybackService] becomes the single service hosting browse + playback.
+ * The canonical MediaLibrarySession.Callback (lifted from the legacy AndroidAutoMediaBrowserService,
+ * removed in the PLAYER-278 burn-down): [VideoPlaybackService] is the single service hosting
+ * browse + playback for app, background, lock-screen/widget and Android Auto.
  *
- * Key changes vs the original AndroidAutoMediaBrowserService inner class:
  * - [onAddMediaItems] drives the CANONICAL player (via [CanonicalPlayerHolder]) instead of
- *   calling [GlobalPlayerManager.playMedia] which would create a 2nd ExoPlayer.
- * - With [CanonicalPlayerHolder.reconcileEnabled] = false (kill-switch default), the callback
- *   is never instantiated; [VideoPlaybackService] stays as [MediaSessionService] (Phase 4 is
- *   only activated when reconcileEnabled = true).
+ *   creating a 2nd ExoPlayer.
+ * - Cold-start play (PLAYER-280): items GUAU serves have NO cached mediaUri (signed per-play
+ *   URLs) → the play is queued on [AndroidAutoModule.queueCarPlayRequest] and the JS context is
+ *   brought up WITHOUT an Activity via [AndroidAutoBootstrapService] (Android 15 BAL-blocks
+ *   startActivity from background).
  *
  * ADR Auto-001 invariants covered: 1 (one player), 3 (one session), 4 (sole focus owner).
  */
@@ -48,6 +50,11 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
 
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
         Log.d(TAG, "onConnect: ${controller.packageName}")
+
+        // PLAYER-278: keep app audio playing across the AA connect handoff (canonical/single-session path).
+        if (CarAudioHandoffCoordinator.isAutomotive(controller.packageName)) {
+            CarAudioHandoffCoordinator.onCarControllerConnected()
+        }
 
         val isEnabled = getAndroidAutoModule()?.isAndroidAutoEnabled() ?: false
         if (!isEnabled) {
@@ -69,24 +76,31 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
     }
 
     /**
-     * PLAYER-268: intercept the OS/car "skip to next/previous" transport commands (flag-ON
-     * canonical/browse session). Identical interception to VideoPlaybackCallback — flag-agnostic
-     * across the PLAYER-269 reconcile flip. Routes to the playlist via JS (not ExoPlayer timeline).
+     * PLAYER-268/281: intercept the OS/car/widget "skip to next/previous" transport commands (flag-ON
+     * canonical/browse session). Routes to the JS playlist (not the ExoPlayer timeline).
+     *
+     * Handles BOTH command flavours: a framework/legacy controller (Samsung media widget,
+     * lock-screen) maps `skipToNext()` → `seekToNextMediaItem()` = COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+     * while media3 controllers may send COMMAND_SEEK_TO_NEXT. PlaylistAwareForwardingPlayer advertises
+     * all four so they reach here; we reject the player op (single-item timeline) and drive the JS
+     * queue instead.
      */
-    override fun onPlayerCommandRequest(session: MediaSession, controller: MediaSession.ControllerInfo, playerCommand: Int): Int =
-        when (playerCommand) {
-            Player.COMMAND_SEEK_TO_NEXT -> {
+    override fun onPlayerCommandRequest(session: MediaSession, controller: MediaSession.ControllerInfo, playerCommand: Int): Int {
+        Log.d(TAG, "onPlayerCommandRequest: cmd=$playerCommand from ${controller.packageName}") // PLAYER-281 diag
+        return when (playerCommand) {
+            Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
                 AndroidAutoModule.notifySkipToNext()
                 SessionResult.RESULT_ERROR_NOT_SUPPORTED
             }
 
-            Player.COMMAND_SEEK_TO_PREVIOUS -> {
+            Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
                 AndroidAutoModule.notifySkipToPrevious()
                 SessionResult.RESULT_ERROR_NOT_SUPPORTED
             }
 
             else -> SessionResult.RESULT_SUCCESS
         }
+    }
 
     // ------------------------------------------------------------------
     // Browse tree
@@ -191,8 +205,8 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
 
                 if (cachedItem != null && cachedItem.mediaUri != null) {
                     // PLAYER-269 (inv. 1): drive the CANONICAL player, not GlobalPlayerManager.
-                    // With reconcileEnabled=true the canonical player is already alive;
-                    // the session's internal player == canonical (set in registerPlayerInternal).
+                    // The session's internal player == canonical (set in registerPlayerInternal /
+                    // ensureCanonicalSession).
                     Log.i(TAG, "Playing directly from cache via canonical player: ${cachedItem.mediaUri}")
                     val player = CanonicalPlayerHolder.get()
                     if (player != null) {
@@ -235,10 +249,12 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
                     Log.w(TAG, "No URI in cache, using JavaScript flow")
                     val module = getAndroidAutoModule()
                     if (module?.isJavaScriptReady() != true) {
+                        // PLAYER-280: queue the play (setJavaScriptReady() delivers it when the
+                        // bootstrap finishes — a fixed delay would lose it, init takes ~15-22s)
+                        // and bring up the JS context headlessly (no Activity → no BAL).
+                        Log.i(TAG, "JavaScript not ready, queueing play for: $mediaId")
+                        AndroidAutoModule.queueCarPlayRequest(mediaId)
                         launchAppInBackground()
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            notifyJavaScriptPlayRequest(mediaId)
-                        }, 2500)
                     } else {
                         notifyJavaScriptPlayRequest(mediaId)
                     }
@@ -262,22 +278,33 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
             null
         }
 
+    /**
+     * Inicializar el contexto JavaScript en background si no está activo (PLAYER-280).
+     *
+     * Android 15 bloquea (BAL) el startActivity(MainActivity) que se usaba antes, así que
+     * arrancamos un HeadlessJsTaskService (servicio, no Activity → sin BAL) que crea el
+     * contexto React y ejecuta la tarea de bootstrap registrada por el host.
+     */
     private fun launchAppInBackground() {
         if (appLaunchAttempted) return
         appLaunchAttempted = true
         try {
-            val pm = serviceContext.applicationContext.packageManager
-            val launchIntent = pm.getLaunchIntentForPackage(serviceContext.applicationContext.packageName)
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                launchIntent.putExtra("LAUNCHED_FROM_ANDROID_AUTO", true)
-                serviceContext.applicationContext.startActivity(launchIntent)
-                Log.i(TAG, "App launched in background for Android Auto")
+            val appContext = serviceContext.applicationContext
+            // Mantener la CPU despierta hasta que el contexto JS arranque
+            // (el host declara WAKE_LOCK; si no, sólo perdemos el wake lock)
+            try {
+                com.facebook.react.HeadlessJsTaskService.acquireWakeLockNow(appContext)
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not acquire wake lock for JS bootstrap: ${e.message}")
             }
+
+            Log.i(TAG, "Starting headless JS bootstrap service...")
+            appContext.startService(Intent(appContext, AndroidAutoBootstrapService::class.java))
+            Log.i(TAG, "Headless JS bootstrap service started")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to launch app: ${e.message}", e)
+            // IllegalStateException aquí = restricción background-service-start
+            // (no esperada: este servicio ya corre como FGS vinculado por Android Auto)
+            Log.e(TAG, "Failed to start headless JS bootstrap service: ${e.message}", e)
         }
     }
 

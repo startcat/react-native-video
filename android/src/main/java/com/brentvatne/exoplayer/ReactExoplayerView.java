@@ -915,13 +915,11 @@ public class ReactExoplayerView extends FrameLayout implements
         }
 
         // PLAYER-269 Phase 5: attach-on-mount for the audio (background/in-car) path.
-        // When reconcileEnabled=true AND a canonical audio player already exists AND this
-        // view is in the background-audio (playInBackground) path, we ATTACH to the
-        // canonical player instead of creating a new one (ADR Auto-001, inv. 2 + 7).
+        // When a canonical audio player already exists AND this view is in the
+        // background-audio (playInBackground) path, we ATTACH to the canonical player
+        // instead of creating a new one (ADR Auto-001, inv. 2 + 7).
         // invariant 7: on-screen video (playInBackground=false) keeps its own player.
-        // With reconcileEnabled=false (default kill-switch), always build a new player.
-        if (CanonicalPlayerHolder.INSTANCE.getReconcileEnabled()
-                && self.playInBackground
+        if (self.playInBackground
                 && CanonicalPlayerHolder.INSTANCE.get() != null) {
             player = CanonicalPlayerHolder.INSTANCE.get(); // ATTACH — do not create (inv. 2)
             DebugLog.d(TAG, "ReactExoplayerView: attached to canonical player (PLAYER-269 Phase 5)");
@@ -1172,6 +1170,15 @@ public class ReactExoplayerView extends FrameLayout implements
                     if (currentActivity != null) {
                         playbackServiceBinder.getService().registerPlayer(player,
                                 (Class<Activity>) currentActivity.getClass());
+                        // PLAYER-278 (Option C): registering promotes this to the canonical player,
+                        // whose audio focus is now owned by media3 (handleAudioFocus=true, set in
+                        // VideoPlaybackService). Drop our MANUAL focus listener so it doesn't linger
+                        // as an orphan that ignores the AA-connect focus loss (COORDINATED silence).
+                        if (CanonicalPlayerHolder.INSTANCE.isCanonical(player)
+                                && hasAudioFocus) {
+                            audioManager.abandonAudioFocus(audioFocusChangeListener);
+                            hasAudioFocus = false;
+                        }
                     } else {
                         // Handle the case where currentActivity is null
                         DebugLog.w(TAG, "Could not register ExoPlayer: currentActivity is null");
@@ -1521,7 +1528,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
             updateResumePosition();
             // PLAYER-269: do NOT release the canonical player (service-owned, inv. 2).
-            if (!isCanonical || !CanonicalPlayerHolder.INSTANCE.getReconcileEnabled()) {
+            if (!isCanonical) {
                 player.release();
             }
             player.removeListener(this);
@@ -1558,11 +1565,10 @@ public class ReactExoplayerView extends FrameLayout implements
 
         @Override
         public void onAudioFocusChange(int focusChange) {
-            // PLAYER-269 Phase 5 (inv. 4): the canonical listener (PlaylistControlModule) handles
-            // LOSS/TRANSIENT/DUCK for the canonical player. Do NOT double-handle here.
-            if (CanonicalPlayerHolder.INSTANCE.getReconcileEnabled()
-                    && CanonicalPlayerHolder.INSTANCE.isCanonical(view.player)) {
-                return; // canonical listener handles focus loss/duck (inv. 4)
+            // PLAYER-269/278 (inv. 4): media3 owns focus for the canonical player (Option C).
+            // Do NOT double-handle here.
+            if (CanonicalPlayerHolder.INSTANCE.isCanonical(view.player)) {
+                return; // media3 handles focus loss/duck on the canonical player (inv. 4)
             }
             switch (focusChange) {
                 case AudioManager.AUDIOFOCUS_LOSS:
@@ -1605,11 +1611,10 @@ public class ReactExoplayerView extends FrameLayout implements
     }
 
     private boolean requestAudioFocus() {
-        // PLAYER-269 Phase 5 (inv. 4): focus is owned ONCE by the canonical listener
-        // (PlaylistControlModule). The view's listener must not double-request it.
-        if (CanonicalPlayerHolder.INSTANCE.getReconcileEnabled()
-                && CanonicalPlayerHolder.INSTANCE.isCanonical(player)) {
-            return true; // focus owned once by the canonical (PlaylistControl) listener — inv.4
+        // PLAYER-269/278 (inv. 4): focus is owned ONCE — by media3 on the canonical player
+        // (Option C). The view's listener must not double-request it.
+        if (CanonicalPlayerHolder.INSTANCE.isCanonical(player)) {
+            return true; // focus owned once by media3 on the canonical player — inv.4
         }
         if (disableFocus || source.getUri() == null || this.hasAudioFocus) {
             return true;
@@ -2622,7 +2627,10 @@ public class ReactExoplayerView extends FrameLayout implements
             AudioAttributes audioAttributes = new AudioAttributes.Builder().setUsage(usage)
                     .setContentType(contentType)
                     .build();
-            player.setAudioAttributes(audioAttributes, false);
+            // PLAYER-278 (Option C): keep media3-managed focus for the canonical player; only the
+            // non-canonical (on-screen video) path manages focus manually.
+            boolean handleFocus = CanonicalPlayerHolder.INSTANCE.isCanonical(player);
+            player.setAudioAttributes(audioAttributes, handleFocus);
             AudioManager audioManager = (AudioManager) themedReactContext.getSystemService(Context.AUDIO_SERVICE);
             boolean isSpeakerOutput = output == AudioOutput.SPEAKER;
             audioManager.setMode(

@@ -9,6 +9,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.Bundle
@@ -23,9 +24,8 @@ import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
 import com.brentvatne.common.toolbox.DebugLog
 import com.brentvatne.exoplayer.androidauto.MediaCache
-import okhttp3.internal.immutableListOf
 import com.brentvatne.react.R
-import android.content.pm.ServiceInfo
+import okhttp3.internal.immutableListOf
 
 class PlaybackServiceBinder(val service: VideoPlaybackService) : Binder()
 
@@ -35,23 +35,24 @@ class PlaybackServiceBinder(val service: VideoPlaybackService) : Binder()
  * A [MediaLibraryService] is-a [MediaSessionService], so the existing no-car
  * notification/session contract is preserved by construction (invariant 5).
  *
- * KILL-SWITCH ([CanonicalPlayerHolder.reconcileEnabled] = false by default):
- *   - Flag OFF  → pre-269 Map-based multi-session behaviour; [AndroidAutoMediaBrowserService]
- *                 still lives and owns the browse session.  Behaviour is identical to PLAYER-266.
- *   - Flag ON   → single canonical [MediaLibrarySession] over the canonical [ExoPlayer];
- *                 [AndroidAutoMediaBrowserService] is superseded by this service.
+ * PLAYER-278 burn-down: this is THE single in-car service — it owns the canonical
+ * [MediaLibrarySession] over the canonical [ExoPlayer], serves browse (via
+ * [VideoLibraryCallback] + MediaCache, including COLD Android Auto connects through
+ * [ensureCanonicalSession]) and playback. The legacy AndroidAutoMediaBrowserService and the
+ * `reconcileEnabled` kill-switch are gone.
  *
  * Invariants (ADR Auto-001): 1 (one player), 2 (service-owned lifetime), 3 (one session),
  * 4 (sole focus owner), 5 (no-car regression gate).
  */
 class VideoPlaybackService : MediaLibraryService() {
 
-    // ---- Pre-269 (flag OFF) state ---------------------------------------------------
-    private var mediaSessionsList = mutableMapOf<ExoPlayer, MediaSession>()
-
-    // ---- PLAYER-269 (flag ON) state -------------------------------------------------
-    /** The single canonical audio session (inv. 3). Null when flag is OFF. */
+    /** The single canonical audio session (inv. 3). */
     private var canonicalSession: MediaLibrarySession? = null
+
+    // PLAYER-281: the ForwardingPlayer wrapper handed to the canonical session (exposes
+    // COMMAND_SEEK_TO_NEXT from the JS queue). Kept so re-attach can compare the underlying raw
+    // player (session.player is the wrapper, never identity-equal to the raw ExoPlayer).
+    private var canonicalForwardingPlayer: PlaylistAwareForwardingPlayer? = null
     private var mediaCache: MediaCache? = null
 
     // ---- Shared state ---------------------------------------------------------------
@@ -91,8 +92,9 @@ class VideoPlaybackService : MediaLibraryService() {
             }
             val packageName = packageName
             for (appProcess in appProcesses) {
-                if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
-                    && appProcess.processName == packageName) {
+                if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND &&
+                    appProcess.processName == packageName
+                ) {
                     Log.d(TAG, "App is in foreground")
                     return true
                 }
@@ -142,102 +144,111 @@ class VideoPlaybackService : MediaLibraryService() {
     private fun registerPlayerInternal(player: ExoPlayer, from: Class<Activity>?) {
         if (from != null) sourceActivity = from
 
-        if (CanonicalPlayerHolder.reconcileEnabled) {
-            // ---- PLAYER-269 path (flag ON) ----------------------------------------
-            // Set this player as the canonical one (inv. 1 + 2).
-            CanonicalPlayerHolder.set(player)
+        // Set this player as the canonical one (inv. 1 + 2).
+        CanonicalPlayerHolder.set(player)
+        applyCanonicalPlayerSideEffects(player)
 
-            val existing = canonicalSession
-            if (existing != null) {
-                // Attach the (possibly new) player to the existing session (inv. 2).
-                if (existing.player !== player) {
-                    Log.d(TAG, "[canonical] Attaching new player to existing MediaLibrarySession")
-                    existing.setPlayer(player)
-                }
-                createSessionNotification(existing)
-                return
+        val existing = canonicalSession
+        if (existing != null) {
+            // Attach the (possibly new) player to the existing session (inv. 2). The session
+            // holds the PLAYER-281 ForwardingPlayer, so compare the underlying raw player.
+            if (canonicalForwardingPlayer?.wrappedPlayer !== player) {
+                Log.d(TAG, "[canonical] Attaching new player to existing MediaLibrarySession")
+                val forwarding = PlaylistAwareForwardingPlayer(player) // PLAYER-281
+                canonicalForwardingPlayer = forwarding
+                existing.setPlayer(forwarding)
             }
+            createSessionNotification(existing)
+            return
+        }
 
-            // First registration: build the ONE canonical MediaLibrarySession (inv. 3).
-            if (mediaCache == null) mediaCache = MediaCache.getInstance(this)
-            val session = MediaLibrarySession.Builder(
-                this,
-                player,
-                VideoLibraryCallback(this, mediaCache!!)
-            )
-                .setId("RNVideoCanonicalSession")
-                .setCustomLayout(immutableListOf(seekForwardBtn, seekBackwardBtn))
-                .build()
+        // First registration: build the ONE canonical MediaLibrarySession (inv. 3).
+        val session = buildCanonicalSession(player)
 
-            canonicalSession = session
-            addSession(session)
-            PlayerInstanceTracker.register(player) // PLAYER-265 S1
-
-            if (!isForegroundServiceStarted) {
-                try {
-                    startForeground(player.hashCode(), buildNotification(session))
-                    isForegroundServiceStarted = true
-                    Log.d(TAG, "[canonical] Foreground service started for canonical session")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to start foreground service", e)
-                }
-            } else {
-                createSessionNotification(session)
+        if (!isForegroundServiceStarted) {
+            try {
+                startForeground(player.hashCode(), buildNotification(session))
+                isForegroundServiceStarted = true
+                Log.d(TAG, "[canonical] Foreground service started for canonical session")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start foreground service", e)
             }
         } else {
-            // ---- Pre-269 path (flag OFF / default) --------------------------------
-            if (mediaSessionsList.containsKey(player)) return
-
-            val mediaSession = MediaSession.Builder(this, player)
-                .setId("RNVideoPlaybackService_" + player.hashCode())
-                .setCallback(VideoPlaybackCallback())
-                .setCustomLayout(immutableListOf(seekForwardBtn, seekBackwardBtn))
-                .build()
-
-            mediaSessionsList[player] = mediaSession
-            addSession(mediaSession)
-            PlayerInstanceTracker.register(player) // PLAYER-265 S1: count live audio players
-
-            if (!isForegroundServiceStarted) {
-                try {
-                    startForeground(mediaSession.player.hashCode(), buildNotification(mediaSession))
-                    isForegroundServiceStarted = true
-                    Log.d(TAG, "Foreground service started for background playback")
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to start foreground service", e)
-                }
-            } else {
-                createSessionNotification(mediaSession)
-            }
+            createSessionNotification(session)
         }
+    }
+
+    /**
+     * PLAYER-278 (Option C) side effects every canonical player needs, regardless of whether it
+     * arrived via [registerPlayerInternal] (app/standalone) or the cold-car fallback
+     * ([ensureCanonicalSession]): media3 owns audio focus (mode-agnostic, replaces the per-surface
+     * manual focus listeners) + the AA-connect handoff coordinator.
+     */
+    private fun applyCanonicalPlayerSideEffects(player: ExoPlayer) {
+        try {
+            // handleAudioFocus = true → media3 owns audio focus on the canonical player (Option C).
+            player.setAudioAttributes(player.audioAttributes, true)
+        } catch (e: Exception) {
+            Log.w(TAG, "[canonical] Failed to enable media3 audio-focus on canonical player", e)
+        }
+        CarAudioHandoffCoordinator.attach(player)
+    }
+
+    /**
+     * Builds + registers the ONE canonical [MediaLibrarySession] (inv. 3) over [player].
+     */
+    private fun buildCanonicalSession(player: ExoPlayer): MediaLibrarySession {
+        if (mediaCache == null) mediaCache = MediaCache.getInstance(this)
+        // PLAYER-281: wrap the canonical player so the session exposes COMMAND_SEEK_TO_NEXT from
+        // the JS queue position; the raw player is used everywhere else (focus, tracker, holder).
+        val forwarding = PlaylistAwareForwardingPlayer(player)
+        canonicalForwardingPlayer = forwarding
+        val session = MediaLibrarySession.Builder(
+            this,
+            forwarding,
+            VideoLibraryCallback(this, mediaCache!!)
+        )
+            .setId("RNVideoCanonicalSession")
+            .setCustomLayout(immutableListOf(seekForwardBtn, seekBackwardBtn))
+            .build()
+
+        canonicalSession = session
+        addSession(session)
+        PlayerInstanceTracker.register(player) // PLAYER-265 S1
+        return session
+    }
+
+    /**
+     * PLAYER-278 burn-down Phase 3: non-null canonical session for COLD Android Auto connects.
+     *
+     * When AA binds this service before any player registered (app closed), we build the
+     * canonical player via the cold-car fallback ([GlobalPlayerManager.getOrCreatePlayer] →
+     * [CanonicalPlayerHolder]) so [onGetSession] can hand AA a live browse/playback session.
+     */
+    private fun ensureCanonicalSession(): MediaLibrarySession {
+        canonicalSession?.let { return it }
+        Log.i(TAG, "[canonical] Cold session request — building canonical player via cold-car fallback")
+        val player = GlobalPlayerManager.getOrCreatePlayer(this)
+        applyCanonicalPlayerSideEffects(player)
+        return buildCanonicalSession(player)
     }
 
     fun unregisterPlayer(player: ExoPlayer) {
         DebugLog.d(TAG, "VideoPlaybackService unregisterPlayer")
 
-        if (CanonicalPlayerHolder.reconcileEnabled) {
-            // ---- PLAYER-269 path ----------------------------------------------------
-            hidePlayerNotification(player)
-            canonicalSession?.let { session ->
-                removeSession(session)
-                session.release()
-            }
-            canonicalSession = null
-            PlayerInstanceTracker.unregister(player)
-            CanonicalPlayerHolder.clear()
-            cleanup()
-            stopSelf()
-        } else {
-            // ---- Pre-269 path -------------------------------------------------------
-            hidePlayerNotification(player)
-            val session = mediaSessionsList.remove(player)
-            PlayerInstanceTracker.unregister(player) // PLAYER-265 S1: decrement live audio player count
-            session?.release()
-            if (mediaSessionsList.isEmpty()) {
-                cleanup()
-                stopSelf()
-            }
+        CarAudioHandoffCoordinator.detach(player) // PLAYER-278
+        hidePlayerNotification(player)
+        canonicalSession?.let { session ->
+            removeSession(session)
+            session.release()
         }
+        canonicalSession = null
+        canonicalForwardingPlayer = null // PLAYER-281
+        PlaylistQueueState.reset() // PLAYER-281: no queue once the canonical player is gone
+        PlayerInstanceTracker.unregister(player)
+        CanonicalPlayerHolder.clear()
+        cleanup()
+        stopSelf()
     }
 
     // =====================================================================
@@ -260,21 +271,23 @@ class VideoPlaybackService : MediaLibraryService() {
         }
 
         // NO llamar startForeground aquí - solo cuando se registre un player
-        Log.d(TAG, "VideoPlaybackService created (reconcileEnabled=${CanonicalPlayerHolder.reconcileEnabled}), waiting for player registration")
+        Log.d(TAG, "VideoPlaybackService created, waiting for player registration")
     }
 
     /**
-     * [MediaLibraryService.onGetSession] — returns the canonical [MediaLibrarySession] when
-     * reconciliation is active; null otherwise (pre-269: sessions managed by the Map).
+     * [MediaLibraryService.onGetSession] — returns the canonical [MediaLibrarySession],
+     * building it cold if Android Auto connects before any player registered
+     * (PLAYER-278 burn-down Phase 3).
      */
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? {
-        return if (CanonicalPlayerHolder.reconcileEnabled) canonicalSession else null
-    }
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession = ensureCanonicalSession()
 
-    override fun onBind(intent: Intent?): IBinder {
-        super.onBind(intent)
-        return binder
-    }
+    override fun onBind(intent: Intent?): IBinder? =
+        // media3 sirve sus binders (MediaLibraryService / MediaSessionService / legacy
+        // android.media.browse.MediaBrowserService — el que Android Auto usa para el browse).
+        // Devolver SIEMPRE el binder custom rompía el handshake del MediaBrowser de AA
+        // (spinner infinito). El binder custom queda para los binds internos sin action
+        // (GlobalPlayerManager / ReactExoplayerView).
+        super.onBind(intent) ?: binder
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
         createSessionNotification(session)
@@ -302,7 +315,7 @@ class VideoPlaybackService : MediaLibraryService() {
     // =====================================================================
 
     /**
-     * Exposes the canonical [MediaLibrarySession] (only non-null with reconcileEnabled=true).
+     * Exposes the canonical [MediaLibrarySession] (null until a player registers or AA connects).
      */
     fun librarySession(): MediaLibrarySession? = canonicalSession
 
@@ -399,7 +412,9 @@ class VideoPlaybackService : MediaLibraryService() {
                 putExtra("ACTION", COMMAND.SEEK_BACKWARD.stringValue)
             }
             val seekBackwardPendingIntent = PendingIntent.getService(
-                this, playerId * 10, seekBackwardIntent,
+                this,
+                playerId * 10,
+                seekBackwardIntent,
                 PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
 
@@ -408,7 +423,9 @@ class VideoPlaybackService : MediaLibraryService() {
                 putExtra("ACTION", COMMAND.TOGGLE_PLAY.stringValue)
             }
             val togglePlayPendingIntent = PendingIntent.getService(
-                this, playerId * 10 + 1, togglePlayIntent,
+                this,
+                playerId * 10 + 1,
+                togglePlayIntent,
                 PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
 
@@ -417,7 +434,9 @@ class VideoPlaybackService : MediaLibraryService() {
                 putExtra("ACTION", COMMAND.SEEK_FORWARD.stringValue)
             }
             val seekForwardPendingIntent = PendingIntent.getService(
-                this, playerId * 10 + 2, seekForwardIntent,
+                this,
+                playerId * 10 + 2,
+                seekForwardIntent,
                 PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
 
@@ -427,7 +446,8 @@ class VideoPlaybackService : MediaLibraryService() {
                 .addAction(R.drawable.ic_prev, "Seek Backward", seekBackwardPendingIntent)
                 .addAction(
                     if (session.player.isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
-                    "Toggle Play", togglePlayPendingIntent
+                    "Toggle Play",
+                    togglePlayPendingIntent
                 )
                 .addAction(R.drawable.ic_next, "Seek Forward", seekForwardPendingIntent)
                 .setStyle(MediaStyleNotificationHelper.MediaStyle(session).setShowActionsInCompactView(0, 1, 2))
@@ -455,13 +475,8 @@ class VideoPlaybackService : MediaLibraryService() {
     private fun cleanup() {
         DebugLog.d(TAG, "VideoPlaybackService cleanup")
         hideAllNotifications()
-        if (CanonicalPlayerHolder.reconcileEnabled) {
-            canonicalSession?.release()
-            canonicalSession = null
-        } else {
-            mediaSessionsList.forEach { (_, session) -> session.release() }
-            mediaSessionsList.clear()
-        }
+        canonicalSession?.release()
+        canonicalSession = null
         isForegroundServiceStarted = false
     }
 
@@ -483,11 +498,7 @@ class VideoPlaybackService : MediaLibraryService() {
                 return super.onStartCommand(intent, flags, startId)
             }
 
-            val session: MediaSession? = if (CanonicalPlayerHolder.reconcileEnabled) {
-                canonicalSession?.takeIf { s -> s.player.hashCode() == playerId }
-            } else {
-                mediaSessionsList.values.find { s -> s.player.hashCode() == playerId }
-            }
+            val session: MediaSession? = canonicalSession?.takeIf { s -> s.player.hashCode() == playerId }
 
             if (session != null) handleCommand(commandFromString(actionCommand), session)
         }
@@ -502,7 +513,7 @@ class VideoPlaybackService : MediaLibraryService() {
 
         /**
          * PLAYER-269 Phase 4.8: live instance accessor for [AndroidAutoModule] repoint.
-         * Replaces [AndroidAutoMediaBrowserService.getInstance()] call sites.
+         * Replaces the legacy AndroidAutoMediaBrowserService.getInstance() call sites.
          */
         @Volatile
         var liveInstance: VideoPlaybackService? = null

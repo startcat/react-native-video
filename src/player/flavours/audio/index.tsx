@@ -81,6 +81,33 @@ export const AudioFlavour = forwardRef<AudioFlavourRef, AudioFlavourProps>(
 	const refVideoPlayer = useRef<VideoRef>(null);
 	const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
 
+	// PLAYER-278: reflect EXTERNAL engine play/pause (Android Auto / lock-screen / audio-focus
+	// handoff) back into the controlled `paused` state so the phone UI icon stays in sync. Refs
+	// mirror the relevant state so the onPlaybackRateChange handler reads fresh values without
+	// stale closures / cross-event batch races.
+	const pausedRef = useRef<boolean>(!!props.initialState?.isPaused);
+	const bufferingRef = useRef<boolean>(false);
+	const contentLoadedRef = useRef<boolean>(false);
+	const externalPauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		pausedRef.current = paused;
+	}, [paused]);
+	useEffect(() => {
+		bufferingRef.current = buffering;
+	}, [buffering]);
+	useEffect(() => {
+		contentLoadedRef.current = isContentLoaded;
+	}, [isContentLoaded]);
+	useEffect(
+		() => () => {
+			if (externalPauseTimerRef.current) {
+				clearTimeout(externalPauseTimerRef.current);
+			}
+		},
+		[]
+	);
+
 	// --- Ads state machine ---
 	const onAdStateChangedRef = useRef(props.events?.onAdStateChanged);
 	useEffect(() => {
@@ -931,12 +958,67 @@ export const AudioFlavour = forwardRef<AudioFlavourRef, AudioFlavourProps>(
 	};
 
 	const handleOnBuffer = (e: OnBufferData) => {
+		bufferingRef.current = !!e?.isBuffering; // PLAYER-278: keep ref fresh for the rate-change guard
 		setBuffering(!!e?.isBuffering);
 	};
 
 	const handleOnReadyForDisplay = () => {
+		bufferingRef.current = false; // PLAYER-278
 		setBuffering(false);
 	};
+
+	// PLAYER-278: keep the controlled `paused` prop in sync with EXTERNAL engine state changes
+	// (Android Auto / lock-screen pause-resume, audio-focus handoff). Native emits
+	// onPlaybackRateChange(0) for BOTH a real pause AND buffering, and the native
+	// CarAudioHandoffCoordinator re-asserts play() up to ~1.2s after an AA connect — so RESUME
+	// (rate>0) is applied immediately, while PAUSE (rate→0) is debounced past that window and
+	// buffering-guarded: it never fights the AA-connect handoff and never pauses the engine on a
+	// rebuffer. Reuses the user-control path so comscore/dpo onPause/onPlay still fire.
+	const applyExternalPausedState = useCallback(
+		(next: boolean) => {
+			if (pausedRef.current === next) {
+				return;
+			}
+			pausedRef.current = next;
+			handleOnControlsPress(CONTROL_ACTION.PAUSE, next);
+		},
+		[handleOnControlsPress]
+	);
+
+	const handleExternalPlaybackRate = useCallback(
+		(e?: { playbackRate?: number }) => {
+			const enginePlaying = (e?.playbackRate ?? 0) > 0;
+
+			// Any rate change cancels a pending (debounced) external-pause.
+			if (externalPauseTimerRef.current) {
+				clearTimeout(externalPauseTimerRef.current);
+				externalPauseTimerRef.current = null;
+			}
+
+			if (enginePlaying) {
+				// Unambiguous: engine is playing → reflect an external resume immediately.
+				if (pausedRef.current) {
+					applyExternalPausedState(false);
+				}
+				return;
+			}
+
+			// rate === 0 is ambiguous (real pause vs buffering vs AA-connect focus-loss). Defer and
+			// re-check, so a coordinator re-assert (≤1.2s) or a transient rebuffer cancels it first.
+			externalPauseTimerRef.current = setTimeout(() => {
+				externalPauseTimerRef.current = null;
+				if (
+					!pausedRef.current &&
+					!bufferingRef.current &&
+					contentLoadedRef.current &&
+					!isChangingSource.current
+				) {
+					applyExternalPausedState(true);
+				}
+			}, 1500); // > CarAudioHandoffCoordinator re-assert window (≤1.2s)
+		},
+		[applyExternalPausedState]
+	);
 
 	const handleOnProgress = (e: OnProgressData) => {
 		currentLogger.current?.temp(
@@ -1328,7 +1410,10 @@ export const AudioFlavour = forwardRef<AudioFlavourRef, AudioFlavourProps>(
 					onBuffer={combineEventHandlers(handleOnBuffer, videoEvents.onBuffer)}
 					onSeek={videoEvents.onSeek}
 					onPlaybackStateChanged={videoEvents.onPlaybackStateChanged}
-					onPlaybackRateChange={videoEvents.onPlaybackRateChange}
+					onPlaybackRateChange={combineEventHandlers(
+						handleExternalPlaybackRate,
+						videoEvents.onPlaybackRateChange
+					)}
 					onVolumeChange={videoEvents.onVolumeChange}
 					onAudioTracks={videoEvents.onAudioTracks}
 					onTextTracks={videoEvents.onTextTracks}

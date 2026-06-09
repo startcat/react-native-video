@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.*
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -13,21 +12,15 @@ import org.junit.runner.RunWith
  * PLAYER-269 Phase 3 gate: asserts GlobalPlayerManager.getOrCreatePlayer returns the SAME
  * instance the CanonicalPlayerHolder holds — no second ExoPlayer is created (inv. 1).
  *
- * Requires [CanonicalPlayerHolder.reconcileEnabled] = true.
+ * PLAYER-278 burn-down: canonical reconciliation is unconditional (no kill-switch).
  */
 @RunWith(AndroidJUnit4::class)
 class GlobalPlayerFoldTest {
-
-    @Before
-    fun setUp() {
-        CanonicalPlayerHolder.reconcileEnabled = true
-    }
 
     @After
     fun tearDown() {
         CanonicalPlayerHolder.get()?.release()
         CanonicalPlayerHolder.clear()
-        CanonicalPlayerHolder.reconcileEnabled = false // restore kill-switch default
     }
 
     @Test
