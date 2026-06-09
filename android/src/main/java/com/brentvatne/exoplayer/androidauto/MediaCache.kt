@@ -12,64 +12,63 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * MediaCache - Sistema de caché para biblioteca de medios
- * 
+ *
  * Almacena la biblioteca de medios en SharedPreferences para:
  * - Respuesta instantánea cuando Android Auto solicita contenido
  * - Disponibilidad con app cerrada
  * - Persistencia entre reinicios
- * 
+ *
  * Usa memoria + disco para máximo rendimiento:
  * - Memoria (ConcurrentHashMap): Acceso rápido
  * - Disco (SharedPreferences): Persistencia
  */
 class MediaCache private constructor(private val context: Context) {
-    
+
     companion object {
         private const val TAG = "MediaCache"
         private const val PREFS_NAME = "android_auto_media_cache"
         private const val CACHE_KEY = "media_library"
         private const val ROOT_ID = "root"
-        
+
         @Volatile
         private var instance: MediaCache? = null
-        
+
         /**
          * Obtener instancia singleton
-         * 
+         *
          * IMPORTANTE: Inicializa automáticamente el caché desde disco
          * para que el servicio headless tenga contenido disponible inmediatamente.
          */
-        fun getInstance(context: Context): MediaCache {
-            return instance ?: synchronized(this) {
-                instance ?: MediaCache(context.applicationContext).also { 
+        fun getInstance(context: Context): MediaCache =
+            instance ?: synchronized(this) {
+                instance ?: MediaCache(context.applicationContext).also {
                     instance = it
                     // Inicializar automáticamente al crear la instancia
                     it.initialize()
                     Log.i(TAG, "MediaCache instance created and auto-initialized")
                 }
             }
-        }
     }
-    
+
     // SharedPreferences para persistencia
     private val prefs: SharedPreferences by lazy {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
-    
+
     // Gson para serialización
     private val gson = Gson()
-    
+
     // Caché en memoria para acceso rápido
     // Estructura: parentId -> List<CachedMediaItem>
     private val memoryCache = ConcurrentHashMap<String, List<CachedMediaItem>>()
-    
+
     // Flag de inicialización
     private var initialized = false
-    
+
     /**
      * Inicializar caché
      * Carga datos desde disco a memoria
-     * 
+     *
      * NOTA: La inicialización se ejecuta automáticamente en getInstance()
      * para que el servicio headless tenga contenido disponible inmediatamente.
      * Este método es público para permitir reinicialización manual si es necesario.
@@ -79,7 +78,7 @@ class MediaCache private constructor(private val context: Context) {
             Log.d(TAG, "Already initialized")
             return
         }
-        
+
         try {
             loadCacheFromDisk()
             initialized = true
@@ -88,10 +87,10 @@ class MediaCache private constructor(private val context: Context) {
             Log.e(TAG, "Failed to initialize MediaCache", e)
         }
     }
-    
+
     /**
      * Obtener hijos de un nodo padre
-     * 
+     *
      * @param parentId ID del padre ("root" para raíz)
      * @return Lista de MediaItems hijos
      */
@@ -100,10 +99,10 @@ class MediaCache private constructor(private val context: Context) {
         Log.d(TAG, "getChildren($parentId): ${cached.size} items")
         return cached.map { it.toMediaItem() }
     }
-    
+
     /**
      * Obtener un item cacheado específico por su mediaId
-     * 
+     *
      * @param mediaId ID del media
      * @return CachedMediaItem o null si no existe
      */
@@ -119,12 +118,12 @@ class MediaCache private constructor(private val context: Context) {
         Log.w(TAG, "getCachedItem($mediaId): not found")
         return null
     }
-    
+
     /**
      * Actualizar hijos de un nodo padre
-     * 
+     *
      * Guarda en memoria y persiste en disco.
-     * 
+     *
      * @param parentId ID del padre
      * @param items Lista de MediaItems
      */
@@ -133,18 +132,18 @@ class MediaCache private constructor(private val context: Context) {
             val cachedItems = items.map { CachedMediaItem.fromMediaItem(it) }
             memoryCache[parentId] = cachedItems
             saveCacheToDisk()
-            
+
             Log.i(TAG, "updateChildren($parentId): ${items.size} items cached")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to update children for $parentId", e)
         }
     }
-    
+
     /**
      * Obtener un item específico por ID
-     * 
+     *
      * Busca en todos los nodos del caché.
-     * 
+     *
      * @param mediaId ID del media
      * @return MediaItem o null si no se encuentra
      */
@@ -156,14 +155,14 @@ class MediaCache private constructor(private val context: Context) {
                 return item.toMediaItem()
             }
         }
-        
+
         Log.d(TAG, "getItem($mediaId): Not found")
         return null
     }
-    
+
     /**
      * Verificar si existe un item
-     * 
+     *
      * @param mediaId ID del media
      * @return true si existe
      */
@@ -175,63 +174,61 @@ class MediaCache private constructor(private val context: Context) {
         }
         return false
     }
-    
+
     /**
      * Verificar si el caché tiene contenido
-     * 
+     *
      * @return true si hay al menos un nodo con items
      */
-    fun hasContent(): Boolean {
-        return memoryCache.isNotEmpty()
-    }
-    
+    fun hasContent(): Boolean = memoryCache.isNotEmpty()
+
     /**
      * Buscar items por query
-     * 
+     *
      * Busca en títulos, subtítulos y artistas.
-     * 
+     *
      * @param query Texto de búsqueda
      * @return Lista de MediaItems que coinciden
      */
     fun search(query: String): List<MediaItem> {
         val lowerQuery = query.lowercase()
         val results = mutableListOf<MediaItem>()
-        
+
         for ((_, items) in memoryCache) {
             for (item in items) {
                 val matchesTitle = item.title?.lowercase()?.contains(lowerQuery) == true
                 val matchesSubtitle = item.subtitle?.lowercase()?.contains(lowerQuery) == true
                 val matchesArtist = item.artist?.lowercase()?.contains(lowerQuery) == true
-                
+
                 if (matchesTitle || matchesSubtitle || matchesArtist) {
                     results.add(item.toMediaItem())
                 }
             }
         }
-        
+
         Log.d(TAG, "search('$query'): ${results.size} results")
         return results
     }
-    
+
     /**
      * Obtener todos los items reproducibles
-     * 
+     *
      * @return Lista de todos los items marcados como playable
      */
     fun getAllPlayableItems(): List<MediaItem> {
         val results = mutableListOf<MediaItem>()
-        
+
         for ((_, items) in memoryCache) {
             results.addAll(items.filter { it.isPlayable }.map { it.toMediaItem() })
         }
-        
+
         Log.d(TAG, "getAllPlayableItems(): ${results.size} items")
         return results
     }
-    
+
     /**
      * Limpiar caché completo
-     * 
+     *
      * Elimina datos de memoria y disco.
      */
     fun clear() {
@@ -243,23 +240,23 @@ class MediaCache private constructor(private val context: Context) {
             Log.e(TAG, "Failed to clear cache", e)
         }
     }
-    
+
     /**
      * Obtener estadísticas del caché
-     * 
+     *
      * @return Mapa con estadísticas
      */
     fun getStats(): Map<String, Any> {
         var totalItems = 0
         var playableItems = 0
         var browsableItems = 0
-        
+
         for ((_, items) in memoryCache) {
             totalItems += items.size
             playableItems += items.count { it.isPlayable }
             browsableItems += items.count { it.isBrowsable }
         }
-        
+
         return mapOf(
             "parentNodes" to memoryCache.size,
             "totalItems" to totalItems,
@@ -268,36 +265,35 @@ class MediaCache private constructor(private val context: Context) {
             "initialized" to initialized
         )
     }
-    
+
     // ========================================================================
     // Métodos Privados - Persistencia
     // ========================================================================
-    
+
     /**
      * Cargar caché desde disco
      */
     private fun loadCacheFromDisk() {
         try {
             val json = prefs.getString(CACHE_KEY, null)
-            
+
             if (json.isNullOrEmpty()) {
                 Log.d(TAG, "No cache data on disk")
                 return
             }
-            
+
             val type = object : TypeToken<Map<String, List<CachedMediaItem>>>() {}.type
             val diskCache: Map<String, List<CachedMediaItem>> = gson.fromJson(json, type)
-            
+
             memoryCache.clear()
             memoryCache.putAll(diskCache)
-            
+
             Log.i(TAG, "Loaded ${memoryCache.size} parent nodes from disk")
-            
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load cache from disk", e)
         }
     }
-    
+
     /**
      * Guardar caché a disco
      */
@@ -305,21 +301,20 @@ class MediaCache private constructor(private val context: Context) {
         try {
             val json = gson.toJson(memoryCache)
             prefs.edit().putString(CACHE_KEY, json).apply()
-            
+
             Log.d(TAG, "Cache saved to disk")
-            
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save cache to disk", e)
         }
     }
-    
+
     // ========================================================================
     // Clase Interna - CachedMediaItem
     // ========================================================================
-    
+
     /**
      * Representación serializable de MediaItem
-     * 
+     *
      * MediaItem de Media3 no es directamente serializable,
      * por lo que usamos esta clase intermedia.
      */
@@ -330,7 +325,7 @@ class MediaCache private constructor(private val context: Context) {
         val artist: String?,
         val album: String?,
         val artworkUri: String?,
-        val mediaUri: String?,  // URI del media para reproducción
+        val mediaUri: String?, // URI del media para reproducción
         val isBrowsable: Boolean,
         val isPlayable: Boolean,
         val parentId: String?,
@@ -347,7 +342,8 @@ class MediaCache private constructor(private val context: Context) {
             for ((k, v) in contentStyleHints) extras.putInt(k, v)
             groupTitle?.let {
                 extras.putString(
-                    androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, it
+                    androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE,
+                    it
                 )
             }
             return MediaItem.Builder()

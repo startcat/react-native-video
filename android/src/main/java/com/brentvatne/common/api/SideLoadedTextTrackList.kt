@@ -22,7 +22,7 @@ class SideLoadedTextTrackList {
                 // val textTrack: ReadableMap = src.getMap(i)
                 // sideLoadedTextTrackList.tracks.add(SideLoadedTextTrack.parse(textTrack))
 
-                val textTrack = src.getMap(i) ?: continue        // ← ① ignora entradas nulas
+                val textTrack = src.getMap(i) ?: continue // ← ① ignora entradas nulas
                 sideLoadedTextTrackList.tracks.add(
                     SideLoadedTextTrack.parse(textTrack)
                 )

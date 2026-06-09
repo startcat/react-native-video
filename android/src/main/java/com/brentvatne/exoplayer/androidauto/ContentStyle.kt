@@ -21,11 +21,16 @@ object ContentStyle {
     private const val KEY_GROUP_TITLE = "groupTitle"
 
     /** Map a GUAU style string ("1"/"2") to the media3 int hint, or null if unrecognised. */
-    private fun toHint(value: String?): Int? = when (value) {
-        "1" -> MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM // 1
-        "2" -> MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM // 2
-        else -> null
-    }
+    private fun toHint(value: String?): Int? =
+        when (value) {
+            "1" -> MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
+
+            // 1
+            "2" -> MediaConstants.DESCRIPTION_EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
+
+            // 2
+            else -> null
+        }
 
     /**
      * Build the media3 content-style Bundle from GUAU's extras map. Returns an empty Bundle when no

@@ -22,7 +22,7 @@ class SubtitleStyle private constructor() {
         private set
     private var _backgroundColor: Int? = null
     private var _verticalAlignment: String? = null
-    
+
     // Public getters for Java interop
     fun getBackgroundColor(): Int? = _backgroundColor
     fun getVerticalAlignment(): String? = _verticalAlignment
@@ -46,7 +46,7 @@ class SubtitleStyle private constructor() {
             subtitleStyle.paddingLeft = ReactBridgeUtils.safeGetInt(src, PROP_PADDING_LEFT, 0)
             subtitleStyle.paddingRight = ReactBridgeUtils.safeGetInt(src, PROP_PADDING_RIGHT, 0)
             subtitleStyle.opacity = ReactBridgeUtils.safeGetFloat(src, PROP_OPACITY, 1f)
-            
+
             // Parse backgroundColor from string (e.g., "#FF0000" or "red")
             val backgroundColorStr = ReactBridgeUtils.safeGetString(src, PROP_BACKGROUND_COLOR, null)
             if (backgroundColorStr != null) {
@@ -61,10 +61,10 @@ class SubtitleStyle private constructor() {
                     subtitleStyle._backgroundColor = null
                 }
             }
-            
+
             // Parse verticalAlignment: "top", "middle", "bottom"
             subtitleStyle._verticalAlignment = ReactBridgeUtils.safeGetString(src, PROP_VERTICAL_ALIGNMENT, null)
-            
+
             return subtitleStyle
         }
     }

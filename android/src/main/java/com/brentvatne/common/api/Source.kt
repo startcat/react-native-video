@@ -175,14 +175,14 @@ class Source {
                 if (propSrcHeadersArray != null) {
                     if (propSrcHeadersArray.size() > 0) {
                         // Cambio Propuesto por Juan - Versiones de Kotlin nuevas
-                        //for (i in 0 until propSrcHeadersArray.size()) {
-                            //val current = propSrcHeadersArray.getMap(i)
+                        // for (i in 0 until propSrcHeadersArray.size()) {
+                        // val current = propSrcHeadersArray.getMap(i)
 
                         for (i in 0 until propSrcHeadersArray.size()) {
                             val current = propSrcHeadersArray.getMap(i) ?: continue
 
-                            //val key = if (current.hasKey("key")) current.getString("key") else null
-                            //val value = if (current.hasKey("value")) current.getString("value") else null
+                            // val key = if (current.hasKey("key")) current.getString("key") else null
+                            // val value = if (current.hasKey("value")) current.getString("value") else null
 
                             val key = current.takeIf { map -> map.hasKey("key") }?.getString("key")
                             val value = current.takeIf { map -> map.hasKey("value") }?.getString("value")

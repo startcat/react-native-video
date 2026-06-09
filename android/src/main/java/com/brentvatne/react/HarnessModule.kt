@@ -14,8 +14,7 @@ import com.facebook.react.bridge.ReactMethod
  * PLAYER-265 S1 — livePlayerCount() is the JS-facing side of the
  * single-player invariant assertion.
  */
-class HarnessModule(reactContext: ReactApplicationContext) :
-    ReactContextBaseJavaModule(reactContext) {
+class HarnessModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
 
     override fun getName(): String = "HarnessModule"
 

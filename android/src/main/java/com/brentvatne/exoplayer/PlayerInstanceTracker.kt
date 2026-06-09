@@ -13,10 +13,14 @@ object PlayerInstanceTracker {
     private val live = Collections.newSetFromMap(WeakHashMap<Any, Boolean>())
 
     @Synchronized
-    fun register(player: Any) { live.add(player) }
+    fun register(player: Any) {
+        live.add(player)
+    }
 
     @Synchronized
-    fun unregister(player: Any) { live.remove(player) }
+    fun unregister(player: Any) {
+        live.remove(player)
+    }
 
     @Synchronized
     fun count(): Int = live.size
