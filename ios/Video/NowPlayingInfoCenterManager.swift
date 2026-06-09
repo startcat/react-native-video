@@ -300,11 +300,13 @@ class NowPlayingInfoCenterManager {
 
         let artistItem = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtist).first?.stringValue ?? ""
 
-        // I have some issue with this - setting artworkItem when it not set dont return nil but also is crashing application
-        // this is very hacky workaround for it
+        // PLAYER-272: only build MPMediaItemArtwork when there is real, decodable artwork.
+        // The previous workaround fed an empty UIImage() (zero boundsSize) into
+        // MPMediaItemArtwork — the documented crash-when-artwork-unset hazard on this hot
+        // metadata path. When absent we omit the key entirely and drop any stale artwork
+        // from the previous item after the merge below.
         let imgData = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork).first?.dataValue
-        let image = imgData.flatMap { UIImage(data: $0) } ?? UIImage()
-        let artworkItem = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        let artworkImage = imgData.flatMap { UIImage(data: $0) }
 
         // Determine playback rate - avoid setting to 0 during buffering as it can pause playback
         let playbackRate: Double
@@ -317,20 +319,27 @@ class NowPlayingInfoCenterManager {
             playbackRate = 1.0
             debugPrint("[NowPlayingInfoCenter] ⚠️ Player rate is 0 - using 1.0 to prevent system pause")
         }
-        
-        let newNowPlayingInfo: [String: Any] = [
+
+        var newNowPlayingInfo: [String: Any] = [
             MPMediaItemPropertyTitle: titleItem,
             MPMediaItemPropertyArtist: artistItem,
-            MPMediaItemPropertyArtwork: artworkItem,
             MPMediaItemPropertyPlaybackDuration: currentItem.duration.seconds,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: currentItem.currentTime().seconds.rounded(),
             MPNowPlayingInfoPropertyPlaybackRate: playbackRate,
             MPNowPlayingInfoPropertyIsLiveStream: CMTIME_IS_INDEFINITE(currentItem.asset.duration),
         ]
+        if let artworkImage = artworkImage, artworkImage.size.width > 0, artworkImage.size.height > 0 {
+            newNowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: artworkImage.size) { _ in artworkImage }
+        }
         let currentNowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
 
         debugPrint("[NowPlayingInfoCenter] 📤 Updating Now Playing - rate: \(player.rate), title: \(titleItem)")
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = currentNowPlayingInfo.merging(newNowPlayingInfo) { _, new in new }
+        var mergedNowPlayingInfo = currentNowPlayingInfo.merging(newNowPlayingInfo) { _, new in new }
+        if newNowPlayingInfo[MPMediaItemPropertyArtwork] == nil {
+            // No artwork on this item: drop any stale artwork carried over from the merge.
+            mergedNowPlayingInfo.removeValue(forKey: MPMediaItemPropertyArtwork)
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = mergedNowPlayingInfo
         debugPrint("[NowPlayingInfoCenter] ✓ Now Playing Info updated")
     }
 
