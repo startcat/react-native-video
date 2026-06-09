@@ -333,12 +333,23 @@ class MediaCache private constructor(private val context: Context) {
         val mediaUri: String?,  // URI del media para reproducción
         val isBrowsable: Boolean,
         val isPlayable: Boolean,
-        val parentId: String?
+        val parentId: String?,
+        // PLAYER-267: content-style hints (media3 bundle int keys) + group title, persisted across the
+        // Gson disk round-trip so headless browse keeps GUAU's GRID/LIST/grouping intent.
+        val contentStyleHints: Map<String, Int> = emptyMap(),
+        val groupTitle: String? = null
     ) {
         /**
          * Convertir a MediaItem de Media3
          */
         fun toMediaItem(): MediaItem {
+            val extras = android.os.Bundle()
+            for ((k, v) in contentStyleHints) extras.putInt(k, v)
+            groupTitle?.let {
+                extras.putString(
+                    androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, it
+                )
+            }
             return MediaItem.Builder()
                 .setMediaId(mediaId)
                 .setMediaMetadata(
@@ -350,27 +361,45 @@ class MediaCache private constructor(private val context: Context) {
                         .setArtworkUri(artworkUri?.let { Uri.parse(it) })
                         .setIsBrowsable(isBrowsable)
                         .setIsPlayable(isPlayable)
+                        .setExtras(extras) // PLAYER-267
                         .build()
                 )
                 .build()
         }
-        
+
         companion object {
             /**
              * Crear desde MediaItem de Media3
              */
             fun fromMediaItem(item: MediaItem): CachedMediaItem {
+                val md = item.mediaMetadata
+                val srcExtras = md.extras
+                val hints = mutableMapOf<String, Int>()
+                var group: String? = null
+                if (srcExtras != null) {
+                    val mc = androidx.media.utils.MediaConstants
+                    for (key in listOf(
+                        mc.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM,
+                        mc.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
+                        mc.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_PLAYABLE
+                    )) {
+                        if (srcExtras.containsKey(key)) hints[key] = srcExtras.getInt(key)
+                    }
+                    group = srcExtras.getString(mc.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE)
+                }
                 return CachedMediaItem(
                     mediaId = item.mediaId,
-                    title = item.mediaMetadata.title?.toString(),
-                    subtitle = item.mediaMetadata.subtitle?.toString(),
-                    artist = item.mediaMetadata.artist?.toString(),
-                    album = item.mediaMetadata.albumTitle?.toString(),
-                    artworkUri = item.mediaMetadata.artworkUri?.toString(),
+                    title = md.title?.toString(),
+                    subtitle = md.subtitle?.toString(),
+                    artist = md.artist?.toString(),
+                    album = md.albumTitle?.toString(),
+                    artworkUri = md.artworkUri?.toString(),
                     mediaUri = item.localConfiguration?.uri?.toString(), // URI del media
-                    isBrowsable = item.mediaMetadata.isBrowsable ?: false,
-                    isPlayable = item.mediaMetadata.isPlayable ?: false,
-                    parentId = null // Se infiere del parentId en updateChildren
+                    isBrowsable = md.isBrowsable ?: false,
+                    isPlayable = md.isPlayable ?: false,
+                    parentId = null, // Se infiere del parentId en updateChildren
+                    contentStyleHints = hints,
+                    groupTitle = group
                 )
             }
         }

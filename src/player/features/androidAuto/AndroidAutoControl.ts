@@ -174,7 +174,8 @@ export class AndroidAutoControl {
             try {
                 const items = await callback(data.parentId);
                 console.log(`[AndroidAuto] Browse callback ${id} returned ${items.length} items`);
-                // TODO FASE 6: Enviar respuesta al servicio nativo
+                // PLAYER-267 FASE 6: send the dynamic result back to native to cache + refresh Auto.
+                await AndroidAutoModule.respondToBrowseRequest(data.parentId, items);
             } catch (error) {
                 console.error(`[AndroidAuto] Browse callback ${id} failed:`, error);
             }
@@ -202,12 +203,15 @@ export class AndroidAutoControl {
      */
     private static handleSearchRequest(data: SearchRequestData): void {
         if (this.searchCallback) {
-            try {
-                this.searchCallback(data.query);
-                console.log('[AndroidAuto] Search callback executed');
-            } catch (error) {
-                console.error('[AndroidAuto] Search callback failed:', error);
-            }
+            Promise.resolve(this.searchCallback(data.query))
+                .then(async (items) => {
+                    console.log('[AndroidAuto] Search callback executed');
+                    if (Array.isArray(items)) {
+                        // PLAYER-267 FASE 6: send dynamic search results back to native.
+                        await AndroidAutoModule.respondToSearchRequest(data.query, items);
+                    }
+                })
+                .catch((error) => console.error('[AndroidAuto] Search callback failed:', error));
         } else {
             console.warn('[AndroidAuto] Search request received but no callback registered');
         }

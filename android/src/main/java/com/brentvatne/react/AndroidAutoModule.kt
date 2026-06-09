@@ -9,6 +9,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.brentvatne.exoplayer.androidauto.MediaCache
 import com.brentvatne.exoplayer.androidauto.AndroidAutoMediaBrowserService
+import com.brentvatne.exoplayer.androidauto.ContentStyle
 import com.brentvatne.exoplayer.CanonicalPlayerHolder
 import com.brentvatne.exoplayer.GlobalPlayerManager
 import com.brentvatne.exoplayer.VideoPlaybackService
@@ -225,7 +226,46 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
             promise.reject("SET_LIBRARY_FAILED", "Failed to set media library: ${e.message}", e)
         }
     }
-    
+
+    /**
+     * PLAYER-267 FASE 6: receive a dynamic onBrowseRequest result from JS and cache it for the given parent,
+     * then notify Android Auto to refresh. The static setMediaLibrary path is unaffected.
+     */
+    @ReactMethod
+    fun respondToBrowseRequest(parentId: String, items: ReadableArray, promise: Promise) {
+        try {
+            if (!isEnabled) { promise.reject("NOT_ENABLED", "Android Auto not enabled"); return }
+            val mediaItems = parseMediaItems(items)
+            mediaCache?.updateChildren(parentId, mediaItems)
+            notifyContentChanged(parentId)
+            Log.i(TAG, "respondToBrowseRequest($parentId): cached ${mediaItems.size} items")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "respondToBrowseRequest failed", e)
+            promise.reject("BROWSE_RESPONSE_FAILED", e.message, e)
+        }
+    }
+
+    /**
+     * PLAYER-267 FASE 6: receive a dynamic onSearch result from JS and cache it under a synthetic search
+     * parent so the car can browse the results. parentId convention: "search:<query>".
+     */
+    @ReactMethod
+    fun respondToSearchRequest(query: String, items: ReadableArray, promise: Promise) {
+        try {
+            if (!isEnabled) { promise.reject("NOT_ENABLED", "Android Auto not enabled"); return }
+            val parent = "search:$query"
+            val mediaItems = parseMediaItems(items)
+            mediaCache?.updateChildren(parent, mediaItems)
+            notifyContentChanged(parent)
+            Log.i(TAG, "respondToSearchRequest('$query'): cached ${mediaItems.size} results")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "respondToSearchRequest failed", e)
+            promise.reject("SEARCH_RESPONSE_FAILED", e.message, e)
+        }
+    }
+
     /**
      * Actualizar biblioteca de medios (incremental)
      * 
@@ -435,11 +475,44 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
                 return
             }
             
-            // TODO FASE 6: Actualizar MediaSession
-            // La MediaSession existente en VideoPlaybackService se actualizará
-            // automáticamente cuando cambie el contenido en el reproductor.
-            // Este método es principalmente para actualizaciones manuales.
-            
+            // PLAYER-267 FASE 6: push metadata to the live MediaSession's player.
+            // Canonical world (reconcileEnabled=true): update the canonical player's current MediaItem metadata.
+            // Pre-269 (flag OFF): keep the existing GlobalPlayerManager route (updateNowPlayingMetadata path).
+            if (CanonicalPlayerHolder.reconcileEnabled) {
+                val player = CanonicalPlayerHolder.get()
+                if (player != null) {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        try {
+                            val current = player.currentMediaItem
+                            val md = androidx.media3.common.MediaMetadata.Builder()
+                                .setTitle(metadata.getString("title"))
+                                .setArtist(metadata.getString("artist"))
+                                .setArtworkUri(
+                                    metadata.getString("artworkUri")?.let { android.net.Uri.parse(it) }
+                                )
+                                .build()
+                            if (current != null) {
+                                player.replaceMediaItem(
+                                    player.currentMediaItemIndex,
+                                    current.buildUpon().setMediaMetadata(md).build()
+                                )
+                            }
+                            Log.d(TAG, "Now playing pushed to canonical session: $title")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to push now-playing to canonical player", e)
+                        }
+                    }
+                } else {
+                    Log.w(TAG, "reconcileEnabled but canonical player not up; skipping now-playing push")
+                }
+            } else {
+                // Flag OFF: preserve the pre-269 GlobalPlayerManager metadata route.
+                GlobalPlayerManager.updateMetadata(
+                    metadata.getString("title"),
+                    metadata.getString("artist"),
+                    metadata.getString("artworkUri")
+                )
+            }
             Log.d(TAG, "Now playing updated: $title")
             
         } catch (e: Exception) {
@@ -684,6 +757,19 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
                     continue
                 }
                 
+                // Read GUAU content-style extras (PLAYER-267 / PLAYER-273 deferral).
+                val extrasMap = map.getMap("extras")
+                val styleExtras = mutableMapOf<String, String?>()
+                if (extrasMap != null) {
+                    val it = extrasMap.keySetIterator()
+                    while (it.hasNextKey()) {
+                        val k = it.nextKey()
+                        // GUAU sends content-style values as strings ("1"/"2") and groupTitle as a string.
+                        styleExtras[k] = try { extrasMap.getString(k) } catch (_: Exception) { null }
+                    }
+                }
+                val contentStyleBundle = ContentStyle.toBundle(styleExtras)
+
                 // Construir MediaItem
                 val itemBuilder = MediaItem.Builder()
                     .setMediaId(id)
@@ -702,6 +788,7 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext)
                             .setIsPlayable(
                                 if (map.hasKey("playable")) map.getBoolean("playable") else false
                             )
+                            .setExtras(contentStyleBundle) // PLAYER-267: content-style -> media3 -> Auto
                             .build()
                     )
                 
