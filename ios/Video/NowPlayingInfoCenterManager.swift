@@ -19,6 +19,9 @@ class NowPlayingInfoCenterManager {
     private var playbackPositionTarget: Any?
     private var seekTarget: Any?
     private var togglePlayPauseTarget: Any?
+    // PLAYER-268: skip-to-next/previous transport command targets.
+    private var nextTrackTarget: Any?
+    private var previousTrackTarget: Any?
 
     private let remoteCommandCenter = MPRemoteCommandCenter.shared()
 
@@ -231,6 +234,33 @@ class NowPlayingInfoCenterManager {
 
             return .success
         }
+
+        // PLAYER-268: register skip-to-next/previous transport commands.
+        // Routes to the active PlaylistControlModule's coordinated next/previous (emit-to-JS path).
+        // NowPlayingInfoCenterManager is the single command-center owner for the coordinated <Video>
+        // player — mirroring how it owns play/pause/seek above.
+        nextTrackTarget = remoteCommandCenter.nextTrackCommand.addTarget { _ in
+            debugPrint("[NowPlayingInfoCenter] ⏭️ NEXT TRACK command received")
+            guard let module = PlaylistControlModule.activeInstance else {
+                debugPrint("[NowPlayingInfoCenter] ❌ NEXT TRACK failed - no active PlaylistControlModule")
+                return .commandFailed
+            }
+            module.handleRemoteNextCommand()
+            return .success
+        }
+
+        previousTrackTarget = remoteCommandCenter.previousTrackCommand.addTarget { _ in
+            debugPrint("[NowPlayingInfoCenter] ⏮️ PREVIOUS TRACK command received")
+            guard let module = PlaylistControlModule.activeInstance else {
+                debugPrint("[NowPlayingInfoCenter] ❌ PREVIOUS TRACK failed - no active PlaylistControlModule")
+                return .commandFailed
+            }
+            module.handleRemotePreviousCommand()
+            return .success
+        }
+
+        remoteCommandCenter.nextTrackCommand.isEnabled = true
+        remoteCommandCenter.previousTrackCommand.isEnabled = true
     }
 
     private func invalidateCommandTargets() {
@@ -240,6 +270,9 @@ class NowPlayingInfoCenterManager {
         remoteCommandCenter.skipBackwardCommand.removeTarget(skipBackwardTarget)
         remoteCommandCenter.changePlaybackPositionCommand.removeTarget(playbackPositionTarget)
         remoteCommandCenter.togglePlayPauseCommand.removeTarget(togglePlayPauseTarget)
+        // PLAYER-268: remove skip transport targets.
+        remoteCommandCenter.nextTrackCommand.removeTarget(nextTrackTarget)
+        remoteCommandCenter.previousTrackCommand.removeTarget(previousTrackTarget)
     }
 
     public func updateNowPlayingInfo() {
