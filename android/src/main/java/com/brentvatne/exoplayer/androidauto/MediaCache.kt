@@ -377,15 +377,14 @@ class MediaCache private constructor(private val context: Context) {
                 val hints = mutableMapOf<String, Int>()
                 var group: String? = null
                 if (srcExtras != null) {
-                    val mc = androidx.media.utils.MediaConstants
                     for (key in listOf(
-                        mc.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM,
-                        mc.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
-                        mc.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_PLAYABLE
+                        androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM,
+                        androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
+                        androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_PLAYABLE
                     )) {
                         if (srcExtras.containsKey(key)) hints[key] = srcExtras.getInt(key)
                     }
-                    group = srcExtras.getString(mc.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE)
+                    group = srcExtras.getString(androidx.media.utils.MediaConstants.DESCRIPTION_EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE)
                 }
                 return CachedMediaItem(
                     mediaId = item.mediaId,
