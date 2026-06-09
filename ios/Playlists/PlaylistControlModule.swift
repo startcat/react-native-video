@@ -36,7 +36,11 @@ class PlaylistControlModule: RCTEventEmitter {
     
     // Track if this is the active instance
     private var isActiveInstance: Bool = false
-    
+
+    /// PLAYER-268: weak handle to the active instance so NowPlayingInfoCenterManager can route
+    /// OS skip commands into the coordinated playlist nav. Set on the active instance only.
+    static weak var activeInstance: PlaylistControlModule?
+
     // MARK: - Properties
     
     private var playlist: [PlaylistItem] = []
@@ -72,6 +76,7 @@ class PlaylistControlModule: RCTEventEmitter {
         if !Self.hasInitializedInstance {
             Self.hasInitializedInstance = true
             isActiveInstance = true
+            Self.activeInstance = self  // PLAYER-268: expose for NowPlayingInfoCenterManager skip routing.
             setupNativeEventListeners()
             print("[PlaylistControlModule] ✅ Active instance initialized")
         } else {
@@ -958,11 +963,23 @@ class PlaylistControlModule: RCTEventEmitter {
         print("[PlaylistControlModule] ⏭️ Remote next command")
         goToNext()
     }
-    
+
     private func handlePreviousTrack() {
         guard isActiveInstance else { return }
         print("[PlaylistControlModule] ⏮️ Remote previous command")
         goToPrevious()
+    }
+
+    /// PLAYER-268: entry point for an OS/car skip-to-next transport command (lock screen / CarPlay
+    /// now-playing). Routes through the SAME coordinated path as PlaylistControl.next() so JS
+    /// drives the <Video> player; in standalone mode it advances the module's own player.
+    @objc func handleRemoteNextCommand() {
+        self.next({ _ in }, reject: { _, _, _ in })
+    }
+
+    /// PLAYER-268: entry point for an OS/car skip-to-previous transport command.
+    @objc func handleRemotePreviousCommand() {
+        self.previous({ _ in }, reject: { _, _, _ in })
     }
     
     // MARK: - Navigation

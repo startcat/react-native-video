@@ -7,9 +7,11 @@ import android.os.Looper
 import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionResult
 import com.brentvatne.exoplayer.androidauto.MediaCache
 import com.brentvatne.react.AndroidAutoModule
 import com.facebook.react.bridge.Arguments
@@ -30,10 +32,7 @@ import com.google.common.util.concurrent.ListenableFuture
  *
  * ADR Auto-001 invariants covered: 1 (one player), 3 (one session), 4 (sole focus owner).
  */
-class VideoLibraryCallback(
-    private val serviceContext: Context,
-    private val mediaCache: MediaCache
-) : MediaLibrarySession.Callback {
+class VideoLibraryCallback(private val serviceContext: Context, private val mediaCache: MediaCache) : MediaLibrarySession.Callback {
 
     companion object {
         private const val TAG = "VideoLibraryCallback"
@@ -47,10 +46,7 @@ class VideoLibraryCallback(
     // Connection
     // ------------------------------------------------------------------
 
-    override fun onConnect(
-        session: MediaSession,
-        controller: MediaSession.ControllerInfo
-    ): MediaSession.ConnectionResult {
+    override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
         Log.d(TAG, "onConnect: ${controller.packageName}")
 
         val isEnabled = getAndroidAutoModule()?.isAndroidAutoEnabled() ?: false
@@ -60,8 +56,37 @@ class VideoLibraryCallback(
         } else {
             Log.i(TAG, "Android Auto enabled, accepting connection with content")
         }
-        return super.onConnect(session, controller)
+
+        // PLAYER-268: advertise skip-to-next/previous so the car/lock-screen render the buttons.
+        return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+            .setAvailablePlayerCommands(
+                MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+                    .add(Player.COMMAND_SEEK_TO_NEXT)
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                    .build()
+            )
+            .build()
     }
+
+    /**
+     * PLAYER-268: intercept the OS/car "skip to next/previous" transport commands (flag-ON
+     * canonical/browse session). Identical interception to VideoPlaybackCallback — flag-agnostic
+     * across the PLAYER-269 reconcile flip. Routes to the playlist via JS (not ExoPlayer timeline).
+     */
+    override fun onPlayerCommandRequest(session: MediaSession, controller: MediaSession.ControllerInfo, playerCommand: Int): Int =
+        when (playerCommand) {
+            Player.COMMAND_SEEK_TO_NEXT -> {
+                AndroidAutoModule.notifySkipToNext()
+                SessionResult.RESULT_ERROR_NOT_SUPPORTED
+            }
+
+            Player.COMMAND_SEEK_TO_PREVIOUS -> {
+                AndroidAutoModule.notifySkipToPrevious()
+                SessionResult.RESULT_ERROR_NOT_SUPPORTED
+            }
+
+            else -> SessionResult.RESULT_SUCCESS
+        }
 
     // ------------------------------------------------------------------
     // Browse tree
@@ -231,7 +256,11 @@ class VideoLibraryCallback(
     // ------------------------------------------------------------------
 
     private fun getAndroidAutoModule(): AndroidAutoModule? =
-        try { AndroidAutoModule.getInstance() } catch (_: Exception) { null }
+        try {
+            AndroidAutoModule.getInstance()
+        } catch (_: Exception) {
+            null
+        }
 
     private fun launchAppInBackground() {
         if (appLaunchAttempted) return
@@ -256,8 +285,10 @@ class VideoLibraryCallback(
         try {
             val module = getAndroidAutoModule()
             if (module?.isJavaScriptReady() == true) {
-                module.sendEvent(AndroidAutoModule.EVENT_BROWSE_REQUEST,
-                    Arguments.createMap().apply { putString("parentId", parentId) })
+                module.sendEvent(
+                    AndroidAutoModule.EVENT_BROWSE_REQUEST,
+                    Arguments.createMap().apply { putString("parentId", parentId) }
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to notify JS about browse request", e)
@@ -268,8 +299,10 @@ class VideoLibraryCallback(
         try {
             val module = getAndroidAutoModule()
             if (module?.isJavaScriptReady() == true) {
-                module.sendEvent(AndroidAutoModule.EVENT_PLAY_FROM_MEDIA_ID,
-                    Arguments.createMap().apply { putString("mediaId", mediaId) })
+                module.sendEvent(
+                    AndroidAutoModule.EVENT_PLAY_FROM_MEDIA_ID,
+                    Arguments.createMap().apply { putString("mediaId", mediaId) }
+                )
             } else {
                 Log.w(TAG, "JavaScript not ready, cannot send play event")
             }
@@ -282,8 +315,10 @@ class VideoLibraryCallback(
         try {
             val module = getAndroidAutoModule()
             if (module?.isJavaScriptReady() == true) {
-                module.sendEvent(AndroidAutoModule.EVENT_SEARCH_REQUEST,
-                    Arguments.createMap().apply { putString("query", query) })
+                module.sendEvent(
+                    AndroidAutoModule.EVENT_SEARCH_REQUEST,
+                    Arguments.createMap().apply { putString("query", query) }
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to notify JS about search request", e)
