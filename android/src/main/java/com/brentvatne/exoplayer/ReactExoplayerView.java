@@ -439,11 +439,15 @@ public class ReactExoplayerView extends FrameLayout implements
 
     public void cleanUpResources() {
         DebugLog.d(TAG, "ReactExoplayerView cleanUpResources");
+        // PLAYER-279: capture before stopPlayback()/releasePlayer() null the field — a canonical
+        // player survives releasePlayer() on purpose (inv. 2) and needs the hygiene check below.
+        final ExoPlayer releasingPlayer = player;
         cancelSleepTimer();
         stopPlayback();
         unregisterSleepTimerPauseReceiver();
         themedReactContext.removeLifecycleEventListener(this);
         releasePlayer();
+        releaseCanonicalOrphanIfIdle(releasingPlayer);
         viewHasDropped = true;
     }
 
@@ -1552,6 +1556,48 @@ public class ReactExoplayerView extends FrameLayout implements
             mainHandler.removeCallbacks(mainRunnable);
             mainRunnable = null;
         }
+    }
+
+    /**
+     * PLAYER-279: canonical-holder hygiene on view drop (video-before-audio / splash case).
+     *
+     * releasePlayer() deliberately keeps a canonical player alive (PLAYER-269 inv. 2: the service —
+     * and possibly the car — own its lifetime), so a {@code <Video playInBackground>} that registered
+     * as canonical and then unmounts leaves the holder pointing at an orphaned player: the
+     * CarAudioHandoffCoordinator would re-assert play() on it and attach-on-mount would adopt its
+     * stale media. When the dropped view's player is STILL the canonical one and nothing legitimate
+     * needs it — it is not actively playing and no automotive controller (gearhead) is attached —
+     * route it through VideoPlaybackService.unregisterPlayer (detaches the coordinator, clears the
+     * holder, tears down the session) and release it.
+     *
+     * Conservative by construction: an actively-playing player OR any car attachment keeps today's
+     * behavior (the orphan stays alive for the car/background — the COORDINATED handoff validated
+     * on device is untouched). Only runs on the real view-drop path (cleanUpResources), never on
+     * prop-change rebuild cycles (releasePlayer + initializePlayer).
+     */
+    private void releaseCanonicalOrphanIfIdle(ExoPlayer releasingPlayer) {
+        if (releasingPlayer == null || !CanonicalPlayerHolder.INSTANCE.isCanonical(releasingPlayer)) {
+            return;
+        }
+        int state = releasingPlayer.getPlaybackState();
+        boolean activelyInUse = releasingPlayer.getPlayWhenReady()
+                && (state == Player.STATE_READY || state == Player.STATE_BUFFERING);
+        VideoPlaybackService service = VideoPlaybackService.Companion.getLiveInstance();
+        boolean carAttached = service != null && service.hasAutomotiveController();
+        if (activelyInUse || carAttached) {
+            DebugLog.d(TAG, "PLAYER-279: keeping canonical player on view drop (inUse=" + activelyInUse
+                    + ", carAttached=" + carAttached + ")");
+            return;
+        }
+        DebugLog.d(TAG, "PLAYER-279: releasing orphaned canonical player on view drop");
+        if (service != null) {
+            service.unregisterPlayer(releasingPlayer);
+        } else {
+            // Service gone: clear the canonical wiring directly (unregisterPlayer's essentials).
+            CarAudioHandoffCoordinator.INSTANCE.detach(releasingPlayer);
+            CanonicalPlayerHolder.INSTANCE.clear();
+        }
+        releasingPlayer.release();
     }
 
     private static class OnAudioFocusChangedListener implements AudioManager.OnAudioFocusChangeListener {

@@ -326,6 +326,22 @@ class VideoPlaybackService : MediaLibraryService() {
     fun isAndroidAutoConnected(): Boolean = canonicalSession != null
 
     /**
+     * PLAYER-279: TRUE Android-Auto attachment check — an automotive controller (gearhead/projection)
+     * is currently connected to the canonical session. Unlike [isAndroidAutoConnected] (which is just
+     * "session exists" and is true for any registered player), this inspects the live controllers, so
+     * the canonical-holder hygiene on view drop never tears down a session the car is attached to.
+     */
+    fun hasAutomotiveController(): Boolean =
+        try {
+            canonicalSession?.connectedControllers?.any {
+                CarAudioHandoffCoordinator.isAutomotive(it.packageName)
+            } == true
+        } catch (e: Exception) {
+            Log.w(TAG, "hasAutomotiveController check failed: ${e.message}")
+            false
+        }
+
+    /**
      * Forward childrenChanged to the canonical session.
      * Replaces AndroidAutoMediaBrowserService.notifyChildrenChanged.
      */
