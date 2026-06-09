@@ -39,6 +39,10 @@ import { AndroidAutoEvent } from './types';
 // Obtener módulo nativo
 const { AndroidAutoModule } = NativeModules;
 
+// PLAYER-268: skip transport command event names (mirror of the native AndroidAutoModule constants).
+const EVENT_SKIP_TO_NEXT = 'onSkipToNext';
+const EVENT_SKIP_TO_PREVIOUS = 'onSkipToPrevious';
+
 /**
  * Clase principal para controlar Android Auto
  * 
@@ -55,6 +59,10 @@ export class AndroidAutoControl {
     private static browseCallbacks = new Map<string, BrowseCallback>();
     private static playCallback: PlayCallback | null = null;
     private static searchCallback: SearchCallback | null = null;
+
+    // PLAYER-268: skip transport callbacks (one active per direction).
+    private static skipToNextCallback: (() => void) | null = null;
+    private static skipToPreviousCallback: (() => void) | null = null;
     
     // Event emitter para eventos nativos — written in initializeEventSystem; DeviceEventEmitter
     // is used for listening. Field retained from module source (PLAYER-266).
@@ -122,7 +130,16 @@ export class AndroidAutoControl {
             }
         );
         this.subscriptions.push(playSub);
-        
+
+        // PLAYER-268: OS/car skip transport events.
+        const skipNextSub = DeviceEventEmitter.addListener(EVENT_SKIP_TO_NEXT, () => {
+            this.handleSkipToNext();
+        });
+        const skipPrevSub = DeviceEventEmitter.addListener(EVENT_SKIP_TO_PREVIOUS, () => {
+            this.handleSkipToPrevious();
+        });
+        this.subscriptions.push(skipNextSub, skipPrevSub);
+
         // Evento: Solicitud de búsqueda
         const searchSub = DeviceEventEmitter.addListener(
             AndroidAutoEvent.SEARCH_REQUEST,
@@ -162,6 +179,9 @@ export class AndroidAutoControl {
             }
         });
         this.subscriptions = [];
+        // PLAYER-268: clear skip callbacks on cleanup.
+        this.skipToNextCallback = null;
+        this.skipToPreviousCallback = null;
         console.log('[AndroidAuto] Event listeners cleaned up');
     }
     
@@ -198,6 +218,36 @@ export class AndroidAutoControl {
         }
     }
     
+    /**
+     * PLAYER-268: handle OS/car skip-to-next transport command.
+     */
+    private static handleSkipToNext(): void {
+        if (this.skipToNextCallback) {
+            try {
+                this.skipToNextCallback();
+            } catch (error) {
+                console.error('[AndroidAuto] skipToNext callback threw:', error);
+            }
+        } else {
+            console.warn('[AndroidAuto] onSkipToNext received but no callback registered');
+        }
+    }
+
+    /**
+     * PLAYER-268: handle OS/car skip-to-previous transport command.
+     */
+    private static handleSkipToPrevious(): void {
+        if (this.skipToPreviousCallback) {
+            try {
+                this.skipToPreviousCallback();
+            } catch (error) {
+                console.error('[AndroidAuto] skipToPrevious callback threw:', error);
+            }
+        } else {
+            console.warn('[AndroidAuto] onSkipToPrevious received but no callback registered');
+        }
+    }
+
     /**
      * Manejar solicitud de búsqueda
      */
@@ -403,13 +453,41 @@ export class AndroidAutoControl {
     static onPlayFromMediaId(callback: PlayCallback): () => void {
         this.playCallback = callback;
         console.log('[AndroidAuto] Play callback registered');
-        
+
         return () => {
             this.playCallback = null;
             console.log('[AndroidAuto] Play callback unregistered');
         };
     }
-    
+
+    /**
+     * Register the callback invoked when the car/OS issues a "skip to next" transport command
+     * (PLAYER-268). The consumer (GUAU) wires this to PlaylistControl.next(). Only one active.
+     * @returns unsubscribe fn.
+     */
+    static onSkipToNext(callback: () => void): () => void {
+        this.skipToNextCallback = callback;
+        console.log('[AndroidAuto] SkipToNext callback registered');
+        return () => {
+            this.skipToNextCallback = null;
+            console.log('[AndroidAuto] SkipToNext callback unregistered');
+        };
+    }
+
+    /**
+     * Register the callback invoked when the car/OS issues a "skip to previous" transport command
+     * (PLAYER-268). The consumer wires this to PlaylistControl.previous(). Only one active.
+     * @returns unsubscribe fn.
+     */
+    static onSkipToPrevious(callback: () => void): () => void {
+        this.skipToPreviousCallback = callback;
+        console.log('[AndroidAuto] SkipToPrevious callback registered');
+        return () => {
+            this.skipToPreviousCallback = null;
+            console.log('[AndroidAuto] SkipToPrevious callback unregistered');
+        };
+    }
+
     /**
      * Registrar callback para búsqueda
      * 
