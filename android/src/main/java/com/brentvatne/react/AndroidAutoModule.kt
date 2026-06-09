@@ -616,6 +616,25 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
     }
 
     /**
+     * Configurar el intervalo del seek RELATIVO (PLAYER-271)
+     *
+     * Paso en ms de los botones ±seek de la notificación / comandos custom de sesión.
+     * El scrubbing absoluto (barra de progreso del coche/widget) no usa este valor:
+     * va directo a player.seekTo. Se clampa a un mínimo de 1000 ms en el service.
+     */
+    @ReactMethod
+    fun setSeekIntervalMs(intervalMs: Double, promise: Promise) {
+        try {
+            VideoPlaybackService.seekIntervalMs = intervalMs.toLong()
+            Log.i(TAG, "Seek interval set to ${VideoPlaybackService.seekIntervalMs} ms")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to set seek interval", e)
+            promise.reject("SET_SEEK_INTERVAL_FAILED", "Failed to set seek interval: ${e.message}", e)
+        }
+    }
+
+    /**
      * Marcar JavaScript como no listo
      *
      * Llamado cuando los componentes de React se desmontan.

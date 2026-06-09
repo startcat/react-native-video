@@ -685,12 +685,37 @@ export class AndroidAutoControl {
      */
     static async setJavaScriptNotReady(): Promise<void> {
         this.checkAvailability();
-        
+
         try {
             await AndroidAutoModule.setJavaScriptNotReady();
             console.log('[AndroidAuto] JavaScript marked as NOT ready');
         } catch (error) {
             console.error('[AndroidAuto] Failed to set JS not ready:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Configurar el intervalo del seek relativo (PLAYER-271)
+     *
+     * Paso en milisegundos de los botones ±seek de la notificación multimedia y de los
+     * comandos custom de la sesión. No afecta al scrubbing absoluto (la barra de progreso
+     * del coche/widget hace seek exacto directamente sobre el player). El valor se clampa
+     * a un mínimo de 1000 ms en nativo. Por defecto: 10000 ms.
+     *
+     * @example
+     * ```typescript
+     * await AndroidAutoControl.setSeekIntervalMs(30000); // saltos de 30s (podcasts)
+     * ```
+     */
+    static async setSeekIntervalMs(intervalMs: number): Promise<void> {
+        this.checkAvailability();
+
+        try {
+            await AndroidAutoModule.setSeekIntervalMs(intervalMs);
+            console.log(`[AndroidAuto] Seek interval set to ${intervalMs} ms`);
+        } catch (error) {
+            console.error('[AndroidAuto] Failed to set seek interval:', error);
             throw error;
         }
     }

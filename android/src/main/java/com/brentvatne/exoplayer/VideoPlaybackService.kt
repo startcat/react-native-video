@@ -522,8 +522,21 @@ class VideoPlaybackService : MediaLibraryService() {
     }
 
     companion object {
-        private const val SEEK_INTERVAL_MS = 10000L
+        private const val DEFAULT_SEEK_INTERVAL_MS = 10000L
+        private const val MIN_SEEK_INTERVAL_MS = 1000L
         private const val TAG = "VideoPlaybackService"
+
+        /**
+         * PLAYER-271: step used by the RELATIVE seek commands (notification / custom session
+         * buttons). Configurable from JS via AndroidAutoControl.setSeekIntervalMs. Absolute
+         * scrubbing (COMMAND_SEEK_TO from the car/widget progress bar) goes straight to
+         * player.seekTo and never uses this.
+         */
+        @Volatile
+        var seekIntervalMs: Long = DEFAULT_SEEK_INTERVAL_MS
+            set(value) {
+                field = value.coerceAtLeast(MIN_SEEK_INTERVAL_MS)
+            }
 
         const val NOTIFICATION_CHANEL_ID = "RNVIDEO_SESSION_NOTIFICATION"
 
@@ -556,8 +569,8 @@ class VideoPlaybackService : MediaLibraryService() {
 
         fun handleCommand(command: COMMAND, session: MediaSession) {
             when (command) {
-                COMMAND.SEEK_BACKWARD -> session.player.seekTo(session.player.contentPosition - SEEK_INTERVAL_MS)
-                COMMAND.SEEK_FORWARD -> session.player.seekTo(session.player.contentPosition + SEEK_INTERVAL_MS)
+                COMMAND.SEEK_BACKWARD -> session.player.seekTo(session.player.contentPosition - seekIntervalMs)
+                COMMAND.SEEK_FORWARD -> session.player.seekTo(session.player.contentPosition + seekIntervalMs)
                 COMMAND.TOGGLE_PLAY -> handleCommand(if (session.player.isPlaying) COMMAND.PAUSE else COMMAND.PLAY, session)
                 COMMAND.PLAY -> session.player.play()
                 COMMAND.PAUSE -> session.player.pause()
