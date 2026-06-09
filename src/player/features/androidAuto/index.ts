@@ -81,3 +81,10 @@ export type {
 } from './types';
 
 export { AndroidAutoEvent } from './types';
+
+// Content-style contract (PLAYER-267)
+export {
+  CONTENT_STYLE_EXTRA_KEYS,
+  CONTENT_STYLE_HINT,
+  parseContentStyleHint,
+} from './contentStyle';
