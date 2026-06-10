@@ -317,6 +317,67 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
     }
 
     /**
+     * PLAYER-285 (G2): report a playback error from the JS layer to the in-car session.
+     *
+     * Called when the JS play flow fails (URL resolution, network, auth/subscription,
+     * content unavailable). Stops the canonical player so gearhead exits its loading/buffering
+     * state, and sets session extras with the error code + localized message.
+     *
+     * Error codes: RESOLUTION_ERROR, NETWORK_ERROR, AUTH_ERROR (VI-1 hint included),
+     * CONTENT_UNAVAILABLE, UNKNOWN_ERROR.
+     *
+     * media3 1.1.1 limitation: MediaSession.sendError() does not exist yet (added in 1.3+).
+     * The error message propagates via setSessionExtras — gearhead shows STATE_IDLE (no
+     * playback) rather than an explicit error dialog, but the car exits the spinner/buffering
+     * state which is the primary user-facing requirement. Upgrade path: bump to media3 1.3+
+     * and use sendError() for the full STATE_ERROR experience.
+     *
+     * @param errorCode String code from RESOLUTION_ERROR/NETWORK_ERROR/AUTH_ERROR/...
+     * @param localizedMessage Localized message to surface to the driver.
+     */
+    @ReactMethod
+    fun reportPlaybackError(errorCode: String, localizedMessage: String, promise: Promise) {
+        try {
+            Log.w(TAG, "reportPlaybackError: code=$errorCode, message=$localizedMessage")
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    // 1. Stop the canonical player so gearhead exits the buffering/loading state.
+                    val player = CanonicalPlayerHolder.get()
+                    if (player != null) {
+                        player.stop()
+                        Log.i(TAG, "reportPlaybackError: canonical player stopped")
+                    } else {
+                        Log.w(TAG, "reportPlaybackError: canonical player not available")
+                    }
+
+                    // 2. Attach error metadata to the session extras so connected controllers
+                    //    (including gearhead) can read it. Media3 1.1.1 does not have
+                    //    MediaSession.sendError() — this is best-effort for the in-car UI.
+                    val svc = VideoPlaybackService.liveInstance
+                    if (svc != null) {
+                        val errorBundle = android.os.Bundle().apply {
+                            putString("error_code", errorCode)
+                            putString("error_message", localizedMessage)
+                        }
+                        svc.librarySession()?.setSessionExtras(errorBundle)
+                        // 3. Notify gearhead so it refreshes the browse tree from the stopped state.
+                        svc.notifyChildrenChanged("root")
+                        Log.i(TAG, "reportPlaybackError: session extras set and root notified")
+                    } else {
+                        Log.w(TAG, "reportPlaybackError: VideoPlaybackService not alive")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "reportPlaybackError: error while stopping player", e)
+                }
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "reportPlaybackError failed", e)
+            promise.reject("REPORT_ERROR_FAILED", e.message, e)
+        }
+    }
+
+    /**
      * Actualizar biblioteca de medios (incremental)
      *
      * Actualiza items existentes o añade nuevos sin eliminar los que no están en el array.

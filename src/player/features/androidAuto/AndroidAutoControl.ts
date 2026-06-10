@@ -759,6 +759,39 @@ export class AndroidAutoControl {
     }
 
     /**
+     * PLAYER-285 (G2): report a JS-layer playback error to the in-car session.
+     *
+     * Call this when the play flow fails (URL resolution, network, auth/subscription, content
+     * unavailable) so Android Auto exits its buffering/loading state and the driver gets feedback.
+     * Error codes: "RESOLUTION_ERROR" | "NETWORK_ERROR" | "AUTH_ERROR" | "CONTENT_UNAVAILABLE".
+     * AUTH_ERROR message must include VI-1 guidance ("open the app when safe to do so").
+     *
+     * @param errorCode string error category
+     * @param localizedMessage localized message to surface (es/eu)
+     *
+     * @example
+     * ```typescript
+     * AndroidAutoControl.reportPlaybackError(
+     *   'AUTH_ERROR',
+     *   'Inicia sesión en GUAU cuando sea seguro conducir'
+     * );
+     * ```
+     */
+    static reportPlaybackError(errorCode: string, localizedMessage: string): void {
+        this.checkAvailability();
+        if (!this.enabled) {
+            console.warn('[AndroidAuto] reportPlaybackError: not enabled, skipping');
+            return;
+        }
+        try {
+            AndroidAutoModule.reportPlaybackError(errorCode, localizedMessage)
+                .catch((err: unknown) => console.error('[AndroidAuto] reportPlaybackError native rejected:', err));
+        } catch (error) {
+            console.error('[AndroidAuto] reportPlaybackError failed:', error);
+        }
+    }
+
+    /**
      * Configurar el intervalo del seek relativo (PLAYER-271)
      *
      * Paso en milisegundos de los botones ±seek de la notificación multimedia y de los
