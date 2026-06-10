@@ -759,6 +759,32 @@ export class AndroidAutoControl {
     }
 
     /**
+     * PLAYER-286 (G3): persist the last-played mediaId + position for playback resumption.
+     *
+     * Call this when a new item starts playing (e.g. in the ITEM_STARTED handler) so the
+     * native layer can return a MediaItemsWithStartPosition in onPlaybackResumption when the
+     * System UI or Bluetooth media buttons request a resume after process death / reboot.
+     *
+     * @param mediaId The mediaId that started playing.
+     * @param positionMs The current playback position in milliseconds (0 for stream start).
+     *
+     * @example
+     * ```typescript
+     * AndroidAutoControl.saveLastPlayed(item.id, startPosition * 1000);
+     * ```
+     */
+    static saveLastPlayed(mediaId: string, positionMs: number): void {
+        this.checkAvailability();
+        if (!this.enabled) return;
+        try {
+            AndroidAutoModule.saveLastPlayed(mediaId, positionMs)
+                .catch((err: unknown) => console.error('[AndroidAuto] saveLastPlayed rejected:', err));
+        } catch (error) {
+            console.error('[AndroidAuto] saveLastPlayed failed:', error);
+        }
+    }
+
+    /**
      * PLAYER-285 (G2): report a JS-layer playback error to the in-car session.
      *
      * Call this when the play flow fails (URL resolution, network, auth/subscription, content

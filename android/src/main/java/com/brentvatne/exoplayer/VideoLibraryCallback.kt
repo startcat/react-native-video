@@ -102,6 +102,64 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
     }
 
     /**
+     * PLAYER-286 (G3): System UI / Bluetooth media buttons trigger this callback to resume
+     * playback after process death or reboot. media3 calls this only if we have advertised
+     * the `androidx.media3.session.MediaButtonReceiver` in the host manifest (GUAU declares it
+     * per PLAYER-270 gotcha — library manifests don't merge).
+     *
+     * Strategy: load the last-played mediaId from [MediaCache] SharedPreferences (written by
+     * AndroidAutoModule.saveLastPlayed on each ITEM_STARTED) and return a minimal
+     * [MediaSession.MediaItemsWithStartPosition]. The mediaId has no signed URI in cache (signed
+     * URLs expire) — media3 will call [onAddMediaItems] with this item, which triggers the normal
+     * JS cold-start flow (bootstrap + `pendingCarPlayRequest`).
+     *
+     * If no last-played state exists: return RESULT_ERROR_NOT_SUPPORTED so media3 falls back
+     * to its default (no resumption notification shown by System UI).
+     */
+    override fun onPlaybackResumption(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo
+    ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+        Log.d(TAG, "onPlaybackResumption: controller=${controller.packageName}")
+        val mediaId = mediaCache.loadLastPlayedMediaId()
+        if (mediaId == null) {
+            Log.w(TAG, "onPlaybackResumption: no last-played state found")
+            return Futures.immediateFuture(
+                MediaSession.MediaItemsWithStartPosition(emptyList(), 0, 0L)
+            )
+        }
+        val positionMs = mediaCache.loadLastPlayedPositionMs()
+        Log.i(TAG, "onPlaybackResumption: resuming mediaId=$mediaId at ${positionMs}ms")
+
+        // Build a minimal MediaItem with cached metadata (if available) but NO mediaUri —
+        // signed URLs are expired. onAddMediaItems will trigger the JS flow to resolve the URL.
+        val cachedItem = mediaCache.getCachedItem(mediaId)
+        val resumeItem = MediaItem.Builder()
+            .setMediaId(mediaId)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(cachedItem?.title ?: "")
+                    .setArtist(cachedItem?.artist)
+                    .setArtworkUri(cachedItem?.artworkUri?.let { android.net.Uri.parse(it) })
+                    .setIsPlayable(true)
+                    .build()
+            )
+            .build()
+
+        // Bootstrap the JS context if not already running (cold resume scenario).
+        val module = getAndroidAutoModule()
+        if (module?.isJavaScriptReady() != true) {
+            Log.i(TAG, "onPlaybackResumption: JS not ready, bootstrapping + queuing play")
+            AndroidAutoModule.queueCarPlayRequest(mediaId)
+            launchAppInBackground()
+        }
+
+        return Futures.immediateFuture(
+            MediaSession.MediaItemsWithStartPosition(listOf(resumeItem), 0, positionMs)
+        )
+    }
+
+    /**
      * PLAYER-268/281: intercept the OS/car/widget "skip to next/previous" transport commands (flag-ON
      * canonical/browse session). Routes to the JS playlist (not the ExoPlayer timeline).
      *

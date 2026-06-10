@@ -29,6 +29,9 @@ class MediaCache private constructor(private val context: Context) {
         private const val PREFS_NAME = "android_auto_media_cache"
         private const val CACHE_KEY = "media_library"
         private const val ROOT_ID = "root"
+        // PLAYER-286: last-played persistence keys for playback resumption.
+        private const val KEY_LAST_PLAYED_MEDIA_ID = "last_played_media_id"
+        private const val KEY_LAST_PLAYED_POSITION_MS = "last_played_position_ms"
 
         @Volatile
         private var instance: MediaCache? = null
@@ -225,6 +228,43 @@ class MediaCache private constructor(private val context: Context) {
         Log.d(TAG, "getAllPlayableItems(): ${results.size} items")
         return results
     }
+
+    /**
+     * PLAYER-286 (G3): persist the last-played mediaId + position so [onPlaybackResumption]
+     * in [VideoLibraryCallback] can reconstruct a session for System UI / BT resume after
+     * process death or reboot.
+     *
+     * Called from AndroidAutoModule.saveLastPlayed (@ReactMethod) which GUAU invokes on
+     * ITEM_STARTED events.
+     *
+     * @param mediaId The mediaId that started playing.
+     * @param positionMs The last known playback position in milliseconds.
+     */
+    fun saveLastPlayed(mediaId: String, positionMs: Long) {
+        try {
+            prefs.edit()
+                .putString(KEY_LAST_PLAYED_MEDIA_ID, mediaId)
+                .putLong(KEY_LAST_PLAYED_POSITION_MS, positionMs)
+                .apply()
+            Log.d(TAG, "saveLastPlayed: mediaId=$mediaId positionMs=$positionMs")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to save last played", e)
+        }
+    }
+
+    /**
+     * PLAYER-286: retrieve the last-played mediaId (null if none recorded).
+     */
+    fun loadLastPlayedMediaId(): String? =
+        try { prefs.getString(KEY_LAST_PLAYED_MEDIA_ID, null) }
+        catch (e: Exception) { Log.e(TAG, "loadLastPlayedMediaId failed", e); null }
+
+    /**
+     * PLAYER-286: retrieve the last-played position in ms (0 if none recorded).
+     */
+    fun loadLastPlayedPositionMs(): Long =
+        try { prefs.getLong(KEY_LAST_PLAYED_POSITION_MS, 0L) }
+        catch (e: Exception) { Log.e(TAG, "loadLastPlayedPositionMs failed", e); 0L }
 
     /**
      * Limpiar caché completo

@@ -512,6 +512,17 @@ class VideoPlaybackService : MediaLibraryService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // PLAYER-286: fix zombie FGS on START_STICKY restart without player registration.
+        // If no canonical player AND no automotive controller AND no explicit action → the service
+        // was restarted by the OS (process was killed). Stopping immediately avoids the stale
+        // foreground notification with placeholder content. onPlaybackResumption (if gearhead is
+        // connected) will re-enter via ensureCanonicalSession() → buildCanonicalSession() before
+        // we ever reach this code path.
+        if (intent == null && canonicalSession == null && !isForegroundServiceStarted) {
+            Log.w(TAG, "[canonical] START_STICKY restart with no player and no session → stopSelf()")
+            stopSelf()
+            return super.onStartCommand(intent, flags, startId)
+        }
         if (!isForegroundServiceStarted && isAppInForeground()) {
             startForegroundServiceSafely(1, createDefaultNotification())
         }

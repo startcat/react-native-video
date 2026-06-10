@@ -378,6 +378,27 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
     }
 
     /**
+     * PLAYER-286 (G3): persist the last-played mediaId + position for playback resumption.
+     * Called from GUAU's ITEM_STARTED handler so the native layer can rebuild a minimal
+     * MediaSession.MediaItemsWithStartPosition in [VideoLibraryCallback.onPlaybackResumption].
+     *
+     * @param mediaId The mediaId that started playing.
+     * @param positionMs The playback position in milliseconds (0 for stream start).
+     */
+    @ReactMethod
+    fun saveLastPlayed(mediaId: String, positionMs: Double, promise: Promise) {
+        try {
+            val mc = mediaCache ?: MediaCache.getInstance(reactContext)
+            mc.saveLastPlayed(mediaId, positionMs.toLong())
+            Log.i(TAG, "saveLastPlayed: mediaId=$mediaId positionMs=$positionMs")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "saveLastPlayed failed", e)
+            promise.reject("SAVE_LAST_PLAYED_FAILED", e.message, e)
+        }
+    }
+
+    /**
      * Actualizar biblioteca de medios (incremental)
      *
      * Actualiza items existentes o añade nuevos sin eliminar los que no están en el array.
