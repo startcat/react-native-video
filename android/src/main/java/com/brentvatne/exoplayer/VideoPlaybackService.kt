@@ -16,6 +16,7 @@ import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaLibraryService
@@ -130,6 +131,36 @@ class VideoPlaybackService : MediaLibraryService() {
         }
     }
 
+    /**
+     * PLAYER-289: pin the service to the canonical media notification. No-op if already
+     * foreground. Failures (e.g. ForegroundServiceStartNotAllowedException while backgrounded
+     * without an exemption) leave the plain notification in place; the next playback state
+     * change retries via [onUpdateNotification].
+     */
+    private fun promoteToForeground(session: MediaSession) {
+        if (isForegroundServiceStarted) return
+        try {
+            startForeground(session.player.hashCode(), buildNotification(session))
+            isForegroundServiceStarted = true
+            Log.d(TAG, "[canonical] Foreground service started for canonical session")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground service", e)
+        }
+    }
+
+    /**
+     * PLAYER-289: demote the FGS keeping the notification alive (DETACH, not remove). The
+     * paused process becomes a regular cached process — killable by LMK / `am kill` and
+     * Doze-eligible — while the notification controls keep working; resume re-promotes via
+     * [onUpdateNotification].
+     */
+    private fun demoteFromForeground() {
+        if (!isForegroundServiceStarted) return
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_DETACH)
+        isForegroundServiceStarted = false
+        Log.d(TAG, "[canonical] FGS demoted on pause (notification detached, process killable)")
+    }
+
     // =====================================================================
     // Player Registry
     // =====================================================================
@@ -170,13 +201,7 @@ class VideoPlaybackService : MediaLibraryService() {
         val session = buildCanonicalSession(player)
 
         if (!isForegroundServiceStarted) {
-            try {
-                startForeground(player.hashCode(), buildNotification(session))
-                isForegroundServiceStarted = true
-                Log.d(TAG, "[canonical] Foreground service started for canonical session")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to start foreground service", e)
-            }
+            promoteToForeground(session)
         } else {
             createSessionNotification(session)
         }
@@ -311,6 +336,14 @@ class VideoPlaybackService : MediaLibraryService() {
         super.onBind(intent) ?: binder
 
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        // PLAYER-289: honour media3's FGS verdict instead of ignoring it — promote while
+        // playback is active, demote (DETACH) on pause. Before this, the service stayed
+        // isForeground=true forever once started, so a PAUSED process was never killable.
+        if (startInForegroundRequired) {
+            promoteToForeground(session)
+        } else {
+            demoteFromForeground()
+        }
         createSessionNotification(session)
     }
 
@@ -542,8 +575,18 @@ class VideoPlaybackService : MediaLibraryService() {
             stopSelf()
             return super.onStartCommand(intent, flags, startId)
         }
-        if (!isForegroundServiceStarted && isAppInForeground()) {
-            startForegroundServiceSafely(1, createDefaultNotification())
+        // PLAYER-289: the actionless start (setupPlaybackService → startForegroundService) MUST
+        // be answered with startForeground (5s contract). Command intents from the (possibly
+        // detached) notification must NOT re-pin the FGS while paused — promotion/demotion is
+        // owned by onUpdateNotification.
+        val isNotificationCommand = intent?.hasExtra("ACTION") == true
+        if (!isForegroundServiceStarted && !isNotificationCommand && isAppInForeground()) {
+            val session = canonicalSession
+            if (session != null && session.player.currentMediaItem != null) {
+                startForegroundServiceSafely(session.player.hashCode(), buildNotification(session))
+            } else {
+                startForegroundServiceSafely(1, createDefaultNotification())
+            }
         }
 
         intent?.let {
