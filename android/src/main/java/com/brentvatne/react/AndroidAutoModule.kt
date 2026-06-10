@@ -308,6 +308,11 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
             val mediaItems = parseMediaItems(items)
             mediaCache?.updateChildren(parent, mediaItems)
             notifyContentChanged(parent)
+            // PLAYER-284: notifyChildrenChanged does NOT cover search — media3 only invokes
+            // onGetSearchResult after notifySearchResultChanged reaches the waiting browser.
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                VideoPlaybackService.liveInstance?.notifySearchResultsReady(query, mediaItems.size)
+            }
             Log.i(TAG, "respondToSearchRequest('$query'): cached ${mediaItems.size} results")
             promise.resolve(true)
         } catch (e: Exception) {

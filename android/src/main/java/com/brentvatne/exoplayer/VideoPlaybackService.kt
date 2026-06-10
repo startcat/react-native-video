@@ -55,6 +55,10 @@ class VideoPlaybackService : MediaLibraryService() {
     private var canonicalForwardingPlayer: PlaylistAwareForwardingPlayer? = null
     private var mediaCache: MediaCache? = null
 
+    // PLAYER-284: the canonical session's callback, kept so respondToSearchRequest can release
+    // browsers parked in pendingSearches via notifySearchResultsReady.
+    private var libraryCallback: VideoLibraryCallback? = null
+
     // ---- Shared state ---------------------------------------------------------------
     private var binder = PlaybackServiceBinder(this)
     private var sourceActivity: Class<Activity>? = null
@@ -203,10 +207,12 @@ class VideoPlaybackService : MediaLibraryService() {
         // the JS queue position; the raw player is used everywhere else (focus, tracker, holder).
         val forwarding = PlaylistAwareForwardingPlayer(player)
         canonicalForwardingPlayer = forwarding
+        val callback = VideoLibraryCallback(this, mediaCache!!)
+        libraryCallback = callback
         val session = MediaLibrarySession.Builder(
             this,
             forwarding,
-            VideoLibraryCallback(this, mediaCache!!)
+            callback
         )
             .setId("RNVideoCanonicalSession")
             .setCustomLayout(immutableListOf(seekForwardBtn, seekBackwardBtn))
@@ -355,6 +361,19 @@ class VideoPlaybackService : MediaLibraryService() {
             Log.w(TAG, "hasAutomotiveController check failed: ${e.message}")
             false
         }
+
+    /**
+     * PLAYER-284: JS delivered search results (respondToSearchRequest) — release every browser
+     * waiting on [VideoLibraryCallback.notifyPendingSearches] so media3 invokes onGetSearchResult.
+     * Must be called on the main thread.
+     */
+    fun notifySearchResultsReady(query: String, itemCount: Int) {
+        val session = canonicalSession ?: run {
+            Log.w(TAG, "notifySearchResultsReady('$query'): no canonical session")
+            return
+        }
+        libraryCallback?.notifyPendingSearches(session, query, itemCount)
+    }
 
     /**
      * Forward childrenChanged to the canonical session.

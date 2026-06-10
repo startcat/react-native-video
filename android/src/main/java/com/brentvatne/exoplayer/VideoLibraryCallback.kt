@@ -312,6 +312,14 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
         }
     }
 
+    /**
+     * PLAYER-284: per-query browsers waiting for JS to deliver results. media3 only hands the
+     * results to the car after [MediaLibrarySession.notifySearchResultChanged] — returning
+     * ofVoid() alone leaves gearhead spinning forever (notifyChildrenChanged does NOT cover
+     * search; smoke 2026-06-10 evidence: 0 invocations of onGetSearchResult without this).
+     */
+    private val pendingSearches = mutableMapOf<String, MutableList<MediaSession.ControllerInfo>>()
+
     override fun onSearch(
         session: MediaLibrarySession,
         browser: MediaSession.ControllerInfo,
@@ -320,13 +328,49 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
     ): ListenableFuture<LibraryResult<Void>> {
         Log.d(TAG, "onSearch: query=$query")
         return try {
-            val results = mediaCache.search(query) ?: emptyList()
-            Log.i(TAG, "Search '$query' returned ${results.size} results")
-            notifyJavaScriptSearchRequest(query)
+            // Mirror onGetSearchResult's source of truth: the "search:<query>" cache key written
+            // by AndroidAutoModule.respondToSearchRequest (JS), or all playables for empty query.
+            val warmResults: List<MediaItem>? = if (query.isBlank()) {
+                mediaCache.getAllPlayableItems()
+            } else {
+                mediaCache.getChildren("search:$query")
+            }
+            if (!warmResults.isNullOrEmpty()) {
+                Log.i(TAG, "onSearch: warm cache for '$query' (${warmResults.size}) — notifying immediately")
+                session.notifySearchResultChanged(browser, query, warmResults.size, params)
+            } else {
+                // Cold: stash the browser; AndroidAutoModule.respondToSearchRequest fires
+                // notifyPendingSearches once JS delivers the results.
+                synchronized(pendingSearches) {
+                    pendingSearches.getOrPut(query) { mutableListOf() }.add(browser)
+                }
+                Log.i(TAG, "onSearch: cold cache for '$query' — deferring to JS search flow")
+                notifyJavaScriptSearchRequest(query)
+            }
             Futures.immediateFuture(LibraryResult.ofVoid())
         } catch (e: Exception) {
             Log.e(TAG, "Search failed for query: $query", e)
             Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN))
+        }
+    }
+
+    /**
+     * PLAYER-284: deliver the deferred search count to every browser that searched while the
+     * cache was cold. Must run on the session's application thread (caller posts to main).
+     */
+    fun notifyPendingSearches(session: MediaLibrarySession, query: String, itemCount: Int) {
+        val browsers = synchronized(pendingSearches) { pendingSearches.remove(query) }
+        if (browsers.isNullOrEmpty()) {
+            Log.d(TAG, "notifyPendingSearches: no pending browsers for '$query'")
+            return
+        }
+        Log.i(TAG, "notifyPendingSearches: '$query' → $itemCount results to ${browsers.size} browser(s)")
+        browsers.forEach { browser ->
+            try {
+                session.notifySearchResultChanged(browser, query, itemCount, null)
+            } catch (e: Exception) {
+                Log.w(TAG, "notifySearchResultChanged failed for ${browser.packageName}: ${e.message}")
+            }
         }
     }
 
