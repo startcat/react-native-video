@@ -42,6 +42,41 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
         private const val TAG = "VideoLibraryCallback"
         private const val ROOT_ID = "root"
         private const val EMPTY_ROOT_ID = "empty_root"
+
+        /**
+         * PLAYER-287 (G4): allowed package prefixes for media browser callers.
+         *
+         * Strategy: prefix matching (not signature verification — PackageManager lookups can fail
+         * on some OEM ROMs and add per-call latency). The list covers:
+         * - Android OS + System UI + Bluetooth (prefix "android", "com.android")
+         * - Android Auto gearhead (prefix "com.google.android.projection")
+         * - Google Assistant variants (prefix "com.google.android.google", "com.google.android.apps.assistant")
+         * - GUAU host app (exact package "eus.eitb.guau" — covers debug + release)
+         *
+         * Note: internal GUAU binds (GlobalPlayerManager / ReactExoplayerView) use the
+         * PlaybackServiceBinder path (onBind with no service action) and do NOT go through
+         * onConnect of the MediaLibrarySession.Callback — safe to block unknown packages here.
+         */
+        private val ALLOWED_PACKAGE_PREFIXES = listOf(
+            "android",                              // Android OS
+            "com.android",                          // System UI, Bluetooth, lock-screen widget
+            "com.google.android.projection",        // gearhead (Android Auto)
+            "com.google.android.googlequicksearchbox", // Google Assistant
+            "com.google.android.apps.assistant",    // Google Assistant (some builds)
+            "com.samsung.android.app.musicplayer",  // Samsung music widget (lock-screen)
+            "eus.eitb.guau"                         // GUAU host app itself
+        )
+
+        /**
+         * Returns true if [packageName] is a trusted caller allowed to browse the catalogue
+         * and send transport commands. Also accepts any package that passes
+         * [CarAudioHandoffCoordinator.isAutomotive] (covers OEM gearhead variants).
+         */
+        internal fun isAllowedCaller(packageName: String?): Boolean {
+            if (packageName == null) return false
+            if (CarAudioHandoffCoordinator.isAutomotive(packageName)) return true
+            return ALLOWED_PACKAGE_PREFIXES.any { prefix -> packageName.startsWith(prefix) }
+        }
     }
 
     private var appLaunchAttempted = false
@@ -52,6 +87,14 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
 
     override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult {
         Log.d(TAG, "onConnect: ${controller.packageName}")
+
+        // PLAYER-287 (G4): package validation — reject callers not on the allowlist.
+        // Internal GUAU binds go through PlaybackServiceBinder (no-action bind path) and never
+        // reach this callback, so rejecting here is safe.
+        if (!isAllowedCaller(controller.packageName)) {
+            Log.d(TAG, "onConnect: rejecting unknown package: ${controller.packageName}")
+            return MediaSession.ConnectionResult.reject()
+        }
 
         // PLAYER-278: keep app audio playing across the AA connect handoff (canonical/single-session path).
         if (CarAudioHandoffCoordinator.isAutomotive(controller.packageName)) {
@@ -195,7 +238,24 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
         browser: MediaSession.ControllerInfo,
         params: androidx.media3.session.MediaLibraryService.LibraryParams?
     ): ListenableFuture<LibraryResult<MediaItem>> {
-        Log.d(TAG, "onGetLibraryRoot")
+        Log.d(TAG, "onGetLibraryRoot: browser=${browser.packageName}")
+
+        // PLAYER-287 (G4): belt-and-suspenders — return empty root for any caller that
+        // passed onConnect despite not being on the allowlist (e.g., reconnection race).
+        if (!isAllowedCaller(browser.packageName)) {
+            Log.d(TAG, "onGetLibraryRoot: empty root for unknown package: ${browser.packageName}")
+            val emptyRoot = MediaItem.Builder()
+                .setMediaId(EMPTY_ROOT_ID)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setIsBrowsable(false)
+                        .setIsPlayable(false)
+                        .build()
+                )
+                .build()
+            return Futures.immediateFuture(LibraryResult.ofItem(emptyRoot, params))
+        }
+
         val hasContent = mediaCache.hasContent()
         return if (hasContent) {
             val rootItem = MediaItem.Builder()
