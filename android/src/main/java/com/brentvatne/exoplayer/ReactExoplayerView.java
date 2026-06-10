@@ -106,7 +106,6 @@ import androidx.media3.exoplayer.util.EventLogger;
 import androidx.media3.extractor.metadata.emsg.EventMessage;
 import androidx.media3.extractor.metadata.id3.Id3Frame;
 import androidx.media3.extractor.metadata.id3.TextInformationFrame;
-import androidx.media3.session.MediaSessionService;
 import androidx.media3.ui.DefaultTimeBar;
 import androidx.media3.ui.LegacyPlayerControlView;
 
@@ -1167,6 +1166,16 @@ public class ReactExoplayerView extends FrameLayout implements
         playbackServiceConnection = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
+                // PLAYER-278 follow-up: since VideoPlaybackService.onBind returns media3's own
+                // binder for action-bearing intents (super.onBind(intent) ?: binder), the custom
+                // PlaybackServiceBinder only arrives on the ACTION-LESS internal bind below. Guard
+                // the cast so a binder mismatch logs instead of crashing the app (ClassCastException
+                // on play, seen 2026-06-10).
+                if (!(service instanceof PlaybackServiceBinder)) {
+                    DebugLog.e(TAG, "Unexpected binder from VideoPlaybackService (" + service.getClass().getName()
+                            + ") - player not registered");
+                    return;
+                }
                 playbackServiceBinder = (PlaybackServiceBinder) service;
 
                 try {
@@ -1210,7 +1219,10 @@ public class ReactExoplayerView extends FrameLayout implements
         };
 
         Intent intent = new Intent(themedReactContext, VideoPlaybackService.class);
-        intent.setAction(MediaSessionService.SERVICE_INTERFACE);
+        // PLAYER-278 follow-up (burn-down onBind contract): internal binds must be ACTION-LESS so
+        // VideoPlaybackService.onBind falls through to the custom PlaybackServiceBinder. With
+        // MediaSessionService.SERVICE_INTERFACE set, media3's super.onBind returns its
+        // MediaSessionServiceStub and the cast in onServiceConnected crashed on in-app play.
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // Android 12+ validation for foreground service
