@@ -2,6 +2,7 @@ package com.brentvatne.exoplayer
 
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -11,6 +12,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.brentvatne.exoplayer.androidauto.AndroidAutoBootstrapService
 import com.brentvatne.exoplayer.androidauto.MediaCache
@@ -65,6 +67,8 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
         }
 
         // PLAYER-268: advertise skip-to-next/previous so the car/lock-screen render the buttons.
+        // PLAYER-271: accept the ±seek custom session commands (notification forward/backward
+        // buttons); DEFAULT_SESSION_AND_LIBRARY_COMMANDS keeps the browse (library) commands.
         return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
             .setAvailablePlayerCommands(
                 MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
@@ -72,7 +76,29 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
                     .add(Player.COMMAND_SEEK_TO_PREVIOUS)
                     .build()
             )
+            .setAvailableSessionCommands(
+                MediaSession.ConnectionResult.DEFAULT_SESSION_AND_LIBRARY_COMMANDS.buildUpon()
+                    .add(SessionCommand(VideoPlaybackService.Companion.COMMAND.SEEK_FORWARD.stringValue, Bundle.EMPTY))
+                    .add(SessionCommand(VideoPlaybackService.Companion.COMMAND.SEEK_BACKWARD.stringValue, Bundle.EMPTY))
+                    .build()
+            )
             .build()
+    }
+
+    /**
+     * PLAYER-271: the notification/widget ±seek buttons arrive as custom session commands
+     * (COMMAND_SEEK_FORWARD/COMMAND_SEEK_BACKWARD). The handler lived in VideoPlaybackCallback,
+     * deleted in the PLAYER-278 burn-down — without this override media3 drops the command and
+     * the buttons are silent no-ops.
+     */
+    override fun onCustomCommand(
+        session: MediaSession,
+        controller: MediaSession.ControllerInfo,
+        customCommand: SessionCommand,
+        args: Bundle
+    ): ListenableFuture<SessionResult> {
+        VideoPlaybackService.handleCommand(VideoPlaybackService.commandFromString(customCommand.customAction), session)
+        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
     }
 
     /**
