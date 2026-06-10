@@ -212,6 +212,51 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
         }
     }
 
+    /**
+     * PLAYER-284 (G1): gearhead calls onGetSearchResult AFTER onSearch returns success to fetch
+     * the actual result list. media3 default returns RESULT_ERROR_NOT_SUPPORTED → gearhead shows
+     * "no results" despite the search succeeding. We serve from the cache key written by
+     * AndroidAutoModule.respondToSearchRequest("search:<query>").
+     *
+     * Empty query → all playable items (generic "play music" voice command).
+     */
+    override fun onGetSearchResult(
+        session: MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        query: String,
+        page: Int,
+        pageSize: Int,
+        params: androidx.media3.session.MediaLibraryService.LibraryParams?
+    ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
+        Log.d(TAG, "onGetSearchResult: query='$query', page=$page, pageSize=$pageSize")
+        return try {
+            val results: List<MediaItem> = if (query.isBlank()) {
+                // Empty query = generic "pon música" voice command → return all playable items.
+                Log.i(TAG, "onGetSearchResult: empty query → returning all playable items")
+                mediaCache.getAllPlayableItems()
+            } else {
+                // Check the cache key written by respondToSearchRequest (parent="search:<query>").
+                val cacheKey = "search:$query"
+                val cached = mediaCache.getChildren(cacheKey)
+                if (cached != null && cached.isNotEmpty()) {
+                    Log.i(TAG, "onGetSearchResult: cache hit for '$query' (${cached.size} results)")
+                    cached
+                } else {
+                    // Cache miss: results not yet back from JS. Ask JS again and return empty
+                    // (gearhead will re-request once notifyChildrenChanged fires from
+                    // respondToSearchRequest → AndroidAutoModule.notifyContentChanged).
+                    Log.w(TAG, "onGetSearchResult: cache miss for '$query', re-triggering JS search")
+                    notifyJavaScriptSearchRequest(query)
+                    emptyList()
+                }
+            }
+            Futures.immediateFuture(LibraryResult.ofItemList(ImmutableList.copyOf(results), params))
+        } catch (e: Exception) {
+            Log.e(TAG, "onGetSearchResult failed for query: $query", e)
+            Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN))
+        }
+    }
+
     // ------------------------------------------------------------------
     // Playback (the critical change: drives CANONICAL player, not GlobalPlayerManager)
     // ------------------------------------------------------------------
@@ -226,6 +271,27 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
             mediaItems.forEach { mediaItem ->
                 val mediaId = mediaItem.mediaId
                 Log.d(TAG, "Processing mediaId: $mediaId")
+
+                // PLAYER-284 (G1): voice search path — "OK Google, pon X" arrives as
+                // requestMetadata.searchQuery. Resolve to the first cached search result, or
+                // trigger JS search flow if the cache is cold.
+                val searchQuery = mediaItem.requestMetadata.searchQuery
+                if (!searchQuery.isNullOrBlank()) {
+                    Log.i(TAG, "onAddMediaItems: searchQuery='$searchQuery' — resolving via search cache")
+                    val cacheKey = "search:$searchQuery"
+                    val searchResults = mediaCache.getChildren(cacheKey)
+                    if (searchResults != null && searchResults.isNotEmpty()) {
+                        val firstResult = searchResults.first()
+                        Log.i(TAG, "Search cache hit → delegating play for: ${firstResult.mediaId}")
+                        // Recursive-safe: the resolved mediaId has no searchQuery, so this branch
+                        // won't re-enter. Use JS flow to keep the single-write invariant.
+                        notifyJavaScriptPlayRequest(firstResult.mediaId)
+                    } else {
+                        Log.w(TAG, "Search cache miss for '$searchQuery' — emitting play-from-search to JS")
+                        notifyJavaScriptPlayFromSearch(searchQuery)
+                    }
+                    return@forEach
+                }
 
                 val cachedItem = mediaCache.getCachedItem(mediaId)
 
@@ -375,6 +441,28 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to notify JS about search request", e)
+        }
+    }
+
+    /**
+     * PLAYER-284 (G1): emit EVENT_PLAY_FROM_SEARCH so GUAU can resolve "OK Google, pon X"
+     * via its own search logic and call PlaylistControl with the resolved content.
+     * Falls back to queuing via AndroidAutoModule if JS is not ready yet.
+     */
+    private fun notifyJavaScriptPlayFromSearch(query: String) {
+        try {
+            val module = getAndroidAutoModule()
+            if (module?.isJavaScriptReady() == true) {
+                module.sendEvent(
+                    AndroidAutoModule.EVENT_PLAY_FROM_SEARCH,
+                    Arguments.createMap().apply { putString("query", query) }
+                )
+            } else {
+                Log.w(TAG, "JS not ready for play-from-search '$query', launching app in background")
+                launchAppInBackground()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to notify JS about play-from-search request", e)
         }
     }
 }

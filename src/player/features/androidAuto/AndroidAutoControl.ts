@@ -43,6 +43,10 @@ const { AndroidAutoModule } = NativeModules;
 const EVENT_SKIP_TO_NEXT = 'onSkipToNext';
 const EVENT_SKIP_TO_PREVIOUS = 'onSkipToPrevious';
 
+// PLAYER-284 (G1): voice play-from-search event (emitted when user says "OK Google, pon X"
+// and the search cache is cold — native needs JS to resolve the query to a mediaId).
+const EVENT_PLAY_FROM_SEARCH = 'onPlayFromSearch';
+
 /**
  * Clase principal para controlar Android Auto
  * 
@@ -63,6 +67,9 @@ export class AndroidAutoControl {
     // PLAYER-268: skip transport callbacks (one active per direction).
     private static skipToNextCallback: (() => void) | null = null;
     private static skipToPreviousCallback: (() => void) | null = null;
+
+    // PLAYER-284 (G1): play-from-search callback (voice "OK Google, pon X" path).
+    private static playFromSearchCallback: ((query: string) => void) | null = null;
     
     // Event emitter para eventos nativos — written in initializeEventSystem; DeviceEventEmitter
     // is used for listening. Field retained from module source (PLAYER-266).
@@ -140,6 +147,15 @@ export class AndroidAutoControl {
         });
         this.subscriptions.push(skipNextSub, skipPrevSub);
 
+        // PLAYER-284 (G1): play-from-search voice command path.
+        const playFromSearchSub = DeviceEventEmitter.addListener(
+            EVENT_PLAY_FROM_SEARCH,
+            (data: { query: string }) => {
+                this.handlePlayFromSearch(data?.query ?? '');
+            }
+        );
+        this.subscriptions.push(playFromSearchSub);
+
         // Evento: Solicitud de búsqueda
         const searchSub = DeviceEventEmitter.addListener(
             AndroidAutoEvent.SEARCH_REQUEST,
@@ -182,6 +198,8 @@ export class AndroidAutoControl {
         // PLAYER-268: clear skip callbacks on cleanup.
         this.skipToNextCallback = null;
         this.skipToPreviousCallback = null;
+        // PLAYER-284: clear play-from-search callback on cleanup.
+        this.playFromSearchCallback = null;
         console.log('[AndroidAuto] Event listeners cleaned up');
     }
     
@@ -245,6 +263,23 @@ export class AndroidAutoControl {
             }
         } else {
             console.warn('[AndroidAuto] onSkipToPrevious received but no callback registered');
+        }
+    }
+
+    /**
+     * PLAYER-284 (G1): handle voice play-from-search ("OK Google, pon X" cold cache path).
+     * The native side emits EVENT_PLAY_FROM_SEARCH when the search cache is cold and it needs
+     * JS to resolve the query to actual playback.
+     */
+    private static handlePlayFromSearch(query: string): void {
+        if (this.playFromSearchCallback) {
+            try {
+                this.playFromSearchCallback(query);
+            } catch (error) {
+                console.error('[AndroidAuto] playFromSearch callback threw:', error);
+            }
+        } else {
+            console.warn('[AndroidAuto] onPlayFromSearch received but no callback registered. Query:', query);
         }
     }
 
@@ -511,10 +546,38 @@ export class AndroidAutoControl {
     static onSearch(callback: SearchCallback): () => void {
         this.searchCallback = callback;
         console.log('[AndroidAuto] Search callback registered');
-        
+
         return () => {
             this.searchCallback = null;
             console.log('[AndroidAuto] Search callback unregistered');
+        };
+    }
+
+    /**
+     * PLAYER-284 (G1): register the play-from-search callback.
+     *
+     * Called when the user issues a voice command "OK Google, pon X" and the native search
+     * cache is cold. The consumer (GUAU) must resolve the query to a mediaId and call
+     * PlaylistControl to play it. Empty query = play default content.
+     *
+     * @param callback function receiving the voice search query (may be empty)
+     * @returns unsubscribe fn
+     *
+     * @example
+     * ```typescript
+     * const unsub = AndroidAutoControl.onPlayFromSearch((query) => {
+     *   if (!query) { playDefault(); return; }
+     *   const match = searchTemplates(query);
+     *   if (match) handleRemotePlayId(match.mediaId, templates);
+     * });
+     * ```
+     */
+    static onPlayFromSearch(callback: (query: string) => void): () => void {
+        this.playFromSearchCallback = callback;
+        console.log('[AndroidAuto] PlayFromSearch callback registered');
+        return () => {
+            this.playFromSearchCallback = null;
+            console.log('[AndroidAuto] PlayFromSearch callback unregistered');
         };
     }
     
