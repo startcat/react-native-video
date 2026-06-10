@@ -1582,10 +1582,15 @@ public class ReactExoplayerView extends FrameLayout implements
      * route it through VideoPlaybackService.unregisterPlayer (detaches the coordinator, clears the
      * holder, tears down the session) and release it.
      *
-     * Conservative by construction: an actively-playing player OR any car attachment keeps today's
-     * behavior (the orphan stays alive for the car/background — the COORDINATED handoff validated
-     * on device is untouched). Only runs on the real view-drop path (cleanUpResources), never on
-     * prop-change rebuild cycles (releasePlayer + initializePlayer).
+     * Keep-alive rules (inv. 7: only background-audio views may outlive their view):
+     * - car attached (automotive controller connected) → keep, the car may be driving it.
+     * - {@code playInBackground=true} AND actively playing → keep (background-audio continuation).
+     * - an ON-SCREEN VIDEO view ({@code playInBackground=false}) NEVER keeps the player: leaving the
+     *   video player screen must stop playback and release the instance — audio continuing after
+     *   exit is a bug, not background playback (seen 2026-06-10 once the bind fix re-enabled
+     *   in-app canonical registration).
+     * Only runs on the real view-drop path (cleanUpResources), never on prop-change rebuild cycles
+     * (releasePlayer + initializePlayer).
      */
     private void releaseCanonicalOrphanIfIdle(ExoPlayer releasingPlayer) {
         if (releasingPlayer == null || !CanonicalPlayerHolder.INSTANCE.isCanonical(releasingPlayer)) {
@@ -1596,12 +1601,13 @@ public class ReactExoplayerView extends FrameLayout implements
                 && (state == Player.STATE_READY || state == Player.STATE_BUFFERING);
         VideoPlaybackService service = VideoPlaybackService.Companion.getLiveInstance();
         boolean carAttached = service != null && service.hasAutomotiveController();
-        if (activelyInUse || carAttached) {
+        if (carAttached || (playInBackground && activelyInUse)) {
             DebugLog.d(TAG, "PLAYER-279: keeping canonical player on view drop (inUse=" + activelyInUse
-                    + ", carAttached=" + carAttached + ")");
+                    + ", carAttached=" + carAttached + ", playInBackground=" + playInBackground + ")");
             return;
         }
-        DebugLog.d(TAG, "PLAYER-279: releasing orphaned canonical player on view drop");
+        DebugLog.d(TAG, "PLAYER-279: stopping + releasing canonical player on view drop (inUse="
+                + activelyInUse + ", playInBackground=" + playInBackground + ")");
         if (service != null) {
             service.unregisterPlayer(releasingPlayer);
         } else {

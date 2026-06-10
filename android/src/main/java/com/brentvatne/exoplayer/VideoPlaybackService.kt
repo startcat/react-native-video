@@ -238,9 +238,24 @@ class VideoPlaybackService : MediaLibraryService() {
 
         CarAudioHandoffCoordinator.detach(player) // PLAYER-278
         hidePlayerNotification(player)
+        // PLAYER-279: tear the session down defensively. When a foreground <Video> with
+        // notification controls is the canonical player, removeSession() re-enters via the
+        // MediaNotificationManager's controller onDisconnected (which calls removeSession again
+        // → IllegalArgumentException "session not found"). Releasing the session already removes
+        // it from the service, so release() alone is enough; the removeSession() is best-effort.
+        // Either way the holder/coordinator/tracker MUST be cleared and stopSelf() MUST run, so
+        // none of that can sit behind a throw.
         canonicalSession?.let { session ->
-            removeSession(session)
-            session.release()
+            try {
+                removeSession(session)
+            } catch (e: IllegalArgumentException) {
+                DebugLog.w(TAG, "removeSession already gone (media3 re-entrancy): ${e.message}")
+            }
+            try {
+                session.release()
+            } catch (e: Exception) {
+                DebugLog.w(TAG, "session.release failed: ${e.message}")
+            }
         }
         canonicalSession = null
         canonicalForwardingPlayer = null // PLAYER-281
