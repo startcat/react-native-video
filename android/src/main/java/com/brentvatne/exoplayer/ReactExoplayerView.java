@@ -266,6 +266,10 @@ public class ReactExoplayerView extends FrameLayout implements
     private boolean preventsDisplaySleepDuringVideoPlayback = true;
     private float mProgressUpdateInterval = 250.0f;
     private boolean playInBackground = false;
+    // PLAYER-288: set when this view was denied the canonical attach because the canonical
+    // player is busy (car attached / actively playing). Drives the TRANSIENT focus request so
+    // the canonical content auto-resumes when this view abandons focus.
+    private boolean canonicalAttachDenied = false;
     private boolean mReportBandwidth = false;
     private UUID drmUUID = null;
     private String drmLicenseUrl = null;
@@ -922,9 +926,23 @@ public class ReactExoplayerView extends FrameLayout implements
         // background-audio (playInBackground) path, we ATTACH to the canonical player
         // instead of creating a new one (ADR Auto-001, inv. 2 + 7).
         // invariant 7: on-screen video (playInBackground=false) keeps its own player.
-        if (self.playInBackground
-                && CanonicalPlayerHolder.INSTANCE.get() != null) {
-            player = CanonicalPlayerHolder.INSTANCE.get(); // ATTACH — do not create (inv. 2)
+        //
+        // PLAYER-288 attach-hygiene (the attach half of inv. 2 — PLAYER-279 fixed the release
+        // half): an opportunistic <Video playInBackground> that is NOT the canonical media
+        // surface (no showNotificationControls, e.g. the GUAU splash) must not adopt the
+        // canonical player while the car is attached or content is actively playing — loading
+        // its source would replace the in-flight media item and kill the car session. The
+        // legitimate surface (AudioFlavour: showNotificationControls=true) keeps attaching
+        // unconditionally, so the car→app handoff (S4) is unchanged. Without an automotive
+        // controller and with the canonical idle, behaviour is bit-for-bit the same as before.
+        ExoPlayer canonicalPlayer = CanonicalPlayerHolder.INSTANCE.get();
+        canonicalAttachDenied = self.playInBackground && canonicalPlayer != null
+                && !self.showNotificationControls && isCanonicalBusy(canonicalPlayer);
+        if (canonicalAttachDenied) {
+            DebugLog.w(TAG, "PLAYER-288: canonical player busy (car attached or playing) — denied attach, creating own player");
+        }
+        if (self.playInBackground && canonicalPlayer != null && !canonicalAttachDenied) {
+            player = canonicalPlayer; // ATTACH — do not create (inv. 2)
             DebugLog.d(TAG, "ReactExoplayerView: attached to canonical player (PLAYER-269 Phase 5)");
         } else if (!self.playOffline) {
             player = new ExoPlayer.Builder(getContext(), renderersFactory)
@@ -1618,6 +1636,21 @@ public class ReactExoplayerView extends FrameLayout implements
         releasingPlayer.release();
     }
 
+    /**
+     * PLAYER-288: the canonical player is "busy" when the car is attached to its session
+     * (automotive controller connected — even paused, the car owns the session) or when it is
+     * actively playing. Mirrors the keep-alive predicate of releaseCanonicalOrphanIfIdle
+     * (PLAYER-279), the release half of the same invariant.
+     */
+    private static boolean isCanonicalBusy(ExoPlayer canonical) {
+        VideoPlaybackService service = VideoPlaybackService.Companion.getLiveInstance();
+        boolean carAttached = service != null && service.hasAutomotiveController();
+        int state = canonical.getPlaybackState();
+        boolean activelyInUse = canonical.getPlayWhenReady()
+                && (state == Player.STATE_READY || state == Player.STATE_BUFFERING);
+        return carAttached || activelyInUse;
+    }
+
     private static class OnAudioFocusChangedListener implements AudioManager.OnAudioFocusChangeListener {
         private final ReactExoplayerView view;
         private final ThemedReactContext themedReactContext;
@@ -1683,9 +1716,15 @@ public class ReactExoplayerView extends FrameLayout implements
         if (disableFocus || source.getUri() == null || this.hasAudioFocus) {
             return true;
         }
+        // PLAYER-288 (spec Q2): a view denied the canonical attach plays OVER an active car
+        // session. Request TRANSIENT focus so media3 pauses the canonical content and resumes
+        // it automatically when this short-lived view (the splash) abandons focus on unmount.
+        int focusGain = canonicalAttachDenied
+                ? AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+                : AudioManager.AUDIOFOCUS_GAIN;
         int result = audioManager.requestAudioFocus(audioFocusChangeListener,
                 AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN);
+                focusGain);
         return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
     }
 
