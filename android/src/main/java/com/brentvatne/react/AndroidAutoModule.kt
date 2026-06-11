@@ -46,6 +46,9 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
         const val EVENT_SKIP_TO_NEXT = "onSkipToNext"
         const val EVENT_SKIP_TO_PREVIOUS = "onSkipToPrevious"
 
+        // PLAYER-300: gearhead Now Playing queue-item tap (skipToQueueItem → goToIndex).
+        const val EVENT_SKIP_TO_QUEUE_ITEM = "onSkipToQueueItem"
+
         // Singleton instance
         @Volatile
         private var instance: AndroidAutoModule? = null
@@ -85,6 +88,22 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
         fun notifySkipToPrevious() {
             instance?.takeIf { it.isJavaScriptReady() }
                 ?.sendEvent(EVENT_SKIP_TO_PREVIOUS, null)
+        }
+
+        /**
+         * PLAYER-300: forward a gearhead Now Playing queue-item tap to JS, which jumps the
+         * playlist via PlaylistControl.goToIndex(index). Called by PlaylistAwareForwardingPlayer
+         * when media3 routes `onSkipToQueueItem(queueId)` → `seekToDefaultPosition(queueId)`
+         * (QueueItem id == JS queue index). No-op if JS is not ready — with no JS queue the
+         * synthetic timeline is inactive and gearhead cannot show tappable rows anyway.
+         */
+        @JvmStatic
+        fun notifySkipToQueueItem(index: Int) {
+            instance?.takeIf { it.isJavaScriptReady() }
+                ?.sendEvent(
+                    EVENT_SKIP_TO_QUEUE_ITEM,
+                    Arguments.createMap().apply { putInt("index", index) }
+                )
         }
 
         // PLAYER-280: play pedido por el coche antes de que JS estuviera listo (cold-start).

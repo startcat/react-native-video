@@ -60,11 +60,15 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     // ExoPlayer timeline never does). Using a property setter catches every mutation site
     // (setPlaylist / next / previous / goToIndex / auto-advance) without scattering publish calls.
     // setPlaylist publishes once more after config is parsed (repeat-mode affects getNextIndex).
+    // PLAYER-300: the setter also publishes the full queue snapshot (metadata-only MediaItems) so
+    // the session's PlaylistAwareForwardingPlayer can expose the queue as a synthetic timeline
+    // (gearhead's Now Playing queue). clearPlaylist is covered too (items.clear() + index reset).
     private var currentIndex: Int = 0
         set(value) {
             field = value
             PlaylistQueueState.hasNext = getNextIndex() != -1
             PlaylistQueueState.hasPrevious = getPreviousIndex() != -1
+            publishQueueSnapshot()
         }
     private var config = PlaylistConfiguration()
     private var isPlaybackActive = false
@@ -305,6 +309,7 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
                 val hadPrevious = PlaylistQueueState.hasPrevious
                 PlaylistQueueState.hasNext = getNextIndex() != -1
                 PlaylistQueueState.hasPrevious = getPreviousIndex() != -1
+                publishQueueSnapshot() // PLAYER-300: append changes queue content, not the index
                 Log.d(
                     TAG,
                     "[Append] Added: ${item.metadata.title} (queue=${items.size}, hasNext=${PlaylistQueueState.hasNext})"
@@ -738,6 +743,36 @@ class PlaylistControlModule(reactContext: ReactApplicationContext) : ReactContex
     }
 
     // ========== Private Methods ==========
+
+    /**
+     * PLAYER-300: publish the full queue (metadata-only, NO uris — streams resolve in JS on
+     * demand) + current index to [PlaylistQueueState], so the canonical session's
+     * PlaylistAwareForwardingPlayer can expose it as a synthetic timeline (gearhead's Now Playing
+     * queue). Runs on the main handler like every other mutation here.
+     */
+    private fun publishQueueSnapshot() {
+        PlaylistQueueState.publishQueue(items.map { it.toSessionMediaItem() }, currentIndex)
+    }
+
+    /**
+     * PLAYER-300: metadata-only MediaItem for the session queue. mediaId MUST equal the id that
+     * [loadCurrentItem] puts on the real playing MediaItem — that match is the consistency gate
+     * the forwarding player uses before exposing the synthetic timeline.
+     */
+    private fun PlaylistItem.toSessionMediaItem(): MediaItem =
+        MediaItem.Builder()
+            .setMediaId(id)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(metadata.title)
+                    .setSubtitle(metadata.subtitle)
+                    .setArtist(metadata.artist)
+                    .setAlbumTitle(metadata.album)
+                    .setArtworkUri(metadata.imageUri?.let { Uri.parse(it) })
+                    .setIsPlayable(true)
+                    .build()
+            )
+            .build()
 
     private fun getNextIndex(): Int =
         when {

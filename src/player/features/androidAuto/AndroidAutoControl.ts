@@ -43,6 +43,9 @@ const { AndroidAutoModule } = NativeModules;
 const EVENT_SKIP_TO_NEXT = 'onSkipToNext';
 const EVENT_SKIP_TO_PREVIOUS = 'onSkipToPrevious';
 
+// PLAYER-300: gearhead Now Playing queue-item tap (mirror of the native AndroidAutoModule constant).
+const EVENT_SKIP_TO_QUEUE_ITEM = 'onSkipToQueueItem';
+
 // PLAYER-284 (G1): voice play-from-search event (emitted when user says "OK Google, pon X"
 // and the search cache is cold — native needs JS to resolve the query to a mediaId).
 const EVENT_PLAY_FROM_SEARCH = 'onPlayFromSearch';
@@ -67,6 +70,9 @@ export class AndroidAutoControl {
     // PLAYER-268: skip transport callbacks (one active per direction).
     private static skipToNextCallback: (() => void) | null = null;
     private static skipToPreviousCallback: (() => void) | null = null;
+
+    // PLAYER-300: queue-item tap callback (gearhead Now Playing queue → goToIndex).
+    private static skipToQueueItemCallback: ((index: number) => void) | null = null;
 
     // PLAYER-284 (G1): play-from-search callback (voice "OK Google, pon X" path).
     private static playFromSearchCallback: ((query: string) => void) | null = null;
@@ -147,6 +153,15 @@ export class AndroidAutoControl {
         });
         this.subscriptions.push(skipNextSub, skipPrevSub);
 
+        // PLAYER-300: gearhead Now Playing queue-item tap.
+        const skipQueueItemSub = DeviceEventEmitter.addListener(
+            EVENT_SKIP_TO_QUEUE_ITEM,
+            (data: { index: number }) => {
+                this.handleSkipToQueueItem(data?.index);
+            }
+        );
+        this.subscriptions.push(skipQueueItemSub);
+
         // PLAYER-284 (G1): play-from-search voice command path.
         const playFromSearchSub = DeviceEventEmitter.addListener(
             EVENT_PLAY_FROM_SEARCH,
@@ -198,6 +213,8 @@ export class AndroidAutoControl {
         // PLAYER-268: clear skip callbacks on cleanup.
         this.skipToNextCallback = null;
         this.skipToPreviousCallback = null;
+        // PLAYER-300: clear queue-item tap callback on cleanup.
+        this.skipToQueueItemCallback = null;
         // PLAYER-284: clear play-from-search callback on cleanup.
         this.playFromSearchCallback = null;
         console.log('[AndroidAuto] Event listeners cleaned up');
@@ -263,6 +280,27 @@ export class AndroidAutoControl {
             }
         } else {
             console.warn('[AndroidAuto] onSkipToPrevious received but no callback registered');
+        }
+    }
+
+    /**
+     * PLAYER-300: handle a gearhead Now Playing queue-item tap (skipToQueueItem). The consumer
+     * (GUAU) wires this to PlaylistControl.goToIndex(index) — same single-write contract as
+     * PLAYER-268's skip hooks (RNV exposes the hook, it does NOT act on its own).
+     */
+    private static handleSkipToQueueItem(index: number | undefined): void {
+        if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) {
+            console.warn('[AndroidAuto] onSkipToQueueItem received with invalid index:', index);
+            return;
+        }
+        if (this.skipToQueueItemCallback) {
+            try {
+                this.skipToQueueItemCallback(index);
+            } catch (error) {
+                console.error('[AndroidAuto] skipToQueueItem callback threw:', error);
+            }
+        } else {
+            console.warn('[AndroidAuto] onSkipToQueueItem received but no callback registered');
         }
     }
 
@@ -520,6 +558,21 @@ export class AndroidAutoControl {
         return () => {
             this.skipToPreviousCallback = null;
             console.log('[AndroidAuto] SkipToPrevious callback unregistered');
+        };
+    }
+
+    /**
+     * Register the callback invoked when the user taps an item in the car's Now Playing queue
+     * (PLAYER-300). The consumer (GUAU) wires this to PlaylistControl.goToIndex(index). Only one
+     * active.
+     * @returns unsubscribe fn.
+     */
+    static onSkipToQueueItem(callback: (index: number) => void): () => void {
+        this.skipToQueueItemCallback = callback;
+        console.log('[AndroidAuto] SkipToQueueItem callback registered');
+        return () => {
+            this.skipToQueueItemCallback = null;
+            console.log('[AndroidAuto] SkipToQueueItem callback unregistered');
         };
     }
 

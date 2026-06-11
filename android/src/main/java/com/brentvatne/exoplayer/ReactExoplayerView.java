@@ -1354,6 +1354,12 @@ public class ReactExoplayerView extends FrameLayout implements
 
         mediaItemBuilder.setUri(uri);
 
+        // PLAYER-300 (Fix V3): same mediaId tagging as buildMediaSource — keeps the synthetic
+        // queue gate alive when the attached view plays an offline/downloaded playlist item.
+        if (playlistItemId != null && !playlistItemId.isEmpty()) {
+            mediaItemBuilder.setMediaId(playlistItemId);
+        }
+
         if (drmSessionManager != null) {
             MediaItem.DrmConfiguration.Builder drmConfigurationBuilder
                     = new MediaItem.DrmConfiguration.Builder(drmUUID);
@@ -1394,6 +1400,19 @@ public class ReactExoplayerView extends FrameLayout implements
 
         MediaItem.Builder mediaItemBuilder = new MediaItem.Builder()
                 .setUri(uri);
+
+        // PLAYER-300 (Fix V3): carry the playlist item id as the MediaItem mediaId. In the warm
+        // attach path (PLAYER-269 Phase 5) this view loads its source INTO the canonical player,
+        // replacing the MediaItem that PlaylistControlModule.loadCurrentItem tagged with
+        // mediaId = item.id. Without the same id here, PlaylistAwareForwardingPlayer's
+        // consistency gate (queue[index].mediaId == currentMediaItem.mediaId) turns off and the
+        // car's queue collapses to 1. The JS audio flavour already passes the id via the
+        // `playlistItemId` prop; for content that is NOT the active playlist item (standalone
+        // video, no prop) the id is null/blank, the mediaId stays default and the gate stays
+        // OFF — the pre-existing status quo.
+        if (playlistItemId != null && !playlistItemId.isEmpty()) {
+            mediaItemBuilder.setMediaId(playlistItemId);
+        }
 
         // refresh custom Metadata
         MediaMetadata customMetadata = ConfigurationUtils.buildCustomMetadata(source.getMetadata());
