@@ -329,12 +329,16 @@ export const AudioFlavour = forwardRef<AudioFlavourRef, AudioFlavourProps>(
 			const errorMsg =
 				"PlaylistItem must have resolvedSources. Please use resolveSourcesFromManifests() to convert manifests to resolvedSources before creating playlist items.";
 			currentLogger.current?.error(errorMsg);
-			return handleOnInternalError(
+			// PLAYER-301: NO devolver el valor de handleOnInternalError desde el useEffect.
+			// Devuelve `false` y React lo guarda como cleanup → "destroy is not a function
+			// (it is false)" en el siguiente ciclo del efecto (crash + unmount del player).
+			handleOnInternalError(
 				new PlayerError("PLAYER_SOURCE_NO_MANIFESTS_PROVIDED", {
 					message: errorMsg,
 					playlistItem: props.playlistItem,
 				})
 			);
+			return;
 		}
 
 		// Recrear sourceRef con el callback actualizado

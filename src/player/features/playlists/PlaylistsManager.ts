@@ -242,10 +242,15 @@ export class PlaylistsManager {
 
 		try {
 			const validated = this.validateItem(item);
-			this.items.push(validated);
+			// PLAYER-301: reasignación en vez de push — si el array quedó congelado por el
+			// deep-freeze de dev del bridge (args de llamadas nativas), push lanzaría y el
+			// store JS divergiría del nativo.
+			this.items = [...this.items, validated];
 
 			if (this.nativeModule) {
-				await this.nativeModule.addItem(validated);
+				// PLAYER-301: copia defensiva — RN congela en dev los argumentos de llamadas
+				// al bridge (deepFreezeAndThrowOnMutationInDev); no exponer el objeto del store.
+				await this.nativeModule.addItem({ ...validated });
 			}
 
 			await this.persistAndNotify("added", [validated.id]);
@@ -700,7 +705,6 @@ export class PlaylistsManager {
 				try {
 					const validated = this.validateItem(item);
 					validatedItems.push(validated);
-					this.items.push(validated);
 				} catch (error) {
 					errors.push({ item, error });
 					if (!opts.continueOnError) {
@@ -709,11 +713,20 @@ export class PlaylistsManager {
 				}
 			}
 
+			// PLAYER-301: reasignación en vez de push por item — `this.items` puede llegar
+			// congelado (deep-freeze de dev del bridge al pasarlo a setPlaylist nativo); con
+			// push, los appends fallaban en silencio ("Added N items (N errors)") y el store
+			// JS se quedaba corto respecto al nativo → ITEM_CHANGED sin resolvedSources en warm.
+			if (validatedItems.length > 0) {
+				this.items = [...this.items, ...validatedItems];
+			}
+
 			if (this.nativeModule && validatedItems.length > 0) {
 				// Native module doesn't have addItems() - use addItem() in loop
 				for (const item of validatedItems) {
 					try {
-						await this.nativeModule.addItem(item);
+						// PLAYER-301: copia defensiva — no exponer el objeto del store al bridge.
+						await this.nativeModule.addItem({ ...item });
 					} catch (error) {
 						this.logger.warn(
 							LOG_TAGS.PLAYLISTS_MANAGER,
@@ -1005,10 +1018,17 @@ export class PlaylistsManager {
 		if (!this.nativeModule) return;
 
 		try {
-			await this.nativeModule.setPlaylist(this.items, {
-				startAt: this.currentIndex,
-				config: this.playlistConfig,
-			});
+			// PLAYER-301: copia defensiva — en dev RN deep-freezea los argumentos de las
+			// llamadas al bridge (deepFreezeAndThrowOnMutationInDev). Pasar `this.items` en
+			// vivo congelaba el array y sus items → los addItem(s) posteriores lanzaban al
+			// hacer push y el store JS divergía del nativo (root cause de PLAYER-301).
+			await this.nativeModule.setPlaylist(
+				this.items.map(item => ({ ...item })),
+				{
+					startAt: this.currentIndex,
+					config: this.playlistConfig,
+				}
+			);
 		} catch (error) {
 			this.logger.error(
 				LOG_TAGS.PLAYLISTS_MANAGER,
@@ -1060,7 +1080,18 @@ export class PlaylistsManager {
 		this.currentIndex = data.index;
 
 		// Enriquecer evento con item actual del array JS
-		const currentItem = this.items[data.index];
+		let currentItem = this.items[data.index];
+
+		// PLAYER-301: si el índice nativo no casa con el store JS (p.ej. divergencia por un
+		// append fallido), intentar resolver por itemId antes de dejar al consumidor caer en
+		// el payload nativo (que no lleva resolvedSources).
+		if (!currentItem && data.itemId != null) {
+			const indexById = this.items.findIndex(i => i.id === String(data.itemId));
+			if (indexById !== -1) {
+				currentItem = this.items[indexById];
+				this.currentIndex = indexById;
+			}
+		}
 
 		this.logger.debug(LOG_TAGS.PLAYLISTS_MANAGER, "Current item from JS array:", {
 			id: currentItem?.id,
@@ -1069,7 +1100,9 @@ export class PlaylistsManager {
 
 		this.emit(PlaylistEventType.ITEM_CHANGED, {
 			...data,
-			currentItem, // Agregar referencia al item JS
+			// PLAYER-301: copia, no referencia viva — los consumidores (CustomPlayer de GUAU)
+			// mutaban el item del store a través de esta referencia.
+			currentItem: currentItem ? { ...currentItem } : undefined,
 			totalItems: this.items.length,
 			timestamp: data.timestamp || Date.now(),
 		} as ItemChangedEventData);
