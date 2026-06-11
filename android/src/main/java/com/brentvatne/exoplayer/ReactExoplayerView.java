@@ -936,11 +936,24 @@ public class ReactExoplayerView extends FrameLayout implements
         // unconditionally, so the car→app handoff (S4) is unchanged. Without an automotive
         // controller and with the canonical idle, behaviour is bit-for-bit the same as before.
         ExoPlayer canonicalPlayer = CanonicalPlayerHolder.INSTANCE.get();
-        canonicalAttachDenied = self.playInBackground && canonicalPlayer != null
+        boolean splashAttachDenied = self.playInBackground && canonicalPlayer != null
                 && !self.showNotificationControls && isCanonicalBusy(canonicalPlayer);
-        if (canonicalAttachDenied) {
+        if (splashAttachDenied) {
             DebugLog.w(TAG, "PLAYER-288: canonical player busy (car attached or playing) — denied attach, creating own player");
         }
+        // PLAYER-297: an ON-SCREEN VIDEO surface (playInBackground=false — inv. 7: it always owns
+        // its player) must NOT take over the canonical session while the car is attached. Its
+        // showNotificationControls registration (setupPlaybackService → registerPlayer) swapped the
+        // session player under gearhead and its later unregister tore the whole session down —
+        // killing the in-car UI. While car-attached we skip the service registration entirely (no
+        // media notification for the on-screen video during projection) and play over the car
+        // session with TRANSIENT focus, so the car content auto-resumes when this view goes away.
+        boolean videoTakeoverDenied = !self.playInBackground && canonicalPlayer != null
+                && isCarAttached();
+        if (videoTakeoverDenied) {
+            DebugLog.w(TAG, "PLAYER-297: car attached — on-screen video keeps its own player and skips canonical registration");
+        }
+        canonicalAttachDenied = splashAttachDenied || videoTakeoverDenied;
         if (self.playInBackground && canonicalPlayer != null && !canonicalAttachDenied) {
             player = canonicalPlayer; // ATTACH — do not create (inv. 2)
             DebugLog.d(TAG, "ReactExoplayerView: attached to canonical player (PLAYER-269 Phase 5)");
@@ -976,8 +989,12 @@ public class ReactExoplayerView extends FrameLayout implements
         player.setPlaybackParameters(params);
         changeAudioOutput(this.audioOutput);
 
-        if(showNotificationControls) {
+        if (showNotificationControls && !canonicalAttachDenied) {
             setupPlaybackService();
+        } else if (showNotificationControls) {
+            // PLAYER-297: registering would hand the car-attached canonical session to this
+            // view's player (and its unregister would tear the session down under gearhead).
+            DebugLog.w(TAG, "PLAYER-297: skipping playback-service registration (canonical session is car-attached)");
         }
     }
 
@@ -1643,12 +1660,21 @@ public class ReactExoplayerView extends FrameLayout implements
      * (PLAYER-279), the release half of the same invariant.
      */
     private static boolean isCanonicalBusy(ExoPlayer canonical) {
-        VideoPlaybackService service = VideoPlaybackService.Companion.getLiveInstance();
-        boolean carAttached = service != null && service.hasAutomotiveController();
+        boolean carAttached = isCarAttached();
         int state = canonical.getPlaybackState();
         boolean activelyInUse = canonical.getPlayWhenReady()
                 && (state == Player.STATE_READY || state == Player.STATE_BUFFERING);
         return carAttached || activelyInUse;
+    }
+
+    /**
+     * PLAYER-297: true when an automotive controller (gearhead/projection) is attached to the
+     * canonical session. While attached, the car owns the session lifetime (ADR Auto-001, inv. 2):
+     * no other surface may take the session over or tear it down.
+     */
+    private static boolean isCarAttached() {
+        VideoPlaybackService service = VideoPlaybackService.Companion.getLiveInstance();
+        return service != null && service.hasAutomotiveController();
     }
 
     private static class OnAudioFocusChangedListener implements AudioManager.OnAudioFocusChangeListener {

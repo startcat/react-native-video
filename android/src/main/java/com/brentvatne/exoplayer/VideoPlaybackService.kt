@@ -177,6 +177,17 @@ class VideoPlaybackService : MediaLibraryService() {
     }
 
     private fun registerPlayerInternal(player: ExoPlayer, from: Class<Activity>?) {
+        // PLAYER-297 (service-side takeover guard — defence in depth for the view-side skip in
+        // ReactExoplayerView.initializePlayerCore): while an automotive controller is attached,
+        // a DIFFERENT player (an on-screen <Video> surface, inv. 7) must not become canonical nor
+        // be swapped into the session gearhead is using. Re-registration of the SAME canonical
+        // player (S4 car→app handoff, GlobalPlayerManager, cold-start flows) passes unchanged.
+        val currentCanonical = CanonicalPlayerHolder.get()
+        if (currentCanonical != null && currentCanonical !== player && hasAutomotiveController()) {
+            Log.w(TAG, "[canonical] registerPlayer: refusing canonical takeover while the car is attached (PLAYER-297)")
+            return
+        }
+
         if (from != null) sourceActivity = from
 
         // Set this player as the canonical one (inv. 1 + 2).
@@ -266,6 +277,29 @@ class VideoPlaybackService : MediaLibraryService() {
 
     fun unregisterPlayer(player: ExoPlayer) {
         DebugLog.d(TAG, "VideoPlaybackService unregisterPlayer")
+
+        // PLAYER-297 (identity guard): only the CANONICAL player may tear the canonical session
+        // down. Any other registered view player unbinding (e.g. an on-screen <Video> that lost —
+        // or was refused — the canonical slot) must not nuke the ONE session: with the car
+        // attached that killed the in-car UI; without the car it dropped the legitimate
+        // surface's session/notification.
+        if (!CanonicalPlayerHolder.isCanonical(player)) {
+            Log.i(TAG, "[canonical] unregisterPlayer: non-canonical player — skipping session teardown (PLAYER-297)")
+            CarAudioHandoffCoordinator.detach(player) // identity-checked: no-op unless attached
+            hidePlayerNotification(player)
+            PlayerInstanceTracker.unregister(player)
+            return
+        }
+
+        // PLAYER-297 (car guard — mirror of releaseCanonicalOrphanIfIdle's keep-alive,
+        // PLAYER-279): while an automotive controller is attached the car owns the session
+        // lifetime (inv. 2). Releasing it + stopSelf() here is what crashed the in-car UI.
+        // Keep player/session/coordinator alive; once the car detaches, the next view-drop or
+        // task-removed path retires them through the normal teardown below.
+        if (hasAutomotiveController()) {
+            Log.i(TAG, "[canonical] unregisterPlayer: automotive controller attached — keeping session alive (PLAYER-297)")
+            return
+        }
 
         CarAudioHandoffCoordinator.detach(player) // PLAYER-278
         hidePlayerNotification(player)
@@ -384,12 +418,28 @@ class VideoPlaybackService : MediaLibraryService() {
      * is currently connected to the canonical session. Unlike [isAndroidAutoConnected] (which is just
      * "session exists" and is true for any registered player), this inspects the live controllers, so
      * the canonical-holder hygiene on view drop never tears down a session the car is attached to.
+     *
+     * PLAYER-297 (E5): a connected automotive controller alone is NOT enough — gearhead keeps its
+     * MediaController on the session indefinitely after projection ends (device-verified, no
+     * disconnect >6 min), and the lax [CarAudioHandoffCoordinator.isAutomotive] matcher
+     * ("android.media") also catches media3's legacy-controller placeholder
+     * ("android.media.session.MediaController" = System UI / Bluetooth remotes). Both made this
+     * return true phone-only, arming the 297 guards with no car (no video notification + ghost
+     * audio resume). Gate the controller inspection on the LIVE projection state from gearhead's
+     * CarConnection provider ([CarProjectionStatus]); controller check first keeps the no-car
+     * common case free of the cross-process query.
      */
     fun hasAutomotiveController(): Boolean =
         try {
-            canonicalSession?.connectedControllers?.any {
+            val controllerAttached = canonicalSession?.connectedControllers?.any {
                 CarAudioHandoffCoordinator.isAutomotive(it.packageName)
             } == true
+            if (controllerAttached && !CarProjectionStatus.isProjectionActive(this)) {
+                Log.i(TAG, "[canonical] stale automotive controller ignored — no active car projection (PLAYER-297 E5)")
+                false
+            } else {
+                controllerAttached
+            }
         } catch (e: Exception) {
             Log.w(TAG, "hasAutomotiveController check failed: ${e.message}")
             false
