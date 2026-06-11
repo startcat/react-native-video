@@ -238,6 +238,10 @@ dependencies {
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
 
+    // PLAYER-305: JVM unit tests (run from the consuming app's gradle:
+    // ./gradlew :react-native-video:testDebugUnitTest)
+    testImplementation "junit:junit:4.13.2"
+
     // Gson for JSON serialization (Android Auto MediaCache)
     implementation 'com.google.code.gson:gson:2.10.1'
 
