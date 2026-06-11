@@ -1200,11 +1200,20 @@ class PlaylistControlModule: RCTEventEmitter {
     
     private func cleanup() {
         removePlayerObservers()
+        // PLAYER-298: solo limpiar el Now Playing global si ESTE módulo era el dueño
+        // real de la reproducción (player standalone vivo). GUAU iOS usa el módulo en
+        // standalone como router de cola SIN player propio mientras RCTVideo reproduce;
+        // clearPlaylist() (invocado por PlaylistsManager.setPlaylist en cada nueva cola)
+        // borraba aquí el nowPlayingInfo que RCTVideo/NowPlayingInfoCenterManager
+        // acababan de publicar.
+        let ownedPlayback = player != nil
         player?.pause()
         player = nil
         isPlaybackActive = false
-        
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+
+        if ownedPlayback {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        }
     }
 }
 

@@ -619,6 +619,15 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         } else {
             _player?.replaceCurrentItem(with: playerItem)
 
+            // PLAYER-298: re-registrar el player en cada cambio de source.
+            // handlePlaybackFailed() lo elimina del NowPlayingInfoCenterManager y,
+            // sin esto, el siguiente setSrc del MISMO AVPlayer dejaba la app sin
+            // remote commands ni Now Playing para siempre (registerPlayer es
+            // idempotente si ya está registrado).
+            if _showNotificationControls, let player = _player {
+                NowPlayingInfoCenterManager.shared.registerPlayer(player: player)
+            }
+
             // later we can just call "updateNowPlayingInfo:
             NowPlayingInfoCenterManager.shared.updateNowPlayingInfo()
         }
@@ -965,6 +974,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             self.onVideoSeek?(["currentTime": NSNumber(value: Float(CMTimeGetSeconds(item.currentTime()))),
                                "seekTime": seekTime,
                                "target": self.reactTag])
+
+            // PLAYER-298: sincronizar elapsed en Now Playing tras seeks iniciados
+            // desde JS para que la barra de CarPlay/lock screen salte de inmediato.
+            if self._showNotificationControls {
+                NowPlayingInfoCenterManager.shared.updateNowPlayingInfo()
+            }
         }
 
         _pendingSeek = false
@@ -2036,6 +2051,15 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         debugPrint("[RCTVideo] 📤 About to update MPNowPlayingInfoCenter with rate: \(nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] ?? -1)")
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
         debugPrint("[RCTVideo] ✓ MPNowPlayingInfoCenter updated successfully")
+
+        // PLAYER-298: re-afirmar los remote commands en cada tick de progreso.
+        // react-native-carplay deshabilita changePlaybackPositionCommand al crear su
+        // NowPlayingTemplate (DESPUÉS de empezar a reproducir); sin esta re-afirmación
+        // la seek bar de CarPlay quedaba muerta hasta el siguiente cambio de estado.
+        // duration NaN/infinito = directo → la seek bar no aplica.
+        if _showNotificationControls {
+            NowPlayingInfoCenterManager.shared.ensureRemoteCommandsEnabled(allowSeek: duration.isFinite && duration > 0)
+        }
     }
 
     @objc

@@ -25,6 +25,11 @@ class NowPlayingInfoCenterManager {
 
     private let remoteCommandCenter = MPRemoteCommandCenter.shared()
 
+    /// PLAYER-299: estado de reproducción previo a una interrupción del sistema
+    /// (Siri, llamada, aviso de navegación) para decidir si reanudamos al terminar.
+    private var wasPlayingBeforeInterruption = false
+    private var interruptionObserver: NSObjectProtocol?
+
     private var receivingRemoveControlEvents = false {
         didSet {
             if receivingRemoveControlEvents {
@@ -37,12 +42,64 @@ class NowPlayingInfoCenterManager {
         }
     }
 
+    private init() {
+        // PLAYER-299: sin observer de interrupciones, una interrupción del sistema
+        // (Siri, llamada de teléfono, aviso del navegador del coche) pausa el AVPlayer
+        // y NADIE lo reanuda al terminar: "la reproducción se corta sola".
+        // RNTP hacía este trabajo antes de la migración; ahora es responsabilidad nuestra.
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleAudioSessionInterruption(notification)
+        }
+    }
+
     deinit {
         cleanup()
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
+    }
+
+    /// PLAYER-299: manejar interrupciones de la sesión de audio (patrón estándar de AVAudioSession).
+    private func handleAudioSessionInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
+        }
+
+        switch type {
+        case .began:
+            wasPlayingBeforeInterruption = (currentPlayer?.rate ?? 0) > 0
+            debugPrint("[NowPlayingInfoCenter] 🔇 Interruption began (wasPlaying: \(wasPlayingBeforeInterruption))")
+            // Reflejar el estado real (pausado por el sistema) en CarPlay / lock screen.
+            updateNowPlayingInfo()
+        case .ended:
+            let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+            debugPrint("[NowPlayingInfoCenter] 🔈 Interruption ended (shouldResume: \(options.contains(.shouldResume)), wasPlaying: \(wasPlayingBeforeInterruption))")
+            if options.contains(.shouldResume), wasPlayingBeforeInterruption, let player = currentPlayer {
+                try? AVAudioSession.sharedInstance().setActive(true)
+                player.play()
+            }
+            wasPlayingBeforeInterruption = false
+            updateNowPlayingInfo()
+        @unknown default:
+            break
+        }
     }
 
     func registerPlayer(player: AVPlayer) {
         if players.contains(player) {
+            // PLAYER-298: re-registro del mismo player (p.ej. tras handlePlaybackFailed()
+            // + nuevo setSrc). Si nos quedamos sin currentPlayer, re-adoptarlo para que
+            // los command targets y el Now Playing vuelvan a estar vivos.
+            if currentPlayer == nil {
+                setCurrentPlayer(player: player)
+            }
             return
         }
 
@@ -76,6 +133,10 @@ class NowPlayingInfoCenterManager {
 
         if currentPlayer == player {
             currentPlayer = nil
+            // PLAYER-298: si queda otro player activo, adoptarlo (re-registra los
+            // command targets); si no, el update inferior es un no-op transitorio
+            // y cleanup() hará el teardown real cuando no queden players.
+            findNewCurrentPlayer()
             updateNowPlayingInfo()
         }
 
@@ -190,7 +251,10 @@ class NowPlayingInfoCenterManager {
                 return .commandFailed
             }
             let newTime = player.currentTime() - CMTime(seconds: self.SEEK_INTERVAL_SECONDS, preferredTimescale: .max)
-            player.seek(to: newTime)
+            player.seek(to: newTime) { [weak self] _ in
+                // PLAYER-298: re-publicar elapsed tras el seek para que la barra salte ya.
+                self?.updateNowPlayingInfo()
+            }
             return .success
         }
 
@@ -200,7 +264,10 @@ class NowPlayingInfoCenterManager {
             }
 
             let newTime = player.currentTime() + CMTime(seconds: self.SEEK_INTERVAL_SECONDS, preferredTimescale: .max)
-            player.seek(to: newTime)
+            player.seek(to: newTime) { [weak self] _ in
+                // PLAYER-298: re-publicar elapsed tras el seek para que la barra salte ya.
+                self?.updateNowPlayingInfo()
+            }
             return .success
         }
 
@@ -209,7 +276,10 @@ class NowPlayingInfoCenterManager {
                 return .commandFailed
             }
             if let event = event as? MPChangePlaybackPositionCommandEvent {
-                player.seek(to: CMTime(seconds: event.positionTime, preferredTimescale: .max))
+                player.seek(to: CMTime(seconds: event.positionTime, preferredTimescale: .max)) { [weak self] _ in
+                    // PLAYER-298: re-publicar elapsed tras el seek (barra de CarPlay).
+                    self?.updateNowPlayingInfo()
+                }
                 return .success
             }
             return .commandFailed
@@ -259,8 +329,22 @@ class NowPlayingInfoCenterManager {
             return .success
         }
 
+        ensureRemoteCommandsEnabled()
+    }
+
+    /// PLAYER-298: re-afirmar el estado `isEnabled` de los remote commands que poseemos.
+    /// react-native-carplay (`setupRemoteCommandCenter`) deshabilita
+    /// `changePlaybackPositionCommand` al crear su NowPlayingTemplate, lo que mata la
+    /// seek bar de CarPlay aunque tengamos handler registrado. NO tocamos
+    /// skipForward/skipBackward a propósito: su estado decide qué botones muestra
+    /// CarPlay (skip-intervals vs next/previous) y GUAU quiere next/previous.
+    public func ensureRemoteCommandsEnabled(allowSeek: Bool = true) {
+        remoteCommandCenter.playCommand.isEnabled = true
+        remoteCommandCenter.pauseCommand.isEnabled = true
+        remoteCommandCenter.togglePlayPauseCommand.isEnabled = true
         remoteCommandCenter.nextTrackCommand.isEnabled = true
         remoteCommandCenter.previousTrackCommand.isEnabled = true
+        remoteCommandCenter.changePlaybackPositionCommand.isEnabled = allowSeek
     }
 
     private func invalidateCommandTargets() {
@@ -278,19 +362,27 @@ class NowPlayingInfoCenterManager {
     public func updateNowPlayingInfo() {
         debugPrint("[NowPlayingInfoCenter] 🔄 updateNowPlayingInfo called")
         guard let player = currentPlayer, let currentItem = player.currentItem else {
-            debugPrint("[NowPlayingInfoCenter] ⚠️ No player or currentItem - clearing Now Playing Info")
-            invalidateCommandTargets()
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = [:]
+            // PLAYER-298: NO invalidar los command targets ni vaciar nowPlayingInfo aquí.
+            // Este estado puede ser transitorio (p.ej. replaceCurrentItem(with: nil)
+            // durante un cambio de source). Invalidar aquí mataba seek/play/pause de
+            // CarPlay para siempre, porque registerCommandTargets() solo se re-ejecuta
+            // al cambiar de player. El teardown real lo hace cleanup() cuando no
+            // quedan players registrados.
+            debugPrint("[NowPlayingInfoCenter] ⚠️ No player or currentItem - skipping update (transient)")
             return
         }
-        
-        // Don't update if player is not ready (duration is invalid)
-        if currentItem.duration.seconds.isNaN || currentItem.duration.seconds <= 0 {
-            debugPrint("[NowPlayingInfoCenter] ⚠️ Player not ready (duration: \(currentItem.duration.seconds)) - skipping update")
+
+        // PLAYER-298: distinguir "no listo" (duration invalid) de "directo" (duration
+        // indefinite). El guard anterior descartaba también los directos, así que para
+        // radio en vivo nunca se publicaba metadata desde aquí.
+        let isLiveStream = CMTIME_IS_INDEFINITE(currentItem.duration)
+        let durationSeconds = currentItem.duration.seconds
+        if !isLiveStream, durationSeconds.isNaN || durationSeconds <= 0 {
+            debugPrint("[NowPlayingInfoCenter] ⚠️ Player not ready (duration: \(durationSeconds)) - skipping update")
             return
         }
-        
-        debugPrint("[NowPlayingInfoCenter] Player rate: \(player.rate), duration: \(currentItem.duration.seconds)")
+
+        debugPrint("[NowPlayingInfoCenter] Player rate: \(player.rate), duration: \(durationSeconds), live: \(isLiveStream)")
 
         // Use only externalMetadata to avoid blocking on commonMetadata load
         // externalMetadata is set by RCTVideo and is immediately available
@@ -308,26 +400,37 @@ class NowPlayingInfoCenterManager {
         let imgData = AVMetadataItem.metadataItems(from: metadata, filteredByIdentifier: .commonIdentifierArtwork).first?.dataValue
         let artworkImage = imgData.flatMap { UIImage(data: $0) }
 
-        // Determine playback rate - avoid setting to 0 during buffering as it can pause playback
+        // PLAYER-298: publicar el rate REAL distinguiendo pausa de buffering vía
+        // timeControlStatus. El antiguo "rate 0 → 1.0" hacía imposible reflejar la
+        // pausa en CarPlay/lock screen, y un rate falso descoloca la barra de progreso
+        // (el sistema extrapola elapsed con el rate publicado).
         let playbackRate: Double
-        if player.rate > 0 {
-            playbackRate = Double(player.rate)
-            debugPrint("[NowPlayingInfoCenter] ✅ Using actual player rate: \(player.rate)")
-        } else {
-            // Player rate is 0 - could be buffering or intentionally paused
-            // Default to 1.0 to prevent system from pausing during buffering
+        switch player.timeControlStatus {
+        case .paused:
+            playbackRate = 0.0
+            debugPrint("[NowPlayingInfoCenter] ⏸️ timeControlStatus .paused → rate 0")
+        case .waitingToPlayAtSpecifiedRate:
+            // Buffering con intención de reproducir: publicar 1.0 evita que el sistema
+            // muestre "pausado" durante stalls breves (intención original del workaround).
             playbackRate = 1.0
-            debugPrint("[NowPlayingInfoCenter] ⚠️ Player rate is 0 - using 1.0 to prevent system pause")
+            debugPrint("[NowPlayingInfoCenter] ⏳ timeControlStatus .waiting → rate 1.0")
+        case .playing:
+            playbackRate = Double(player.rate)
+            debugPrint("[NowPlayingInfoCenter] ✅ timeControlStatus .playing → rate \(player.rate)")
+        @unknown default:
+            playbackRate = Double(player.rate)
         }
 
         var newNowPlayingInfo: [String: Any] = [
             MPMediaItemPropertyTitle: titleItem,
             MPMediaItemPropertyArtist: artistItem,
-            MPMediaItemPropertyPlaybackDuration: currentItem.duration.seconds,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: currentItem.currentTime().seconds.rounded(),
             MPNowPlayingInfoPropertyPlaybackRate: playbackRate,
-            MPNowPlayingInfoPropertyIsLiveStream: CMTIME_IS_INDEFINITE(currentItem.asset.duration),
+            MPNowPlayingInfoPropertyIsLiveStream: isLiveStream,
         ]
+        if !isLiveStream {
+            newNowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = durationSeconds
+            newNowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentItem.currentTime().seconds.rounded()
+        }
         if let artworkImage = artworkImage, artworkImage.size.width > 0, artworkImage.size.height > 0 {
             newNowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: artworkImage.size) { _ in artworkImage }
         }
@@ -339,7 +442,17 @@ class NowPlayingInfoCenterManager {
             // No artwork on this item: drop any stale artwork carried over from the merge.
             mergedNowPlayingInfo.removeValue(forKey: MPMediaItemPropertyArtwork)
         }
+        if isLiveStream {
+            // Directo: retirar claves VOD heredadas del item anterior tras el merge.
+            mergedNowPlayingInfo.removeValue(forKey: MPMediaItemPropertyPlaybackDuration)
+            mergedNowPlayingInfo.removeValue(forKey: MPNowPlayingInfoPropertyElapsedPlaybackTime)
+        }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = mergedNowPlayingInfo
+
+        // PLAYER-298: re-afirmar comandos en cada update; react-native-carplay los
+        // deshabilita al crear el NowPlayingTemplate (ver ensureRemoteCommandsEnabled).
+        // En directo la seek bar no aplica.
+        ensureRemoteCommandsEnabled(allowSeek: !isLiveStream)
         debugPrint("[NowPlayingInfoCenter] ✓ Now Playing Info updated")
     }
 
@@ -372,6 +485,14 @@ class NowPlayingInfoCenterManager {
             if rate == 0 && self.currentPlayer == player {
                 debugPrint("[NowPlayingInfoCenter] ⏸️ Current player paused - finding new current player")
                 self.findNewCurrentPlayer()
+            }
+
+            // PLAYER-298: propagar los cambios de rate (play/pausa/velocidad) del player
+            // actual a MPNowPlayingInfoCenter. Sin esto el estado de reproducción y la
+            // barra de progreso de CarPlay/lock screen se quedan congelados: nadie
+            // publicaba rate/elapsed al pausar o reanudar.
+            if self.currentPlayer == player {
+                self.updateNowPlayingInfo()
             }
         }
     }
