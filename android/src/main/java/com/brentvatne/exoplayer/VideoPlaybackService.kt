@@ -408,6 +408,14 @@ class VideoPlaybackService : MediaLibraryService() {
     fun librarySession(): MediaLibrarySession? = canonicalSession
 
     /**
+     * PLAYER-303: exposes the session's [PlaylistAwareForwardingPlayer] so
+     * [com.brentvatne.react.AndroidAutoModule.reportPlaybackError] can raise a synthetic error
+     * that the legacy bridge maps to STATE_ERROR + message (the only error channel gearhead
+     * renders on media3 1.1.1).
+     */
+    fun forwardingPlayer(): PlaylistAwareForwardingPlayer? = canonicalForwardingPlayer
+
+    /**
      * Whether an Android Auto controller is connected (proxy check: canonical session alive).
      * Replaces AndroidAutoMediaBrowserService.isAndroidAutoConnected.
      */

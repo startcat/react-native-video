@@ -85,6 +85,19 @@ class PlaylistAwareForwardingPlayer(player: Player) : ForwardingPlayer(player) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val publishRunnable = Runnable { fireQueueTimelineChanged() }
 
+    /**
+     * PLAYER-303: synthetic playback error raised from JS (`AndroidAutoModule.reportPlaybackError`).
+     * media3 1.1.1 has no `MediaSession.sendError()`, but its legacy bridge derives
+     * `PlaybackStateCompat` from `getPlayerError()` (`PlayerWrapper.createPlaybackStateCompat` →
+     * `MediaUtils.convertToPlaybackStateCompatState`: non-null error → STATE_ERROR + errorMessage),
+     * which is what gearhead renders. Exposing the error here — on the player the session wraps —
+     * is the only seam that reaches that branch without touching media3 internals.
+     * Cleared automatically when the raw player starts a new load (BUFFERING/READY), see
+     * [clearSyntheticErrorOnRecovery].
+     */
+    @Volatile
+    private var syntheticError: PlaybackException? = null
+
     init {
         // PLAYER-300: re-publish the timeline when the JS queue content changes without any
         // raw-player event. Last-writer-wins on purpose: only the wrapper currently attached to
@@ -323,6 +336,48 @@ class PlaylistAwareForwardingPlayer(player: Player) : ForwardingPlayer(player) {
         }
     }
 
+    // ------------------------------------------------------------------
+    // PLAYER-303: synthetic playback error (JS play-flow failures → car UI)
+    // ------------------------------------------------------------------
+
+    override fun getPlayerError(): PlaybackException? = syntheticError ?: super.getPlayerError()
+
+    /**
+     * Raises a synthetic [PlaybackException] towards the session listener(s) so the legacy bridge
+     * publishes STATE_ERROR + [message] (gearhead exits its loading state and shows the message).
+     * Must be called on the main thread (same contract as every other session-facing call here).
+     * media3's `MediaSessionImpl.PlayerListener.onPlayerError` republishes the legacy playback
+     * state inside the individual callback — no `onEvents` needed (same pattern as
+     * [fireQueueTimelineChanged], verified on media3 1.1.1 sources).
+     */
+    fun raiseSyntheticError(message: String) {
+        val error = PlaybackException(message, null, PlaybackException.ERROR_CODE_UNSPECIFIED)
+        syntheticError = error
+        Log.i(TAG, "raiseSyntheticError: publishing STATE_ERROR towards session — $message (PLAYER-303)")
+        for (l in queueListeners) {
+            try {
+                l.inner.onPlayerErrorChanged(error)
+                l.inner.onPlayerError(error)
+            } catch (e: Exception) {
+                Log.w(TAG, "synthetic error publish failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * The error must not outlive the failure it describes: the next real load on the raw player
+     * (BUFFERING/READY) clears it BEFORE the state change is forwarded, so the very same event's
+     * legacy re-publish already reads a clean `getPlayerError()`.
+     */
+    internal fun clearSyntheticErrorOnRecovery(playbackState: Int) {
+        if (syntheticError != null &&
+            (playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_READY)
+        ) {
+            syntheticError = null
+            Log.i(TAG, "synthetic error cleared — playback recovering (state=$playbackState) (PLAYER-303)")
+        }
+    }
+
     /**
      * Substitutes `onTimelineChanged` payloads with the wrapper's current (synthetic) timeline and
      * EXPLICITLY forwards every other [Player.Listener] callback to [inner].
@@ -402,6 +457,8 @@ class PlaylistAwareForwardingPlayer(player: Player) : ForwardingPlayer(player) {
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            // PLAYER-303: a new real load invalidates any synthetic error before it is forwarded.
+            player.clearSyntheticErrorOnRecovery(playbackState)
             inner.onPlaybackStateChanged(playbackState)
         }
 

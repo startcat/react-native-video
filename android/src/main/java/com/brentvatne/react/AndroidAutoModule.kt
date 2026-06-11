@@ -351,10 +351,15 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
      * CONTENT_UNAVAILABLE, UNKNOWN_ERROR.
      *
      * media3 1.1.1 limitation: MediaSession.sendError() does not exist yet (added in 1.3+).
-     * The error message propagates via setSessionExtras — gearhead shows STATE_IDLE (no
-     * playback) rather than an explicit error dialog, but the car exits the spinner/buffering
-     * state which is the primary user-facing requirement. Upgrade path: bump to media3 1.3+
-     * and use sendError() for the full STATE_ERROR experience.
+     * PLAYER-303: the stop()+setSessionExtras mechanism alone was verified INSUFFICIENT on
+     * device (DHU 2026-06-12): gearhead ignores session extras and stays in its loading state
+     * (legacy PlaybackState stuck in BUFFERING) — no message, infinite spinner. The working
+     * channel on media3 1.1.1 is the legacy bridge's error mapping: a non-null
+     * `Player.getPlayerError()` makes `PlayerWrapper.createPlaybackStateCompat()` publish
+     * STATE_ERROR + errorMessage, which gearhead renders. We raise a synthetic error through
+     * [com.brentvatne.exoplayer.PlaylistAwareForwardingPlayer.raiseSyntheticError]; it
+     * self-clears on the next real load. setSessionExtras is kept as a secondary channel for
+     * controllers that do read extras. Upgrade path: media3 1.3+ sendError().
      *
      * @param errorCode String code from RESOLUTION_ERROR/NETWORK_ERROR/AUTH_ERROR/...
      * @param localizedMessage Localized message to surface to the driver.
@@ -365,7 +370,18 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
             Log.w(TAG, "reportPlaybackError: code=$errorCode, message=$localizedMessage")
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 try {
-                    // 1. Stop the canonical player so gearhead exits the buffering/loading state.
+                    // 1. PLAYER-303: raise the synthetic error FIRST so every legacy re-publish
+                    //    from this point on (including the stop()'s IDLE transition below) derives
+                    //    STATE_ERROR + message instead of a loading/none state.
+                    val svcForError = VideoPlaybackService.liveInstance
+                    val forwarding = svcForError?.forwardingPlayer()
+                    if (forwarding != null) {
+                        forwarding.raiseSyntheticError(localizedMessage)
+                    } else {
+                        Log.w(TAG, "reportPlaybackError: no forwarding player — error not visible in car (PLAYER-303)")
+                    }
+
+                    // 2. Stop the canonical player so any in-flight load is abandoned.
                     val player = CanonicalPlayerHolder.get()
                     if (player != null) {
                         player.stop()
@@ -374,17 +390,16 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
                         Log.w(TAG, "reportPlaybackError: canonical player not available")
                     }
 
-                    // 2. Attach error metadata to the session extras so connected controllers
-                    //    (including gearhead) can read it. Media3 1.1.1 does not have
-                    //    MediaSession.sendError() — this is best-effort for the in-car UI.
-                    val svc = VideoPlaybackService.liveInstance
+                    // 3. Attach error metadata to the session extras as a secondary channel for
+                    //    controllers that do read extras (gearhead does NOT — PLAYER-303).
+                    val svc = svcForError
                     if (svc != null) {
                         val errorBundle = android.os.Bundle().apply {
                             putString("error_code", errorCode)
                             putString("error_message", localizedMessage)
                         }
                         svc.librarySession()?.setSessionExtras(errorBundle)
-                        // 3. Notify gearhead so it refreshes the browse tree from the stopped state.
+                        // 4. Notify gearhead so it refreshes the browse tree from the stopped state.
                         svc.notifyChildrenChanged("root")
                         Log.i(TAG, "reportPlaybackError: session extras set and root notified")
                     } else {
