@@ -3,7 +3,6 @@
  *
  */
 
-import { PlayerError } from '../../../core/errors';
 import { PlayerAnalyticsEvents } from '../../../features/analytics';
 
 import type {
@@ -88,12 +87,21 @@ export class AdEventsHandler {
                 case 'IMPRESSION':
                     this.handleAdImpression(data);
                     break;
-                    
+
+                case 'LOG':
+                    // PLAYER-302: IMA emite eventos LOG informativos (p.ej. ad tag vacío en
+                    // contenido sin ads) en cada arranque de item. Son diagnósticos del SDK,
+                    // nunca un error del player.
+                    console.log(`[AdEventsHandler] IMA LOG event`, data.data);
+                    break;
+
                 default:
-                    console.log(`[AdEventsHandler] Unhandled ad event: ${data.event}`);
-                    throw new PlayerError('PLAYER_AD_EVENT_PROCESSING_ERROR', {
-                        event: data.event,
-                    });
+                    // PLAYER-302: vocabulario IMA no modelado → aviso, no error. Lanzar aquí
+                    // convertía cada evento desconocido en un
+                    // PLAYER_EVENT_HANDLER_RECEIVE_AD_EVENT_FAILED en el arranque de CADA
+                    // item sin ads (×2 por arranque en los logcats de las pasadas DHU).
+                    console.warn(`[AdEventsHandler] Unhandled ad event: ${data.event}`);
+                    break;
             }
         } catch(error) {
             throw error;
