@@ -2944,7 +2944,21 @@ public class ReactExoplayerView extends FrameLayout implements
         this.showNotificationControls = showNotificationControls;
 
         if (playbackServiceConnection == null && showNotificationControls) {
-            setupPlaybackService();
+            // PLAYER-309: re-evaluar el guard de PLAYER-297 — este setter puede llegar en
+            // runtime (flip del prop) con el coche YA atacheado, mucho después de que
+            // initializePlayerCore computase canonicalAttachDenied sin coche. Sin esto, la
+            // vista se registraba (takeover que el servicio rechaza, quedando bound a medias)
+            // y su foco seguía siendo GAIN permanente → el audio del coche no auto-reanudaba.
+            ExoPlayer canonicalPlayer = CanonicalPlayerHolder.INSTANCE.get();
+            boolean videoTakeoverDenied = !playInBackground && canonicalPlayer != null
+                    && player != null && player != canonicalPlayer
+                    && isCarAttached();
+            if (videoTakeoverDenied) {
+                canonicalAttachDenied = true;
+                DebugLog.w(TAG, "PLAYER-309: car attached — skipping late playback-service registration (focus path switches to TRANSIENT)");
+            } else {
+                setupPlaybackService();
+            }
         } else if(!showNotificationControls && playbackServiceConnection != null) {
             cleanupPlaybackService();
         }
