@@ -71,11 +71,17 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
          * Returns true if [packageName] is a trusted caller allowed to browse the catalogue
          * and send transport commands. Also accepts any package that passes
          * [CarAudioHandoffCoordinator.isAutomotive] (covers OEM gearhead variants).
+         *
+         * PLAYER-311: el prefijo se ancla por SEGMENTO de package (igualdad exacta o
+         * `prefix.`): `startsWith("android")` a secas aceptaba `androidevil.app`,
+         * `startsWith("com.android")` aceptaba `com.androidx-fake`, etc.
          */
         internal fun isAllowedCaller(packageName: String?): Boolean {
             if (packageName == null) return false
             if (CarAudioHandoffCoordinator.isAutomotive(packageName)) return true
-            return ALLOWED_PACKAGE_PREFIXES.any { prefix -> packageName.startsWith(prefix) }
+            return ALLOWED_PACKAGE_PREFIXES.any { prefix ->
+                packageName == prefix || packageName.startsWith("$prefix.")
+            }
         }
     }
 

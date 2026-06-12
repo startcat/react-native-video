@@ -49,7 +49,9 @@ object CarAudioHandoffCoordinator {
     /** How long after a focus-loss pause a later automotive onConnect still treats it as the handoff. */
     private const val RECENT_LOSS_GRACE_MS = 2_000L
 
-    private val main = Handler(Looper.getMainLooper())
+    // PLAYER-311: lazy para que cargar el object en tests JVM puros (sin Looper de Android)
+    // no reviente — sólo los caminos de runtime real lo tocan.
+    private val main by lazy { Handler(Looper.getMainLooper()) }
 
     @Volatile private var attached: ExoPlayer? = null
 
@@ -92,8 +94,22 @@ object CarAudioHandoffCoordinator {
         }
     }
 
+    /**
+     * PLAYER-311: prefijos ANCLADOS de controllers automotive conocidos. El matcher anterior
+     * (`contains("gearhead"/"projection"/"android.media")`) aceptaba cualquier package de
+     * terceros con esos substrings (p.ej. `com.evil.projectionfake`) como controller del coche
+     * — armando la ventana de handoff y los guards de 297 — y `"android.media"` ya produjo el
+     * falso positivo de la regresión E5.
+     */
+    private val AUTOMOTIVE_PACKAGE_PREFIXES = listOf(
+        "com.google.android.projection", // Android Auto (gearhead)
+        "com.google.android.gearhead",   // variantes de gearhead
+        "com.android.car"                // Android Automotive OS (car service / media host)
+    )
+
     /** True when the controller package is an automotive projection controller (Android Auto). */
-    fun isAutomotive(pkg: String?): Boolean = pkg != null && (pkg.contains("gearhead") || pkg.contains("projection") || pkg.contains("android.media"))
+    fun isAutomotive(pkg: String?): Boolean =
+        pkg != null && AUTOMOTIVE_PACKAGE_PREFIXES.any { pkg == it || pkg.startsWith("$it.") }
 
     /** Call from a session callback's onConnect when [isAutomotive] is true. Arms the handoff window. */
     fun onCarControllerConnected() {
