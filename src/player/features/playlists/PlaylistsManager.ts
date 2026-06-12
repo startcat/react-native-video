@@ -1082,6 +1082,32 @@ export class PlaylistsManager {
 		// Enriquecer evento con item actual del array JS
 		let currentItem = this.items[data.index];
 
+		// PLAYER-312: el índice nativo puede apuntar a un item EXISTENTE pero equivocado
+		// (divergencia inversa JS > nativo: lista JS más larga o desalineada). Si el nativo
+		// aporta itemId, el id manda sobre el índice: nunca emitir un item cuyo id no case.
+		if (currentItem && data.itemId != null && currentItem.id !== String(data.itemId)) {
+			const indexById = this.items.findIndex(i => i.id === String(data.itemId));
+			if (indexById !== -1) {
+				this.logger.warn(
+					LOG_TAGS.PLAYLISTS_MANAGER,
+					"Index/id divergence — resolving by itemId (PLAYER-312)",
+					{ index: data.index, indexItemId: currentItem.id, nativeItemId: String(data.itemId) }
+				);
+				currentItem = this.items[indexById];
+				this.currentIndex = indexById;
+			} else {
+				// El id que reporta el nativo no existe en el store JS: emitir undefined es
+				// más seguro que emitir el item equivocado — el consumidor (CustomPlayer de
+				// GUAU, PLAYER-301c) ya trata defensivamente la ausencia de currentItem.
+				this.logger.warn(
+					LOG_TAGS.PLAYLISTS_MANAGER,
+					"Native itemId not in JS store — emitting without currentItem (PLAYER-312)",
+					{ index: data.index, indexItemId: currentItem.id, nativeItemId: String(data.itemId) }
+				);
+				currentItem = undefined;
+			}
+		}
+
 		// PLAYER-301: si el índice nativo no casa con el store JS (p.ej. divergencia por un
 		// append fallido), intentar resolver por itemId antes de dejar al consumidor caer en
 		// el payload nativo (que no lleva resolvedSources).
