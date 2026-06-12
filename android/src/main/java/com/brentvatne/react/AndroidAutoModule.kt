@@ -438,6 +438,34 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
     }
 
     /**
+     * PLAYER-314: leer el last-played persistido ({mediaId, positionMs} o null).
+     *
+     * Permite al flujo JS de resumption reanudar EN la posición local guardada cuando el
+     * backend no aporta una (las escuchas car-only, sin CustomPlayer montado, no reportan
+     * progreso al backend).
+     */
+    @ReactMethod
+    fun getLastPlayed(promise: Promise) {
+        try {
+            val mc = mediaCache ?: MediaCache.getInstance(reactContext)
+            val mediaId = mc.loadLastPlayedMediaId()
+            if (mediaId == null) {
+                promise.resolve(null)
+                return
+            }
+            promise.resolve(
+                Arguments.createMap().apply {
+                    putString("mediaId", mediaId)
+                    putDouble("positionMs", mc.loadLastPlayedPositionMs().toDouble())
+                }
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "getLastPlayed failed", e)
+            promise.reject("GET_LAST_PLAYED_FAILED", e.message, e)
+        }
+    }
+
+    /**
      * Actualizar biblioteca de medios (incremental)
      *
      * Actualiza items existentes o añade nuevos sin eliminar los que no están en el array.

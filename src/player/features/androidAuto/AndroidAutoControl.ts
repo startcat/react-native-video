@@ -838,6 +838,24 @@ export class AndroidAutoControl {
     }
 
     /**
+     * PLAYER-314: read the persisted last-played state ({mediaId, positionMs} or null).
+     *
+     * Lets the JS resumption flow resume AT the locally saved position when the backend does
+     * not provide one (car-only listening never mounts the in-app player, so no progress is
+     * reported to the backend).
+     */
+    static async getLastPlayed(): Promise<{ mediaId: string; positionMs: number } | null> {
+        this.checkAvailability();
+        if (!this.enabled) return null;
+        try {
+            return await AndroidAutoModule.getLastPlayed();
+        } catch (error) {
+            console.error('[AndroidAuto] getLastPlayed failed:', error);
+            return null;
+        }
+    }
+
+    /**
      * PLAYER-285 (G2): report a JS-layer playback error to the in-car session.
      *
      * Call this when the play flow fails (URL resolution, network, auth/subscription, content
