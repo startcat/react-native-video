@@ -234,6 +234,9 @@ public class ReactExoplayerView extends FrameLayout implements
     private boolean isBuffering;
     private boolean muted = false;
     private boolean hasAudioFocus = false;
+    // PLAYER-310: true mientras esta vista tiene el foco TRANSIENT de superficie denegada
+    // (288/297) — el coordinator de handoff suprime el re-assert mientras dure.
+    private boolean holdingTransientDenialFocus = false;
     private float rate = 1f;
     private AudioOutput audioOutput = AudioOutput.SPEAKER;
     private float audioVolume = 1f;
@@ -1224,7 +1227,7 @@ public class ReactExoplayerView extends FrameLayout implements
                         // as an orphan that ignores the AA-connect focus loss (COORDINATED silence).
                         if (CanonicalPlayerHolder.INSTANCE.isCanonical(player)
                                 && hasAudioFocus) {
-                            audioManager.abandonAudioFocus(audioFocusChangeListener);
+                            abandonViewAudioFocus();
                             hasAudioFocus = false;
                         }
                     } else {
@@ -1718,7 +1721,7 @@ public class ReactExoplayerView extends FrameLayout implements
                     view.eventEmitter.audioFocusChanged(false);
                     // FIXME this pause can cause issue if content doesn't have pause capability (can happen on live channel)
                     view.pausePlayback();
-                    view.audioManager.abandonAudioFocus(this);
+                    view.abandonViewAudioFocus();
                     break;
                 case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
                     view.eventEmitter.audioFocusChanged(false);
@@ -1770,7 +1773,32 @@ public class ReactExoplayerView extends FrameLayout implements
         int result = audioManager.requestAudioFocus(audioFocusChangeListener,
                 AudioManager.STREAM_MUSIC,
                 focusGain);
-        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        boolean granted = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+        // PLAYER-310: avisar al coordinator de handoff de que el focus-loss que va a ver el
+        // canónico es NUESTRO (superficie denegada con TRANSIENT) — sin esto, dentro de la
+        // ventana de 4s post-connect re-assertaría play() contra esta misma superficie.
+        if (granted && focusGain == AudioManager.AUDIOFOCUS_GAIN_TRANSIENT && !holdingTransientDenialFocus) {
+            holdingTransientDenialFocus = true;
+            CarAudioHandoffCoordinator.INSTANCE.onTransientDenialFocusHeld();
+        }
+        return granted;
+    }
+
+    /**
+     * PLAYER-310: única puerta de abandono del foco manual de la vista — si el foco era el
+     * TRANSIENT de una superficie denegada (288/297), libera el hold del coordinator para que
+     * la ventana de handoff vuelva a poder re-assertar.
+     */
+    private void abandonViewAudioFocus() {
+        audioManager.abandonAudioFocus(audioFocusChangeListener);
+        releaseTransientDenialHoldIfAny();
+    }
+
+    private void releaseTransientDenialHoldIfAny() {
+        if (holdingTransientDenialFocus) {
+            holdingTransientDenialFocus = false;
+            CarAudioHandoffCoordinator.INSTANCE.onTransientDenialFocusReleased();
+        }
     }
 
     private void setPlayWhenReady(boolean playWhenReady) {
@@ -1815,7 +1843,7 @@ public class ReactExoplayerView extends FrameLayout implements
         if (isFullscreen) {
             setFullscreen(false);
         }
-        audioManager.abandonAudioFocus(audioFocusChangeListener);
+        abandonViewAudioFocus();
     }
 
     private void updateResumePosition() {
@@ -2845,7 +2873,7 @@ public class ReactExoplayerView extends FrameLayout implements
         
         // Si se deshabilita el focus y ya lo tenemos, abandonarlo
         if (disableFocus && hasAudioFocus) {
-            audioManager.abandonAudioFocus(audioFocusChangeListener);
+            abandonViewAudioFocus();
             hasAudioFocus = false;
         }
     }
@@ -2894,7 +2922,7 @@ public class ReactExoplayerView extends FrameLayout implements
         }
         
         DebugLog.d(TAG, "manualAbandonAudioFocus - Abandoning audio focus...");
-        audioManager.abandonAudioFocus(audioFocusChangeListener);
+        abandonViewAudioFocus();
         hasAudioFocus = false;
         eventEmitter.audioFocusChanged(false);
     }

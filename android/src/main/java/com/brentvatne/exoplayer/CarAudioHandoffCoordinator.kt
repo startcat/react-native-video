@@ -23,9 +23,19 @@ object CarAudioHandoffPolicy {
      * Re-assert play after a focus-loss pause ONLY when: the user intends to play, the player is not
      * already playing, and we are still inside the connect handoff window. Outside the window a focus
      * loss (phone call, the user starting another car media app) is left paused — no fight.
+     *
+     * PLAYER-310: [transientDenialActive] = una superficie del PROPIO proceso (vídeo/splash con
+     * attach denegado, 288/297) tiene foco TRANSIENT — ese focus-loss es nuestro y re-assertar
+     * play() pelearía contra nuestra propia superficie (solape de audio dentro de la ventana).
      */
-    fun shouldReassert(nowMs: Long, windowUntilMs: Long, userIntendsToPlay: Boolean, isPlaying: Boolean): Boolean =
-        userIntendsToPlay && !isPlaying && nowMs <= windowUntilMs
+    fun shouldReassert(
+        nowMs: Long,
+        windowUntilMs: Long,
+        userIntendsToPlay: Boolean,
+        isPlaying: Boolean,
+        transientDenialActive: Boolean = false
+    ): Boolean =
+        userIntendsToPlay && !isPlaying && nowMs <= windowUntilMs && !transientDenialActive
 }
 
 /**
@@ -60,6 +70,23 @@ object CarAudioHandoffCoordinator {
     @Volatile private var windowUntilMs = 0L
 
     @Volatile private var lastFocusLossPauseAtMs = 0L
+
+    /**
+     * PLAYER-310: nº de superficies del propio proceso (vídeo/splash con attach denegado,
+     * 288/297) que tienen foco TRANSIENT vivo. Mientras haya alguna, los focus-loss del
+     * canónico son NUESTROS y la ventana de handoff no debe re-assertar play().
+     */
+    @Volatile private var transientDenialHolds = 0
+
+    @Synchronized fun onTransientDenialFocusHeld() {
+        transientDenialHolds++
+        Log.i(TAG, "transient-denial focus held ($transientDenialHolds) — handoff re-assert suppressed (PLAYER-310)")
+    }
+
+    @Synchronized fun onTransientDenialFocusReleased() {
+        if (transientDenialHolds > 0) transientDenialHolds--
+        Log.i(TAG, "transient-denial focus released ($transientDenialHolds) (PLAYER-310)")
+    }
 
     private val listener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -126,12 +153,12 @@ object CarAudioHandoffCoordinator {
         main.post {
             val p = attached ?: return@post
             val now = SystemClock.elapsedRealtime()
-            if (CarAudioHandoffPolicy.shouldReassert(now, windowUntilMs, userIntendsToPlay, p.isPlaying)) {
+            if (CarAudioHandoffPolicy.shouldReassert(now, windowUntilMs, userIntendsToPlay, p.isPlaying, transientDenialHolds > 0)) {
                 Log.i(TAG, "[$why] re-asserting play() to keep audio in the car")
                 // media3 re-requests focus; car grants -> resumes, denies -> stays paused (safe).
                 runCatching { p.play() }.onFailure { Log.w(TAG, "[$why] play() failed", it) }
             } else {
-                Log.d(TAG, "[$why] no re-assert (intends=$userIntendsToPlay, playing=${p.isPlaying}, inWindow=${now <= windowUntilMs})")
+                Log.d(TAG, "[$why] no re-assert (intends=$userIntendsToPlay, playing=${p.isPlaying}, inWindow=${now <= windowUntilMs}, denialHolds=$transientDenialHolds)")
             }
         }
 
