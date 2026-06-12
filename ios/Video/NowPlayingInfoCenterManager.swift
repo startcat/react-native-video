@@ -30,6 +30,16 @@ class NowPlayingInfoCenterManager {
     private var wasPlayingBeforeInterruption = false
     private var interruptionObserver: NSObjectProtocol?
 
+    // PLAYER-304: en muchos escenarios reales (llamada, Siri, aviso del navegador) el sistema
+    // PAUSA el AVPlayer ANTES de entregar la notificación de interrupción `.began`, así que leer
+    // `currentPlayer?.rate` en ese momento devuelve 0 y el auto-resume de PLAYER-299 no se
+    // dispara nunca. El KVO de `rate` (observePlayers) mantiene este latch continuo: si el player
+    // estaba sonando, o dejó de sonar hace menos de [interruptionPauseGraceSeconds] (la pausa
+    // del propio sistema), la interrupción cuenta como "estaba reproduciendo".
+    private var lastObservedIsPlaying = false
+    private var lastPlaybackStoppedAt: Date?
+    private static let interruptionPauseGraceSeconds: TimeInterval = 2.0
+
     private var receivingRemoveControlEvents = false {
         didSet {
             if receivingRemoveControlEvents {
@@ -73,8 +83,14 @@ class NowPlayingInfoCenterManager {
 
         switch type {
         case .began:
-            wasPlayingBeforeInterruption = (currentPlayer?.rate ?? 0) > 0
-            debugPrint("[NowPlayingInfoCenter] 🔇 Interruption began (wasPlaying: \(wasPlayingBeforeInterruption))")
+            // PLAYER-304: el rate puntual suele ser ya 0 (el sistema pausó antes de notificar);
+            // el latch del KVO + la ventana de gracia recuperan la intención real.
+            let rateNow = (currentPlayer?.rate ?? 0) > 0
+            let recentlyPaused = lastPlaybackStoppedAt.map {
+                Date().timeIntervalSince($0) <= Self.interruptionPauseGraceSeconds
+            } ?? false
+            wasPlayingBeforeInterruption = rateNow || lastObservedIsPlaying || recentlyPaused
+            debugPrint("[NowPlayingInfoCenter] 🔇 Interruption began (wasPlaying: \(wasPlayingBeforeInterruption) — rateNow: \(rateNow), latch: \(lastObservedIsPlaying), recentlyPaused: \(recentlyPaused))")
             // Reflejar el estado real (pausado por el sistema) en CarPlay / lock screen.
             updateNowPlayingInfo()
         case .ended:
@@ -471,6 +487,17 @@ class NowPlayingInfoCenterManager {
 
             let rate = change.newValue
             debugPrint("[NowPlayingInfoCenter] 👀 Player rate changed to: \(rate ?? -1)")
+
+            // PLAYER-304: latch continuo de "estaba sonando" para las interrupciones (la
+            // notificación `.began` llega DESPUÉS de que el sistema pause el player).
+            if let newRate = rate {
+                if newRate > 0 {
+                    self.lastObservedIsPlaying = true
+                } else if self.lastObservedIsPlaying, self.currentPlayer == player {
+                    self.lastObservedIsPlaying = false
+                    self.lastPlaybackStoppedAt = Date()
+                }
+            }
 
             // case where there is new player that is not paused
             // In this case event is triggered by non currentPlayer
