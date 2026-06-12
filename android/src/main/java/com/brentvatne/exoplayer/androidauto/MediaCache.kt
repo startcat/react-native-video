@@ -29,6 +29,7 @@ class MediaCache private constructor(private val context: Context) {
         private const val PREFS_NAME = "android_auto_media_cache"
         private const val CACHE_KEY = "media_library"
         private const val ROOT_ID = "root"
+
         // PLAYER-286: last-played persistence keys for playback resumption.
         private const val KEY_LAST_PLAYED_MEDIA_ID = "last_played_media_id"
         private const val KEY_LAST_PLAYED_POSITION_MS = "last_played_position_ms"
@@ -256,15 +257,23 @@ class MediaCache private constructor(private val context: Context) {
      * PLAYER-286: retrieve the last-played mediaId (null if none recorded).
      */
     fun loadLastPlayedMediaId(): String? =
-        try { prefs.getString(KEY_LAST_PLAYED_MEDIA_ID, null) }
-        catch (e: Exception) { Log.e(TAG, "loadLastPlayedMediaId failed", e); null }
+        try {
+            prefs.getString(KEY_LAST_PLAYED_MEDIA_ID, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "loadLastPlayedMediaId failed", e)
+            null
+        }
 
     /**
      * PLAYER-286: retrieve the last-played position in ms (0 if none recorded).
      */
     fun loadLastPlayedPositionMs(): Long =
-        try { prefs.getLong(KEY_LAST_PLAYED_POSITION_MS, 0L) }
-        catch (e: Exception) { Log.e(TAG, "loadLastPlayedPositionMs failed", e); 0L }
+        try {
+            prefs.getLong(KEY_LAST_PLAYED_POSITION_MS, 0L)
+        } catch (e: Exception) {
+            Log.e(TAG, "loadLastPlayedPositionMs failed", e)
+            0L
+        }
 
     /**
      * Limpiar caché completo

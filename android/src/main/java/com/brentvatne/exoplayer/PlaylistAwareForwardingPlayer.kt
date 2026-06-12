@@ -162,14 +162,11 @@ class PlaylistAwareForwardingPlayer(player: Player) : ForwardingPlayer(player) {
         return QueueTimeline(snap.items)
     }
 
-    override fun getCurrentMediaItemIndex(): Int =
-        syntheticQueue()?.index ?: super.getCurrentMediaItemIndex()
+    override fun getCurrentMediaItemIndex(): Int = syntheticQueue()?.index ?: super.getCurrentMediaItemIndex()
 
-    override fun getCurrentPeriodIndex(): Int =
-        syntheticQueue()?.index ?: super.getCurrentPeriodIndex()
+    override fun getCurrentPeriodIndex(): Int = syntheticQueue()?.index ?: super.getCurrentPeriodIndex()
 
-    override fun getMediaItemCount(): Int =
-        syntheticQueue()?.items?.size ?: super.getMediaItemCount()
+    override fun getMediaItemCount(): Int = syntheticQueue()?.items?.size ?: super.getMediaItemCount()
 
     override fun getMediaItemAt(index: Int): MediaItem {
         val snap = syntheticQueue() ?: return super.getMediaItemAt(index)
@@ -402,10 +399,7 @@ class PlaylistAwareForwardingPlayer(player: Player) : ForwardingPlayer(player) {
      * equals/hashCode let [removeListener]'s equals-based unregistration find the matching
      * instance on the raw player's listener set (same contract as media3's own ForwardingListener).
      */
-    private class QueueAwareListener(
-        private val player: PlaylistAwareForwardingPlayer,
-        val inner: Player.Listener
-    ) : Player.Listener {
+    private class QueueAwareListener(private val player: PlaylistAwareForwardingPlayer, val inner: Player.Listener) : Player.Listener {
 
         override fun onEvents(p: Player, events: Player.Events) {
             // Replace the player with the forwarding wrapper (mirror of media3 ForwardingListener).
@@ -496,11 +490,7 @@ class PlaylistAwareForwardingPlayer(player: Player) : ForwardingPlayer(player) {
             inner.onPositionDiscontinuity(reason)
         }
 
-        override fun onPositionDiscontinuity(
-            oldPosition: Player.PositionInfo,
-            newPosition: Player.PositionInfo,
-            reason: Int
-        ) {
+        override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
             inner.onPositionDiscontinuity(oldPosition, newPosition, reason)
         }
 
@@ -590,20 +580,34 @@ class PlaylistAwareForwardingPlayer(player: Player) : ForwardingPlayer(player) {
 
         override fun getWindow(windowIndex: Int, window: Window, defaultPositionProjectionUs: Long): Window {
             window.set(
-                /* uid = */ windowIndex,
-                /* mediaItem = */ mediaItems[windowIndex],
-                /* manifest = */ null,
-                /* presentationStartTimeMs = */ C.TIME_UNSET,
-                /* windowStartTimeMs = */ C.TIME_UNSET,
-                /* elapsedRealtimeEpochOffsetMs = */ C.TIME_UNSET,
-                /* isSeekable = */ true,
-                /* isDynamic = */ false,
-                /* liveConfiguration = */ null,
-                /* defaultPositionUs = */ 0L,
-                /* durationUs = */ C.TIME_UNSET,
-                /* firstPeriodIndex = */ windowIndex,
-                /* lastPeriodIndex = */ windowIndex,
-                /* positionInFirstPeriodUs = */ 0L
+                /* uid = */
+                windowIndex,
+                /* mediaItem = */
+                mediaItems[windowIndex],
+                /* manifest = */
+                null,
+                /* presentationStartTimeMs = */
+                C.TIME_UNSET,
+                /* windowStartTimeMs = */
+                C.TIME_UNSET,
+                /* elapsedRealtimeEpochOffsetMs = */
+                C.TIME_UNSET,
+                /* isSeekable = */
+                true,
+                /* isDynamic = */
+                false,
+                /* liveConfiguration = */
+                null,
+                /* defaultPositionUs = */
+                0L,
+                /* durationUs = */
+                C.TIME_UNSET,
+                /* firstPeriodIndex = */
+                windowIndex,
+                /* lastPeriodIndex = */
+                windowIndex,
+                /* positionInFirstPeriodUs = */
+                0L
             )
             return window
         }
@@ -612,17 +616,21 @@ class PlaylistAwareForwardingPlayer(player: Player) : ForwardingPlayer(player) {
 
         override fun getPeriod(periodIndex: Int, period: Period, setIds: Boolean): Period {
             period.set(
-                /* id = */ periodIndex,
-                /* uid = */ periodIndex,
-                /* windowIndex = */ periodIndex,
-                /* durationUs = */ C.TIME_UNSET,
-                /* positionInWindowUs = */ 0L
+                /* id = */
+                periodIndex,
+                /* uid = */
+                periodIndex,
+                /* windowIndex = */
+                periodIndex,
+                /* durationUs = */
+                C.TIME_UNSET,
+                /* positionInWindowUs = */
+                0L
             )
             return period
         }
 
-        override fun getIndexOfPeriod(uid: Any): Int =
-            (uid as? Int)?.takeIf { it in mediaItems.indices } ?: C.INDEX_UNSET
+        override fun getIndexOfPeriod(uid: Any): Int = (uid as? Int)?.takeIf { it in mediaItems.indices } ?: C.INDEX_UNSET
 
         override fun getUidOfPeriod(periodIndex: Int): Any = periodIndex
     }

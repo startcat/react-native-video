@@ -28,13 +28,7 @@ object CarAudioHandoffPolicy {
      * attach denegado, 288/297) tiene foco TRANSIENT — ese focus-loss es nuestro y re-assertar
      * play() pelearía contra nuestra propia superficie (solape de audio dentro de la ventana).
      */
-    fun shouldReassert(
-        nowMs: Long,
-        windowUntilMs: Long,
-        userIntendsToPlay: Boolean,
-        isPlaying: Boolean,
-        transientDenialActive: Boolean = false
-    ): Boolean =
+    fun shouldReassert(nowMs: Long, windowUntilMs: Long, userIntendsToPlay: Boolean, isPlaying: Boolean, transientDenialActive: Boolean = false): Boolean =
         userIntendsToPlay && !isPlaying && nowMs <= windowUntilMs && !transientDenialActive
 }
 
@@ -130,13 +124,12 @@ object CarAudioHandoffCoordinator {
      */
     private val AUTOMOTIVE_PACKAGE_PREFIXES = listOf(
         "com.google.android.projection", // Android Auto (gearhead)
-        "com.google.android.gearhead",   // variantes de gearhead
-        "com.android.car"                // Android Automotive OS (car service / media host)
+        "com.google.android.gearhead", // variantes de gearhead
+        "com.android.car" // Android Automotive OS (car service / media host)
     )
 
     /** True when the controller package is an automotive projection controller (Android Auto). */
-    fun isAutomotive(pkg: String?): Boolean =
-        pkg != null && AUTOMOTIVE_PACKAGE_PREFIXES.any { pkg == it || pkg.startsWith("$it.") }
+    fun isAutomotive(pkg: String?): Boolean = pkg != null && AUTOMOTIVE_PACKAGE_PREFIXES.any { pkg == it || pkg.startsWith("$it.") }
 
     /** Call from a session callback's onConnect when [isAutomotive] is true. Arms the handoff window. */
     fun onCarControllerConnected() {
@@ -158,7 +151,10 @@ object CarAudioHandoffCoordinator {
                 // media3 re-requests focus; car grants -> resumes, denies -> stays paused (safe).
                 runCatching { p.play() }.onFailure { Log.w(TAG, "[$why] play() failed", it) }
             } else {
-                Log.d(TAG, "[$why] no re-assert (intends=$userIntendsToPlay, playing=${p.isPlaying}, inWindow=${now <= windowUntilMs}, denialHolds=$transientDenialHolds)")
+                Log.d(
+                    TAG,
+                    "[$why] no re-assert (intends=$userIntendsToPlay, playing=${p.isPlaying}, inWindow=${now <= windowUntilMs}, denialHolds=$transientDenialHolds)"
+                )
             }
         }
 

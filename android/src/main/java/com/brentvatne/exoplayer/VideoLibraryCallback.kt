@@ -58,13 +58,13 @@ class VideoLibraryCallback(private val serviceContext: Context, private val medi
          * onConnect of the MediaLibrarySession.Callback — safe to block unknown packages here.
          */
         private val ALLOWED_PACKAGE_PREFIXES = listOf(
-            "android",                              // Android OS
-            "com.android",                          // System UI, Bluetooth, lock-screen widget
-            "com.google.android.projection",        // gearhead (Android Auto)
+            "android", // Android OS
+            "com.android", // System UI, Bluetooth, lock-screen widget
+            "com.google.android.projection", // gearhead (Android Auto)
             "com.google.android.googlequicksearchbox", // Google Assistant
-            "com.google.android.apps.assistant",    // Google Assistant (some builds)
-            "com.samsung.android.app.musicplayer",  // Samsung music widget (lock-screen)
-            "eus.eitb.guau"                         // GUAU host app itself
+            "com.google.android.apps.assistant", // Google Assistant (some builds)
+            "com.samsung.android.app.musicplayer", // Samsung music widget (lock-screen)
+            "eus.eitb.guau" // GUAU host app itself
         )
 
         /**

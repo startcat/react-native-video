@@ -15,11 +15,16 @@ class CarAudioHandoffPolicyTest {
     fun reAssertaDentroDeVentanaSinDenialActivo() {
         assertTrue(
             CarAudioHandoffPolicy.shouldReassert(
-                /* nowMs = */ 1_000L,
-                /* windowUntilMs = */ 4_000L,
-                /* userIntendsToPlay = */ true,
-                /* isPlaying = */ false,
-                /* transientDenialActive = */ false
+                /* nowMs = */
+                1_000L,
+                /* windowUntilMs = */
+                4_000L,
+                /* userIntendsToPlay = */
+                true,
+                /* isPlaying = */
+                false,
+                /* transientDenialActive = */
+                false
             )
         )
     }
