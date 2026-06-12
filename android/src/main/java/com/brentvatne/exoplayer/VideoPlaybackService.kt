@@ -350,6 +350,10 @@ class VideoPlaybackService : MediaLibraryService() {
             )
         }
 
+        // PLAYER-313: pre-puebla la cache del estado de proyección off-main para que la primera
+        // consulta real (init/release de vistas, en main) nunca caiga en el fallback frío.
+        CarProjectionStatus.warmUp(this)
+
         // NO llamar startForeground aquí - solo cuando se registre un player
         Log.d(TAG, "VideoPlaybackService created, waiting for player registration")
     }
@@ -435,7 +439,8 @@ class VideoPlaybackService : MediaLibraryService() {
      * return true phone-only, arming the 297 guards with no car (no video notification + ghost
      * audio resume). Gate the controller inspection on the LIVE projection state from gearhead's
      * CarConnection provider ([CarProjectionStatus]); controller check first keeps the no-car
-     * common case free of the cross-process query.
+     * common case free of the provider consult. PLAYER-313: that consult is non-blocking (cached
+     * snapshot + async refresh), so this is safe to call on the main thread.
      */
     fun hasAutomotiveController(): Boolean =
         try {
