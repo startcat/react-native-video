@@ -2024,14 +2024,29 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             }
             
             // Set isLiveStream flag for live content
-            if CMTIME_IS_INDEFINITE(currentItem.asset.duration) {
+            // PLAYER-306: usar currentItem.duration (no asset.duration) — es el mismo
+            // discriminador de directo que usa NowPlayingInfoCenterManager.
+            if CMTIME_IS_INDEFINITE(currentItem.duration) || CMTIME_IS_INDEFINITE(currentItem.asset.duration) {
                 nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] = true
                 debugPrint("[RCTVideo] 📡 Marking as live stream")
             }
         }
-        
-        nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
-        nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration
+
+        // PLAYER-306 (H1): NUNCA publicar NaN/infinito en MPNowPlayingInfoCenter. En directo
+        // este tick publicaba duration=NaN + un elapsed absurdo (posición del live window)
+        // CADA SEGUNDO: el sistema no digiere el diccionario y la sesión Now Playing queda
+        // rota — CarPlay congelado en ▶ con el audio sonando (se autocuraba al primer comando
+        // remoto, que dispara un publish limpio del manager). En directo se retiran
+        // duration/elapsed (como hace NowPlayingInfoCenterManager); en VOD sólo se publican
+        // cuando son finitos (pre-ready llegan NaN).
+        let isLivePublish = (nowPlayingInfo[MPNowPlayingInfoPropertyIsLiveStream] as? Bool) == true
+        if !isLivePublish, currentTime.isFinite, duration.isFinite, duration > 0 {
+            nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
+            nowPlayingInfo[MPMediaItemPropertyPlaybackDuration] = duration
+        } else {
+            nowPlayingInfo.removeValue(forKey: MPNowPlayingInfoPropertyElapsedPlaybackTime)
+            nowPlayingInfo.removeValue(forKey: MPMediaItemPropertyPlaybackDuration)
+        }
         
         // Only update playback rate if player is actually playing
         // Setting rate to 0 can cause the system to pause playback in background
