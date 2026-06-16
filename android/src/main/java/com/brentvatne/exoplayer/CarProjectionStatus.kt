@@ -83,6 +83,13 @@ object CarProjectionStatus {
 
     @Volatile private var observerRegistered = false
 
+    /**
+     * PLAYER-316: optional listener fired on every real projection-state transition. AndroidAutoModule
+     * wires this to emit androidAutoConnected/androidAutoDisconnected to JS so the app can gate video
+     * playback the way iOS gates on CarPlay's carPlayConnected. Runs on the refresh executor thread.
+     */
+    @Volatile var onProjectionChanged: ((Boolean) -> Unit)? = null
+
     private val refreshExecutor by lazy {
         Executors.newSingleThreadExecutor { r ->
             Thread(r, "CarProjectionStatus").apply { isDaemon = true }
@@ -126,6 +133,9 @@ object CarProjectionStatus {
                     lastSnapshot = Snapshot(SystemClock.elapsedRealtime(), active)
                     if (previous != active) {
                         Log.i(TAG, "car projection state → active=$active")
+                        // PLAYER-316: notify the connect/disconnect gate (also fires on the first read,
+                        // previous==null, which seeds JS with the initial value — idempotent there).
+                        onProjectionChanged?.invoke(active)
                     }
                 } finally {
                     refreshInFlight.set(false)

@@ -738,7 +738,60 @@ export class AndroidAutoControl {
             return false;
         }
     }
-    
+
+    /**
+     * PLAYER-316: TRUE car-connection state (live Android Auto / AAOS projection) — the Android analog
+     * of iOS CarPlay's `carPlayConnected`. Unlike {@link isAndroidAutoConnected} (media service alive)
+     * this reflects gearhead's CarConnection provider and does NOT require {@link enable} to have run,
+     * so a plain foreground app can gate video on it.
+     *
+     * @returns Promise resolving to true while a car is connected.
+     *
+     * @example
+     * ```typescript
+     * if (await AndroidAutoControl.isCarConnected()) {
+     *   showToast('No se puede reproducir en Android Auto');
+     * }
+     * ```
+     */
+    static async isCarConnected(): Promise<boolean> {
+        if (Platform.OS !== 'android' || !AndroidAutoModule) {
+            return false;
+        }
+        try {
+            return await AndroidAutoModule.isCarConnected();
+        } catch (error) {
+            console.error('[AndroidAuto] Failed to check car connection:', error);
+            return false;
+        }
+    }
+
+    /**
+     * PLAYER-316: subscribe to car connect/disconnect transitions (androidAutoConnected /
+     * androidAutoDisconnected). Independent of {@link enable} — listens on DeviceEventEmitter directly
+     * so a foreground app can keep a live `connected` flag for the video-playback gate. No-op on iOS.
+     *
+     * @param callback invoked with `true` on connect, `false` on disconnect.
+     * @returns unsubscribe fn.
+     *
+     * @example
+     * ```typescript
+     * const unsub = AndroidAutoControl.onConnectionChange((connected) => setCarConnected(connected));
+     * // later: unsub();
+     * ```
+     */
+    static onConnectionChange(callback: (connected: boolean) => void): () => void {
+        if (Platform.OS !== 'android') {
+            return () => {};
+        }
+        const connectedSub = DeviceEventEmitter.addListener(AndroidAutoEvent.CONNECTED, () => callback(true));
+        const disconnectedSub = DeviceEventEmitter.addListener(AndroidAutoEvent.DISCONNECTED, () => callback(false));
+        return () => {
+            connectedSub.remove();
+            disconnectedSub.remove();
+        };
+    }
+
     /**
      * Obtener estado de conexión completo
      * 

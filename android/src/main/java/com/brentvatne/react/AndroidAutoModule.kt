@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import com.brentvatne.exoplayer.CanonicalPlayerHolder
+import com.brentvatne.exoplayer.CarProjectionStatus
 import com.brentvatne.exoplayer.GlobalPlayerManager
 import com.brentvatne.exoplayer.VideoPlaybackService
 import com.brentvatne.exoplayer.androidauto.ContentStyle
@@ -894,6 +895,23 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
         }
     }
 
+    /**
+     * PLAYER-316: TRUE car-connection check for the app's "don't open video while connected to a car"
+     * gate — the Android analog of iOS CarPlay's carPlayConnected. Unlike [isAndroidAutoConnected]
+     * (which is just "media service alive" and is true for any background phone playback) this reflects
+     * the live projection / AAOS state from gearhead's CarConnection provider via [CarProjectionStatus].
+     * Non-blocking (cached snapshot + async refresh), so it is safe to await from JS on every read.
+     */
+    @ReactMethod
+    fun isCarConnected(promise: Promise) {
+        try {
+            promise.resolve(CarProjectionStatus.isProjectionActive(reactContext))
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to check car connection", e)
+            promise.resolve(false)
+        }
+    }
+
     // ========================================================================
     // Métodos Helper Internos
     // ========================================================================
@@ -1070,6 +1088,14 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
     override fun initialize() {
         super.initialize()
         instance = this
+        // PLAYER-316: bridge live car projection state to JS (androidAutoConnected/androidAutoDisconnected)
+        // so the app can block video the way iOS blocks on CarPlay. warmUp() registers the CarConnection
+        // broadcast/observer up-front so transitions reach JS even while the app is in the foreground, and
+        // so the first isCarConnected() seed is accurate instead of the conservative cold-read default.
+        CarProjectionStatus.onProjectionChanged = { active ->
+            sendEvent(if (active) EVENT_CONNECTED else EVENT_DISCONNECTED, null)
+        }
+        CarProjectionStatus.warmUp(reactContext)
         Log.d(TAG, "AndroidAutoModule initialized")
     }
 
@@ -1077,6 +1103,7 @@ class AndroidAutoModule(private val reactContext: ReactApplicationContext) : Rea
         super.invalidate()
         isEnabled = false
         jsReady = false
+        CarProjectionStatus.onProjectionChanged = null
         instance = null
         Log.d(TAG, "AndroidAutoModule invalidated")
     }
