@@ -12,8 +12,12 @@ import {
 import { getBestManifest, getDRM, getManifestSourceType, getVideoSourceUri } from "../../utils";
 
 import { PlayerError } from "../../core/errors";
-import { downloadsManager } from "../../features/offline/managers/DownloadsManager";
-import { DownloadStates, DownloadType, DownloadedSubtitleItem } from "../../features/offline/types";
+import {
+	downloadsManager,
+	DownloadStates,
+	DownloadType,
+	type DownloadedSubtitleItem,
+} from "@overon/react-native-overon-player-downloads";
 
 export interface onSourceChangedProps {
 	id?: number;

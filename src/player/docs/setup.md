@@ -178,7 +178,7 @@ android {
         versionName "1.0"
         
         // IMPORTANTE: Configuración para 64-bit para evitar errores
-        // con @kesha-antonov/react-native-background-downloader
+        // con las librerías nativas de descargas (@overon/react-native-overon-player-downloads)
         ndk {
             abiFilters "arm64-v8a", "x86_64"
         }

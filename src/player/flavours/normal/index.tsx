@@ -48,7 +48,7 @@ import { useIsBuffering } from "../../core/buffering";
 
 import { mergeMenuData, onAdStarted } from "../../utils";
 
-import { nativeManager } from "../../features/offline/managers/NativeManager";
+import { downloadsManager } from "@overon/react-native-overon-player-downloads";
 
 import { type onSourceChangedProps, SourceClass } from "../../modules/source";
 
@@ -504,25 +504,24 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				if (Platform.OS === "ios" && downloadId) {
 					try {
 						console.log(
-							`[Player] (Normal Flavour) [OFFLINE DEBUG] iOS: Resolving subtitle paths from bookmarks`
+							`[Player] (Normal Flavour) [OFFLINE DEBUG] iOS: Resolving subtitle paths via downloads module`
 						);
-						const toResolve = offlineSubs.map(sub => ({
-							downloadId,
-							language: sub.language,
-						}));
-						const resolvedPaths = await nativeManager.resolveSubtitlePaths(toResolve);
-
-						resolvedSubs = offlineSubs.map(sub => {
-							const key = `${downloadId}:${sub.language}`;
-							const resolvedPath = resolvedPaths.get(key);
-							if (resolvedPath) {
-								console.log(
-									`[Player] (Normal Flavour) [OFFLINE DEBUG] iOS: Resolved ${sub.language}: ${resolvedPath}`
-								);
-								return { ...sub, localPath: resolvedPath };
-							}
-							return sub;
-						});
+						resolvedSubs = await Promise.all(
+							offlineSubs.map(async sub => {
+								const { path, exists } =
+									await downloadsManager.getOfflineSubtitlePath(
+										downloadId,
+										sub.language
+									);
+								if (exists && path) {
+									console.log(
+										`[Player] (Normal Flavour) [OFFLINE DEBUG] iOS: Resolved ${sub.language}: ${path}`
+									);
+									return { ...sub, localPath: path };
+								}
+								return sub;
+							})
+						);
 					} catch (error) {
 						console.error(
 							`[Player] (Normal Flavour) [OFFLINE DEBUG] iOS: Failed to resolve bookmark paths`,
