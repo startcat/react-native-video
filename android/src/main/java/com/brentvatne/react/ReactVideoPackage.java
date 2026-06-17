@@ -30,7 +30,11 @@ public class ReactVideoPackage implements ReactPackage {
 
         modules.add(new VideoDecoderPropertiesModule(reactContext));
         modules.add(new VideoManagerModule(reactContext));
-        modules.add(new DownloadsModule(reactContext));
+        // PLAYER-353: the inline DownloadsModule ("DownloadsModule") is removed — the
+        // standalone @overon/react-native-overon-player-downloads module now registers
+        // the "DownloadsModule" native module. Keeping it here would double-register the
+        // same JS name and crash at startup. DownloadsModule2 is the legacy stream-offline
+        // bridge (no name collision); its de-dup is tracked in PLAYER-356.
         modules.add(new DownloadsModule2(reactContext));
 
         return modules;
