@@ -22,14 +22,13 @@
 	"resolutions": {
 		"@types/react": "~18.0.0"
 	},
-	"dependencies": {},
 	"devDependencies": {
 		"@babel/core": "^7.20.0",
 		"@jamesacarr/eslint-formatter-github-actions": "^0.2.0",
 		"@overon/react-native-logger": "^0.1.6",
 		"@overon/react-native-overon-errors": "^0.3.2",
 		"@overon/react-native-overon-player-analytics-plugins": "^1.0.0",
-		"@overon/react-native-overon-player-downloads": "^0.5.1",
+		"@overon/react-native-overon-player-downloads": "^0.5.2",
 		"@overon/react-native-overon-player-drm": "^0.3.4",
 		"@overon/react-native-overon-player-now-playing": "^1.0.3",
 		"@react-native/eslint-config": "^0.72.2",
@@ -61,7 +60,7 @@
 		"@overon/react-native-logger": "^0.1.6",
 		"@overon/react-native-overon-errors": "^0.1.1",
 		"@overon/react-native-overon-player-analytics-plugins": "^1.0.0",
-		"@overon/react-native-overon-player-downloads": "^0.5.1",
+		"@overon/react-native-overon-player-downloads": "^0.5.2",
 		"@overon/react-native-overon-player-drm": "^0.3.4",
 		"@overon/react-native-overon-player-now-playing": "^1.0.6",
 		"@react-native-async-storage/async-storage": "*",
