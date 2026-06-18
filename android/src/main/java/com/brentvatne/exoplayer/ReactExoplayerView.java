@@ -1756,7 +1756,7 @@ public class ReactExoplayerView extends FrameLayout implements
         // PLAYER-360: the media for a module-driven download lives in the @overon downloads
         // module's DownloadManager + Cache, not RNV's inline AxOfflineManager (empty). Fall
         // back to the module's offline source (same media3 DownloadRequest + cache factory).
-        Object[] moduleSource = OveronOfflineDrmBridge.getModuleOfflineSource(this.themedReactContext, source.getUri());
+        Object[] moduleSource = OveronOfflineDrmBridge.getModuleOfflineSource(this.themedReactContext, source.getUri(), source.getId());
         if (moduleSource != null) {
             mDownloadRequest = (androidx.media3.exoplayer.offline.DownloadRequest) moduleSource[0];
             Log.i("Downloads", "buildLocalDataSourceFactory: using @overon downloads module offline source");
