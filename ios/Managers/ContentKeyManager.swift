@@ -515,12 +515,55 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
             return
         }
                     
+        /*
+         PLAYER-361 — offline DRM bridge: the @overon downloads module persists the offline
+         FairPlay persistable key at Documents/FairPlayKeys/<contentId>.key (its own
+         ContentKeyManager), keyed by contentId == asset.name == source.id. RNV's inline
+         store (.keys/<assetName>-<keyIV>-Key) is empty for module-driven downloads, so
+         without this we fall through to an online request and fail offline. Read the
+         module-persisted key (identical persistable-blob format, same app sandbox), satisfy
+         this request from it, and mirror it into the inline store for the next-launch fast
+         path. Symmetric to the Android keySetId bridge (PLAYER-360).
+        */
+        if let moduleKey = readModuleOfflineContentKey(forContentId: asset.name) {
+            RCTLog("[Native Downloads] (ContentKeyManager) PLAYER-361: using @overon DRM module persisted offline key for contentId=\(asset.name)")
+            let keyResponse = AVContentKeyResponse(fairPlayStreamingKeyResponseData: moduleKey)
+            keyRequest.processContentKeyResponse(keyResponse)
+            try? writePersistableContentKey(contentKey: moduleKey, withAssetName: asset.name, withContentKeyIV: keyIV)
+            NotificationCenter.default.post(name: .HasAvailablePersistableContentKey, object: nil, userInfo: nil)
+            return
+        }
+
         keyRequest.makeStreamingContentKeyRequestData(forApp: self.fpsCertificate,
                                                       contentIdentifier: contentIdentifierData,
                                                       options: [AVContentKeyRequestProtocolVersionsKey: [1]],
                                                       completionHandler: completionHandler)
     }
-    
+
+    /*
+     PLAYER-361 — reads the offline FairPlay persistable key persisted by the @overon DRM
+     module (Documents/FairPlayKeys/<contentId>.key). It is written by the module via
+     AVPersistableContentKeyRequest.persistableContentKey(fromKeyVendorResponse:) — the
+     exact same blob RNV would write to its inline .keys store — and lives in the shared
+     app sandbox, so RNV can feed it straight into an AVContentKeyResponse. Returns nil
+     when the module is not the downloader / no key is stored.
+    */
+    private func readModuleOfflineContentKey(forContentId contentId: String) -> Data? {
+        guard !contentId.isEmpty,
+              let documentPath = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true).first else {
+            return nil
+        }
+        let keyURL = URL(fileURLWithPath: documentPath)
+            .appendingPathComponent("FairPlayKeys", isDirectory: true)
+            .appendingPathComponent("\(contentId).key")
+        guard FileManager.default.fileExists(atPath: keyURL.path),
+              let data = FileManager.default.contents(atPath: keyURL.path), !data.isEmpty else {
+            return nil
+        }
+        RCTLog("[Native Downloads] (ContentKeyManager) PLAYER-361: found @overon module offline key at \(keyURL.path) (\(data.count) bytes)")
+        return data
+    }
+
     /*
      Provides the receiver with an updated persistable content key for a particular key request.
      If the content key session provides an updated persistable content key data, the previous
