@@ -161,6 +161,7 @@ import androidx.media3.exoplayer.offline.DownloadRequest;
 import androidx.media3.datasource.DefaultDataSource;
 import com.brentvatne.license.LicenseManagerErrorCode;
 import com.brentvatne.license.OfflineLicenseManager;
+import com.brentvatne.license.internal.utils.LicenseFileUtils;
 import com.brentvatne.license.interfaces.IOfflineLicenseManagerListener;
 import com.brentvatne.license.internal.model.DrmMessage;
 import com.brentvatne.license.internal.utils.DrmUtils;
@@ -1111,6 +1112,30 @@ public class ReactExoplayerView extends FrameLayout implements
                     Log.i("Downloads", "DrmSessionManager " + source.getUri().toString());
                     mOfflineLicenseManager = new OfflineLicenseManager(getContext());
                     mOfflineLicenseManager.setEventListener(this);
+
+                    /*
+                     * PLAYER-360: bridge the @overon DRM module's offline keySetId into the
+                     * inline license store. The downloads module persists the offline Widevine
+                     * license via OveronPlayerDrm keyed by contentId (== source id); the inline
+                     * restore below reads a SEPARATE store keyed by manifest URL and would
+                     * otherwise fail with ERROR_303. If the module has a stored keySetId for
+                     * this content, mirror it into the inline file so getLicenseKeys() succeeds.
+                     */
+                    try {
+                        String contentId = source.getId();
+                        String keySetIdB64 = OveronOfflineDrmBridge.getOfflineKeySetIdBase64(getContext(), contentId);
+                        if (keySetIdB64 != null) {
+                            byte[] keySetId = android.util.Base64.decode(keySetIdB64, android.util.Base64.NO_WRAP);
+                            String storagePath = getContext().getFilesDir().getAbsolutePath();
+                            LicenseFileUtils.writeLicenseFile(storagePath, source.getUri().toString(), keySetId);
+                            Log.i("Downloads", "PLAYER-360: bridged offline keySetId from @overon DRM module for contentId=" + contentId);
+                        } else {
+                            Log.d("Downloads", "PLAYER-360: no @overon DRM module keySetId for contentId=" + contentId + " (falling back to inline store)");
+                        }
+                    } catch (Throwable t) {
+                        Log.w("Downloads", "PLAYER-360: offline keySetId bridge failed", t);
+                    }
+
                     mOfflineLicenseManager.getLicenseKeys(source.getUri().toString());
 
                     mMediaItem = createOfflineMediaItem(source.getUri(), mDrmSessionManager);

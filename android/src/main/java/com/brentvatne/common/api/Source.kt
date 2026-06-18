@@ -13,6 +13,7 @@ import com.brentvatne.common.toolbox.ReactBridgeUtils.safeGetInt
 import com.brentvatne.common.toolbox.ReactBridgeUtils.safeGetMap
 import com.brentvatne.common.toolbox.ReactBridgeUtils.safeGetString
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.ReadableType
 import java.util.Locale
 
 /**
@@ -40,6 +41,9 @@ class Source {
 
     /** Metadata to display in notification */
     var metadata: Metadata? = null
+
+    /** Content id (matches the downloads-module download id / offline DRM contentId key). PLAYER-360 */
+    var id: String? = null
 
     /** http header list */
     val headers: MutableMap<String, String> = HashMap()
@@ -114,6 +118,7 @@ class Source {
         private const val PROP_SRC_TYPE = "type"
         private const val PROP_SRC_METADATA = "metadata"
         private const val PROP_SRC_HEADERS = "requestHeaders"
+        private const val PROP_SRC_ID = "id"
 
         @SuppressLint("DiscouragedApi")
         private fun getUriFromAssetId(context: Context, uriString: String): Uri? {
@@ -170,6 +175,16 @@ class Source {
                 source.cropStartMs = safeGetInt(src, PROP_SRC_CROP_START, -1)
                 source.cropEndMs = safeGetInt(src, PROP_SRC_CROP_END, -1)
                 source.extension = safeGetString(src, PROP_SRC_TYPE, null)
+
+                // PLAYER-360: content id (number or string from JS). Used to look up the
+                // offline DRM keySetId persisted by the @overon downloads/DRM module.
+                if (src.hasKey(PROP_SRC_ID) && !src.isNull(PROP_SRC_ID)) {
+                    source.id = when (src.getType(PROP_SRC_ID)) {
+                        ReadableType.String -> safeGetString(src, PROP_SRC_ID, null)
+                        ReadableType.Number -> src.getDouble(PROP_SRC_ID).toLong().toString()
+                        else -> null
+                    }
+                }
 
                 val propSrcHeadersArray = safeGetArray(src, PROP_SRC_HEADERS)
                 if (propSrcHeadersArray != null) {
