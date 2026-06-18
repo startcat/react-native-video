@@ -1743,15 +1743,24 @@ public class ReactExoplayerView extends FrameLayout implements
         Log.i("Downloads", "buildLocalDataSourceFactory URI=" + source.getUri().toString());
         AxDownloadTracker axDownloadTracker = AxOfflineManager.getInstance().getDownloadTracker();
 
-        if (axDownloadTracker == null) {
-            Log.e("Downloads", "buildLocalDataSourceFactory: AxDownloadTracker is null - AxOfflineManager not initialized!");
-            return null;
+        if (axDownloadTracker != null) {
+            mDownloadRequest = axDownloadTracker.getDownloadRequest(source.getUri());
+            if (mDownloadRequest != null) {
+                Log.i("Downloads", "buildLocalDataSourceFactory: Download request found, using offline data source");
+                return AxOfflineManager.getInstance().buildDataSourceFactory(this.themedReactContext);
+            }
+        } else {
+            Log.w("Downloads", "buildLocalDataSourceFactory: RNV inline AxDownloadTracker null - trying @overon downloads module fallback");
         }
 
-        mDownloadRequest = axDownloadTracker.getDownloadRequest(source.getUri());
-        if (mDownloadRequest != null) {
-            Log.i("Downloads", "buildLocalDataSourceFactory: Download request found, using offline data source");
-            return AxOfflineManager.getInstance().buildDataSourceFactory(this.themedReactContext);
+        // PLAYER-360: the media for a module-driven download lives in the @overon downloads
+        // module's DownloadManager + Cache, not RNV's inline AxOfflineManager (empty). Fall
+        // back to the module's offline source (same media3 DownloadRequest + cache factory).
+        Object[] moduleSource = OveronOfflineDrmBridge.getModuleOfflineSource(this.themedReactContext, source.getUri());
+        if (moduleSource != null) {
+            mDownloadRequest = (androidx.media3.exoplayer.offline.DownloadRequest) moduleSource[0];
+            Log.i("Downloads", "buildLocalDataSourceFactory: using @overon downloads module offline source");
+            return (DataSource.Factory) moduleSource[1];
         }
 
         Log.e("Downloads", "buildLocalDataSourceFactory: getDownloadRequest returned null for URI=" + source.getUri()
