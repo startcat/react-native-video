@@ -282,7 +282,10 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		// la duración del anuncio en lugar de la del media.
 		const isAd = isPlayingAd.current === true;
 
-		currentLogger.current?.debug(`handleChangeCommonData ${JSON.stringify(data)}`);
+		// Serialización perezosa: el logger ignora `data` si el nivel DEBUG está
+		// desactivado. Antes, el JSON.stringify del template literal se evaluaba en
+		// cada cambio de commonData aunque el log no se imprimiese.
+		currentLogger.current?.debug("handleChangeCommonData", data);
 
 		if (data?.time !== undefined && playerProgress.current && !isAd) {
 			playerProgress.current.currentTime = data.time;

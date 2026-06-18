@@ -8,7 +8,13 @@ import {
 	useCastSession,
 	useCastState as useNativeCastState,
 } from "react-native-google-cast";
-import Animated, { useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, {
+	runOnJS,
+	useAnimatedReaction,
+	useSharedValue,
+	withSpring,
+	withTiming,
+} from "react-native-reanimated";
 import { PlayerContext } from "../../core/context";
 import { ComponentLogger, Logger, LoggerFactory } from "../../features/logger";
 import { AudioCastFlavour, AudioFlavour } from "../../flavours";
@@ -48,6 +54,19 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 
 	const [contentId, setContentId] = useState<IAudioPlayerContent | null>();
 	const [dpoData, setDpoData] = useState<AudioPlayerContentsDpo | null>(null);
+
+	// Espejo en estado React de "la barra está visible (altura > 10)". Evita leer
+	// audioPlayerHeight.value DURANTE el render (warning de Reanimated "Reading from
+	// `value` during component render" + render no reactivo al shared value).
+	const [isBarVisible, setIsBarVisible] = useState(false);
+	useAnimatedReaction(
+		() => audioPlayerHeight.value > 10,
+		(visible, prev) => {
+			if (visible !== prev) {
+				runOnJS(setIsBarVisible)(visible);
+			}
+		}
+	);
 
 	const watchingProgressIntervalObj = useRef<ReturnType<typeof setTimeout>>();
 
@@ -323,7 +342,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 						}
 			}
 		>
-			{(!contentId?.current || !dpoData) && audioPlayerHeight.value > 10
+			{(!contentId?.current || !dpoData) && isBarVisible
 				? Loader || (
 						<View style={styles.contents}>
 							<Spinner />
