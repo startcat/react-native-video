@@ -33,10 +33,21 @@ const TEXTS = {
 	cast_skipAd_action: "Saltar anuncio",
 };
 
+export type PlayerTranslations = Partial<typeof TEXTS>;
+
+let customTexts: PlayerTranslations = {};
+
 const i18n = {
 	t: (key: string): string => {
-		return TEXTS[key] || key;
+		return customTexts[key as keyof typeof TEXTS] || TEXTS[key as keyof typeof TEXTS] || key;
+	},
+	setTranslations: (texts: PlayerTranslations): void => {
+		customTexts = { ...texts };
 	},
 };
 
 export { i18n };
+
+export const setPlayerTranslations = (texts: PlayerTranslations): void => {
+	i18n.setTranslations(texts);
+};
