@@ -26,6 +26,5 @@ export type {
 	SubtitleTrackChangeParams,
 	VolumeChangeParams,
 } from "@overon/react-native-overon-player-analytics-plugins";
-export * from "./cast";
 export * from "./logger";
 export * from "./offline";
