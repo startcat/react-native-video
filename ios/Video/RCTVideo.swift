@@ -481,10 +481,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
         // OFFLINE PLAYBACK: Try to find downloaded asset
         if _playOffline == true {
+            ckmDebugLog("[RCTVideo] OFFLINE block: id=\(String(describing: source.id)) title=\(String(describing: source.title)) uri=\(source.uri ?? "<nil>") hasDRM=\(_drm != nil)")
             RCTLog("[OFFLINE][RCTVideo] playOffline=true id=\(String(describing: source.id)) title=\(String(describing: source.title)) hasDRM=\(_drm != nil)")
             // Method 1: Try AssetDownloader (uses title as key) - for DRM content
             if let title = source.title,
                let downloadedAsset = downloader.downloadedAsset(withName: title) {
+                ckmDebugLog("[RCTVideo] Method1 FOUND via AssetDownloader title=\(title)")
                 RCTLog("[OFFLINE] Found asset via AssetDownloader for title: \(title)")
                 
                 ContentKeyManager.sharedManager.createContentKeySession()
@@ -524,6 +526,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             // Method 2: Try DownloadsModule2 (uses ID as key) - for non-DRM content
             if let contentId = source.id,
                let assetURL = DownloadsModule2.getOfflineAssetURLStatic(forId: contentId) {
+                ckmDebugLog("[RCTVideo] Method2 FOUND assetURL=\(assetURL) for id=\(contentId)")
                 RCTLog("[OFFLINE] Found asset via DownloadsModule2 for ID: \(contentId)")
                 RCTLog("[OFFLINE] Asset URL: \(assetURL)")
                 
@@ -568,7 +571,102 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             } else {
                 RCTLog("[OFFLINE][RCTVideo] Method2 (DownloadsModule2) did not find asset for id: \(source.id!)")
             }
-            
+
+            // Method 3 (PLAYER-361/370): @overon downloads-module asset. Method 1/2 only know RNV's own
+            // (inline) download systems, so a module-driven offline download is invisible to them and we
+            // fall back to online — which stalls offline. The module persists its .movpkg location in
+            // UserDefaults (com.downloads.assetBookmarks — security-scoped, robust across container path
+            // changes — then com.downloads.assetPaths). Resolve it here and wire the offline asset to the
+            // FairPlay content-key session exactly like Method 2 (downloadRequestedByUser=true forces the
+            // persistable path, where handlePersistableContentKeyRequest's readModuleOfflineContentKey
+            // bridge satisfies the request from FairPlayKeys/<id>.key).
+            if let contentId = source.id {
+                var moduleAssetURL: URL?
+                let defaults = UserDefaults.standard
+                // Primary store: the module records the .movpkg path in each download's `assetPath`
+                // inside com.downloads.activeStates (the flat assetPaths dict is often empty). iOS
+                // prepends "/.nofollow" to AVAggregate asset locations — strip it, mirroring the
+                // module's own AssetStore resolution.
+                let statesRaw = defaults.array(forKey: "com.downloads.activeStates")
+                ckmDebugLog("[RCTVideo] Method3 activeStates rawCount=\(statesRaw?.count ?? -1) castOK=\((statesRaw as? [[String: Any]]) != nil) for id=\(contentId)")
+                if let states = statesRaw as? [[String: Any]] {
+                    for state in states where (state["id"] as? String) == contentId {
+                        let rawPath = state["assetPath"] as? String
+                        ckmDebugLog("[RCTVideo] Method3 entry FOUND id=\(contentId) state=\(state["state"] as? String ?? "?") assetPath=\(rawPath ?? "<nil>")")
+                        if let rawPath = rawPath {
+                            if FileManager.default.fileExists(atPath: rawPath) {
+                                moduleAssetURL = URL(fileURLWithPath: rawPath)
+                            } else if rawPath.hasPrefix("/.nofollow") {
+                                let cleanPath = String(rawPath.dropFirst("/.nofollow".count))
+                                let exists = FileManager.default.fileExists(atPath: cleanPath)
+                                ckmDebugLog("[RCTVideo] Method3 cleanPath exists=\(exists) path=\(cleanPath)")
+                                if exists { moduleAssetURL = URL(fileURLWithPath: cleanPath) }
+                            } else {
+                                ckmDebugLog("[RCTVideo] Method3 rawPath does not exist and no /.nofollow prefix")
+                            }
+                        }
+                        break
+                    }
+                }
+                // Fallback A: security-scoped bookmark (robust across container path changes).
+                if moduleAssetURL == nil,
+                   let bookmarks = defaults.dictionary(forKey: "com.downloads.assetBookmarks") as? [String: Data],
+                   let data = bookmarks[contentId] {
+                    var stale = false
+                    if let url = try? URL(resolvingBookmarkData: data, options: [], relativeTo: nil, bookmarkDataIsStale: &stale),
+                       FileManager.default.fileExists(atPath: url.path) {
+                        moduleAssetURL = url
+                    }
+                }
+                // Fallback B: the flat assetPaths dict.
+                if moduleAssetURL == nil,
+                   let paths = defaults.dictionary(forKey: "com.downloads.assetPaths") as? [String: String],
+                   let path = paths[contentId], FileManager.default.fileExists(atPath: path) {
+                    moduleAssetURL = URL(fileURLWithPath: path)
+                }
+                // Fallback C (robust): the stored absolute assetPath embeds a container UUID and a
+                // UserManagedAssets directory name that can go stale across reinstalls (the .key and
+                // metadata migrate to the new container, but the absolute .movpkg path does not).
+                // Search the CURRENT container's UserManagedAssets for <contentId>_*.movpkg.
+                if moduleAssetURL == nil {
+                    let libraryURL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Library")
+                    if let umaDirs = try? FileManager.default.contentsOfDirectory(at: libraryURL, includingPropertiesForKeys: nil) {
+                        let umaNames = umaDirs.map { $0.lastPathComponent }.filter { $0.hasPrefix("com.apple.UserManagedAssets") }
+                        ckmDebugLog("[RCTVideo] Method3 search: container=\(NSHomeDirectory()) UMA dirs=\(umaNames)")
+                        for dir in umaDirs where dir.lastPathComponent.hasPrefix("com.apple.UserManagedAssets") {
+                            if let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+                                for item in items where item.lastPathComponent.hasPrefix("\(contentId)_") && item.pathExtension == "movpkg" {
+                                    moduleAssetURL = item
+                                    ckmDebugLog("[RCTVideo] Method3 search FOUND \(item.path)")
+                                }
+                            }
+                        }
+                    }
+                }
+                if let moduleAssetURL = moduleAssetURL {
+                    ckmDebugLog("[RCTVideo] Method3 (@overon module) FOUND assetURL=\(moduleAssetURL.path) for id=\(contentId) drm=\(_drm != nil)")
+                    let offlineAsset = AVURLAsset(url: moduleAssetURL)
+                    if _drm != nil {
+                        ContentKeyManager.sharedManager.createContentKeySession()
+                        ContentKeyManager.sharedManager.downloadRequestedByUser = true
+                        let drmAsset = Asset(name: contentId, url: moduleAssetURL, id: contentId)
+                        ContentKeyManager.sharedManager.asset = drmAsset
+                        if let contentKeySession = ContentKeyManager.sharedManager.contentKeySession {
+                            contentKeySession.addContentKeyRecipient(offlineAsset)
+                        }
+                        if let licenseServer = _drm?.licenseServer,
+                           let certificateUrl = _drm?.certificateUrl {
+                            ContentKeyManager.sharedManager.licensingServiceUrl = licenseServer
+                            ContentKeyManager.sharedManager.licensingToken = ""
+                            ContentKeyManager.sharedManager.fpsCertificateUrl = certificateUrl
+                        }
+                        ckmDebugLog("[RCTVideo] Method3 wired ContentKeyManager assetName=\(contentId) (offline FairPlay)")
+                    }
+                    return AVPlayerItem(asset: offlineAsset)
+                }
+            }
+
+            ckmDebugLog("[RCTVideo] ALL methods FAILED → falling back to ONLINE (will stall offline). id=\(String(describing: source.id)) title=\(String(describing: source.title)) uri=\(source.uri ?? "<nil>")")
             RCTLog("[OFFLINE] No offline asset found, falling back to online playback")
         }
 

@@ -8,6 +8,20 @@
 import Foundation
 import AVFoundation
 
+// PLAYER-361/370 device observability: append to the SAME Documents/drm-debug.log the @overon DRM
+// module writes, so one container extract shows the write-side (download) AND the read-side (playback)
+// of the offline FairPlay key. DEBUG + physical device only.
+func ckmDebugLog(_ message: String) {
+    #if DEBUG && !targetEnvironment(simulator)
+    guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+    let logURL = documents.appendingPathComponent("drm-debug.log")
+    let line = "[\(ISO8601DateFormatter().string(from: Date()))] [RNV-ContentKeyManager] \(message)\n"
+    guard let data = line.data(using: .utf8) else { return }
+    if let h = try? FileHandle(forWritingTo: logURL) { defer { try? h.close() }; h.seekToEndOfFile(); h.write(data) }
+    else { try? data.write(to: logURL, options: .atomic) }
+    #endif
+}
+
 class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
     
     // Certificate Url
@@ -173,11 +187,19 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
          instead. If the underlying protocol supports persistable content keys, in response your
          delegate will receive an AVPersistableContentKeyRequest via -contentKeySession:didProvidePersistableContentKeyRequest:.
         */
-        if downloadRequestedByUser || persistableContentKeyExistsOnDisk(withAssetName: asset.name, withContentKeyIV: keyIV) || shouldRequestPersistableContentKey(withIdentifier: contentKeyIdentifierString) {
+        // PLAYER-361/370: a module-driven offline download persists its FairPlay key at
+        // Documents/FairPlayKeys/<asset.name>.key (NOT in RNV's inline .keys store), so the original
+        // conditions below are all false at offline playback and the request would fall through to an
+        // ONLINE key request — which fails offline. Detect the module key and take the persistable path
+        // so handlePersistableContentKeyRequest's readModuleOfflineContentKey bridge can satisfy it.
+        let moduleOfflineKeyPresent = (readModuleOfflineContentKey(forContentId: asset.name) != nil)
+        ckmDebugLog("didProvide identifier=\(contentKeyIdentifierString) assetName=\(asset.name) keyIV=\(keyIV) downloadRequestedByUser=\(downloadRequestedByUser) inlineKeyOnDisk=\(persistableContentKeyExistsOnDisk(withAssetName: asset.name, withContentKeyIV: keyIV)) shouldPersist=\(shouldRequestPersistableContentKey(withIdentifier: contentKeyIdentifierString)) moduleOfflineKeyPresent=\(moduleOfflineKeyPresent)")
+        if downloadRequestedByUser || persistableContentKeyExistsOnDisk(withAssetName: asset.name, withContentKeyIV: keyIV) || shouldRequestPersistableContentKey(withIdentifier: contentKeyIdentifierString) || moduleOfflineKeyPresent {
             /*
              Request a Persistable Key Request.
             */
             do {
+                ckmDebugLog("→ requesting persistable upgrade (offline path) assetName=\(asset.name)")
                 RCTLog("[Native Downloads] (ContentKeyManager) User requested offline capabilities for the asset. AVPersistableContentKeyRequest object will be delivered by another delegate callback")
                 try keyRequest.respondByRequestingPersistableContentKeyRequestAndReturnError()
             } catch {
@@ -191,10 +213,11 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
             }
             return
         }
-        
+
+        ckmDebugLog("→ provideOnlineKey (NO offline upgrade) assetName=\(asset.name) — will FAIL offline")
         provideOnlineKey(withKeyRequest: keyRequest, contentIdentifier: contentIdentifierData)
     }
-    
+
     func provideOnlineKey(withKeyRequest keyRequest: AVContentKeyRequest, contentIdentifier contentIdentifierData: Data) {
         
         RCTLog("[Native Downloads] (ContentKeyManager) ONLINE KEY FLOW")
@@ -526,6 +549,7 @@ class ContentKeyManager: NSObject, AVContentKeySessionDelegate {
          path. Symmetric to the Android keySetId bridge (PLAYER-360).
         */
         if let moduleKey = readModuleOfflineContentKey(forContentId: asset.name) {
+            ckmDebugLog("PLAYER-361 persistable path: providing @overon module key contentId=\(asset.name) bytes=\(moduleKey.count)")
             RCTLog("[Native Downloads] (ContentKeyManager) PLAYER-361: using @overon DRM module persisted offline key for contentId=\(asset.name)")
             let keyResponse = AVContentKeyResponse(fairPlayStreamingKeyResponseData: moduleKey)
             keyRequest.processContentKeyResponse(keyResponse)
