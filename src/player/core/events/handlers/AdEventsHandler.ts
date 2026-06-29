@@ -310,13 +310,26 @@ export class AdEventsHandler {
 	private extractAdType = (
 		data: OnReceiveAdEventData
 	): "preroll" | "midroll" | "postroll" | undefined => {
-		const position = (data.data as any)?.position;
-		if (position === 0) {
-			return "preroll";
+		const d = data.data as any;
+		// IMA AdPodInfo (propagado por el nativo, PLAYER-368). Los valores llegan como
+		// string en el mapa del evento. podIndex: 0=pre-roll, -1=post-roll, >0=mid-roll.
+		const podIndex = d?.podIndex != null ? Number(d.podIndex) : undefined;
+		if (podIndex !== undefined && !Number.isNaN(podIndex)) {
+			if (podIndex === 0) return "preroll";
+			if (podIndex === -1) return "postroll";
+			return "midroll";
 		}
-		if (position === -1) {
-			return "postroll";
+		// timeOffset (segundos): 0=pre-roll, <0=post-roll, >0=mid-roll.
+		const timeOffset = d?.timeOffset != null ? Number(d.timeOffset) : undefined;
+		if (timeOffset !== undefined && !Number.isNaN(timeOffset)) {
+			if (timeOffset === 0) return "preroll";
+			if (timeOffset < 0) return "postroll";
+			return "midroll";
 		}
+		// Fallback heredado por posición de reproducción (no fiable; último recurso).
+		const position = d?.position;
+		if (position === 0) return "preroll";
+		if (position === -1) return "postroll";
 		return "midroll";
 	};
 

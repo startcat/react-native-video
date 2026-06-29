@@ -133,6 +133,7 @@ import com.facebook.react.uimanager.ThemedReactContext;
 import com.google.ads.interactivemedia.v3.api.AdError;
 import com.google.ads.interactivemedia.v3.api.AdEvent;
 import com.google.ads.interactivemedia.v3.api.AdErrorEvent;
+import com.google.ads.interactivemedia.v3.api.AdPodInfo;
 import com.google.ads.interactivemedia.v3.api.ImaSdkFactory;
 import com.google.ads.interactivemedia.v3.api.ImaSdkSettings;
 import com.google.common.collect.ImmutableList;
@@ -2843,10 +2844,29 @@ public class ReactExoplayerView extends FrameLayout implements
                 adProgressData.put("duration", String.valueOf(durationMs));
             }
             eventEmitter.receiveAdEvent(adEvent.getType().name(), adProgressData);
-        } else if (adEvent.getAdData() != null) {
-            eventEmitter.receiveAdEvent(adEvent.getType().name(), adEvent.getAdData());
         } else {
-            eventEmitter.receiveAdEvent(adEvent.getType().name());
+            // Enriquecer el payload con la posición del pod de IMA para que la pipeline
+            // de analytics pueda clasificar el anuncio (pre/mid/post-roll). Sin esto el
+            // tipo no es derivable y todos los anuncios colapsan a mid-roll
+            // (comscore ns_st_ct: va11/va12/va13). PLAYER-368.
+            AdPodInfo podInfo = adEvent.getAd() != null ? adEvent.getAd().getAdPodInfo() : null;
+            if (adEvent.getAdData() != null || podInfo != null) {
+                Map<String, String> adData = new HashMap<>();
+                if (adEvent.getAdData() != null) {
+                    adData.putAll(adEvent.getAdData());
+                }
+                if (podInfo != null) {
+                    // podIndex: 0=pre-roll, -1=post-roll, >0=mid-roll (1-based).
+                    // timeOffset (s): 0=pre-roll, <0 (-1)=post-roll, >0=mid-roll.
+                    adData.put("podIndex", String.valueOf(podInfo.getPodIndex()));
+                    adData.put("timeOffset", String.valueOf(podInfo.getTimeOffset()));
+                    adData.put("totalAds", String.valueOf(podInfo.getTotalAds()));
+                    adData.put("adPosition", String.valueOf(podInfo.getAdPosition()));
+                }
+                eventEmitter.receiveAdEvent(adEvent.getType().name(), adData);
+            } else {
+                eventEmitter.receiveAdEvent(adEvent.getType().name());
+            }
         }
 
         // Rastrear si hay un anuncio activo para detectar correctamente la desconexión del servicio

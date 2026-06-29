@@ -141,15 +141,30 @@
             }
 
             if _video.onReceiveAdEvent != nil {
-                if event.adData != nil {
+                var data: [String: Any] = [:]
+                if let adData = event.adData {
+                    data = adData
+                }
+                // PLAYER-368: enrich the payload with IMA pod position so the JS
+                // analytics pipeline can classify the ad (pre/mid/post-roll). Sin esto
+                // el tipo no es derivable y todos los anuncios colapsan a mid-roll
+                // (comscore ns_st_ct: va11/va12/va13). Equivalente al fix de Android.
+                // podIndex: 0=pre-roll, -1=post-roll, >0=mid-roll. timeOffset (s): 0=pre, <0=post.
+                if let pod = event.ad?.adPodInfo {
+                    data["podIndex"] = pod.podIndex
+                    data["timeOffset"] = pod.timeOffset
+                    data["totalAds"] = pod.totalAds
+                    data["adPosition"] = pod.adPosition
+                }
+                if data.isEmpty {
                     _video.onReceiveAdEvent?([
                         "event": type,
-                        "data": event.adData ?? [String](),
                         "target": _video.reactTag!,
                     ])
                 } else {
                     _video.onReceiveAdEvent?([
                         "event": type,
+                        "data": data,
                         "target": _video.reactTag!,
                     ])
                 }

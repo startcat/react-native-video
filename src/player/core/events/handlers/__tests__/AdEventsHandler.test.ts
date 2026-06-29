@@ -40,6 +40,37 @@ describe("AdEventsHandler", () => {
 		handler = new AdEventsHandler(analyticsEvents as any);
 	});
 
+	describe("clasificación de adType desde AdPodInfo (PLAYER-368)", () => {
+		const adTypeOf = (data: Record<string, unknown>): unknown => {
+			handler.handleAdEvent(buildEvent("STARTED", data));
+			return payloadsFor(analyticsEvents, "onAdBegin")[0]?.adType;
+		};
+
+		it("podIndex 0 (string, como lo envía el nativo) → preroll", () => {
+			expect(adTypeOf({ podIndex: "0" })).toBe("preroll");
+		});
+
+		it("podIndex -1 → postroll", () => {
+			expect(adTypeOf({ podIndex: "-1" })).toBe("postroll");
+		});
+
+		it("podIndex >0 → midroll", () => {
+			expect(adTypeOf({ podIndex: "3" })).toBe("midroll");
+		});
+
+		it("usa timeOffset cuando no hay podIndex: 0 → preroll, <0 → postroll, >0 → midroll", () => {
+			expect(adTypeOf({ timeOffset: "0" })).toBe("preroll");
+			analyticsEvents.on.mockClear();
+			expect(adTypeOf({ timeOffset: "-1.0" })).toBe("postroll");
+			analyticsEvents.on.mockClear();
+			expect(adTypeOf({ timeOffset: "45.5" })).toBe("midroll");
+		});
+
+		it("sin señal de pod cae al fallback heredado (midroll)", () => {
+			expect(adTypeOf({})).toBe("midroll");
+		});
+	});
+
 	describe("emisión onAdProgress", () => {
 		beforeEach(() => {
 			// Arrancar un break + ad para tener contexto coherente.

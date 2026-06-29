@@ -1,5 +1,12 @@
 
 
+## [7.4.1](https://github.com/startcat/react-native-video/compare/v7.4.0...v7.4.1) (2026-06-21)
+
+
+### Bug Fixes
+
+* **ads:** classify pre/mid/post-roll from IMA AdPodInfo (PLAYER-368) ([693db8e](https://github.com/startcat/react-native-video/commit/693db8e9f6e93e98dea9c6ec83e792c3e366b571))
+
 # [7.4.0](https://github.com/startcat/react-native-video/compare/v7.3.3...v7.4.0) (2026-06-04)
 
 
