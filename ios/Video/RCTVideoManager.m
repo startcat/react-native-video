@@ -63,7 +63,6 @@ RCT_EXPORT_VIEW_PROPERTY(onPlaybackRateChange, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onVolumeChange, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onVideoPlaybackStateChanged, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onVideoExternalPlaybackChange, RCTDirectEventBlock);
-RCT_EXPORT_VIEW_PROPERTY(onGetLicense, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onPictureInPictureStatusChanged, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onRestoreUserInterfaceForPictureInPictureStop, RCTDirectEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onReceiveAdEvent, RCTDirectEventBlock);
@@ -75,10 +74,6 @@ RCT_EXTERN_METHOD(save : (NSDictionary*)options reactTag : (nonnull NSNumber*)re
                       resolve rejecter : (RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(seek : (NSDictionary*)info reactTag : (nonnull NSNumber*)reactTag)
-
-RCT_EXTERN_METHOD(setLicenseResult : (NSString*)license licenseUrl : (NSString*)licenseUrl reactTag : (nonnull NSNumber*)reactTag)
-
-RCT_EXTERN_METHOD(setLicenseResultError : (NSString*)error licenseUrl : (NSString*)licenseUrl reactTag : (nonnull NSNumber*)reactTag)
 
 RCT_EXTERN_METHOD(setPlayerPauseState : (nonnull NSNumber*)paused reactTag : (nonnull NSNumber*)reactTag)
 

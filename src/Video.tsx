@@ -24,7 +24,6 @@ import NativeVideoComponent, {
 	type OnBandwidthUpdateData,
 	type OnBufferData,
 	type OnExternalPlaybackChangeData,
-	type OnGetLicenseData,
 	type OnLoadStartData,
 	type OnPictureInPictureStatusChangedData,
 	type OnPlaybackMetricsData,
@@ -178,7 +177,6 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 				contentId: drm.contentId,
 				certificateUrl: drm.certificateUrl,
 				base64Certificate: drm.base64Certificate,
-				useExternalGetLicense: !!drm.getLicense,
 			};
 		}, [drm]);
 
@@ -473,58 +471,6 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 			[onAspectRatio]
 		);
 
-		const useExternalGetLicense = drm?.getLicense instanceof Function;
-
-		const onGetLicense = useCallback(
-			(event: NativeSyntheticEvent<OnGetLicenseData>) => {
-				if (useExternalGetLicense) {
-					const data = event.nativeEvent;
-					if (data && data.spcBase64) {
-						const getLicenseOverride = drm.getLicense(
-							data.spcBase64,
-							data.contentId,
-							data.licenseUrl,
-							data.loadedLicenseUrl
-						);
-						const getLicensePromise = Promise.resolve(getLicenseOverride); // Handles both scenarios, getLicenseOverride being a promise and not.
-						getLicensePromise
-							.then(result => {
-								if (result !== undefined) {
-									nativeRef.current &&
-										VideoManager.setLicenseResult(
-											result,
-											data.loadedLicenseUrl,
-											getReactTag(nativeRef)
-										);
-								} else {
-									nativeRef.current &&
-										VideoManager.setLicenseResultError(
-											"Empty license result",
-											data.loadedLicenseUrl,
-											getReactTag(nativeRef)
-										);
-								}
-							})
-							.catch(() => {
-								nativeRef.current &&
-									VideoManager.setLicenseResultError(
-										"fetch error",
-										data.loadedLicenseUrl,
-										getReactTag(nativeRef)
-									);
-							});
-					} else {
-						VideoManager.setLicenseResultError(
-							"No spc received",
-							data.loadedLicenseUrl,
-							getReactTag(nativeRef)
-						);
-					}
-				}
-			},
-			[drm, useExternalGetLicense]
-		);
-
 		useImperativeHandle(
 			ref,
 			() => ({
@@ -570,7 +516,6 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 					selectedTextTrack={_selectedTextTrack}
 					selectedAudioTrack={_selectedAudioTrack}
 					selectedVideoTrack={_selectedVideoTrack}
-					onGetLicense={useExternalGetLicense ? onGetLicense : undefined}
 					onVideoLoad={
 						onLoad || hasPoster
 							? (onVideoLoad as (e: NativeSyntheticEvent<object>) => void)

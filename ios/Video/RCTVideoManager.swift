@@ -44,20 +44,6 @@ class RCTVideoManager: RCTViewManager {
         })
     }
 
-    @objc(setLicenseResult:licenseUrl:reactTag:)
-    func setLicenseResult(license: NSString, licenseUrl: NSString, reactTag: NSNumber) {
-        performOnVideoView(withReactTag: reactTag, callback: { videoView in
-            videoView?.setLicenseResult(license as String, licenseUrl as String)
-        })
-    }
-
-    @objc(setLicenseResultError:licenseUrl:reactTag:)
-    func setLicenseResultError(error: NSString, licenseUrl: NSString, reactTag: NSNumber) {
-        performOnVideoView(withReactTag: reactTag, callback: { videoView in
-            videoView?.setLicenseResultError(error as String, licenseUrl as String)
-        })
-    }
-
     @objc(dismissFullscreenPlayer:)
     func dismissFullscreenPlayer(_ reactTag: NSNumber) {
         performOnVideoView(withReactTag: reactTag, callback: { videoView in

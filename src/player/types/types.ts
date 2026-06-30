@@ -25,12 +25,6 @@ export interface IDrm {
 	contentId?: string;
 	certificateUrl?: string;
 	base64Certificate?: boolean;
-	getLicense?: (
-		spcBase64: string,
-		contentId: string,
-		licenseUrl: string,
-		loadedLicenseUrl: string
-	) => void;
 	drmScheme?: string;
 	drmMessage?: string; // Token/mensaje DRM requerido por Axinom para descargas offline
 }

@@ -58,7 +58,6 @@ type Drm = Readonly<{
 	contentId?: string; // ios
 	certificateUrl?: string; // ios
 	base64Certificate?: boolean; // ios default: false
-	useExternalGetLicense?: boolean; // ios
 }>;
 
 type TextTracks = ReadonlyArray<
@@ -273,13 +272,6 @@ export type OnExternalPlaybackChangeData = Readonly<{
 	isExternalPlaybackActive: boolean;
 }>;
 
-export type OnGetLicenseData = Readonly<{
-	licenseUrl: string;
-	loadedLicenseUrl: string;
-	contentId: string;
-	spcBase64: string;
-}>;
-
 export type OnPictureInPictureStatusChangedData = Readonly<{
 	isActive: boolean;
 }>;
@@ -384,7 +376,6 @@ export interface VideoNativeProps extends ViewProps {
 	onPlaybackRateChange?: DirectEventHandler<OnPlaybackRateChangeData>; // all
 	onVolumeChange?: DirectEventHandler<OnVolumeChangeData>; // android, ios
 	onVideoExternalPlaybackChange?: DirectEventHandler<OnExternalPlaybackChangeData>;
-	onGetLicense?: DirectEventHandler<OnGetLicenseData>;
 	onPictureInPictureStatusChanged?: DirectEventHandler<OnPictureInPictureStatusChangedData>;
 	onRestoreUserInterfaceForPictureInPictureStop?: DirectEventHandler<{}>;
 	onReceiveAdEvent?: DirectEventHandler<OnReceiveAdEventData>;
@@ -408,8 +399,6 @@ export interface VideoManagerType {
 	save: (option: object, reactTag: number) => Promise<VideoSaveData>;
 	seek: (option: Seek, reactTag: number) => Promise<void>;
 	setPlayerPauseState: (paused: boolean, reactTag: number) => Promise<void>;
-	setLicenseResult: (result: string, licenseUrl: string, reactTag: number) => Promise<void>;
-	setLicenseResultError: (error: string, licenseUrl: string, reactTag: number) => Promise<void>;
 	setVolume: (volume: number, reactTag: number) => Promise<void>;
 	getCurrentPosition: (reactTag: number) => Promise<number>;
 }

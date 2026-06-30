@@ -58,13 +58,6 @@ export type Drm = Readonly<{
 	contentId?: string; // ios
 	certificateUrl?: string; // ios
 	base64Certificate?: boolean; // ios default: false
-
-	getLicense?: (
-		spcBase64: string,
-		contentId: string,
-		licenseUrl: string,
-		loadedLicenseUrl: string
-	) => void; // ios
 }>;
 
 export enum BufferingStrategyType {

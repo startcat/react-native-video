@@ -139,7 +139,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc var onVideoExternalPlaybackChange: RCTDirectEventBlock?
     @objc var onPictureInPictureStatusChanged: RCTDirectEventBlock?
     @objc var onRestoreUserInterfaceForPictureInPictureStop: RCTDirectEventBlock?
-    @objc var onGetLicense: RCTDirectEventBlock?
     @objc var onReceiveAdEvent: RCTDirectEventBlock?
     @objc var onTextTracks: RCTDirectEventBlock?
     @objc var onAudioTracks: RCTDirectEventBlock?
@@ -465,13 +464,19 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         }
         #endif
 
-        if _drm != nil || _localSourceEncryptionKeyScheme != nil {
+        // PLAYER-352 (Phase 3): online FairPlay streaming DRM is owned by the @overon DRM module
+        // (AVContentKeySession). RNV no longer has its own resource-loader FairPlay. Route the
+        // streaming asset to the module (covers the catalogue path and the offline→online fallback).
+        if let drm = _drm, drm.type == "fairplay" {
+            let routed = OveronDrmPlaybackBridge.routeOnlinePlayback(asset: asset, drm: drm)
+            ckmDebugLog("[RCTVideo] online FairPlay routed to @overon DRM module ok=\(routed) offline=\(_playOffline)")
+        }
+        // The resource-loader delegate is kept ONLY for the non-DRM local-source-encryption-key scheme.
+        if _localSourceEncryptionKeyScheme != nil {
             _resouceLoaderDelegate = RCTResourceLoaderDelegate(
                 asset: asset,
-                drm: _drm,
                 localSourceEncryptionKeyScheme: _localSourceEncryptionKeyScheme,
                 onVideoError: onVideoError,
-                onGetLicense: onGetLicense,
                 reactTag: reactTag
             )
         }
@@ -1564,14 +1569,6 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             reject: reject,
             playerItem: _playerItem
         )
-    }
-
-    func setLicenseResult(_ license: String!, _ licenseUrl: String!) {
-        _resouceLoaderDelegate?.setLicenseResult(license, licenseUrl)
-    }
-
-    func setLicenseResultError(_ error: String!, _ licenseUrl: String!) {
-        _resouceLoaderDelegate?.setLicenseResultError(error, licenseUrl)
     }
 
     func dismissFullscreenPlayer() {

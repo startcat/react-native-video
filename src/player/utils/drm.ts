@@ -67,7 +67,6 @@ export const setOfflineExpirationDate = (drm: IDrm | undefined): IDrm | undefine
 			contentId: drm.contentId,
 			certificateUrl: drm.certificateUrl,
 			base64Certificate: drm.base64Certificate,
-			getLicense: drm.getLicense,
 			drmScheme: drm.drmScheme,
 			drmMessage: drmMessage, // Add drmMessage for offline downloads
 		};
