@@ -56,7 +56,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		FAEBF5112E805C71005B3169 /* Downloads_v2 */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Downloads_v2; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,7 +94,6 @@
 		58B511D21A9E6C8500147676 = {
 			isa = PBXGroup;
 			children = (
-				FAEBF5112E805C71005B3169 /* Downloads_v2 */,
 				FA1F857E2C22C2E000DEC2B8 /* VideoCaching */,
 				FA1F857D2C22C2C000DEC2B8 /* Extensions + Utils */,
 				FA1F857C2C22C2BF00DEC2B8 /* Managers */,
@@ -132,7 +130,6 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				FAEBF5112E805C71005B3169 /* Downloads_v2 */,
 			);
 			name = RCTVideo;
 			productName = RCTDataManager;

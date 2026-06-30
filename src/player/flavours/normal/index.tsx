@@ -2455,7 +2455,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 							// iOS OFFLINE HLS SUBTITLES:
 							// For iOS offline HLS content (.movpkg), we DON'T pass sideloaded textTracks.
 							// Instead, subtitles are embedded within the HLS asset during download using
-							// AVAggregateAssetDownloadTask with allMediaSelections (see DownloadsModule2.swift).
+							// AVAggregateAssetDownloadTask with allMediaSelections (in the @overon downloads module).
 							// The native player selects embedded subtitles via AVMediaSelection.
 							// See: Apple WWDC 2020 Session 10655 "Discover how to download and play HLS offline"
 							//
