@@ -166,8 +166,6 @@ import com.brentvatne.license.internal.utils.LicenseFileUtils;
 import com.brentvatne.license.interfaces.IOfflineLicenseManagerListener;
 import com.brentvatne.license.internal.model.DrmMessage;
 import com.brentvatne.license.internal.utils.DrmUtils;
-import com.brentvatne.offline.AxDownloadTracker;
-import com.brentvatne.offline.AxOfflineManager;
 import com.brentvatne.util.Utility;
 
 @SuppressLint("ViewConstructor")
@@ -895,22 +893,9 @@ public class ReactExoplayerView extends FrameLayout implements
                 return;
             }
             try {
-                /*
-                 * Dani Offline - Defensive check for React Native prop race condition:
-                 * setSrc may fire before setPlayOffline. Detect downloaded content
-                 * via AxDownloadTracker so playOffline is correct before player creation.
-                 */
-                if (!self.playOffline && source.getUri() != null) {
-                    try {
-                        AxDownloadTracker tracker = AxOfflineManager.getInstance().getDownloadTracker();
-                        if (tracker != null && tracker.getDownloadRequest(source.getUri()) != null) {
-                            self.playOffline = true;
-                            Log.i("Downloads", "playOffline was false but download exists for URI, forcing offline path");
-                        }
-                    } catch (Exception e) {
-                        // AxOfflineManager may not be initialized yet, ignore
-                    }
-                }
+                // PLAYER-353: the inline AxDownloadTracker race-check was removed together
+                // with RNV's inline download manager. playOffline is determined in JS
+                // (sourceClass resolves the @overon downloads module before setting the source).
 
                 if (player == null) {
                     // Initialize core configuration and listeners
@@ -1102,9 +1087,8 @@ public class ReactExoplayerView extends FrameLayout implements
                  * Get offline license - MUST run BEFORE online DRM to avoid
                  * corrupting the Widevine CDM on Android 13 (API 33) devices.
                  *
-                 * Note: playOffline is guaranteed to be correct here because
-                 * initializePlayer() runs the AxDownloadTracker defensive check
-                 * before reaching this point (covers React Native prop race condition).
+                 * Note: playOffline is determined in JS (sourceClass resolves the @overon
+                 * downloads module download before setting the source) — PLAYER-353.
                  */
 
                 if (self.playOffline) {
@@ -1742,21 +1726,11 @@ public class ReactExoplayerView extends FrameLayout implements
     private DataSource.Factory buildLocalDataSourceFactory(boolean useBandwidthMeter) {
 
         Log.i("Downloads", "buildLocalDataSourceFactory URI=" + source.getUri().toString());
-        AxDownloadTracker axDownloadTracker = AxOfflineManager.getInstance().getDownloadTracker();
 
-        if (axDownloadTracker != null) {
-            mDownloadRequest = axDownloadTracker.getDownloadRequest(source.getUri());
-            if (mDownloadRequest != null) {
-                Log.i("Downloads", "buildLocalDataSourceFactory: Download request found, using offline data source");
-                return AxOfflineManager.getInstance().buildDataSourceFactory(this.themedReactContext);
-            }
-        } else {
-            Log.w("Downloads", "buildLocalDataSourceFactory: RNV inline AxDownloadTracker null - trying @overon downloads module fallback");
-        }
-
-        // PLAYER-360: the media for a module-driven download lives in the @overon downloads
-        // module's DownloadManager + Cache, not RNV's inline AxOfflineManager (empty). Fall
-        // back to the module's offline source (same media3 DownloadRequest + cache factory).
+        // PLAYER-353/356: offline media for a module-driven download lives in the @overon
+        // downloads module's DownloadManager + Cache. RNV no longer keeps an inline download
+        // manager — the source is resolved straight from the module (media3 DownloadRequest +
+        // cache factory).
         Object[] moduleSource = OveronOfflineDrmBridge.getModuleOfflineSource(this.themedReactContext, source.getUri(), source.getId());
         if (moduleSource != null) {
             mDownloadRequest = (androidx.media3.exoplayer.offline.DownloadRequest) moduleSource[0];
@@ -1764,8 +1738,8 @@ public class ReactExoplayerView extends FrameLayout implements
             return (DataSource.Factory) moduleSource[1];
         }
 
-        Log.e("Downloads", "buildLocalDataSourceFactory: getDownloadRequest returned null for URI=" + source.getUri()
-                + " - Download may not be registered in tracker (Android " + android.os.Build.VERSION.SDK_INT + ")");
+        Log.e("Downloads", "buildLocalDataSourceFactory: no @overon module offline source for URI=" + source.getUri()
+                + " (Android " + android.os.Build.VERSION.SDK_INT + ")");
         return null;
 
     }
