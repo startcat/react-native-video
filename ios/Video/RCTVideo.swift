@@ -556,20 +556,11 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                     ckmDebugLog("[RCTVideo] Method3 (@overon module) FOUND assetURL=\(moduleAssetURL.path) for id=\(contentId) drm=\(_drm != nil)")
                     let offlineAsset = AVURLAsset(url: moduleAssetURL)
                     if _drm != nil {
-                        ContentKeyManager.sharedManager.createContentKeySession()
-                        ContentKeyManager.sharedManager.downloadRequestedByUser = true
-                        let drmAsset = Asset(name: contentId, url: moduleAssetURL, id: contentId)
-                        ContentKeyManager.sharedManager.asset = drmAsset
-                        if let contentKeySession = ContentKeyManager.sharedManager.contentKeySession {
-                            contentKeySession.addContentKeyRecipient(offlineAsset)
-                        }
-                        if let licenseServer = _drm?.licenseServer,
-                           let certificateUrl = _drm?.certificateUrl {
-                            ContentKeyManager.sharedManager.licensingServiceUrl = licenseServer
-                            ContentKeyManager.sharedManager.licensingToken = ""
-                            ContentKeyManager.sharedManager.fpsCertificateUrl = certificateUrl
-                        }
-                        ckmDebugLog("[RCTVideo] Method3 wired ContentKeyManager assetName=\(contentId) (offline FairPlay)")
+                        // PLAYER-352 (Phase 2): route offline FairPlay playback through the @overon DRM
+                        // module's AVContentKeySession — the module serves the persisted
+                        // FairPlayKeys/<contentId>.key. RNV no longer owns a ContentKeyManager.
+                        let routed = OveronDrmPlaybackBridge.routeOfflinePlayback(asset: offlineAsset, contentId: contentId)
+                        ckmDebugLog("[RCTVideo] Method3 routed offline FairPlay to @overon DRM module assetName=\(contentId) ok=\(routed)")
                     }
                     return AVPlayerItem(asset: offlineAsset)
                 }
