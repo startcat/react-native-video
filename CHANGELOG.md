@@ -1,5 +1,20 @@
 
 
+# [8.0.0](https://github.com/startcat/react-native-video/compare/v7.4.1...v8.0.0) (2026-07-01)
+
+
+### Bug Fixes
+
+* **offline-drm:** play [@overon](https://github.com/overon) module FairPlay downloads offline (PLAYER-361/342) ([12a23f1](https://github.com/startcat/react-native-video/commit/12a23f1bae4dbb2cc5d223b5d515a0b7873a204c))
+* **player:** evitar lecturas problemáticas en render y serialización innecesaria ([22cc72c](https://github.com/startcat/react-native-video/commit/22cc72cf2efea3fa4b620a7e8c4add9f08dc8db3))
+
+
+### Features
+
+* **downloads-integration:** PLAYER-356 offline media-source bridge (Android) — device-verified ([9042fda](https://github.com/startcat/react-native-video/commit/9042fda2fbc67a82087594312c3e849b3b5663cd))
+* **downloads-integration:** PLAYER-360 offline DRM license bridge (Android) ([883a52d](https://github.com/startcat/react-native-video/commit/883a52d711b2638f51dd384f90796524d82cd689))
+* **downloads-integration:** PLAYER-361 offline FairPlay DRM bridge (iOS) ([2e887db](https://github.com/startcat/react-native-video/commit/2e887db3e16134c89821c8ec8235ada537d97116))
+
 ## [7.4.1](https://github.com/startcat/react-native-video/compare/v7.4.0...v7.4.1) (2026-06-21)
 
 
