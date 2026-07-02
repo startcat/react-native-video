@@ -73,6 +73,8 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     private static final String PROP_DISABLE_DISCONNECT_ERROR = "disableDisconnectError";
     private static final String PROP_FOCUSABLE = "focusable";
     private static final String PROP_FULLSCREEN = "fullscreen";
+    private static final String PROP_PICTURE_IN_PICTURE = "pictureInPicture";
+    private static final String PROP_ENTER_PICTURE_IN_PICTURE_ON_LEAVE = "enterPictureInPictureOnLeave";
     private static final String PROP_USE_TEXTURE_VIEW = "useTextureView";
     private static final String PROP_SECURE_VIEW = "useSecureView";
     private static final String PROP_SELECTED_VIDEO_TRACK = "selectedVideoTrack";
@@ -329,6 +331,16 @@ public class ReactExoplayerViewManager extends ViewGroupManager<ReactExoplayerVi
     @ReactProp(name = PROP_FULLSCREEN, defaultBoolean = false)
     public void setFullscreen(final ReactExoplayerView videoView, final boolean fullscreen) {
         videoView.setFullscreen(fullscreen);
+    }
+
+    @ReactProp(name = PROP_PICTURE_IN_PICTURE, defaultBoolean = false)
+    public void setPictureInPicture(final ReactExoplayerView videoView, final boolean pictureInPicture) {
+        videoView.setPictureInPicture(pictureInPicture);
+    }
+
+    @ReactProp(name = PROP_ENTER_PICTURE_IN_PICTURE_ON_LEAVE, defaultBoolean = false)
+    public void setEnterPictureInPictureOnLeave(final ReactExoplayerView videoView, final boolean enterOnLeave) {
+        videoView.setEnterPictureInPictureOnLeave(enterOnLeave);
     }
 
     @ReactProp(name = PROP_USE_TEXTURE_VIEW, defaultBoolean = true)

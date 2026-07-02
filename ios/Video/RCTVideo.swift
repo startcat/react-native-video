@@ -70,6 +70,8 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     private var _savedStartPositionSeconds: Double = -1
     private var _isRebuildingComposition = false
     private var _showNotificationControls = false
+    private var _enterPictureInPictureOnLeave = false
+    private var _pictureInPictureActiveRequested = false
     private var _pictureInPictureEnabled = false {
         didSet {
             #if os(iOS)
@@ -275,7 +277,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc
     func applicationWillResignActive(notification _: NSNotification!) {
         let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
-        if _playInBackground || _playWhenInactive || !_isPlaying || isExternalPlaybackActive { return }
+        if _playInBackground || _playWhenInactive || !_isPlaying || isExternalPlaybackActive || isPipSetup() { return }
 
         #if RNUSE_GOOGLE_IMA
         // Pausar el IMA SDK si hay un anuncio reproduciéndose
@@ -308,8 +310,12 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     @objc
     func applicationDidEnterBackground(notification _: NSNotification!) {
+        // With PiP set up, detaching the player from the layer would tear down the
+        // PiP window (system-initiated or already active) — keep everything attached.
+        if isPipSetup() { return }
+
         let isExternalPlaybackActive = _player?.isExternalPlaybackActive ?? false
-        
+
         // Si playInBackground está activo, mantener el audio del anuncio
         if _playInBackground {
             // Solo desconectar el video layer, mantener el audio
@@ -820,17 +826,53 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     @objc
     func setPictureInPicture(_ pictureInPicture: Bool) {
         #if os(iOS)
+            _pictureInPictureActiveRequested = pictureInPicture
+            if pictureInPicture {
+                configurePictureInPictureAudioSession()
+                if !_pictureInPictureEnabled {
+                    _pictureInPictureEnabled = true
+                }
+            } else if !_enterPictureInPictureOnLeave, _pictureInPictureEnabled {
+                _pictureInPictureEnabled = false
+            }
+            _pip?.setPictureInPicture(pictureInPicture)
+        #endif
+    }
+
+    @objc
+    func setEnterPictureInPictureOnLeave(_ enterOnLeave: Bool) {
+        #if os(iOS)
+            if _enterPictureInPictureOnLeave == enterOnLeave { return }
+            _enterPictureInPictureOnLeave = enterOnLeave
+            if enterOnLeave {
+                configurePictureInPictureAudioSession()
+                if !_pictureInPictureEnabled {
+                    _pictureInPictureEnabled = true
+                }
+            } else if !_pictureInPictureActiveRequested, _pictureInPictureEnabled {
+                _pictureInPictureEnabled = false
+            }
+            _pip?.setCanStartPictureInPictureAutomaticallyFromInline(enterOnLeave)
+        #endif
+    }
+
+    #if os(iOS)
+        private func configurePictureInPictureAudioSession() {
             let audioSession = AVAudioSession.sharedInstance()
             do {
                 try audioSession.setCategory(.playback)
                 try audioSession.setActive(true, options: [])
             } catch {}
-            if pictureInPicture {
-                _pictureInPictureEnabled = true
-            } else {
-                _pictureInPictureEnabled = false
-            }
-            _pip?.setPictureInPicture(pictureInPicture)
+        }
+    #endif
+
+    // PiP keeps rendering through the AVPlayerLayer while the app is backgrounded,
+    // so the lifecycle handlers must not pause the player nor detach the layer.
+    private func isPipSetup() -> Bool {
+        #if os(iOS)
+            return _pip?.isSetup ?? false
+        #else
+            return false
         #endif
     }
 

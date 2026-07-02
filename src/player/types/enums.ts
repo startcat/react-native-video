@@ -77,6 +77,7 @@ export enum CONTROL_ACTION {
 	HIDE_AUDIO_PLAYER = "hideAudioPlayer",
 	SLEEP = "sleep",
 	CANCEL_SLEEP = "sleep_cancel",
+	PIP = "pip",
 }
 
 export enum PLAYER_MENU_DATA_TYPE {

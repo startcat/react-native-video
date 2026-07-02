@@ -248,7 +248,7 @@ export interface ReactVideoEvents {
 	onFullscreenPlayerDidDismiss?: () => void; //Android, iOS
 	onLoad?: (e: OnLoadData) => void; //All
 	onLoadStart?: (e: OnLoadStartData) => void; //All
-	onPictureInPictureStatusChanged?: (e: OnPictureInPictureStatusChangedData) => void; //iOS
+	onPictureInPictureStatusChanged?: (e: OnPictureInPictureStatusChangedData) => void; //Android, iOS
 	onPlaybackRateChange?: (e: OnPlaybackRateChangeData) => void; //All
 	onVolumeChange?: (e: OnVolumeChangeData) => void; //Android, iOS
 	onProgress?: (e: OnProgressData) => void; //All

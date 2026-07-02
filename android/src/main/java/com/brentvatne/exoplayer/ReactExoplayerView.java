@@ -33,9 +33,11 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
+import androidx.lifecycle.Lifecycle;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -265,6 +267,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private boolean preventsDisplaySleepDuringVideoPlayback = true;
     private float mProgressUpdateInterval = 250.0f;
     private boolean playInBackground = false;
+    private boolean enterPictureInPictureOnLeave = false;
     private boolean mReportBandwidth = false;
     private UUID drmUUID = null;
     private String drmLicenseUrl = null;
@@ -281,6 +284,10 @@ public class ReactExoplayerView extends FrameLayout implements
     private final AudioManager audioManager;
     private final AudioBecomingNoisyReceiver audioBecomingNoisyReceiver;
     private final AudioManager.OnAudioFocusChangeListener audioFocusChangeListener;
+
+    // Picture-in-Picture (PLAYER-379)
+    private PictureInPictureManager pictureInPictureManager;
+    private boolean lastReportedPipMode = false;
 
     // store last progress event values to avoid sending unnecessary messages
     private long lastPos = -1;
@@ -357,6 +364,10 @@ public class ReactExoplayerView extends FrameLayout implements
         themedReactContext.addLifecycleEventListener(this);
         audioBecomingNoisyReceiver = new AudioBecomingNoisyReceiver(themedReactContext);
         audioFocusChangeListener = new OnAudioFocusChangedListener(this, themedReactContext);
+        pictureInPictureManager = new PictureInPictureManager(
+                themedReactContext,
+                this::handlePictureInPictureModeChanged,
+                this::handleUserLeaveHint);
     }
 
     private boolean isPlayingAd() {
@@ -390,6 +401,12 @@ public class ReactExoplayerView extends FrameLayout implements
     // LifecycleEventListener implementation
     @Override
     public void onHostResume() {
+        // The PiP exit event can race the paused RN host and get lost, leaving JS stuck
+        // with isActive=true (overlay hidden forever). Resync on resume if needed.
+        if (lastReportedPipMode && !pictureInPictureManager.isInPictureInPictureMode()) {
+            DebugLog.w(TAG, "onHostResume: PiP exit event was missed, resyncing JS");
+            handlePictureInPictureModeChanged(false);
+        }
         DebugLog.d(TAG, "onHostResume: playInBackground=" + playInBackground
                 + " isInBackground=" + isInBackground
                 + " isAdCurrentlyActive=" + isAdCurrentlyActive
@@ -424,6 +441,11 @@ public class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onHostPause() {
+        if (pictureInPictureManager.isInPictureInPictureMode()) {
+            // The activity is paused-but-visible inside the PiP window: keep playing.
+            DebugLog.d(TAG, "onHostPause: in Picture-in-Picture mode, keeping playback");
+            return;
+        }
         isInBackground = true;
         if (playInBackground) {
             // Si playInBackground está activo, mantener el audio (incluso durante ads)
@@ -455,6 +477,10 @@ public class ReactExoplayerView extends FrameLayout implements
     public void cleanUpResources() {
         DebugLog.d(TAG, "ReactExoplayerView cleanUpResources");
         stopPlayback();
+        // PictureInPictureParams are sticky on the activity: clear auto-enter so the app
+        // doesn't jump into PiP after this player is gone, and drop the activity listeners.
+        pictureInPictureManager.updatePictureInPictureParams(false, null, null);
+        pictureInPictureManager.unregisterActivityListeners();
         themedReactContext.removeLifecycleEventListener(this);
         releasePlayer();
         viewHasDropped = true;
@@ -2109,6 +2135,10 @@ public class ReactExoplayerView extends FrameLayout implements
     @Override
     public void onIsPlayingChanged(boolean isPlaying) {
         eventEmitter.playbackStateChanged(isPlaying);
+        if (enterPictureInPictureOnLeave) {
+            // Only auto-enter PiP while actually playing (parity with iOS)
+            updatePictureInPictureAutoEnter();
+        }
     }
 
     @Override
@@ -2696,6 +2726,78 @@ public class ReactExoplayerView extends FrameLayout implements
         // need to be done at the end to avoid hiding fullscreen control button when fullScreenPlayerView is shown
         updateFullScreenButtonVisbility();
     }
+
+    // Picture-in-Picture (PLAYER-379)
+
+    /**
+     * Prop "pictureInPicture": true enters PiP right now (manual trigger, e.g. an overlay
+     * button). false is a no-op — Android has no programmatic exit; leaving PiP is
+     * user-driven (expand or close) and reported through onPictureInPictureStatusChanged.
+     */
+    public void setPictureInPicture(boolean pictureInPicture) {
+        DebugLog.d(TAG, "setPictureInPicture: " + pictureInPicture);
+        if (pictureInPicture) {
+            pictureInPictureManager.registerActivityListeners();
+            enterPictureInPictureNow();
+        }
+    }
+
+    /**
+     * Prop "enterPictureInPictureOnLeave": auto-enter PiP when the user leaves the app
+     * while playing. API 31+ uses setAutoEnterEnabled; API 26-30 falls back to the
+     * activity user-leave-hint callback.
+     */
+    public void setEnterPictureInPictureOnLeave(boolean enterOnLeave) {
+        this.enterPictureInPictureOnLeave = enterOnLeave;
+        if (enterOnLeave) {
+            pictureInPictureManager.registerActivityListeners();
+        }
+        updatePictureInPictureAutoEnter();
+    }
+
+    private boolean shouldAutoEnterPictureInPicture() {
+        return enterPictureInPictureOnLeave && player != null && player.isPlaying();
+    }
+
+    private void updatePictureInPictureAutoEnter() {
+        pictureInPictureManager.updatePictureInPictureParams(shouldAutoEnterPictureInPicture(), player, exoPlayerView);
+    }
+
+    private void enterPictureInPictureNow() {
+        if (isFullscreen) {
+            // The video surface lives inside the fullscreen Dialog window; PiP captures the
+            // activity window, so fullscreen must be dismissed before entering.
+            setFullscreen(false);
+        }
+        pictureInPictureManager.enterPictureInPicture(player, exoPlayerView, shouldAutoEnterPictureInPicture());
+    }
+
+    private void handleUserLeaveHint() {
+        // Fallback for API < 31, where setAutoEnterEnabled is unavailable
+        if (enterPictureInPictureOnLeave
+                && Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                && player != null && player.isPlaying()
+                && !pictureInPictureManager.isInPictureInPictureMode()) {
+            enterPictureInPictureNow();
+        }
+    }
+
+    private void handlePictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+        DebugLog.d(TAG, "onPictureInPictureModeChanged: " + isInPictureInPictureMode);
+        lastReportedPipMode = isInPictureInPictureMode;
+        eventEmitter.pictureInPictureStatusChanged(isInPictureInPictureMode);
+        if (!isInPictureInPictureMode) {
+            Activity activity = themedReactContext.getCurrentActivity();
+            if (activity instanceof ComponentActivity
+                    && ((ComponentActivity) activity).getLifecycle().getCurrentState() == Lifecycle.State.CREATED) {
+                // PiP window dismissed with the close button (activity stopped, not
+                // expanded back into the app) — stop playback like a normal backgrounding.
+                setPlayWhenReady(false);
+            }
+        }
+    }
+
+    // \ End Picture-in-Picture
 
     public void setUseTextureView(boolean useTextureView) {
         boolean finallyUseTextureView = useTextureView && this.drmUUID == null;

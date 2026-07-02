@@ -7,9 +7,11 @@ import { Platform, View } from "react-native";
 const useAirplayConnectivity: () => boolean =
 	Platform.OS === "ios" ? require("react-airplay").useAirplayConnectivity : () => false;
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import SystemNavigationBar from "react-native-system-navigation-bar";
 import {
 	type OnAudioTracksData,
 	type OnBufferData,
+	type OnPictureInPictureStatusChangedData,
 	type OnProgressData,
 	type OnVideoErrorData,
 	type OnVideoTracksData,
@@ -120,6 +122,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	});
 	const [maxBitRate, setMaxBitRate] = useState<number>(0);
 	const [offlineTextTracks, setOfflineTextTracks] = useState<TextTracks | undefined>(undefined);
+
+	// Picture-in-Picture (PLAYER-377): pipRequested activa el PiP manual (botón del
+	// overlay); isPipActive refleja el estado real del sistema (evento nativo).
+	const pipFeatureEnabled = !!props.features?.pictureInPicture;
+	const [pipRequested, setPipRequested] = useState<boolean>(false);
+	const [isPipActive, setIsPipActive] = useState<boolean>(false);
 
 	const refVideoPlayer = useRef<VideoRef>(null);
 	const videoQualityIndex = useRef<number>(-1);
@@ -1057,6 +1065,19 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	 *
 	 */
 
+	const handleOnPictureInPictureStatusChanged = (e: OnPictureInPictureStatusChangedData) => {
+		currentLogger.current?.info(`onPictureInPictureStatusChanged: isActive ${e.isActive}`);
+		setIsPipActive(e.isActive);
+		if (!e.isActive) {
+			setPipRequested(false);
+			// Al salir del PiP, Android restaura las barras del sistema; re-aplicamos el
+			// fullscreen del player (mismo mecanismo que al montar Player.tsx)
+			if (Platform.OS === "android") {
+				SystemNavigationBar.fullScreen(true);
+			}
+		}
+	};
+
 	const handleOnControlsPress = (id: CONTROL_ACTION, value?: number | boolean | object) => {
 		const COMMON_DATA_FIELDS = [
 			"time",
@@ -1076,6 +1097,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 		if (id === CONTROL_ACTION.MUTE) {
 			setMuted(!!value);
+		}
+
+		// Picture-in-Picture manual (botón del overlay). El estado vuelve a false
+		// cuando el sistema notifica la salida (handleOnPictureInPictureStatusChanged).
+		if (id === CONTROL_ACTION.PIP) {
+			setPipRequested(true);
 		}
 
 		// Cambio de audio
@@ -2431,7 +2458,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						paused={paused}
 						rate={speedRate}
 						maxBitRate={maxBitRate}
-						//pictureInPicture (ios)
+						pictureInPicture={pipRequested}
+						enterPictureInPictureOnLeave={pipFeatureEnabled && !isAirplayConnected}
+						onPictureInPictureStatusChanged={handleOnPictureInPictureStatusChanged}
 						playInBackground={isAirplayConnected}
 						playWhenInactive={isAirplayConnected}
 						poster={props?.playerMetadata?.poster}
@@ -2528,9 +2557,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				</Suspense>
 			) : null}
 
-			{!isPlayingAd && !tudumRef.current?.isPlaying ? (
+			{!isPlayingAd && !tudumRef.current?.isPlaying && !isPipActive ? (
 				<Overlay
 					preloading={isBuffering}
+					pipEnabled={pipFeatureEnabled && !isAirplayConnected}
 					thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
 					avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 					alwaysVisible={isAirplayConnected}

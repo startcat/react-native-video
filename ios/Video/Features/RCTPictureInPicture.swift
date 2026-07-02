@@ -12,6 +12,15 @@ import React
         private var _restoreUserInterfaceForPIPStopCompletionHandler: ((Bool) -> Void)?
         private var _pipController: AVPictureInPictureController?
         private var _isActive = false
+        private var _canStartAutomatically = false
+
+        var isSetup: Bool {
+            return _pipController != nil
+        }
+
+        var isActive: Bool {
+            return _pipController?.isPictureInPictureActive ?? false
+        }
 
         init(
             _ onPictureInPictureEnter: (() -> Void)? = nil,
@@ -58,9 +67,16 @@ import React
             // Create new controller passing reference to the AVPlayerLayer
             _pipController = AVPictureInPictureController(playerLayer: playerLayer)
             if #available(iOS 14.2, *) {
-                _pipController?.canStartPictureInPictureAutomaticallyFromInline = true
+                _pipController?.canStartPictureInPictureAutomaticallyFromInline = _canStartAutomatically
             }
             _pipController?.delegate = self
+        }
+
+        func setCanStartPictureInPictureAutomaticallyFromInline(_ canStart: Bool) {
+            _canStartAutomatically = canStart
+            if #available(iOS 14.2, *) {
+                _pipController?.canStartPictureInPictureAutomaticallyFromInline = canStart
+            }
         }
 
         func deinitPipController() {

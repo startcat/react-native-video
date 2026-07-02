@@ -506,6 +506,7 @@ export interface ControlsBarProps extends ICommonPlayerProps {
 	preloading?: boolean;
 	isContentLoaded?: boolean;
 	isChangingSource?: boolean;
+	pipEnabled?: boolean;
 
 	// Custom Components
 	components?: IPlayerCustomVideoComponents;
@@ -520,6 +521,7 @@ export interface ControlsProps extends ICommonPlayerProps {
 	avoidTimelineThumbnails?: boolean;
 	isContentLoaded?: boolean;
 	isChangingSource?: boolean;
+	pipEnabled?: boolean;
 
 	// Custom Components
 	components?: IPlayerCustomVideoComponents;
@@ -550,6 +552,7 @@ export interface OverlayProps extends ICommonPlayerProps {
 	isChangingSource?: boolean;
 
 	isContentLoaded?: boolean;
+	pipEnabled?: boolean;
 
 	menuData?: Array<IPlayerMenuData>;
 	videoIndex?: number;

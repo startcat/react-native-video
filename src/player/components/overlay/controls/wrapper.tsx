@@ -22,6 +22,7 @@ const ControlsBase = (props: ControlsProps): React.ReactElement => {
 		preloading,
 		isContentLoaded,
 		isChangingSource,
+		pipEnabled,
 		components,
 		events,
 	} = props;
@@ -47,6 +48,7 @@ const ControlsBase = (props: ControlsProps): React.ReactElement => {
 			preloading,
 			isContentLoaded,
 			isChangingSource,
+			pipEnabled,
 			components,
 			events: {
 				...events,
@@ -62,6 +64,7 @@ const ControlsBase = (props: ControlsProps): React.ReactElement => {
 			preloading,
 			isContentLoaded,
 			isChangingSource,
+			pipEnabled,
 			components,
 			events,
 			handlePress,

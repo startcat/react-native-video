@@ -247,6 +247,7 @@ const OverlayBase = (props: OverlayProps): React.ReactElement => {
 					avoidTimelineThumbnails={props.avoidTimelineThumbnails}
 					isContentLoaded={props.isContentLoaded}
 					isChangingSource={props.isChangingSource}
+					pipEnabled={props.pipEnabled}
 					// Nuevas Props Agrupadas
 					playerMetadata={props.playerMetadata}
 					playerProgress={props.playerProgress}

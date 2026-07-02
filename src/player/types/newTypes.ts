@@ -144,6 +144,8 @@ export interface ICommonPlayerProps {
 
 export interface IPlayerFeatures {
 	analyticsConfig?: PlayerAnalyticsPlugin[];
+	// OS-level Picture-in-Picture (PLAYER-377): auto-enter on background + PiP button in the controls overlay
+	pictureInPicture?: boolean;
 }
 
 export interface IPlayerLogger {

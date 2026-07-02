@@ -399,14 +399,27 @@ Controls whether the media is paused
 
 ### `pictureInPicture`
 
-<PlatformsList types={['iOS']} />
+<PlatformsList types={['Android', 'iOS']} />
 
 Determine whether the media should played as picture in picture.
 
 - **false (default)** - Don't not play as picture in picture
 - **true** - Play the media as picture in picture
 
+On Android the exit from picture in picture is user-driven (expand or close the PiP window): setting the prop back to `false` is a no-op there, and the state is reported through `onPictureInPictureStatusChanged`. The host activity must declare `android:supportsPictureInPicture="true"` in its manifest.
+
 NOTE: Video ads cannot start when you are using the PIP on iOS (more info available at [Google IMA SDK Docs](https://developers.google.com/interactive-media-ads/docs/sdks/ios/client-side/picture_in_picture?hl=en#starting_ads)). If you are using custom controls, you must hide your PIP button when you receive the `STARTED` event from `onReceiveAdEvent` and show it again when you receive the `ALL_ADS_COMPLETED` event.
+
+### `enterPictureInPictureOnLeave`
+
+<PlatformsList types={['Android', 'iOS']} />
+
+Determine whether the media should automatically enter picture in picture when the user leaves the app while playing (home gesture / app switch).
+
+- **false (default)** - Don't enter picture in picture automatically
+- **true** - Enter picture in picture automatically when leaving the app while playing
+
+On iOS this relies on `canStartPictureInPictureAutomaticallyFromInline` (iOS 14.2+) and requires the "Audio, AirPlay and Picture in Picture" background mode. On Android it uses `setAutoEnterEnabled` (API 31+) with an `onUserLeaveHint` fallback for API 26-30, and requires `android:supportsPictureInPicture="true"` on the host activity.
 
 ### `playInBackground`
 

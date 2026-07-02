@@ -7,6 +7,7 @@ import { Spinner } from "@ui-kitten/components";
 import { Button } from "../buttons";
 import AirplayButton from "../buttons/airplay";
 import CastButton from "../buttons/cast";
+import PipButton from "../buttons/pip";
 import { CONTROL_ACTION, BUTTON_SIZE, type ControlsBarProps } from "../../../../types";
 import { styles } from "./styles";
 
@@ -20,6 +21,7 @@ const ControlsHeaderBarBase = ({
 	preloading = false,
 	isContentLoaded = false,
 	isChangingSource = false,
+	pipEnabled = false,
 }: ControlsBarProps): React.ReactElement => {
 	const navigation = useNavigation();
 	const insets = useSafeAreaInsets();
@@ -88,6 +90,7 @@ const ControlsHeaderBarBase = ({
 
 			<View style={styles.right}>
 				{isPreloading && Loader}
+				{pipEnabled && <PipButton onPress={onPress} />}
 				{showIosComponent && <AirplayButton />}
 				<CastButton />
 			</View>
@@ -100,6 +103,7 @@ const arePropsEqual = (prevProps: ControlsBarProps, nextProps: ControlsBarProps)
 	return (
 		prevProps.playerProgress?.isBuffering === nextProps.playerProgress?.isBuffering &&
 		prevProps.preloading === nextProps.preloading &&
+		prevProps.pipEnabled === nextProps.pipEnabled &&
 		prevProps.components?.headerMetadata === nextProps.components?.headerMetadata &&
 		prevProps.events?.onPress === nextProps.events?.onPress &&
 		prevProps.events?.onExit === nextProps.events?.onExit

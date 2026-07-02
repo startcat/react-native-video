@@ -62,6 +62,7 @@ public class VideoEventEmitter {
     private static final String EVENT_TEXT_TRACK_DATA_CHANGED = "onTextTrackDataChanged";
     private static final String EVENT_VIDEO_TRACKS = "onVideoTracks";
     private static final String EVENT_ON_RECEIVE_AD_EVENT = "onReceiveAdEvent";
+    private static final String EVENT_PICTURE_IN_PICTURE_STATUS_CHANGED = "onPictureInPictureStatusChanged";
 
     static public final String[] Events = {
             EVENT_LOAD_START,
@@ -91,7 +92,8 @@ public class VideoEventEmitter {
             EVENT_VIDEO_TRACKS,
             EVENT_BANDWIDTH,
             EVENT_PLAYBACK_METRICS,
-            EVENT_ON_RECEIVE_AD_EVENT
+            EVENT_ON_RECEIVE_AD_EVENT,
+            EVENT_PICTURE_IN_PICTURE_STATUS_CHANGED
     };
 
     @Retention(RetentionPolicy.SOURCE)
@@ -123,7 +125,8 @@ public class VideoEventEmitter {
             EVENT_VIDEO_TRACKS,
             EVENT_BANDWIDTH,
             EVENT_PLAYBACK_METRICS,
-            EVENT_ON_RECEIVE_AD_EVENT
+            EVENT_ON_RECEIVE_AD_EVENT,
+            EVENT_PICTURE_IN_PICTURE_STATUS_CHANGED
     })
     @interface VideoEvents {
     }
@@ -172,6 +175,8 @@ public class VideoEventEmitter {
     private static final String EVENT_PROP_TOTAL_BYTES_TRANSFERRED = "totalBytesTransferred";
 
     private static final String EVENT_PROP_IS_PLAYING = "isPlaying";
+
+    private static final String EVENT_PROP_PIP_IS_ACTIVE = "isActive";
 
     public void setViewId(int viewId) {
         this.viewId = viewId;
@@ -370,6 +375,13 @@ public class VideoEventEmitter {
         WritableMap map = Arguments.createMap();
         map.putBoolean(EVENT_PROP_IS_PLAYING, isPlaying);
         receiveEvent(EVENT_PLAYBACK_STATE_CHANGED, map);
+    }
+
+    // Same name and payload as the iOS event (RCTVideo.swift onPictureInPictureStatusChanged)
+    public void pictureInPictureStatusChanged(boolean isActive) {
+        WritableMap map = Arguments.createMap();
+        map.putBoolean(EVENT_PROP_PIP_IS_ACTIVE, isActive);
+        receiveEvent(EVENT_PICTURE_IN_PICTURE_STATUS_CHANGED, map);
     }
 
     public void idle() {
