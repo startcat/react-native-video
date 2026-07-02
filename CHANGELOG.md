@@ -1,5 +1,14 @@
 
 
+# [8.1.0](https://github.com/startcat/react-native-video/compare/v8.0.0...v8.1.0) (2026-07-02)
+
+
+### Features
+
+* **cast:** consume @overon/react-native-cast — types + hooks repoint + adaptations (PLAYER-240) ([5d2de98](https://github.com/startcat/react-native-video/commit/5d2de9803b89ff3bc63ce52bc32f04d0e175d88d))
+* **cast:** delete inline features/cast plumbing — phase 4 grep-0 (PLAYER-240) ([a8028e6](https://github.com/startcat/react-native-video/commit/a8028e62921599fddd9f5cc12f3dd63efafccd19))
+* **cast:** Player.tsx imports DEFAULT_CAST_CONFIG from module — phase 3 (PLAYER-240) ([60ebf46](https://github.com/startcat/react-native-video/commit/60ebf466a80ee810367d62b224f2a57cc780c446))
+
 # [8.0.0](https://github.com/startcat/react-native-video/compare/v7.4.1...v8.0.0) (2026-07-01)
 
 
