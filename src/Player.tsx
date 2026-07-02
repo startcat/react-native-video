@@ -9,9 +9,9 @@ import {
     useCastState as useNativeCastState,
 } from "react-native-google-cast";
 import Orientation, { useOrientationChange } from "react-native-orientation-locker";
+import { DEFAULT_CAST_CONFIG } from "@overon/react-native-cast";
 import SystemNavigationBar from "react-native-system-navigation-bar";
 import { PlayerContext } from "./player/core/context";
-import { DEFAULT_CAST_CONFIG } from "./player/features/cast/constants";
 import { ComponentLogger, Logger, LoggerFactory } from "./player/features/logger";
 import { type IPlayerProgress, type IPreferencesCommonData } from "./player/types";
 
