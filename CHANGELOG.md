@@ -1,5 +1,17 @@
 
 
+# [8.2.0](https://github.com/startcat/react-native-video/compare/v8.1.0...v8.2.0) (2026-07-03)
+
+
+### Features
+
+* **pip:** Picture-in-Picture OS-level iOS+Android (PLAYER-378/379/380) ([292376a](https://github.com/startcat/react-native-video/commit/292376acef90e43c14bdf4336322a9237e18c72c))
+
+
+### Performance Improvements
+
+* **player:** debug nativo solo en __DEV__ + back-buffer 120s->30s (PLAYER-386, PLAYER-387) ([f10a333](https://github.com/startcat/react-native-video/commit/f10a333d0e0aca58bf8f3e58758a2e67a455d952))
+
 # [8.1.0](https://github.com/startcat/react-native-video/compare/v8.0.0...v8.1.0) (2026-07-02)
 
 
