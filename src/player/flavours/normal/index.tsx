@@ -2428,16 +2428,18 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						playOffline={!!props.playOffline}
 						multiSession={props.playerProgress?.liveValues?.multiSession}
 						disableDisconnectError={true}
-						debug={{
-							enable: true,
-							thread: true,
-						}}
+						// PLAYER-386: el debug nativo (DebugLog VERBOSE + EventLogger de ExoPlayer)
+						// solo en desarrollo; en producción añadía overhead y spam de logcat
+						debug={__DEV__ ? { enable: true, thread: true } : undefined}
 						bufferConfig={{
 							minBufferMs: 15000,
 							maxBufferMs: 50000,
 							bufferForPlaybackMs: 2500,
 							bufferForPlaybackAfterRebufferMs: 5000,
-							backBufferDurationMs: 120000,
+							// PLAYER-387: el back-buffer vive en RAM; 120s retenía ~2 min de vídeo
+							// ya visto y presionaba el LMK en dispositivos de 4GB (cacheSizeMB es
+							// caché de disco, no afecta). 30s cubre los seeks hacia atrás típicos.
+							backBufferDurationMs: 30000,
 							cacheSizeMB: 50,
 							live: {
 								targetOffsetMs: 25000,

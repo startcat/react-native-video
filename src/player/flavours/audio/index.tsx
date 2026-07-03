@@ -1147,16 +1147,15 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					multiSession={props.playerProgress?.liveValues?.multiSession}
 					focusable={false}
 					disableDisconnectError={true}
-					debug={{
-						enable: true,
-						thread: true,
-					}}
+					// PLAYER-386: debug nativo solo en desarrollo (paridad con el flavour normal)
+					debug={__DEV__ ? { enable: true, thread: true } : undefined}
 					bufferConfig={{
 						minBufferMs: 15000,
 						maxBufferMs: 50000,
 						bufferForPlaybackMs: 2500,
 						bufferForPlaybackAfterRebufferMs: 5000,
-						backBufferDurationMs: 120000,
+						// PLAYER-387: back-buffer en RAM reducido (paridad con el flavour normal)
+						backBufferDurationMs: 30000,
 						cacheSizeMB: 50,
 						live: {
 							targetOffsetMs: 25000,
