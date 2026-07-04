@@ -126,6 +126,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	// Picture-in-Picture (PLAYER-377): pipRequested activa el PiP manual (botón del
 	// overlay); isPipActive refleja el estado real del sistema (evento nativo).
 	const pipFeatureEnabled = !!props.features?.pictureInPicture;
+	// Background playback (feature opt-in): activa playInBackground/playWhenInactive
+	// aunque no haya AirPlay → foreground service + MediaSession/notificación.
+	const backgroundPlaybackEnabled = !!props.features?.backgroundPlayback;
 	const [pipRequested, setPipRequested] = useState<boolean>(false);
 	const [isPipActive, setIsPipActive] = useState<boolean>(false);
 
@@ -2463,8 +2466,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						pictureInPicture={pipRequested}
 						enterPictureInPictureOnLeave={pipFeatureEnabled && !isAirplayConnected}
 						onPictureInPictureStatusChanged={handleOnPictureInPictureStatusChanged}
-						playInBackground={isAirplayConnected}
-						playWhenInactive={isAirplayConnected}
+						playInBackground={isAirplayConnected || backgroundPlaybackEnabled}
+						playWhenInactive={isAirplayConnected || backgroundPlaybackEnabled}
 						poster={props?.playerMetadata?.poster}
 						preventsDisplaySleepDuringVideoPlayback={!isAirplayConnected}
 						progressUpdateInterval={1000}

@@ -146,6 +146,18 @@ export interface IPlayerFeatures {
 	analyticsConfig?: PlayerAnalyticsPlugin[];
 	// OS-level Picture-in-Picture (PLAYER-377): auto-enter on background + PiP button in the controls overlay
 	pictureInPicture?: boolean;
+	/**
+	 * Background playback. Cuando es `true`, el player sigue reproduciendo (audio)
+	 * al pasar la app a background o quedar inactiva, publicando el foreground
+	 * service + MediaSession/notificación multimedia. Activa `playInBackground` y
+	 * `playWhenInactive` en la capa `<Video>`.
+	 *
+	 * Por defecto (`false`/omitido) el background sólo se activa con AirPlay
+	 * conectado (comportamiento histórico). Actívalo para: reproducción de audio
+	 * de fondo, controles del widget multimedia, y hand-off a Cast en Android
+	 * (el output switcher del sistema requiere una MediaSession activa).
+	 */
+	backgroundPlayback?: boolean;
 }
 
 export interface IPlayerLogger {
