@@ -17,7 +17,10 @@ Pod::Spec.new do |s|
   s.platforms      = { :ios => "13.0", :tvos => "13.0", :visionos => "1.0" }
 
   s.subspec "Video" do |ss|
-    ss.source_files = "ios/Video/**/*.{h,m,swift}"
+    # ios/Managers (OveronDrmPlaybackBridge, RNVDrmDebugLog) es requerido por
+    # RCTVideo.swift desde PLAYER-352; sin él, el pod solo compila si el consumidor
+    # define $RNVideoUseVideoCaching (que amplia el glob a ios/*/** por accidente).
+    ss.source_files = ["ios/Video/**/*.{h,m,swift}", "ios/Managers/**/*.{h,m,swift}"]
     ss.exclude_files = "ios/Tests/**/*"
     ss.dependency 'PromisesSwift', '2.4.0'
 
