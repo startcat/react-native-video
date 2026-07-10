@@ -1,5 +1,18 @@
 
 
+## [8.2.1](https://github.com/startcat/react-native-video/compare/v8.2.0...v8.2.1) (2026-07-10)
+
+
+### Bug Fixes
+
+* **android:** completar stubs IMA para compilar con useExoplayerIMA=false ([7a0773d](https://github.com/startcat/react-native-video/commit/7a0773df8e7741c4da6b224139d0477c2154e94e))
+* **ios:** incluir ios/Managers en el subspec Video base del podspec ([3c75896](https://github.com/startcat/react-native-video/commit/3c7589659b450354835341f113a78913efb46f27))
+
+
+### Features
+
+* **player:** expone backgroundPlayback como feature del <Player> ([48efd98](https://github.com/startcat/react-native-video/commit/48efd98d7bffd91946cc574764a38d158b0f3c38))
+
 # [8.2.0](https://github.com/startcat/react-native-video/compare/v8.1.0...v8.2.0) (2026-07-03)
 
 
