@@ -5,15 +5,19 @@ package com.google.ads.interactivemedia.v3.api;
  *
  * Solo se compila cuando RNVideo_useExoplayerIMA=false; con el flag activo,
  * android/build.gradle excluye este directorio y se usa el SDK real.
- * Firmas idénticas al SDK real (interfaz, no clase abstracta).
+ * Interfaz completa, firmas idénticas a las del SDK real.
  */
-public interface AdErrorEvent {
+public interface AdPodInfo {
 
-    AdError getError();
+    double getMaxDuration();
 
-    Object getUserRequestContext();
+    double getTimeOffset();
 
-    interface AdErrorListener {
-        void onAdError(AdErrorEvent adErrorEvent);
-    }
+    int getAdPosition();
+
+    int getPodIndex();
+
+    int getTotalAds();
+
+    boolean isBumper();
 }
