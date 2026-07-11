@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { Text, TouchableOpacity } from "react-native";
-import { type MenuItemProps, CONTROL_ACTION } from "../../../../types";
+import { type MenuItemProps, CONTROL_ACTION } from "../../../types";
 import { i18n } from "../../../locales";
 import { PlayerIcon } from "../icons/PlayerIcon";
 import { styles } from "./styles";

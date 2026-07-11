@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type MenuProps, CONTROL_ACTION } from "../../../../types";
+import { type MenuProps, CONTROL_ACTION } from "../../../types";
 import { i18n } from "../../../locales";
 import { SettingsMenuItem } from "./item";
 import { styles } from "./styles";
