@@ -1108,6 +1108,13 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			setPipRequested(true);
 		}
 
+		// Velocidad de reproducción. El estado `speedRate` alimenta la prop `rate`
+		// del <Video> (L~2464) y se pasa al Overlay (L~2578) para que el menú RATE
+		// marque la selección actual. Espejo de AudioFlavour (SPEED_RATE).
+		if (id === CONTROL_ACTION.SPEED_RATE && typeof value === "number") {
+			setSpeedRate(value);
+		}
+
 		// Cambio de audio
 		if (id === CONTROL_ACTION.AUDIO_INDEX && typeof value === "number") {
 			if (value === -1) {

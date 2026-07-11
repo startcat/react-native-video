@@ -48,7 +48,7 @@ const SettingsMenuBase = ({
 				propOnPress(CONTROL_ACTION.VIDEO_INDEX, selectedVideoIndex);
 			}
 
-			if (selectedSpeedRate !== speedRate && typeof selectedVideoIndex === "number") {
+			if (selectedSpeedRate !== speedRate && typeof selectedSpeedRate === "number") {
 				propOnPress(CONTROL_ACTION.SPEED_RATE, selectedSpeedRate);
 			}
 		}
