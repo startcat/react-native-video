@@ -92,7 +92,12 @@ const ControlsHeaderBarBase = ({
 				{isPreloading && Loader}
 				{pipEnabled && <PipButton onPress={onPress} />}
 				{showIosComponent && <AirplayButton />}
-				<CastButton />
+				{/* onPress despacha CONTROL_ACTION.CAST al host (además de abrir el
+				    diálogo nativo de Cast), igual que PipButton. Sin esto el host no
+				    puede observar la intención de Cast con los controles por defecto.
+				    Si el host reemplaza la cabecera vía components.controlsHeaderBar,
+				    recibe events.onPress en commonProps y debe despachar CAST él mismo. */}
+				<CastButton onPress={onPress} />
 			</View>
 		</View>
 	);
