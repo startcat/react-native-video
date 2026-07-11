@@ -1,8 +1,9 @@
-import { Icon, Text } from "@ui-kitten/components";
+import { Text } from "@ui-kitten/components";
 import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import { TouchableOpacity } from "react-native";
 import { type MenuItemProps, CONTROL_ACTION } from "../../../../types";
 import { i18n } from "../../../locales";
+import { PlayerIcon } from "../icons/PlayerIcon";
 import { styles } from "./styles";
 
 const MenuItemBase = ({
@@ -40,7 +41,7 @@ const MenuItemBase = ({
 			accessibilityState={{ checked: isSelected }}
 			onPress={handlePress}
 		>
-			{isSelected && <Icon style={styles.menuItemIcon} name="checkmark-outline" />}
+			{isSelected && <PlayerIcon style={styles.menuItemIcon} name="checkmark-outline" />}
 
 			<Text category="p1" style={styles.menuItemTitle}>
 				{data?.label}

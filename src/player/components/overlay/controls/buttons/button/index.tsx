@@ -1,8 +1,8 @@
-import { Icon } from "@ui-kitten/components";
 import React, { useCallback, useMemo } from "react";
 import { TouchableOpacity } from "react-native";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 import { type ButtonProps, BUTTON_SIZE } from "../../../../../types";
+import { PlayerIcon } from "../../../icons/PlayerIcon";
 import { styles } from "./styles";
 
 const HAPTIC_OPTIONS = {
@@ -69,7 +69,7 @@ const ButtonComponent = ({
 			pressRetentionOffset={10}
 			disabled={disabled}
 		>
-			{showIcon && <Icon name={iconName!} style={iconStyles} />}
+			{showIcon && <PlayerIcon name={iconName!} style={iconStyles} />}
 
 			{children}
 		</TouchableOpacity>
