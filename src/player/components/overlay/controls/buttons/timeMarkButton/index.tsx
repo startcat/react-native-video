@@ -1,6 +1,5 @@
-import { Text } from "@ui-kitten/components";
 import React, { useCallback, useMemo } from "react";
-import { TouchableOpacity } from "react-native";
+import { Text, TouchableOpacity } from "react-native";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 import { type TimeMarkButtonProps, CONTROL_ACTION } from "../../../../../types";
 import { styles } from "./styles";
@@ -46,7 +45,7 @@ const TimeMarkButtonComponent = ({
 			pressRetentionOffset={5}
 			disabled={disabled}
 		>
-			<Text category="h5" style={styles.title}>
+			<Text style={styles.title}>
 				{title}
 			</Text>
 		</TouchableOpacity>

@@ -20,6 +20,10 @@ export const styles = StyleSheet.create({
 	title: {
 		textAlign: "center",
 		color: COLOR.theme.accent,
+		// Tipografía equivalente a la categoría "h1" de Eva/ui-kitten (36/800),
+		// replicada localmente para no depender de <ApplicationProvider>.
+		fontSize: 36,
+		fontWeight: "800",
 	},
 	active: {
 		borderColor: "white",

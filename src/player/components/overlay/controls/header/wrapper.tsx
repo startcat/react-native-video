@@ -1,9 +1,8 @@
 import React, { useCallback, useMemo } from "react";
-import { Platform, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { Spinner } from "@ui-kitten/components";
 import { Button } from "../buttons";
 import AirplayButton from "../buttons/airplay";
 import CastButton from "../buttons/cast";
@@ -59,7 +58,7 @@ const ControlsHeaderBarBase = ({
 				entering={FadeIn.duration(ANIMATION_SPEED)}
 				exiting={FadeOut.duration(ANIMATION_SPEED)}
 			>
-				<Spinner />
+				<ActivityIndicator size="small" color="#FFFFFF" />
 			</Animated.View>
 		),
 		[]

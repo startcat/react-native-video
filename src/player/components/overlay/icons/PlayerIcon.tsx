@@ -6,8 +6,9 @@ import Svg, { Circle, Line, Path, Polygon, Polyline, Rect } from "react-native-s
  *  PlayerIcon
  *
  *  Iconos propios de los controles por defecto del Player, dibujados con
- *  react-native-svg. Sustituyen al <Icon> de @ui-kitten/components, que exigía
- *  un <IconRegistry> + @ui-kitten/eva-icons montados por la app anfitriona.
+ *  react-native-svg. Sustituyen al <Icon> de ui-kitten (paquete components), que
+ *  exigía un <IconRegistry> + las eva-icons de ui-kitten montados por la app
+ *  anfitriona.
  *  Como ni el fork ni las apps montan ese registro, revelar los controles por
  *  defecto crasheaba con "Cannot read property 'name' of undefined"
  *  (iconRegistry.service.js). Al dibujar los SVG aquí eliminamos esa dependencia

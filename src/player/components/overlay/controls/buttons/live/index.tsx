@@ -1,6 +1,5 @@
-import { Text } from "@ui-kitten/components";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import ReactNativeHapticFeedback from "react-native-haptic-feedback";
 import { i18n } from "../../../../../locales";
 import { type LiveButtonProps, CONTROL_ACTION } from "../../../../../types";
@@ -63,7 +62,7 @@ const LiveButtonBase = ({
 				pressRetentionOffset={5}
 				disabled={disabled}
 			>
-				<Text category="h5" style={styles.title}>
+				<Text style={styles.title}>
 					{i18n.t("goToLive")}
 				</Text>
 			</TouchableOpacity>
@@ -71,7 +70,7 @@ const LiveButtonBase = ({
 	} else {
 		return (
 			<View style={styles.container}>
-				<Text category="h5" style={styles.title}>
+				<Text style={styles.title}>
 					{i18n.t("video_live")}
 				</Text>
 			</View>

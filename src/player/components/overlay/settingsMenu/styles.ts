@@ -57,6 +57,35 @@ export const styles = StyleSheet.create({
 		paddingHorizontal: SPACING["0.75x"],
 		backgroundColor: "black",
 		borderRadius: 5,
+		// Tipografía equivalente a la categoría "h1" de Eva/ui-kitten (36/800),
+		// replicada localmente para no depender de <ApplicationProvider>.
+		fontSize: 36,
+		fontWeight: "800",
+	},
+	// Botón de acción que sustituye al <Button> de ui-kitten (appearance filled).
+	// "basic" = fondo claro + texto oscuro; "primary" = fondo azul + texto blanco.
+	actionButton: {
+		paddingVertical: SPACING["0.5x"],
+		borderRadius: 4,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	buttonBasic: {
+		backgroundColor: "#E4E9F2",
+	},
+	buttonPrimary: {
+		backgroundColor: "#3366FF",
+	},
+	actionButtonText: {
+		fontSize: 15,
+		fontWeight: "600",
+		textAlign: "center",
+	},
+	actionButtonTextBasic: {
+		color: "#222B45",
+	},
+	actionButtonTextPrimary: {
+		color: "#FFFFFF",
 	},
 	menuItem: {
 		flexDirection: "row",
