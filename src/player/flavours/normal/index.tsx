@@ -134,6 +134,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const refVideoPlayer = useRef<VideoRef>(null);
 	const videoQualityIndex = useRef<number>(-1);
+	// Segundos bufferizados (playableDuration de RNV) para exponerlos en sliderValues.buffered.
+	// Se actualiza en handleOnProgress (VOD) y se lee en handleOnProgressUpdate.
+	const playableDurationRef = useRef<number>(0);
 	const [sliderValues, setSliderValues] = useState<SliderValues | undefined>(undefined);
 	const [isLiveProgramRestricted, setIsLiveProgramRestricted] = useState<boolean>(false);
 	const isLiveProgramRestrictedRef = useRef<boolean>(false);
@@ -922,6 +925,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					liveEdgeOffset: data.liveEdgeOffset,
 					isLiveEdgePosition: data.isLiveEdgePosition,
 					playbackType: data.playbackType,
+					// Buffer VOD: solo cuando NO es DVR (escala coherente con el slider VOD).
+					buffered: sourceRef.current?.isDVR
+						? undefined
+						: playableDurationRef.current,
 				});
 
 				if (data.playbackType !== undefined) {
@@ -1966,6 +1973,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// Solo procesar progreso para contenido principal, no para tudum
 		if (currentSourceType.current === "content") {
 			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR) {
+				// Buffer VOD: playableDuration (segundos bufferizados desde el inicio) en la
+				// misma escala que el progreso. Se expone en sliderValues.buffered para el
+				// slot sliderVOD. Solo VOD: en DVR/live la escala del slider no coincide.
+				playableDurationRef.current =
+					typeof e.playableDuration === "number" ? e.playableDuration : 0;
 				// Para VOD: Preferir duración de onLoad, pero usar seekableDuration como fallback.
 				// ANTES de que el anuncio termine, NO confiar en seekableDuration porque puede
 				// contener la duración del preroll ad (ej: 20s) en lugar del contenido real.

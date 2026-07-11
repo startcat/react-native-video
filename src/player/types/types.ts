@@ -329,6 +329,9 @@ export interface SliderValues {
 
 	// Propiedades específicas de VOD (opcionales)
 	duration?: number; // Duración del media para contenido VOD
+	buffered?: number; // Segundos de contenido bufferizado (playableDuration de RNV).
+	// Misma escala que `progress`/`maximumValue` en VOD, para pintar la barra de
+	// buffer en el slot sliderVOD. Opcional: undefined si el dato no está disponible.
 
 	// Propiedades específicas de DVR (opcionales)
 	liveEdge?: number | null; // Posición temporal del live edge
