@@ -2595,6 +2595,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					audioIndex={currentAudioIndex ?? props.audioIndex}
 					subtitleIndex={currentSubtitleIndex ?? props.subtitleIndex}
 					speedRate={speedRate}
+					hideControlsDelay={props.features?.hideControlsDelay}
 					// Nuevas Props Agrupadas
 					playerMetadata={props.playerMetadata}
 					playerProgress={{

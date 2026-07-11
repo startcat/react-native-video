@@ -563,6 +563,10 @@ export interface OverlayProps extends ICommonPlayerProps {
 	subtitleIndex?: number;
 	speedRate?: number;
 
+	// Milisegundos antes de auto-ocultar los controles (default 5000). Configurable
+	// vía features.hideControlsDelay del Player.
+	hideControlsDelay?: number;
+
 	// Custom Components
 	components?: IPlayerCustomVideoComponents;
 

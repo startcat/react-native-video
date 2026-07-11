@@ -158,6 +158,13 @@ export interface IPlayerFeatures {
 	 * (el output switcher del sistema requiere una MediaSession activa).
 	 */
 	backgroundPlayback?: boolean;
+	/**
+	 * Milisegundos de inactividad tras los cuales los controles se ocultan
+	 * automáticamente. Por defecto 5000 ms. Configurable por la app anfitriona sin
+	 * forkear el player, p. ej. `features={{ hideControlsDelay: 8000 }}`. No afecta
+	 * cuando los controles están fijados (AirPlay/alwaysVisible).
+	 */
+	hideControlsDelay?: number;
 }
 
 export interface IPlayerLogger {
