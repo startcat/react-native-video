@@ -1,5 +1,12 @@
 
 
+# [8.4.0](https://github.com/startcat/react-native-video/compare/v8.3.0...v8.4.0) (2026-07-13)
+
+
+### Bug Fixes
+
+* **cast:** route IDLE by idleReason + stop autoload churn (PLAYER-383/382) ([8922553](https://github.com/startcat/react-native-video/commit/8922553290f2100144f31cabbbc8091cf3cf97b2))
+
 # [8.3.0](https://github.com/startcat/react-native-video/compare/v8.2.1...v8.3.0) (2026-07-13)
 
 
