@@ -1,20 +1,15 @@
-import { Button, Text } from "@ui-kitten/components";
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Animated, { SlideInDown, SlideOutDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { type MenuProps, CONTROL_ACTION } from "../../../../types";
+import { type MenuProps, CONTROL_ACTION } from "../../../types";
 import { i18n } from "../../../locales";
 import { SettingsMenuItem } from "./item";
 import { styles } from "./styles";
 
 const ANIMATION_SPEED = 150;
 
-const Header = ({ title }: { title: string }) => (
-	<Text category="h1" style={styles.title}>
-		{title}
-	</Text>
-);
+const Header = ({ title }: { title: string }) => <Text style={styles.title}>{title}</Text>;
 
 const SettingsMenuBase = ({
 	menuData,
@@ -48,7 +43,7 @@ const SettingsMenuBase = ({
 				propOnPress(CONTROL_ACTION.VIDEO_INDEX, selectedVideoIndex);
 			}
 
-			if (selectedSpeedRate !== speedRate && typeof selectedVideoIndex === "number") {
+			if (selectedSpeedRate !== speedRate && typeof selectedSpeedRate === "number") {
 				propOnPress(CONTROL_ACTION.SPEED_RATE, selectedSpeedRate);
 			}
 		}
@@ -132,22 +127,26 @@ const SettingsMenuBase = ({
 				</View>
 
 				<View style={styles.bottomContents}>
-					<Button
-						style={styles.mainButton}
-						status="basic"
+					<TouchableOpacity
+						style={[styles.mainButton, styles.actionButton, styles.buttonBasic]}
 						onPress={handleClose}
 						accessibilityRole="button"
+						activeOpacity={0.8}
 					>
-						{i18n.t("cancel")}
-					</Button>
-					<Button
-						style={styles.mainButton}
-						status="primary"
+						<Text style={[styles.actionButtonText, styles.actionButtonTextBasic]}>
+							{i18n.t("cancel")}
+						</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={[styles.mainButton, styles.actionButton, styles.buttonPrimary]}
 						onPress={handleAccept}
 						accessibilityRole="button"
+						activeOpacity={0.8}
 					>
-						{i18n.t("accept")}
-					</Button>
+						<Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
+							{i18n.t("accept")}
+						</Text>
+					</TouchableOpacity>
 				</View>
 			</Pressable>
 		</Animated.View>

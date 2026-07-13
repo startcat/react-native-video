@@ -1,6 +1,5 @@
-import { Text } from "@ui-kitten/components";
 import React, { useCallback, useMemo } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { BUTTON_SIZE, CONTROL_ACTION, type ControlsBarProps } from "../../../../types";
 import { Button, LiveButton } from "../buttons";
 import { styles } from "./styles";
@@ -168,7 +167,7 @@ const ControlsBottomBarBase = ({
 
 			<View style={styles.middle}>
 				{title && (
-					<Text category="h4" style={styles.title} ellipsizeMode="tail" numberOfLines={1}>
+					<Text style={styles.title} ellipsizeMode="tail" numberOfLines={1}>
 						{title}
 					</Text>
 				)}

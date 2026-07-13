@@ -1,6 +1,5 @@
-import { Spinner } from "@ui-kitten/components";
 import React, { createElement, useEffect, useRef, useState } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import BackgroundTimer from "react-native-background-timer";
 import { EventRegister } from "react-native-event-listeners";
 import {
@@ -345,7 +344,7 @@ export function AudioPlayer(props: AudioPlayerProps): React.ReactElement | null 
 			{(!contentId?.current || !dpoData) && isBarVisible
 				? Loader || (
 						<View style={styles.contents}>
-							<Spinner />
+							<ActivityIndicator size="small" color="#FFFFFF" />
 						</View>
 					)
 				: null}

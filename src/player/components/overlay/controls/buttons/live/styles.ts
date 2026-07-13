@@ -21,5 +21,9 @@ export const styles = StyleSheet.create({
 	},
 	title: {
 		color: "white",
+		// Tipografía equivalente a la categoría "h5" de Eva/ui-kitten (22/800),
+		// replicada localmente para no depender de <ApplicationProvider>.
+		fontSize: 22,
+		fontWeight: "800",
 	},
 });

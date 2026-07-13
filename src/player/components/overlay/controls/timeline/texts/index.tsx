@@ -1,9 +1,28 @@
-import { Text } from "@ui-kitten/components";
 import React, { useMemo } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { type TimelineTextProps } from "../../../../../../types";
 import { parseToCounter } from "../../../../../utils/time";
 import { styles } from "./styles";
+
+// Tipografía equivalente a las categorías de texto de Eva/ui-kitten
+// (fontSize/fontWeight), replicada localmente para no depender de
+// <ApplicationProvider>. Hoy solo se usa "h5", pero cubrimos todas las
+// categorías que admite TimelineTextProps["category"].
+const CATEGORY_TYPOGRAPHY: Record<string, { fontSize: number; fontWeight: "400" | "600" | "800" }> =
+	{
+		h1: { fontSize: 36, fontWeight: "800" },
+		h2: { fontSize: 32, fontWeight: "800" },
+		h3: { fontSize: 30, fontWeight: "800" },
+		h4: { fontSize: 26, fontWeight: "800" },
+		h5: { fontSize: 22, fontWeight: "800" },
+		h6: { fontSize: 18, fontWeight: "800" },
+		s1: { fontSize: 15, fontWeight: "600" },
+		s2: { fontSize: 13, fontWeight: "600" },
+		p1: { fontSize: 15, fontWeight: "400" },
+		p2: { fontSize: 13, fontWeight: "400" },
+		c1: { fontSize: 12, fontWeight: "400" },
+		c2: { fontSize: 12, fontWeight: "600" },
+	};
 
 const TimelineTextBase = ({
 	value,
@@ -35,7 +54,7 @@ const TimelineTextBase = ({
 
 	return (
 		<View style={[styles.container, containerStyle]}>
-			<Text category={category} style={[styles.text, textStyle]}>
+			<Text style={[styles.text, CATEGORY_TYPOGRAPHY[category], textStyle]}>
 				{textContent}
 			</Text>
 		</View>

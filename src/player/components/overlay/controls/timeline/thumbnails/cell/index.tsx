@@ -1,6 +1,5 @@
-import { Text } from "@ui-kitten/components";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import FastImage from "react-native-fast-image";
 
 import { parseToCounter } from "../../../../../../utils/time";
@@ -98,11 +97,7 @@ const ThumbnailCellBase = ({
 				/>
 			)}
 
-			{isActive && (
-				<Text category="h1" style={styles.title}>
-					{timeText}
-				</Text>
-			)}
+			{isActive && <Text style={styles.title}>{timeText}</Text>}
 		</View>
 	);
 };

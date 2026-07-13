@@ -33,5 +33,9 @@ export const styles = StyleSheet.create({
 		textAlign: "center",
 		color: "white",
 		paddingHorizontal: 160,
+		// Tipografía equivalente a la categoría "h4" de Eva/ui-kitten (26/800),
+		// replicada localmente para no depender de <ApplicationProvider>.
+		fontSize: 26,
+		fontWeight: "800",
 	},
 });

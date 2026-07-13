@@ -28,7 +28,6 @@ yarn add react-native-orientation-locker@^1.7.0
 yarn add react-native-system-navigation-bar@^2.6.4
 
 # UI y componentes visuales
-yarn add @ui-kitten/components@^5.3.1
 yarn add react-native-actions-sheet@^0.9.3
 yarn add react-native-fast-image@^8.6.3
 yarn add react-native-haptic-feedback@2.2.0
@@ -57,7 +56,6 @@ yarn add react-native-event-listeners@^1.0.7
 | `@react-native-community/slider` | Control deslizante nativo | Barra de progreso, control de volumen |
 | `@react-navigation/native` | Navegación entre pantallas | Navegación del reproductor |
 | `@sayem314/react-native-keep-awake` | Mantener pantalla activa | Evitar sleep durante reproducción |
-| `@ui-kitten/components` | Componentes UI avanzados | Interfaz moderna del reproductor |
 | `axios` | Cliente HTTP | Peticiones de API, metadatos |
 | `qs` | Manipulación de query strings | Parámetros de URL, configuración |
 | `react-airplay` | Detección AirPlay | Conectividad automática AirPlay |
@@ -82,7 +80,6 @@ yarn add \
   @react-native-community/slider@^4.5.2 \
   @react-navigation/native@^6.1.17 \
   @sayem314/react-native-keep-awake@^1.3.0 \
-  @ui-kitten/components@^5.3.1 \
   axios@^1.7.3 \
   qs@^6.14.0 \
   react-airplay@^1.2.0 \

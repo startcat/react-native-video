@@ -16,7 +16,9 @@ import { styles } from "./styles";
 const Menu = React.lazy(() => import("./menu/wrapper"));
 const SettingsMenu = React.lazy(() => import("./settingsMenu/wrapper"));
 
-const PLAYER_HIDE_CONTROLS = 5000;
+// Retardo por defecto (ms) antes de auto-ocultar los controles. Configurable por
+// la app vía features.hideControlsDelay del Player → OverlayProps.hideControlsDelay.
+const DEFAULT_HIDE_CONTROLS_DELAY = 5000;
 
 const OverlayBase = (props: OverlayProps): React.ReactElement => {
 	const insets = useSafeAreaInsets();
@@ -63,10 +65,10 @@ const OverlayBase = (props: OverlayProps): React.ReactElement => {
 		if (visibleControls && !avoidDissapear) {
 			controlsTimeout.current = setTimeout(
 				() => setVisibleControls(false),
-				PLAYER_HIDE_CONTROLS
+				props.hideControlsDelay ?? DEFAULT_HIDE_CONTROLS_DELAY
 			);
 		}
-	}, [visibleControls, avoidDissapear, cancelControlsTimer]);
+	}, [visibleControls, avoidDissapear, cancelControlsTimer, props.hideControlsDelay]);
 
 	useEffect(() => {
 		resetControlsTimer();
