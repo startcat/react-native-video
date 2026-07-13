@@ -1,5 +1,22 @@
 
 
+# [8.3.0](https://github.com/startcat/react-native-video/compare/v8.2.1...v8.3.0) (2026-07-13)
+
+
+### Bug Fixes
+
+* **overlay:** corrige la ruta de import de types en los menús default (CONTROL_ACTION undefined) ([21e5079](https://github.com/startcat/react-native-video/commit/21e5079eda7b00819e8d66eb1562cfbb68098a8e))
+* **overlay:** desacoplar controles default de ui-kitten (Text/Spinner/Button) — completa PLAYER-391 ([354c423](https://github.com/startcat/react-native-video/commit/354c42351f2ffd10a415ac4b3fd208e0b4492d48))
+* **player:** controles por defecto sin dependencia implícita de ui-kitten IconRegistry ([269b4ca](https://github.com/startcat/react-native-video/commit/269b4cacbb872b6a9bbbc730a3bed59b590e8a91))
+* **player:** despacha CONTROL_ACTION.CAST desde la cabecera por defecto ([0e196b2](https://github.com/startcat/react-native-video/commit/0e196b22c9bf052ae58f07d4f20d68b8009d212c))
+* **player:** implementa SPEED_RATE en NormalFlavour (vídeo) ([b5d46d1](https://github.com/startcat/react-native-video/commit/b5d46d1f7fc35ec564f29ae12dad3e800b04faed))
+
+
+### Features
+
+* **player:** expone el buffer (playableDuration) al slot sliderVOD ([e23cac0](https://github.com/startcat/react-native-video/commit/e23cac0b0878ecaa884d8ec5654d6778124b90b5))
+* **player:** retardo de auto-ocultado de controles configurable ([52447ff](https://github.com/startcat/react-native-video/commit/52447ffdaa19614be034094f1e8c06fdabe5e845))
+
 ## [8.2.1](https://github.com/startcat/react-native-video/compare/v8.2.0...v8.2.1) (2026-07-10)
 
 
