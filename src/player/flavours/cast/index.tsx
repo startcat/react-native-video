@@ -42,6 +42,7 @@ import { TudumClass } from "../../modules/tudum";
 
 // Importar hooks individuales de Cast desde el módulo @overon/react-native-cast
 import {
+	type MediaPlayerIdleReason,
 	useCastConnected,
 	useCastManager,
 	useCastMedia,
@@ -50,6 +51,7 @@ import {
 	useCastProgress,
 	useCastVolume,
 } from "@overon/react-native-cast";
+import { isNaturalCastEnd } from "./castEndPolicy";
 
 import { handleErrorException, PlayerError, toPlayerError } from "../../core/errors";
 import {
@@ -268,19 +270,39 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		// masked here.
 	}, [isContentLoaded]);
 
-	const onPlaybackEndedCallback = useCallback((): boolean => {
-		// Guard: for live/DVR content, the receiver going IDLE during ad breaks
-		// is NOT a real end-of-content event. Suppress early before reaching handleOnEnd.
-		if (sourceRef.current?.isLive || sourceRef.current?.isDVR) {
-			currentLogger.current?.info(
-				"Cast Manager - Playback ended suppressed: live/DVR content does not end via IDLE"
-			);
-			return false; // Suppressed — handleOnEnd not called
-		}
-		currentLogger.current?.info("Cast Manager - Playback ended");
-		onEndRef.current?.();
-		return true;
-	}, []);
+	const onPlaybackEndedCallback = useCallback(
+		(info?: { idleReason: MediaPlayerIdleReason | null }): boolean => {
+			// Guard: for live/DVR content, the receiver going IDLE during ad breaks
+			// is NOT a real end-of-content event. Suppress early before reaching handleOnEnd.
+			if (sourceRef.current?.isLive || sourceRef.current?.isDVR) {
+				currentLogger.current?.info(
+					"Cast Manager - Playback ended suppressed: live/DVR content does not end via IDLE"
+				);
+				return false; // Suppressed — handleOnEnd not called
+			}
+
+			// PLAYER-383: route by the receiver's idleReason (a fact exposed by the
+			// module — the policy lives HERE, in RNV). Only a natural end (FINISHED)
+			// on VOD authorises onEnd → auto-next (transition T11). A STOP from the
+			// receiver ("Atura l'emissió" = CANCELLED), a fresh LOAD (INTERRUPTED) or
+			// an unknown reason (null) is a handoff of the SAME content back to local
+			// playback, NOT an end — so we must NOT fire onEnd/auto-next (T12/T13).
+			// The local handoff itself is driven by the disconnect/flavour-switch path;
+			// here we only make sure we don't misfire the natural-end route.
+			const idleReason = info?.idleReason ?? null;
+			if (!isNaturalCastEnd(idleReason)) {
+				currentLogger.current?.info(
+					`Cast Manager - Playback IDLE with reason '${idleReason}' — handoff of same content, NOT a natural end; suppressing onEnd/auto-next`
+				);
+				return false; // Suppressed — not a natural end
+			}
+
+			currentLogger.current?.info("Cast Manager - Playback ended (FINISHED — natural end)");
+			onEndRef.current?.();
+			return true;
+		},
+		[]
+	);
 
 	const onSeekCompletedCallback = useCallback((position: number) => {
 		currentLogger.current?.debug(`Cast Manager - Seek completed: ${position}`);
@@ -521,6 +543,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// Detectar cuando el contenido termina (solo VOD — live/DVR no termina via IDLE)
 	// Guard 1: live/DVR content never "ends" naturally via IDLE state
 	// Guard 2: durante ad breaks el receiver transiciona el contenido principal a IDLE
+	// Guard 3 (PLAYER-383): solo idleReason=FINISHED es un fin natural → auto-next.
 	useEffect(() => {
 		if (castMedia.isIdle && isContentLoaded && currentSourceType.current) {
 			// Guard 1: Live/DVR content — IDLE does not mean stream ended
@@ -537,10 +560,20 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				);
 				return;
 			}
-			currentLogger.current?.info("Cast content ended from idle state");
+			// Guard 3 (PLAYER-383): only a natural end (FINISHED) triggers auto-next (T11).
+			// A STOP ("Atura l'emissió" = CANCELLED), a fresh LOAD (INTERRUPTED) or an
+			// unknown reason (null) is a handoff of the same content, not an end (T12/T13)
+			// — the module exposes the reason as a fact; the routing policy lives here.
+			if (!isNaturalCastEnd(castMedia.idleReason)) {
+				currentLogger.current?.info(
+					`Cast content went IDLE with reason '${castMedia.idleReason}' — handoff of same content, NOT a natural end; suppressing auto-next`
+				);
+				return;
+			}
+			currentLogger.current?.info("Cast content ended from idle state (FINISHED)");
 			handleOnEnd();
 		}
-	}, [castMedia.isIdle, isContentLoaded]);
+	}, [castMedia.isIdle, castMedia.idleReason, isContentLoaded]);
 
 	// Sincronizar metadatos cuando el contenido cambia desde otro dispositivo
 	useEffect(() => {
@@ -792,6 +825,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		props.languagesMapping,
 	]);
 
+	// PLAYER-382: depend on the granular `canControl` selector, NOT on the whole
+	// `castManager` object. `useCastManager` now returns a stable identity (memoized
+	// in the module), but the autoload decision only cares about `canControl` — a
+	// boolean. Depending on the object identity re-ran this effect on every progress
+	// tick (~24 Hz) because each render used to hand back a new manager literal.
+	// Extracting the boolean keeps the effect re-evaluated only on a real change.
+	const castCanControl = castManager?.state?.canControl;
+
 	// Cargar contenido cuando Cast esté listo
 	useEffect(() => {
 		if (
@@ -801,7 +842,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			!isContentLoaded &&
 			!isLoadingContent &&
 			!hasTriedLoading &&
-			castManager?.state?.canControl
+			castCanControl
 		) {
 			currentLogger.current?.debug("Cast ready - Loading content automatically");
 			setHasTriedLoading(true);
@@ -821,7 +862,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				loadContentWithCastManager(sourceData);
 			}, 100);
 		}
-	}, [castConnected, isContentLoaded, isLoadingContent, hasTriedLoading, castManager]);
+	}, [castConnected, isContentLoaded, isLoadingContent, hasTriedLoading, castCanControl]);
 
 	// Sync con Cast states
 	useEffect(() => {
