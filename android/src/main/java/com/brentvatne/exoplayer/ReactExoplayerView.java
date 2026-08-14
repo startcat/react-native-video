@@ -1800,6 +1800,13 @@ public class ReactExoplayerView extends FrameLayout implements
             boolean playWhenReady = player.getPlayWhenReady();
             String text = "onStateChanged: playWhenReady=" + playWhenReady + ", playbackState=";
             eventEmitter.playbackRateChange(playWhenReady && playbackState == ExoPlayer.STATE_READY ? 1.0f : 0.0f);
+            // onIsPlayingChanged no cubre un cambio de playWhenReady mientras el estado no es
+            // READY (pausar durante un buffering deja isPlaying en false antes y despues), asi
+            // que JS nunca se enteraria. Re-emitimos aqui: el consumidor solo reacciona a
+            // transiciones, de modo que el evento duplicado del caso normal es inocuo.
+            if (events.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
+                eventEmitter.playbackStateChanged(player.isPlaying(), playWhenReady);
+            }
             switch (playbackState) {
                 case Player.STATE_IDLE:
                     text += "idle";
@@ -2141,7 +2148,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
     @Override
     public void onIsPlayingChanged(boolean isPlaying) {
-        eventEmitter.playbackStateChanged(isPlaying);
+        eventEmitter.playbackStateChanged(isPlaying, player != null && player.getPlayWhenReady());
         if (enterPictureInPictureOnLeave) {
             // Only auto-enter PiP while actually playing (parity with iOS)
             updatePictureInPictureAutoEnter();

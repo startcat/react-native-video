@@ -9,6 +9,7 @@ import {
 } from "../../../specs/VideoNativeComponent";
 
 import { type OnLoadData, type OnReceiveAdEventData } from "../../../types/events";
+import { type OnPlaybackStateChangedData } from "../../../specs/VideoNativeComponent";
 
 import Video, { type VideoRef } from "../../../Video";
 import {
@@ -895,7 +896,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			currentLogger.current?.debug("handleOnLoad - Processing content load");
 
 			// Para VOD, establecer la duración desde el evento onLoad
-			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration) {
+			if (!sourceRef.current?.isLive && !sourceRef.current?.isDVR && e.duration > 0) {
 				currentLogger.current?.info(
 					`handleOnLoad - Setting VOD duration from load event: ${e.duration}s`
 				);
@@ -982,7 +983,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 						start: 0,
 						end: currentDuration > 0 ? currentDuration : e.seekableDuration,
 					},
-					duration: currentDuration, // Mantener duración existente
+					duration: currentDuration > 0 ? currentDuration : e.seekableDuration,
 					isBuffering: isBuffering,
 					isPaused: paused,
 				});
@@ -1084,6 +1085,41 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		plugins: props.features?.analyticsConfig || [],
 		onInternalError: handleOnInternalError,
 	});
+
+	/*
+	 *  Android: la MediaSession (pantalla de bloqueo, teclas de auriculares, coche)
+	 *  la gobierna el módulo player-now-playing sobre el ExoPlayer CRUDO — no pasa
+	 *  por aquí. Sin esto, `paused` se queda con el último valor puesto desde la UI
+	 *  y el flavour sigue emitiendo `isPaused: false` con el audio parado: iconos
+	 *  congelados y el primer toque del usuario desperdiciado.
+	 *
+	 *  Se reconcilia contra `playWhenReady` y NO contra `isPlaying`: este último se
+	 *  cae también al buffear y al perder el foco de audio de forma transitoria, y
+	 *  como `paused` es una prop controlada eso pausaría de verdad — y no volvería
+	 *  solo. En iOS no llega el campo (lo resuelve el command handler del hook de
+	 *  abajo), así que aquí queda en no-op.
+	 */
+	const handleOnPlaybackStateChanged = useCallback(
+		(e: OnPlaybackStateChangedData) => {
+			videoEvents.onPlaybackStateChanged?.(e);
+
+			if (typeof e?.playWhenReady !== "boolean") {
+				return;
+			}
+
+			setPaused(current => {
+				const externallyPaused = !e.playWhenReady;
+				if (current === externallyPaused) {
+					return current;
+				}
+				currentLogger.current?.info(
+					`Estado de pausa reconciliado con el player nativo: ${externallyPaused}`
+				);
+				return externallyPaused;
+			});
+		},
+		[videoEvents]
+	);
 
 	// Hook para el lock-screen / Control Center (iOS) vía player-now-playing
 	const { nowPlayingEvents } = useNowPlaying({
@@ -1202,7 +1238,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					)}
 					onBuffer={combineEventHandlers(handleOnBuffer, videoEvents.onBuffer)}
 					onSeek={videoEvents.onSeek}
-					onPlaybackStateChanged={videoEvents.onPlaybackStateChanged}
+					onPlaybackStateChanged={handleOnPlaybackStateChanged}
 					onPlaybackRateChange={videoEvents.onPlaybackRateChange}
 					onVolumeChange={videoEvents.onVolumeChange}
 					onAudioTracks={videoEvents.onAudioTracks}
@@ -1212,7 +1248,13 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 					onPlaybackMetrics={videoEvents.onPlaybackMetrics}
 					onAspectRatio={videoEvents.onAspectRatio}
 					onTimedMetadata={videoEvents.onTimedMetadata}
-					onAudioBecomingNoisy={videoEvents.onAudioBecomingNoisy}
+					onAudioBecomingNoisy={() => {
+						// El nativo solo EMITE el evento y el handler de analiticas solo REPORTA
+						// un onPause: nadie pausaba de verdad, asi que al desenchufar los cascos
+						// el audio seguia sonando por el altavoz (y la analitica mentia).
+						videoEvents.onAudioBecomingNoisy?.();
+						handleOnControlsPress(CONTROL_ACTION.PAUSE, true);
+					}}
 					onIdle={videoEvents.onIdle}
 					onExternalPlaybackChange={videoEvents.onExternalPlaybackChange}
 					onFullscreenPlayerWillPresent={videoEvents.onFullscreenPlayerWillPresent}

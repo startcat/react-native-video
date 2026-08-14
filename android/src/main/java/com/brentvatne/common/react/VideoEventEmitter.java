@@ -175,6 +175,7 @@ public class VideoEventEmitter {
     private static final String EVENT_PROP_TOTAL_BYTES_TRANSFERRED = "totalBytesTransferred";
 
     private static final String EVENT_PROP_IS_PLAYING = "isPlaying";
+    private static final String EVENT_PROP_PLAY_WHEN_READY = "playWhenReady";
 
     private static final String EVENT_PROP_PIP_IS_ACTIVE = "isActive";
 
@@ -371,9 +372,19 @@ public class VideoEventEmitter {
         receiveEvent(EVENT_BUFFER, map);
     }
 
-    public void playbackStateChanged(boolean isPlaying) {
+    /**
+     * @param isPlaying     ExoPlayer.isPlaying(): playback is actually producing audio/video.
+     *                      Goes false on buffering and on transient playback suppression, so it
+     *                      does NOT represent the user's play/pause intent.
+     * @param playWhenReady ExoPlayer.getPlayWhenReady(): the intent itself. This is what a JS
+     *                      layer holding a controlled `paused` prop must mirror — anything the
+     *                      MediaSession (lock-screen, headset keys, Android Auto) does to the
+     *                      player natively is only observable from here.
+     */
+    public void playbackStateChanged(boolean isPlaying, boolean playWhenReady) {
         WritableMap map = Arguments.createMap();
         map.putBoolean(EVENT_PROP_IS_PLAYING, isPlaying);
+        map.putBoolean(EVENT_PROP_PLAY_WHEN_READY, playWhenReady);
         receiveEvent(EVENT_PLAYBACK_STATE_CHANGED, map);
     }
 
