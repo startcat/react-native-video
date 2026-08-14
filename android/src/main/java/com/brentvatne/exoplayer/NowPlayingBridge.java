@@ -38,6 +38,19 @@ final class NowPlayingBridge {
     private Player.Listener forwardingListener;
     private boolean registered = false;
 
+    /**
+     * The adapter proxy handed to the module, kept so {@link #unregister()} can give
+     * back the very same instance: the module resolves session ownership BY IDENTITY
+     * and ignores a teardown coming from an adapter it has already replaced.
+     */
+    private Object adapterProxy;
+
+    /**
+     * The React context we registered against. Needed to reach the module again on
+     * teardown; the module is not addressable from the player alone.
+     */
+    private ReactContext registeredContext;
+
     NowPlayingBridge(ExoPlayer player) {
         this.player = player;
     }
@@ -57,12 +70,14 @@ final class NowPlayingBridge {
                 return;
             }
             Class<?> adapterInterface = Class.forName(ADAPTER_INTERFACE);
-            Object adapterProxy = Proxy.newProxyInstance(
+            Object proxy = Proxy.newProxyInstance(
                     adapterInterface.getClassLoader(),
                     new Class<?>[] {adapterInterface},
                     new AdapterInvocationHandler());
             Method registerMethod = moduleClass.getMethod("registerAdapter", adapterInterface);
-            registerMethod.invoke(module, adapterProxy);
+            registerMethod.invoke(module, proxy);
+            adapterProxy = proxy;
+            registeredContext = reactContext;
             registered = true;
         } catch (ClassNotFoundException e) {
             DebugLog.d(TAG, "player-now-playing module not installed; lock-screen controls disabled");
@@ -72,10 +87,27 @@ final class NowPlayingBridge {
     }
 
     /**
-     * Stops forwarding player events. The module drops its MediaSession when the
-     * underlying player is released (it owns the session lifecycle).
+     * Symmetric counterpart of {@link #register(ReactContext)}: tells the module this
+     * player is going away, then stops forwarding events.
+     *
+     * <p>This used to only drop our own listener, on the assumption —stated in this
+     * very Javadoc— that "the module drops its MediaSession when the underlying player
+     * is released". That assumption was false: nothing in the module observes the
+     * player being released. The session outlived us holding a released player, kept
+     * its foreground service running, and made the NEXT session creation fail with
+     * {@code Session ID must be unique} — with a {@code startForegroundService()}
+     * already in flight, which the Android watchdog collected by killing the process.
+     *
+     * <p>We call {@code unregisterAdapter} and NOT {@code disable()}: the latter's
+     * {@code release()} also releases the session's player, and we call this right
+     * before our own {@code player.release()} — and from {@code onDetachedFromWindow},
+     * where the player may still be in use.
+     *
+     * <p>Reflective and version tolerant: against a module older than 1.6.0 the method
+     * does not exist and this degrades to the previous behaviour.
      */
     void unregister() {
+        releaseModuleSession();
         if (forwardingListener != null) {
             try {
                 player.removeListener(forwardingListener);
@@ -85,6 +117,32 @@ final class NowPlayingBridge {
         }
         listeners.clear();
         registered = false;
+    }
+
+    private void releaseModuleSession() {
+        Object proxy = adapterProxy;
+        ReactContext reactContext = registeredContext;
+        adapterProxy = null;
+        registeredContext = null;
+        if (proxy == null || reactContext == null) {
+            return;
+        }
+        try {
+            Class<?> moduleClass = Class.forName(MODULE_CLASS);
+            Object module = reactContext.getCatalystInstance().getNativeModule(MODULE_NAME);
+            if (module == null || !moduleClass.isInstance(module)) {
+                return;
+            }
+            Class<?> adapterInterface = Class.forName(ADAPTER_INTERFACE);
+            Method unregisterMethod = moduleClass.getMethod("unregisterAdapter", adapterInterface);
+            unregisterMethod.invoke(module, proxy);
+        } catch (NoSuchMethodException e) {
+            DebugLog.w(TAG, "player-now-playing < 1.6.0: its MediaSession will outlive this player");
+        } catch (ClassNotFoundException e) {
+            // Module not installed: nothing was registered, nothing to release.
+        } catch (Exception e) {
+            DebugLog.w(TAG, "Could not unregister now-playing adapter: " + e.getMessage());
+        }
     }
 
     private void addListener(Object listener) {

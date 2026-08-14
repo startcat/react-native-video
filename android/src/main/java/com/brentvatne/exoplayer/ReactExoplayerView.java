@@ -1572,7 +1572,14 @@ public class ReactExoplayerView extends FrameLayout implements
                 adsLoader.setPlayer(null);
             }
  
-            if(nowPlayingBridge != null && (!playInBackground || !isInBackground)) {
+            // Unconditional: this method releases the player a few lines below, so
+            // there is no case where keeping the bridge is right. The old guard
+            // (`!playInBackground || !isInBackground`) skipped the teardown exactly
+            // when the app was backgrounded with background playback on — leaving the
+            // now-playing MediaSession, and its foreground service, attached to a
+            // player about to die. That is the path that produced the orphaned session
+            // which then killed the process on the next player.
+            if (nowPlayingBridge != null) {
                 nowPlayingBridge.unregister();
                 nowPlayingBridge = null;
             }
