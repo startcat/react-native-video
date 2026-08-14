@@ -1,5 +1,12 @@
 
 
+## [8.4.1](https://github.com/startcat/react-native-video/compare/v8.4.0...v8.4.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* **android:** avisar a now-playing de que el player se va ([4d3bcfa](https://github.com/startcat/react-native-video/commit/4d3bcfa5b4bdb4012921e403f8327a457789ee5a))
+
 # [8.4.0](https://github.com/startcat/react-native-video/compare/v8.3.0...v8.4.0) (2026-07-13)
 
 
