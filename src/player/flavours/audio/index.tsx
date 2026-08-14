@@ -1094,6 +1094,13 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		paused,
 		refVideoPlayer,
 		setPaused,
+		// Se reutiliza el mismo camino que el botón de la UI (limpia isContentLoaded y
+		// emite la analítica de navegación), para que un next del coche o de la
+		// pantalla de bloqueo sea indistinguible de uno pulsado en pantalla.
+		onNext: props.events?.onNext ? () => handleOnControlsPress(CONTROL_ACTION.NEXT) : undefined,
+		onPrevious: props.events?.onPrevious
+			? () => handleOnControlsPress(CONTROL_ACTION.PREVIOUS)
+			: undefined,
 	});
 
 	/*
