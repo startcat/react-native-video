@@ -8,7 +8,7 @@ import React
 
 // MARK: - RCTVideo
 
-class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverHandler {
+class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverHandler, RCTInvalidating {
     private var _player: AVPlayer?
     private var _playerItem: AVPlayerItem?
     private var _source: VideoSource?
@@ -1550,7 +1550,22 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
 
     // MARK: - Lifecycle
 
-    override func removeFromSuperview() {
+    /* Evita que el desmontaje corra dos veces si llegan `invalidate()` y
+     * `removeFromSuperview()` para la misma vista. */
+    private var _didTeardown = false
+
+    /*
+     * Desmontaje del player. Lo comparten `removeFromSuperview()` e `invalidate()`.
+     *
+     * Hace falta compartirlo porque React Native solo llama a `removeFromSuperview()`
+     * cuando la vista es hijo DIRECTO del contenedor que se vacia
+     * (`RCTUIManager._removeChildren:fromContainer:`). Si `<Video>` va anidado —el caso
+     * de una pantalla de player que se cierra— el unico aviso que llega es `invalidate()`,
+     * desde `RCTUIManager._purgeChildren`.
+     */
+    private func teardownPlayer() {
+        if _didTeardown { return }
+        _didTeardown = true
 
         if let player = _player {
             // Detect if we're using AirPlay
@@ -1597,8 +1612,32 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         _eventDispatcher = nil
         // swiftlint:disable:next notification_center_detachment
         NotificationCenter.default.removeObserver(self)
+    }
 
+    override func removeFromSuperview() {
+        teardownPlayer()
         super.removeFromSuperview()
+    }
+
+    /*
+     * `RCTInvalidating`: React Native lo invoca sobre TODOS los descendientes al desmontar
+     * un subarbol (`RCTUIManager._purgeChildren`), que es el unico aviso que recibe un
+     * `<Video>` anidado.
+     *
+     * Sin esto el `AVPlayer` sobrevivia al cierre de la pantalla y seguia sonando
+     * indefinidamente: `deinit` tampoco lo salvaba, porque el observador periodico
+     * (`addPeriodicTimeObserver`) y los KVO capturan la vista en fuerte y forman un ciclo
+     * de retencion con `_player`. En Android no se notaba porque ExoPlayer se libera junto
+     * con la vista nativa.
+     */
+    func invalidate() {
+        if Thread.isMainThread {
+            teardownPlayer()
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.teardownPlayer()
+            }
+        }
     }
 
     // MARK: - Export
