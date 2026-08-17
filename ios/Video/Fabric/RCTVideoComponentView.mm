@@ -220,7 +220,15 @@ static Class<RNVideoFabricShimInterface> RNVideoFabricShimClass(void)
              }
              auto eventEmitter = strongSelf->_eventEmitter;
              if (!eventEmitter) {
+               NSLog(@"RNVEVT dropped no emitter %@", eventName);
                return;
+             }
+             // Diagnostico temporal PLAYER-473 (retirar antes de la MR):
+             // los eventos de alta frecuencia se omiten del log.
+             if (![eventName isEqualToString:@"videoProgress"] &&
+                 ![eventName isEqualToString:@"videoPlaybackMetrics"] &&
+                 ![eventName isEqualToString:@"videoBandwidthUpdate"]) {
+               NSLog(@"RNVEVT %@", eventName);
              }
              eventEmitter->dispatchEvent(
                  std::string([eventName UTF8String]),
