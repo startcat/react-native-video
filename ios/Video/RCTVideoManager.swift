@@ -4,6 +4,7 @@ import React
 @objc(RCTVideoManager)
 class RCTVideoManager: RCTViewManager {
     override func view() -> UIView {
+        NSLog("RNVPAPER manager view() called")
         return RCTVideo(eventDispatcher: (RCTBridge.current().eventDispatcher() as! RCTEventDispatcher))
     }
 
