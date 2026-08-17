@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import type { HostComponent, ViewProps } from "react-native";
-import { NativeModules, requireNativeComponent } from "react-native";
+import type { ColorValue, HostComponent, ViewProps } from "react-native";
+import { NativeModules } from "react-native";
+import codegenNativeComponent from "react-native/Libraries/Utilities/codegenNativeComponent";
 import type {
 	DirectEventHandler,
 	Double,
@@ -303,14 +304,23 @@ export type OnAudioFocusChangedData = Readonly<{
 
 type ControlsStyles = Readonly<{
 	hideSeekBar?: boolean;
-	seekIncrementMS?: number;
+	seekIncrementMS?: Int32;
 }>;
+
+type Chapters = ReadonlyArray<
+	Readonly<{
+		title?: string;
+		uri?: string;
+		startTime?: Double;
+		endTime?: Double;
+	}>
+>;
 
 export interface VideoNativeProps extends ViewProps {
 	src?: VideoSrc;
 	drm?: Drm;
 	playOffline?: boolean;
-	multiSession?: boolean;
+	multiSession?: boolean; // android (DRM)
 	adTagUrl?: string;
 	adLanguage?: string;
 	allowsExternalPlayback?: boolean; // ios, true
@@ -322,6 +332,8 @@ export interface VideoNativeProps extends ViewProps {
 	selectedTextTrack?: SelectedTextTrack;
 	selectedAudioTrack?: SelectedAudioTrack;
 	selectedVideoTrack?: SelectedVideoTrack; // android
+	chapters?: Chapters; // ios
+	audioOutput?: WithDefault<string, "speaker">; // ios
 	paused?: boolean;
 	muted?: boolean;
 	controls?: boolean;
@@ -349,8 +361,10 @@ export interface VideoNativeProps extends ViewProps {
 	contentStartTime?: Int32; // Android
 	currentPlaybackTime?: Double; // Android
 	disableDisconnectError?: boolean; // Android
+	disableFocus?: boolean; // Android
 	focusable?: boolean; // Android
 	hideShutterView?: boolean; //	Android
+	shutterColor?: ColorValue; // Android
 	minLoadRetryCount?: Int32; // Android
 	reportBandwidth?: boolean; //Android
 	subtitleStyle?: SubtitleStyle; // android
@@ -374,6 +388,8 @@ export interface VideoNativeProps extends ViewProps {
 	onVideoFullscreenPlayerWillDismiss?: DirectEventHandler<{}>; // ios, android
 	onVideoFullscreenPlayerDidDismiss?: DirectEventHandler<{}>; // ios, android
 	onReadyForDisplay?: DirectEventHandler<{}>;
+	onPlaybackStalled?: DirectEventHandler<{}>; // ios
+	onPlaybackResume?: DirectEventHandler<{}>; // ios
 	onPlaybackRateChange?: DirectEventHandler<OnPlaybackRateChangeData>; // all
 	onVolumeChange?: DirectEventHandler<OnVolumeChangeData>; // android, ios
 	onVideoExternalPlaybackChange?: DirectEventHandler<OnExternalPlaybackChangeData>;
@@ -418,4 +434,9 @@ export const VideoManager = NativeModules.VideoManager as VideoManagerType;
 export const VideoDecoderProperties =
 	NativeModules.VideoDecoderProperties as VideoDecoderPropertiesType;
 
-export default requireNativeComponent<VideoNativeProps>("RCTVideo") as VideoComponentType;
+// Fabric: el codegen genera el componente y lo registra en
+// RCTThirdPartyComponentsProvider (iOS) — ver codegenConfig en package.json.
+// En old-arch (Paper) codegenNativeComponent degrada a la vía legacy en runtime.
+export default codegenNativeComponent<VideoNativeProps>(
+	"RCTVideo"
+) as VideoComponentType;
