@@ -437,6 +437,4 @@ export const VideoDecoderProperties =
 // Fabric: el codegen genera el componente y lo registra en
 // RCTThirdPartyComponentsProvider (iOS) — ver codegenConfig en package.json.
 // En old-arch (Paper) codegenNativeComponent degrada a la vía legacy en runtime.
-export default codegenNativeComponent<VideoNativeProps>(
-	"RCTVideo"
-) as VideoComponentType;
+export default codegenNativeComponent<VideoNativeProps>("RCTVideo") as VideoComponentType;
