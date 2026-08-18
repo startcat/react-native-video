@@ -197,7 +197,6 @@ static Class<RNVideoFabricShimInterface> RNVideoFabricShimClass(void)
     static const auto defaultProps = std::make_shared<const RNVideoProps>();
     _props = defaultProps;
     _registeredTag = 0;
-    NSLog(@"RNVFABRIC componentview init");
   }
   return self;
 }
@@ -209,7 +208,6 @@ static Class<RNVideoFabricShimInterface> RNVideoFabricShimClass(void)
   }
   Class<RNVideoFabricShimInterface> shim = RNVideoFabricShimClass();
   _videoView = [shim makeVideoView];
-  NSLog(@"RNVFABRIC makeVideoView ok=%d shim=%d", _videoView != nil, shim != nil);
 
   __weak RCTVideoComponentView *weakSelf = self;
   [shim wireEvents:_videoView
@@ -220,15 +218,7 @@ static Class<RNVideoFabricShimInterface> RNVideoFabricShimClass(void)
              }
              auto eventEmitter = strongSelf->_eventEmitter;
              if (!eventEmitter) {
-               NSLog(@"RNVEVT dropped no emitter %@", eventName);
                return;
-             }
-             // Diagnostico temporal PLAYER-473 (retirar antes de la MR):
-             // los eventos de alta frecuencia se omiten del log.
-             if (![eventName isEqualToString:@"videoProgress"] &&
-                 ![eventName isEqualToString:@"videoPlaybackMetrics"] &&
-                 ![eventName isEqualToString:@"videoBandwidthUpdate"]) {
-               NSLog(@"RNVEVT %@", eventName);
              }
              eventEmitter->dispatchEvent(
                  std::string([eventName UTF8String]),
