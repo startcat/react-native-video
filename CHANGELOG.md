@@ -1,12 +1,5 @@
 
 
-## [8.4.2](https://github.com/startcat/react-native-video/compare/v8.4.1...v8.4.2) (2026-08-26)
-
-
-### Features
-
-* **locales:** `setPlayerTranslations` para sobrescribir los literales del player desde la app ([91f37167](https://github.com/startcat/react-native-video/commit/91f37167))
-
 ## [8.4.1](https://github.com/startcat/react-native-video/compare/v8.4.0...v8.4.1) (2026-08-14)
 
 
