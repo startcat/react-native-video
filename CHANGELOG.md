@@ -1,5 +1,17 @@
 
 
+## [8.4.2](https://github.com/startcat/react-native-video/compare/v8.4.1...v8.4.2) (2026-08-26)
+
+
+### Features
+
+* **locales:** add setPlayerTranslations to support external i18n ([91f3716](https://github.com/startcat/react-native-video/commit/91f37167115932036def67258ebdfbfea67cd8ff))
+
+
+### Reverts
+
+* Revert "chore: release v8.4.2" ([dab27aa](https://github.com/startcat/react-native-video/commit/dab27aafbaa12d09274340e9282b6d97c1c84be2))
+
 ## [8.4.1](https://github.com/startcat/react-native-video/compare/v8.4.0...v8.4.1) (2026-08-14)
 
 
