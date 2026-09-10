@@ -1521,8 +1521,43 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	 *
 	 */
 
+	/*
+	 *  ¿El menú ya representa las pistas que tenemos cacheadas?
+	 *
+	 *  El guard anterior era `if (menuDataRef.current?.length) return`, y esa pregunta nunca fue
+	 *  la correcta: `mergeMenuData` empuja SIEMPRE 5 velocidades, la calidad "Automática" y el
+	 *  "Ninguno" de subtítulos, así que el menú jamás está vacío --ni cuando el manifiesto no
+	 *  trajo una sola pista--. Con `ensureContentLoaded` protegiéndose ya de reentradas
+	 *  (`if (isContentLoadedRef.current) return`), aquel guard no evitaba una segunda pasada:
+	 *  mataba la única. Las pistas que ExoPlayer reporta DESPUÉS del `onLoad` se quedaban
+	 *  cacheadas y sin llegar nunca al menú, y el usuario sin poder cambiar de audio.
+	 *
+	 *  El "Ninguno" de subtítulos (índice -1) es un centinela, no una pista del manifiesto, así
+	 *  que no cuenta para decidir si los subtítulos ya están representados.
+	 */
+	const menuAlreadyHasCachedTracks = () => {
+		const menu = menuDataRef.current;
+
+		if (!menu?.length) {
+			return false;
+		}
+
+		const audioInMenu = menu.filter(item => item.type === PLAYER_MENU_DATA_TYPE.AUDIO).length;
+		const textInMenu = menu.filter(
+			item =>
+				item.type === PLAYER_MENU_DATA_TYPE.TEXT &&
+				typeof item.index === "number" &&
+				item.index >= 0
+		).length;
+
+		return (
+			audioInMenu >= cachedAudioTracksRef.current.length &&
+			textInMenu >= cachedTextTracksRef.current.length
+		);
+	};
+
 	const generateMenuDataFromCachedTracks = () => {
-		if (menuDataRef.current?.length) return;
+		if (menuAlreadyHasCachedTracks()) return;
 		if (!cachedAudioTracksRef.current.length && !cachedTextTracksRef.current.length) {
 			currentLogger.current?.debug(
 				"generateMenuDataFromCachedTracks - No cached tracks available"
