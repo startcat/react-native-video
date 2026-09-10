@@ -1,5 +1,12 @@
 
 
+## [8.4.3](https://github.com/startcat/react-native-video/compare/v8.4.2...v8.4.3) (2026-09-10)
+
+
+### Bug Fixes
+
+* **player:** la portada volvia a aparecer entre el tudum y el contenido ([6cb295f](https://github.com/startcat/react-native-video/commit/6cb295fc8d5f52c60548859a982c06972dcc84f1))
+
 ## [8.4.2](https://github.com/startcat/react-native-video/compare/v8.4.1...v8.4.2) (2026-08-26)
 
 
