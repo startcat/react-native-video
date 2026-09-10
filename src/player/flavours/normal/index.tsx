@@ -106,6 +106,12 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const drm = useRef<IDrm>();
 	const [videoSource, setVideoSource] = useState<IVideoSource | undefined>(undefined);
 
+	// EITB-1672: el poster se rearma en CADA `onLoadStart` (ver `Video.tsx`), tambien en el
+	// relevo tudum -> contenido, que ocurre dentro de la misma sesion de reproduccion. Eso pintaba
+	// la secuencia que reporto QA: portada -> tudum -> PORTADA OTRA VEZ -> video. A partir del
+	// relevo dejamos de pasar `poster`, para que la transicion no retroceda a la portada.
+	const [posterEnabled, setPosterEnabled] = useState<boolean>(true);
+
 	const isChangingSource = useRef<boolean>(true);
 
 	const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
@@ -286,6 +292,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			pendingContentSource.current = null;
 			setSliderValues(undefined);
 			setIsContentLoaded(false);
+			setPosterEnabled(true);
 			cachedAudioTracksRef.current = [];
 			cachedTextTracksRef.current = [];
 			cachedVideoTracksRef.current = [];
@@ -412,6 +419,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	// Función para cambiar de tudum a contenido
 	const switchFromTudumToContent = () => {
 		currentLogger.current?.debug("switchFromTudumToContent");
+
+		// EITB-1672: el tudum ya se ha visto, asi que la portada ha cumplido su funcion. Si la
+		// dejamos puesta, `onLoadStart` del contenido la vuelve a levantar y el usuario ve la
+		// portada por segunda vez entre el tudum y el video.
+		setPosterEnabled(false);
 
 		// Limpiar completamente el source del tudum
 		currentSourceType.current = null;
@@ -2487,7 +2499,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						onPictureInPictureStatusChanged={handleOnPictureInPictureStatusChanged}
 						playInBackground={isAirplayConnected || backgroundPlaybackEnabled}
 						playWhenInactive={isAirplayConnected || backgroundPlaybackEnabled}
-						poster={props?.playerMetadata?.poster}
+						poster={posterEnabled ? props?.playerMetadata?.poster : undefined}
 						preventsDisplaySleepDuringVideoPlayback={!isAirplayConnected}
 						progressUpdateInterval={1000}
 						selectedVideoTrack={
