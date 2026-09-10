@@ -1,5 +1,12 @@
 
 
+## [8.4.4](https://github.com/startcat/react-native-video/compare/v8.4.3...v8.4.4) (2026-09-10)
+
+
+### Bug Fixes
+
+* **player:** las pistas que llegan despues del onLoad no entraban en el menu ([6a9e982](https://github.com/startcat/react-native-video/commit/6a9e982ec98245ea8b9da386053c5d98b26f312b))
+
 ## [8.4.3](https://github.com/startcat/react-native-video/compare/v8.4.2...v8.4.3) (2026-09-10)
 
 
