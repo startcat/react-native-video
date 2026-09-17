@@ -1,3 +1,10 @@
+## [8.4.7](https://github.com/startcat/react-native-video/compare/v8.4.6...v8.4.7) (2026-09-17)
+
+
+### Bug Fixes
+
+* **analytics:** los plugins registrados con la sesion abierta reciben onCreatePlaybackSession ([e4a12c4](https://github.com/startcat/react-native-video/commit/e4a12c48beb8502e5011a409c7176fb4d615c577))
+
 ## [8.4.6](https://github.com/startcat/react-native-video/compare/v8.4.5...v8.4.6) (2026-09-17)
 
 
