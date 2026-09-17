@@ -165,7 +165,7 @@ describe("AdEventsHandler", () => {
 		});
 
 		it("usa duración cacheada de STARTED si AD_PROGRESS no la trae", () => {
-			let now = 3_000_000;
+			const now = 3_000_000;
 			jest.spyOn(Date, "now").mockImplementation(() => now);
 
 			handler.handleAdEvent(buildEvent("AD_PROGRESS", { currentTime: 5 }));
@@ -240,6 +240,101 @@ describe("AdEventsHandler", () => {
 			expect(payloadsFor(analyticsEvents, "onAdBegin")).toHaveLength(1);
 			expect(payloadsFor(analyticsEvents, "onAdEnd")).toHaveLength(1);
 			expect(payloadsFor(analyticsEvents, "onAdBreakEnd")).toHaveLength(1);
+		});
+	});
+
+	describe("IMA client-side: el break se sintetiza (EITB-1702)", () => {
+		// IMA solo emite AD_BREAK_STARTED/ENDED en DAI. En client-side el break se
+		// delimita con CONTENT_PAUSE_REQUESTED / CONTENT_RESUME_REQUESTED, y sin
+		// onAdBreakBegin/onAdBreakEnd Adobe ignora los adStart/adComplete.
+		const nombres = () => analyticsEvents.on.mock.calls.map(c => c[0]);
+
+		it("CONTENT_PAUSE_REQUESTED abre el break: onAdBreakBegin antes del onAdBegin", () => {
+			handler.handleAdEvent(buildEvent("CONTENT_PAUSE_REQUESTED"));
+			handler.handleAdEvent(buildEvent("STARTED", { podIndex: "0" }));
+
+			expect(nombres()).toEqual(["onAdBreakBegin", "onAdBegin"]);
+			expect(payloadsFor(analyticsEvents, "onAdBreakBegin")[0]?.adBreakId).toEqual(
+				expect.stringMatching(/^adbreak_/)
+			);
+		});
+
+		it("STARTED sin break abierto sintetiza el onAdBreakBegin justo antes", () => {
+			handler.handleAdEvent(buildEvent("STARTED", { podIndex: "0" }));
+
+			expect(nombres()).toEqual(["onAdBreakBegin", "onAdBegin"]);
+		});
+
+		it("el pod sintetizado toma adCount de totalAds y adBreakPosition (ms) de timeOffset", () => {
+			handler.handleAdEvent(
+				buildEvent("STARTED", { podIndex: "1", totalAds: "2", timeOffset: "45.5" })
+			);
+
+			const [pod] = payloadsFor(analyticsEvents, "onAdBreakBegin");
+			expect(pod?.adCount).toBe(2);
+			expect(pod?.adBreakPosition).toBe(45500);
+		});
+
+		it("un segundo STARTED dentro del mismo break no abre otro break", () => {
+			handler.handleAdEvent(buildEvent("CONTENT_PAUSE_REQUESTED"));
+			handler.handleAdEvent(buildEvent("STARTED", { podIndex: "0" }));
+			handler.handleAdEvent(buildEvent("COMPLETED"));
+			handler.handleAdEvent(buildEvent("STARTED", { podIndex: "0" }));
+
+			expect(payloadsFor(analyticsEvents, "onAdBreakBegin")).toHaveLength(1);
+			expect(payloadsFor(analyticsEvents, "onAdBegin")).toHaveLength(2);
+		});
+
+		it("CONTENT_RESUME_REQUESTED cierra el break sintetizado: onAdBreakEnd antes de onContentResume", () => {
+			handler.handleAdEvent(buildEvent("CONTENT_PAUSE_REQUESTED"));
+			handler.handleAdEvent(buildEvent("STARTED", { podIndex: "0" }));
+			handler.handleAdEvent(buildEvent("COMPLETED"));
+			handler.handleAdEvent(buildEvent("CONTENT_RESUME_REQUESTED"));
+
+			expect(nombres()).toEqual([
+				"onAdBreakBegin",
+				"onAdBegin",
+				"onAdEnd",
+				"onAdBreakEnd",
+				"onContentResume",
+			]);
+			const [begin] = payloadsFor(analyticsEvents, "onAdBreakBegin");
+			const [end] = payloadsFor(analyticsEvents, "onAdBreakEnd");
+			expect(end?.adBreakId).toBe(begin?.adBreakId);
+			expect(handler.getCurrentAdBreakId()).toBeUndefined();
+		});
+
+		it("un break real (AD_BREAK_STARTED, DAI) NO se cierra en CONTENT_RESUME_REQUESTED", () => {
+			handler.handleAdEvent(buildEvent("AD_BREAK_STARTED", { adBreakId: "dai-1" }));
+			handler.handleAdEvent(buildEvent("STARTED", { adId: "a1" }));
+			handler.handleAdEvent(buildEvent("COMPLETED"));
+			handler.handleAdEvent(buildEvent("CONTENT_RESUME_REQUESTED"));
+
+			expect(payloadsFor(analyticsEvents, "onAdBreakEnd")).toHaveLength(0);
+			expect(handler.getCurrentAdBreakId()).toBe("dai-1");
+		});
+
+		it("tras cerrarse, el siguiente pod abre un break nuevo con otro id", () => {
+			handler.handleAdEvent(buildEvent("CONTENT_PAUSE_REQUESTED"));
+			handler.handleAdEvent(buildEvent("STARTED", { podIndex: "0" }));
+			handler.handleAdEvent(buildEvent("COMPLETED"));
+			handler.handleAdEvent(buildEvent("CONTENT_RESUME_REQUESTED"));
+			handler.handleAdEvent(buildEvent("CONTENT_PAUSE_REQUESTED"));
+			handler.handleAdEvent(buildEvent("STARTED", { podIndex: "1" }));
+
+			const pods = payloadsFor(analyticsEvents, "onAdBreakBegin");
+			expect(pods).toHaveLength(2);
+			expect(pods[0]?.adBreakId).not.toBe(pods[1]?.adBreakId);
+		});
+
+		it("STARTED propaga adId y adDuration (ms) aunque el nativo mande la duracion como cadena", () => {
+			handler.handleAdEvent(
+				buildEvent("STARTED", { adId: "ad-9", duration: "20.0", podIndex: "0" })
+			);
+
+			const [ad] = payloadsFor(analyticsEvents, "onAdBegin");
+			expect(ad?.adId).toBe("ad-9");
+			expect(ad?.adDuration).toBe(20000);
 		});
 	});
 });

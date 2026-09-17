@@ -16,6 +16,10 @@ export class AdEventsHandler {
 	private analyticsEvents: PlayerAnalyticsEvents;
 	private currentAdId?: string;
 	private currentAdBreakId?: string;
+	// true cuando el break lo hemos abierto nosotros (IMA client-side) y no el
+	// SDK (AD_BREAK_STARTED, solo DAI). Solo esos se cierran en CONTENT_RESUME.
+	private adBreakSynthesized = false;
+	private adBreakSeq = 0;
 	private adStartTime?: number;
 	private isAdPlaying = false;
 	private isAdPaused = false;
@@ -66,7 +70,9 @@ export class AdEventsHandler {
 				break;
 
 			case "CONTENT_PAUSE_REQUESTED":
-				// El contenido debe pausarse para mostrar un anuncio
+				// El contenido se pausa para dar paso a un pod: en IMA client-side
+				// es el unico aviso de que empieza un ad break (EITB-1702).
+				this.openSyntheticAdBreak(data);
 				break;
 
 			case "CONTENT_RESUME_REQUESTED":
@@ -125,6 +131,9 @@ export class AdEventsHandler {
 	};
 
 	private handleAdStarted = (data: OnReceiveAdEventData) => {
+		// Red de seguridad: si no hubo CONTENT_PAUSE_REQUESTED (o llego sin
+		// abrir break), el primer anuncio abre el break el mismo.
+		this.openSyntheticAdBreak(data);
 		this.isAdPlaying = true;
 		this.isAdPaused = false;
 		this.adStartTime = Date.now();
@@ -201,6 +210,7 @@ export class AdEventsHandler {
 
 	private handleAdBreakStarted = (data: OnReceiveAdEventData) => {
 		this.currentAdBreakId = this.extractAdBreakId(data);
+		this.adBreakSynthesized = false;
 
 		this.analyticsEvents.on("onAdBreakBegin", {
 			adBreakId: this.currentAdBreakId,
@@ -215,6 +225,7 @@ export class AdEventsHandler {
 		});
 
 		this.currentAdBreakId = undefined;
+		this.adBreakSynthesized = false;
 		// Fix: el flag isAdPlaying se quedaba colgado si AD_BREAK_ENDED llegaba
 		// sin un COMPLETED previo (caso conocido en streams DAI/SSAI). Asegurar
 		// reset aquí para que el gate del adapter se libere correctamente.
@@ -229,11 +240,51 @@ export class AdEventsHandler {
 		}
 
 		this.currentAdBreakId = undefined;
+		this.adBreakSynthesized = false;
 		this.resetAdState();
 	};
 
 	private handleContentResumeRequested = () => {
+		// El pod ha terminado: cerrar el break sintetizado ANTES de avisar de la
+		// reanudacion, para que los plugins vean adBreakEnd -> play en ese orden.
+		this.closeSyntheticAdBreak();
 		this.analyticsEvents.on("onContentResume", undefined);
+	};
+
+	/*
+	 * Ad break sintetizado (IMA client-side, EITB-1702)
+	 *
+	 * El SDK de IMA solo emite AD_BREAK_STARTED / AD_BREAK_ENDED en DAI. En
+	 * client-side el pod se delimita con CONTENT_PAUSE_REQUESTED y
+	 * CONTENT_RESUME_REQUESTED, asi que sin esto ningun plugin recibia
+	 * onAdBreakBegin/onAdBreakEnd — y Adobe, sin esos "bookends", descarta los
+	 * adStart/adComplete y cuenta el anuncio como contenido.
+	 */
+
+	private openSyntheticAdBreak = (data?: OnReceiveAdEventData) => {
+		if (this.currentAdBreakId) {
+			return;
+		}
+		this.adBreakSeq += 1;
+		this.currentAdBreakId = `adbreak_${Date.now()}_${this.adBreakSeq}`;
+		this.adBreakSynthesized = true;
+
+		this.analyticsEvents.on("onAdBreakBegin", {
+			adBreakId: this.currentAdBreakId,
+			adCount: data ? this.extractAdCount(data) : undefined,
+			adBreakPosition: data ? this.extractAdBreakPosition(data) : undefined,
+		});
+	};
+
+	private closeSyntheticAdBreak = () => {
+		if (!this.currentAdBreakId || !this.adBreakSynthesized) {
+			return;
+		}
+		this.analyticsEvents.on("onAdBreakEnd", {
+			adBreakId: this.currentAdBreakId,
+		});
+		this.currentAdBreakId = undefined;
+		this.adBreakSynthesized = false;
 	};
 
 	private handleAdProgress = (data: OnReceiveAdEventData) => {
@@ -300,7 +351,9 @@ export class AdEventsHandler {
 	};
 
 	private extractAdDuration = (data: OnReceiveAdEventData): number | undefined => {
-		return (data.data as any)?.duration ? (data.data as any).duration * 1000 : undefined;
+		// El nativo manda la duracion en segundos, como cadena en Android.
+		const seconds = Number((data.data as any)?.duration);
+		return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds * 1000) : undefined;
 	};
 
 	private extractAdPosition = (data: OnReceiveAdEventData): number | undefined => {
@@ -315,21 +368,33 @@ export class AdEventsHandler {
 		// string en el mapa del evento. podIndex: 0=pre-roll, -1=post-roll, >0=mid-roll.
 		const podIndex = d?.podIndex != null ? Number(d.podIndex) : undefined;
 		if (podIndex !== undefined && !Number.isNaN(podIndex)) {
-			if (podIndex === 0) return "preroll";
-			if (podIndex === -1) return "postroll";
+			if (podIndex === 0) {
+				return "preroll";
+			}
+			if (podIndex === -1) {
+				return "postroll";
+			}
 			return "midroll";
 		}
 		// timeOffset (segundos): 0=pre-roll, <0=post-roll, >0=mid-roll.
 		const timeOffset = d?.timeOffset != null ? Number(d.timeOffset) : undefined;
 		if (timeOffset !== undefined && !Number.isNaN(timeOffset)) {
-			if (timeOffset === 0) return "preroll";
-			if (timeOffset < 0) return "postroll";
+			if (timeOffset === 0) {
+				return "preroll";
+			}
+			if (timeOffset < 0) {
+				return "postroll";
+			}
 			return "midroll";
 		}
 		// Fallback heredado por posición de reproducción (no fiable; último recurso).
 		const position = d?.position;
-		if (position === 0) return "preroll";
-		if (position === -1) return "postroll";
+		if (position === 0) {
+			return "preroll";
+		}
+		if (position === -1) {
+			return "postroll";
+		}
 		return "midroll";
 	};
 
@@ -338,12 +403,23 @@ export class AdEventsHandler {
 	};
 
 	private extractAdCount = (data: OnReceiveAdEventData): number | undefined => {
-		return (data.data as any)?.adCount;
+		// `totalAds` viene del AdPodInfo de IMA (PLAYER-368), como cadena.
+		const d = data.data as any;
+		const raw = d?.adCount ?? d?.totalAds;
+		const n = Number(raw);
+		return raw != null && Number.isFinite(n) ? n : undefined;
 	};
 
 	private extractAdBreakPosition = (data: OnReceiveAdEventData): number | undefined => {
-		return (data.data as any)?.adBreakPosition
-			? (data.data as any).adBreakPosition * 1000
+		// En ms. `adBreakPosition` (s) si alguien lo manda; si no, el
+		// `timeOffset` (s) del AdPodInfo, que en post-roll es -1 y no vale.
+		const d = data.data as any;
+		if (d?.adBreakPosition) {
+			return Number(d.adBreakPosition) * 1000;
+		}
+		const offset = Number(d?.timeOffset);
+		return d?.timeOffset != null && Number.isFinite(offset) && offset >= 0
+			? Math.round(offset * 1000)
 			: undefined;
 	};
 

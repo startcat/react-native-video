@@ -132,6 +132,7 @@ import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.UiThreadUtil;
 import com.facebook.react.uimanager.ThemedReactContext;
+import com.google.ads.interactivemedia.v3.api.Ad;
 import com.google.ads.interactivemedia.v3.api.AdError;
 import com.google.ads.interactivemedia.v3.api.AdEvent;
 import com.google.ads.interactivemedia.v3.api.AdErrorEvent;
@@ -2932,11 +2933,23 @@ public class ReactExoplayerView extends FrameLayout implements
             // de analytics pueda clasificar el anuncio (pre/mid/post-roll). Sin esto el
             // tipo no es derivable y todos los anuncios colapsan a mid-roll
             // (comscore ns_st_ct: va11/va12/va13). PLAYER-368.
-            AdPodInfo podInfo = adEvent.getAd() != null ? adEvent.getAd().getAdPodInfo() : null;
-            if (adEvent.getAdData() != null || podInfo != null) {
+            Ad ad = adEvent.getAd();
+            AdPodInfo podInfo = ad != null ? ad.getAdPodInfo() : null;
+            if (adEvent.getAdData() != null || ad != null) {
                 Map<String, String> adData = new HashMap<>();
                 if (adEvent.getAdData() != null) {
                     adData.putAll(adEvent.getAdData());
+                }
+                if (ad != null) {
+                    // Identidad y duracion (s) del anuncio para la analitica (EITB-1702):
+                    // sin esto los plugins inventan un id y reportan duracion 0.
+                    if (ad.getAdId() != null) {
+                        adData.put("adId", ad.getAdId());
+                    }
+                    if (ad.getTitle() != null) {
+                        adData.put("adTitle", ad.getTitle());
+                    }
+                    adData.put("duration", String.valueOf(ad.getDuration()));
                 }
                 if (podInfo != null) {
                     // podIndex: 0=pre-roll, -1=post-roll, >0=mid-roll (1-based).

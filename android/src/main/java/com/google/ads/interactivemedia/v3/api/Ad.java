@@ -20,5 +20,7 @@ public interface Ad {
 
     double getDuration();
 
+    String getTitle();
+
     AdPodInfo getAdPodInfo();
 }
