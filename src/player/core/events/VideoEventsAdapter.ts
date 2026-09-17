@@ -79,6 +79,25 @@ export class VideoEventsAdapter {
 	 * Métodos principales para conectar con el Video component
 	 */
 
+	/**
+	 * Plugins registrados DESPUES de que la sesion haya arrancado (el host los
+	 * recrea en mitad de la reproduccion, p. ej. cuando react-query entrega un
+	 * `data` nuevo). `onCreatePlaybackSession` solo se emite una vez, asi que sin
+	 * esto un plugin tardio nunca arranca su sesion — o la arranca en el siguiente
+	 * `onLoad`, que con un preroll llega cuando el pod ya ha terminado (EITB-1702).
+	 */
+	primeLateRegisteredPlugins = (plugins: ReadonlyArray<unknown>) => {
+		if (!this.isSessionActive) {
+			return;
+		}
+		plugins.forEach(plugin => {
+			const v2 = plugin as { on?: (event: string, payload: undefined) => void };
+			if (typeof v2?.on === "function") {
+				v2.on("onCreatePlaybackSession", undefined);
+			}
+		});
+	};
+
 	onLoadStart = (data: OnLoadStartData) => {
 		if (!this.isSessionActive) {
 			this.analyticsEvents.on("onCreatePlaybackSession", undefined);

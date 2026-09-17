@@ -78,6 +78,10 @@ export const useVideoAnalytics = ({
 			analyticsEventsRef.current!.addPlugin(plugin);
 		});
 
+		// Si la sesion ya habia arrancado, los plugins nuevos tienen que saberlo
+		// (EITB-1702): onCreatePlaybackSession solo se emitio para los anteriores.
+		adapterRef.current?.primeLateRegisteredPlugins(plugins);
+
 		return () => {
 			// Cleanup al desmontar: destroy() llama a destroy en cada plugin restante
 			if (analyticsEventsRef.current) {
