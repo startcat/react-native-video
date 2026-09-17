@@ -156,6 +156,13 @@
                     data["totalAds"] = pod.totalAds
                     data["adPosition"] = pod.adPosition
                 }
+                // Identidad y duracion (s) del anuncio para la analitica (EITB-1702):
+                // sin esto los plugins inventan un id y reportan duracion 0.
+                if let ad = event.ad {
+                    data["adId"] = ad.adId
+                    data["adTitle"] = ad.adTitle
+                    data["duration"] = ad.duration
+                }
                 if data.isEmpty {
                     _video.onReceiveAdEvent?([
                         "event": type,
