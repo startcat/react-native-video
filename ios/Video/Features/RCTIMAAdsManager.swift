@@ -205,6 +205,17 @@
         }
 
         func adsManagerDidRequestContentPause(_: IMAAdsManager) {
+            // Emit CONTENT_PAUSE_REQUESTED BEFORE pausing the content: in client-side IMA
+            // this is the only signal that an ad break begins, and the JS analytics
+            // pipeline needs it ahead of the content pause it causes (EITB-1702).
+            // Mirrors the CONTENT_RESUME_REQUESTED emitted on resume; Android gets it
+            // from the SDK as a regular AdEvent.
+            if let video = _video, video.onReceiveAdEvent != nil {
+                video.onReceiveAdEvent?([
+                    "event": "CONTENT_PAUSE_REQUESTED",
+                    "target": video.reactTag!,
+                ])
+            }
             // Save and clear content track criteria before the IMA SDK takes the AVPlayer.
             // This prevents content criteria from being re-applied over the ad's AVPlayerItem
             // via handleTracksChange KVO, which would cause the ad to freeze.
