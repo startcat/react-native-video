@@ -1,3 +1,12 @@
+## [8.4.8](https://github.com/startcat/react-native-video/compare/v8.4.7...v8.4.8) (2026-09-17)
+
+
+### Bug Fixes
+
+* **ios:** el AVPlayer sobrevivia al cierre de la pantalla y seguia sonando ([259f4b0](https://github.com/startcat/react-native-video/commit/259f4b0385094e5b7a3f959e87a9e837d6e7732c))
+* **android:** el flavour de audio se quedaba con el estado de pausa desfasado ([a054dca](https://github.com/startcat/react-native-video/commit/a054dca6d15e09afc13b79e930a16ca82e0882c8))
+* **now-playing:** la navegacion de cola deja de morir en el bridge ([4131951](https://github.com/startcat/react-native-video/commit/41319515c7ddaa404b85742e6d416314a58fa7b5))
+
 ## [8.4.7](https://github.com/startcat/react-native-video/compare/v8.4.6...v8.4.7) (2026-09-17)
 
 
