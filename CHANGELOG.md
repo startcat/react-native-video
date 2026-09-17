@@ -1,3 +1,10 @@
+## [8.4.6](https://github.com/startcat/react-native-video/compare/v8.4.5...v8.4.6) (2026-09-17)
+
+
+### Bug Fixes
+
+* **ios:** emite CONTENT_PAUSE_REQUESTED antes de pausar el contenido para el pod ([4b708cb](https://github.com/startcat/react-native-video/commit/4b708cb3c9fc77a502d0e83ae27c8524e542e863))
+
 ## [8.4.5](https://github.com/startcat/react-native-video/compare/v8.4.4...v8.4.5) (2026-09-17)
 
 
