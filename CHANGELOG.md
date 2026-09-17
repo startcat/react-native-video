@@ -1,3 +1,10 @@
+## [8.4.5](https://github.com/startcat/react-native-video/compare/v8.4.4...v8.4.5) (2026-09-17)
+
+
+### Bug Fixes
+
+* **ads:** sintetiza el ad break en IMA client-side y propaga id y duracion del anuncio ([1ec8bd0](https://github.com/startcat/react-native-video/commit/1ec8bd0455c88aabd873419175831811c4c3d1a4))
+
 
 
 ## [8.4.4](https://github.com/startcat/react-native-video/compare/v8.4.3...v8.4.4) (2026-09-10)
