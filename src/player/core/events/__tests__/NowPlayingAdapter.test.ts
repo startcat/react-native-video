@@ -75,6 +75,18 @@ describe("toNowPlayingCapabilities", () => {
 		expect(caps.canSkipPrevious).toBe(false);
 	});
 
+	it("anuncia next/prev sólo si el consumidor tiene cola", () => {
+		const caps = toNowPlayingCapabilities(
+			{ isLive: false },
+			{
+				canSkipNext: true,
+				canSkipPrevious: false,
+			}
+		);
+		expect(caps.canSkipNext).toBe(true);
+		expect(caps.canSkipPrevious).toBe(false);
+	});
+
 	it("live sin DVR: canSeek false (preserva PLAYER-50)", () => {
 		expect(toNowPlayingCapabilities({ isLive: true }).canSeek).toBe(false);
 	});
@@ -142,9 +154,25 @@ describe("resolveNowPlayingCommand", () => {
 		expect(sink.seekTo).not.toHaveBeenCalled();
 	});
 
-	it("next/previous son no-op (RNV vídeo único)", () => {
+	it("next/previous son no-op si el sink no navega (RNV vídeo único)", () => {
 		resolveNowPlayingCommand("next", undefined, sink);
 		resolveNowPlayingCommand("previous", undefined, sink);
+		expect(sink.seekTo).not.toHaveBeenCalled();
+		expect(sink.setPaused).not.toHaveBeenCalled();
+	});
+
+	it("next/previous delegan en el sink cuando el consumidor tiene cola", () => {
+		const next = jest.fn();
+		const previous = jest.fn();
+		const navigableSink = { ...sink, next, previous };
+
+		resolveNowPlayingCommand("next", undefined, navigableSink);
+		resolveNowPlayingCommand("previous", undefined, navigableSink);
+
+		expect(next).toHaveBeenCalledTimes(1);
+		expect(previous).toHaveBeenCalledTimes(1);
+		// Navegar no toca la posición ni el estado de pausa: de eso se encarga el
+		// flavour al cargar el item nuevo.
 		expect(sink.seekTo).not.toHaveBeenCalled();
 		expect(sink.setPaused).not.toHaveBeenCalled();
 	});

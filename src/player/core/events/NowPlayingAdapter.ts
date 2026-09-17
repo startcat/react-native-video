@@ -60,6 +60,9 @@ export interface NowPlayingCommandSink {
 	seekTo(positionSeconds: number): void;
 	setPaused(paused: boolean): void;
 	getPaused(): boolean;
+	/** Navegación de cola del consumidor. Opcionales: sin cola, no se implementan. */
+	next?(): void;
+	previous?(): void;
 }
 
 export function toNowPlayingMetadata(
@@ -95,11 +98,21 @@ export function toNowPlayingMetadata(
 	return metadata;
 }
 
-export function toNowPlayingCapabilities(playback: NowPlayingPlayback): NowPlayingCapabilities {
+export function toNowPlayingCapabilities(
+	playback: NowPlayingPlayback,
+	/**
+	 * Navegación de cola disponible en el consumidor. En iOS estas capabilities son
+	 * las que habilitan los comandos del MPRemoteCommandCenter: con `canSkipNext`
+	 * fijo a false, el sistema NUNCA ofrece el botón y el comando no llega jamás —
+	 * el equivalente exacto de que en Android la sesión no anuncie
+	 * `COMMAND_SEEK_TO_NEXT`. Por defecto false: sin cola, nada cambia.
+	 */
+	navigation?: { canSkipNext?: boolean; canSkipPrevious?: boolean }
+): NowPlayingCapabilities {
 	return {
 		canPlayPause: true,
-		canSkipNext: false,
-		canSkipPrevious: false,
+		canSkipNext: !!navigation?.canSkipNext,
+		canSkipPrevious: !!navigation?.canSkipPrevious,
 		// Live sin DVR no permite scrubbing (preserva PLAYER-50); VOD y live+DVR sí.
 		canSeek: !playback.isLive || !!playback.isDVR,
 	};
@@ -139,9 +152,15 @@ export function resolveNowPlayingCommand(
 			}
 			break;
 		case "next":
+			// RNV reproduce un único vídeo, pero el flavour puede estar sirviendo una
+			// cola del consumidor (props.events.onNext). Si no la hay, el sink no
+			// implementa estos métodos y esto sigue siendo un no-op.
+			sink.next?.();
+			break;
 		case "previous":
+			sink.previous?.();
+			break;
 		default:
-			// RNV reproduce un único vídeo: sin navegación de pistas.
 			break;
 	}
 }
@@ -163,7 +182,12 @@ export class NowPlayingAdapter {
 		this.control.update(
 			toNowPlayingMetadata(source, playback),
 			toNowPlayingState(playback),
-			toNowPlayingCapabilities(playback)
+			// El propio sink dice si hay cola: si el consumidor no pasó onNext, el
+			// comando no se anuncia y el sistema no muestra el botón.
+			toNowPlayingCapabilities(playback, {
+				canSkipNext: !!this.sink.next,
+				canSkipPrevious: !!this.sink.previous,
+			})
 		);
 	}
 

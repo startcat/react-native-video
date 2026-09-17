@@ -5,7 +5,10 @@ import androidx.media3.common.Player;
 import androidx.media3.exoplayer.ExoPlayer;
 
 import com.brentvatne.common.toolbox.DebugLog;
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -32,6 +35,9 @@ final class NowPlayingBridge {
     private static final String MODULE_NAME = "OveronPlayerNowPlaying";
     private static final String MODULE_CLASS = "com.overonplayernowplaying.OveronPlayerNowPlayingModule";
     private static final String ADAPTER_INTERFACE = "com.overonplayernowplaying.IPlayerAdapter";
+
+    /** Must match RNV_NOW_PLAYING_NAVIGATION_EVENT in useNowPlaying.ts. */
+    private static final String NAVIGATION_EVENT = "RNVNowPlayingNavigation";
 
     private final ExoPlayer player;
     private final List<Object> listeners = new ArrayList<>();
@@ -145,6 +151,35 @@ final class NowPlayingBridge {
         }
     }
 
+    /**
+     * Forwards a queue-navigation request that arrived through the MediaSession
+     * (MEDIA_NEXT/MEDIA_PREVIOUS key, notification buttons, car controls) up to JS.
+     *
+     * <p>RNV declares a single MediaItem, so media3 has nowhere to seek to and the
+     * module delegates to the adapter. The queue, when there is one, is owned by the
+     * consumer in JS ({@code useNowPlaying}'s {@code onNext}/{@code onPrevious}) —
+     * the only side that knows what "next" means. Returning a no-op here, as we used
+     * to, left the key dead without anything saying so.
+     *
+     * <p>Reuses the {@code registeredContext} captured by {@link #register}: the
+     * module is not addressable from the player alone.
+     */
+    private void emitNavigation(String action) {
+        ReactContext context = registeredContext;
+        if (context == null) {
+            DebugLog.w(TAG, "Navigation '" + action + "' dropped: no ReactContext");
+            return;
+        }
+        try {
+            WritableMap payload = Arguments.createMap();
+            payload.putString("action", action);
+            context.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                    .emit(NAVIGATION_EVENT, payload);
+        } catch (Exception e) {
+            DebugLog.w(TAG, "Could not emit navigation '" + action + "': " + e.getMessage());
+        }
+    }
+
     private void addListener(Object listener) {
         if (listener == null || listeners.contains(listener)) {
             return;
@@ -212,6 +247,12 @@ final class NowPlayingBridge {
                         removeListener(args[0]);
                     }
                     return null;
+                case "onNextRequested":
+                    emitNavigation("next");
+                    return null;
+                case "onPreviousRequested":
+                    emitNavigation("previous");
+                    return null;
                 case "hashCode":
                     return System.identityHashCode(proxy);
                 case "equals":
@@ -219,8 +260,8 @@ final class NowPlayingBridge {
                 case "toString":
                     return "RNVNowPlayingAdapter";
                 default:
-                    // setNavigationCallbacks / updateNavigationState / onNextRequested /
-                    // onPreviousRequested — single video, no playlist: no-op.
+                    // setNavigationCallbacks / updateNavigationState — whether next/previous
+                    // are available is decided by the consumer in JS: no-op.
                     return defaultReturn(method);
             }
         }

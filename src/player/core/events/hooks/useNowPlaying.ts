@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useRef } from "react";
-import { Platform } from "react-native";
+import { DeviceEventEmitter, Platform } from "react-native";
 
 import { NowPlayingControl } from "@overon/react-native-overon-player-now-playing";
 
@@ -44,6 +44,14 @@ export interface UseNowPlayingProps {
 	refVideoPlayer: { current: NowPlayingPlayerRef | null };
 	/** Setter del estado pausado del flavour (mantiene la UI sincronizada). */
 	setPaused: (paused: boolean) => void;
+	/**
+	 * Navegación de cola del consumidor. RNV reproduce un único vídeo, así que sin
+	 * estos callbacks los comandos next/previous siguen siendo un no-op, como hasta
+	 * ahora. Con ellos, el mando externo (pantalla de bloqueo, tecla de auriculares,
+	 * coche) avanza la cola igual que el botón de la UI.
+	 */
+	onNext?: () => void;
+	onPrevious?: () => void;
 }
 
 export interface UseNowPlayingReturn {
@@ -56,6 +64,9 @@ export interface UseNowPlayingReturn {
 const POSITION_PUSH_INTERVAL_MS = 1000;
 const isIOS = Platform.OS === "ios";
 
+/** Debe coincidir con NowPlayingBridge.NAVIGATION_EVENT (Android). */
+const RNV_NOW_PLAYING_NAVIGATION_EVENT = "RNVNowPlayingNavigation";
+
 export const useNowPlaying = ({
 	enabled = false,
 	metadata,
@@ -64,6 +75,8 @@ export const useNowPlaying = ({
 	paused = false,
 	refVideoPlayer,
 	setPaused,
+	onNext,
+	onPrevious,
 }: UseNowPlayingProps): UseNowPlayingReturn => {
 	const adapterRef = useRef<NowPlayingAdapter>();
 
@@ -79,9 +92,13 @@ export const useNowPlaying = ({
 	const lastPositionPushRef = useRef<number>(0);
 	const refVideoPlayerRef = useRef(refVideoPlayer);
 	const setPausedRef = useRef(setPaused);
+	const onNextRef = useRef(onNext);
+	const onPreviousRef = useRef(onPrevious);
 
 	refVideoPlayerRef.current = refVideoPlayer;
 	setPausedRef.current = setPaused;
+	onNextRef.current = onNext;
+	onPreviousRef.current = onPrevious;
 	sourceRef.current = metadata ?? {};
 	isLiveRef.current = !!isLive;
 	isDVRRef.current = !!isDVR;
@@ -110,6 +127,8 @@ export const useNowPlaying = ({
 			seekTo: (seconds: number) => refVideoPlayerRef.current.current?.seek(seconds),
 			setPaused: (value: boolean) => setPausedRef.current(value),
 			getPaused: () => pausedRef.current,
+			next: () => onNextRef.current?.(),
+			previous: () => onPreviousRef.current?.(),
 		};
 
 		const adapter = new NowPlayingAdapter(NowPlayingControl, sink);
@@ -122,6 +141,37 @@ export const useNowPlaying = ({
 			adapterRef.current = undefined;
 		};
 	}, [active, buildPlayback]);
+
+	/*
+	 *  Android: la MediaSession la gobierna player-now-playing sobre el ExoPlayer
+	 *  crudo, así que el resto de este hook está gateado a iOS. La navegación de cola
+	 *  es la excepción: RNV declara un único MediaItem, de modo que media3 no tiene
+	 *  a dónde saltar y el bridge nativo nos reenvía la petición aquí para que la
+	 *  resuelva el consumidor. Sin este puente, MEDIA_NEXT/MEDIA_PREVIOUS se pierden
+	 *  en silencio (el bridge los daba por no-op) y la cola no avanza.
+	 *
+	 *  Play/pausa NO viaja por aquí en Android: lo resuelve la reconciliación contra
+	 *  `playWhenReady`, que es la intención real del player y no depende de que el
+	 *  módulo acierte el nombre del comando.
+	 */
+	useEffect(() => {
+		if (isIOS || !enabled) {
+			return;
+		}
+
+		const subscription = DeviceEventEmitter.addListener(
+			RNV_NOW_PLAYING_NAVIGATION_EVENT,
+			(event: { action?: string }) => {
+				if (event?.action === "next") {
+					onNextRef.current?.();
+				} else if (event?.action === "previous") {
+					onPreviousRef.current?.();
+				}
+			}
+		);
+
+		return () => subscription.remove();
+	}, [enabled]);
 
 	// Cambios de metadata / live → re-empujar update() completo.
 	useEffect(() => {
