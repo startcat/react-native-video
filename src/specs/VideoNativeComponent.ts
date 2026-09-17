@@ -211,6 +211,13 @@ export type OnSeekData = Readonly<{
 
 export type OnPlaybackStateChangedData = Readonly<{
 	isPlaying: boolean;
+	/**
+	 * Intención de reproducción del player nativo (ExoPlayer.getPlayWhenReady).
+	 * Sólo Android. A diferencia de `isPlaying`, no se cae con el buffering ni con
+	 * una supresión transitoria por foco de audio, así que es lo único fiable para
+	 * espejar un `paused` controlado desde JS cuando quien pausa es la MediaSession.
+	 */
+	playWhenReady?: boolean;
 }>;
 
 export type OnTimedMetadataData = Readonly<{
