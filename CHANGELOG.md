@@ -1,3 +1,10 @@
+## [8.4.9](https://github.com/startcat/react-native-video/compare/v8.4.8...v8.4.9) (2026-09-28)
+
+
+### Bug Fixes
+
+* **android:** el aviso de perdida de foco de audio pausaba el player fuera del hilo principal ([0501eb8](https://github.com/startcat/react-native-video/commit/0501eb84ab6a81918096cf590a5ca72ab13fc6b0))
+
 ## [8.4.8](https://github.com/startcat/react-native-video/compare/v8.4.7...v8.4.8) (2026-09-17)
 
 
