@@ -1615,6 +1615,7 @@ public class ReactExoplayerView extends FrameLayout implements
     private static class OnAudioFocusChangedListener implements AudioManager.OnAudioFocusChangeListener {
         private final ReactExoplayerView view;
         private final ThemedReactContext themedReactContext;
+        private final Handler mainThreadHandler = new Handler(Looper.getMainLooper());
 
         private OnAudioFocusChangedListener(ReactExoplayerView view, ThemedReactContext themedReactContext) {
             this.view = view;
@@ -1623,6 +1624,14 @@ public class ReactExoplayerView extends FrameLayout implements
 
         @Override
         public void onAudioFocusChange(int focusChange) {
+            // Con requestAudioFocus(listener, stream, hint) Android entrega este aviso en el
+            // looper del hilo que creó el AudioManager, que a veces es el de JS (mqt_v_js).
+            // ExoPlayer solo admite accesos desde el hilo principal (IllegalStateException
+            // "Player is accessed on the wrong thread" en pausePlayback): se reencola en main.
+            if (Looper.myLooper() != Looper.getMainLooper()) {
+                mainThreadHandler.post(() -> onAudioFocusChange(focusChange));
+                return;
+            }
             switch (focusChange) {
                 case AudioManager.AUDIOFOCUS_LOSS:
                     view.hasAudioFocus = false;
