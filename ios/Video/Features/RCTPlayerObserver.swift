@@ -160,7 +160,10 @@ class RCTPlayerObserver: NSObject, AVPlayerItemMetadataOutputPushDelegate, AVPla
         _playerVolumeChangeObserver = player.observe(\.volume, options: [.old], changeHandler: _handlers.handleVolumeChange)
         _playerTimeControlStatusChangeObserver = player.observe(\.timeControlStatus, options: [.old], changeHandler: _handlers.handleTimeControlStatusChange)
         #if !os(visionOS)
-            _playerExternalPlaybackActiveObserver = player.observe(\.isExternalPlaybackActive, changeHandler: _handlers.handleExternalPlaybackActiveChange)
+            // .initial: el AVPlayer se reutiliza entre fuentes (tudum → contenido) y el
+            // observer se quita y se vuelve a poner en cada setSrc. Sin el valor inicial,
+            // JS no se entera de que el vídeo ya está en un Apple TV si no hay cambio.
+            _playerExternalPlaybackActiveObserver = player.observe(\.isExternalPlaybackActive, options: [.initial, .old], changeHandler: _handlers.handleExternalPlaybackActiveChange)
         #endif
     }
 

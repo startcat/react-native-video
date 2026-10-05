@@ -37,37 +37,26 @@ El Player utiliza la librería `react-airplay` para la integración:
 
 AirPlay se configura automáticamente en el Player cuando se ejecuta en dispositivos iOS. No requiere configuración adicional por parte del desarrollador.
 
-### 3. Detección de conectividad
+### 3. Detección de AirPlay de vídeo
 
-El Player detecta automáticamente cuando está conectado a un dispositivo AirPlay:
+El Player no mira la ruta de audio: decide con `AVPlayer.isExternalPlaybackActive`, que le llega por `onExternalPlaybackChange`. iOS lo emite al cargar cada fuente y cada vez que cambia. Solo vale `true` cuando el vídeo sale del dispositivo (Apple TV, televisor con AirPlay).
 
-```javascript
-import { useAirplayConnectivity } from 'react-airplay';
-
-const MyPlayer = () => {
-  const isAirplayConnected = useAirplayConnectivity();
-  
-  // El Player ajusta su comportamiento según la conectividad
-  return (
-    <Player
-      // ... props del player
-      // La configuración de AirPlay es automática
-    />
-  );
-};
-```
+Con un altavoz AirPlay (HomePod, Sonos) la ruta de audio también es de tipo AirPlay, pero el vídeo se sigue viendo en el dispositivo: el Player no lo tapa (JOYF-464). Por eso `useAirplayConnectivity` de `react-airplay`, que solo dice si hay alguna salida de audio AirPlay, no sirve para lo visual. Sí se usa para decidir que el audio siga sonando con la pantalla bloqueada, porque eso vale igual para un altavoz que para un Apple TV.
 
 ## Funcionalidades automáticas
 
 ### 1. Ajustes de reproducción
 
-Cuando AirPlay está conectado, el Player ajusta automáticamente:
+El Player ajusta automáticamente:
 
-| Configuración | Valor normal | Valor con AirPlay | Descripción |
-|---------------|--------------|-------------------|-------------|
-| `playInBackground` | `false` | `true` | Permite reproducción en segundo plano |
-| `playWhenInactive` | `false` | `true` | Continúa reproducción cuando la app está inactiva |
-| `preventsDisplaySleepDuringVideoPlayback` | `true` | `false` | No previene el bloqueo de pantalla (no necesario) |
+| Configuración | Valor normal | Con altavoz AirPlay | Con AirPlay de vídeo | Descripción |
+|---------------|--------------|---------------------|----------------------|-------------|
+| Póster de fondo | oculto | oculto | visible | Póster difuminado sobre fondo negro en lugar del vídeo, que se está viendo en el receptor |
+| Picture in Picture | según `features` | según `features` | desactivado | No hay vídeo que mostrar en el dispositivo |
+| Controles siempre visibles | no | no | sí | Sin vídeo en pantalla, los controles son lo único que se ve |
+| `playInBackground` | `false` | `true` | `true` | Permite reproducción en segundo plano. La app necesita `audio` en `UIBackgroundModes` |
+| `playWhenInactive` | `false` | `true` | `true` | Continúa reproducción cuando la app está inactiva |
+| `preventsDisplaySleepDuringVideoPlayback` | `true` | `true` | `false` | No previene el bloqueo de pantalla (no necesario) |
 
 ### 2. Comportamiento de controles
 
@@ -234,14 +223,14 @@ const youboraConfig = {
 
 ### 2. Controles personalizados
 
-Los controles se adaptan automáticamente cuando AirPlay está conectado:
+Los controles se adaptan automáticamente cuando el vídeo está en un receptor AirPlay:
 
 ```javascript
-// Los controles permanecen visibles durante AirPlay
-const ControlsOverlay = ({ isAirplayConnected }) => {
+// Los controles permanecen visibles mientras el vídeo está en el receptor
+const ControlsOverlay = ({ isExternalPlaybackActive }) => {
   return (
     <Overlay
-      alwaysVisible={isAirplayConnected}
+      alwaysVisible={isExternalPlaybackActive}
       // ... otras props
     />
   );
