@@ -1855,10 +1855,13 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                          "target": reactTag as Any])
     }
 
-    func handleExternalPlaybackActiveChange(player _: AVPlayer, change _: NSKeyValueObservedChange<Bool>) {
+    func handleExternalPlaybackActiveChange(player _: AVPlayer, change: NSKeyValueObservedChange<Bool>) {
         #if !os(visionOS)
             guard let _player else { return }
-            if !_playInBackground && UIApplication.shared.applicationState == .background {
+            // La llamada .initial (sin oldValue) solo informa a JS del estado al enganchar
+            // el player: no es un cambio de ruta y no debe soltar la capa del vídeo.
+            let isInitialValue = change.oldValue == nil
+            if !isInitialValue && !_playInBackground && UIApplication.shared.applicationState == .background {
                 _playerLayer?.player = nil
                 _playerViewController?.player = nil
             }

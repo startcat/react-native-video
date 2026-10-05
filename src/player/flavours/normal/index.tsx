@@ -11,6 +11,7 @@ import SystemNavigationBar from "react-native-system-navigation-bar";
 import {
 	type OnAudioTracksData,
 	type OnBufferData,
+	type OnExternalPlaybackChangeData,
 	type OnPictureInPictureStatusChangedData,
 	type OnProgressData,
 	type OnVideoErrorData,
@@ -196,8 +197,19 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	// Hook para la orientación de la pantalla
 	const isLandscapePlayer = useIsLandscape();
 
-	// Hook para el estado de Airplay
+	// Ruta de audio AirPlay (altavoz o Apple TV): decide que el audio siga sonando con la
+	// app en segundo plano o la pantalla bloqueada.
 	const isAirplayConnected = useAirplayConnectivity();
+
+	// AirPlay de vídeo: solo cuando AVPlayer saca el vídeo del dispositivo (Apple TV).
+	// Decide lo visual (póster, PiP, controles). La ruta de audio no vale para esto: con un
+	// altavoz AirPlay también es de tipo AirPlay, pero el vídeo sigue en pantalla y el
+	// póster lo tapaba (JOYF-464). iOS emite el valor al cargar cada fuente; Android no.
+	const [isExternalPlaybackActive, setIsExternalPlaybackActive] = useState<boolean>(false);
+
+	const handleOnExternalPlaybackChange = useCallback((e: OnExternalPlaybackChangeData) => {
+		setIsExternalPlaybackActive(e.isExternalPlaybackActive);
+	}, []);
 
 	// Hook para el estado de buffering
 	const isBuffering = useIsBuffering({
@@ -2530,12 +2542,14 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						rate={speedRate}
 						maxBitRate={maxBitRate}
 						pictureInPicture={pipRequested}
-						enterPictureInPictureOnLeave={pipFeatureEnabled && !isAirplayConnected}
+						enterPictureInPictureOnLeave={
+							pipFeatureEnabled && !isExternalPlaybackActive
+						}
 						onPictureInPictureStatusChanged={handleOnPictureInPictureStatusChanged}
 						playInBackground={isAirplayConnected || backgroundPlaybackEnabled}
 						playWhenInactive={isAirplayConnected || backgroundPlaybackEnabled}
 						poster={posterEnabled ? props?.playerMetadata?.poster : undefined}
-						preventsDisplaySleepDuringVideoPlayback={!isAirplayConnected}
+						preventsDisplaySleepDuringVideoPlayback={!isExternalPlaybackActive}
 						progressUpdateInterval={1000}
 						selectedVideoTrack={
 							tudumRef.current?.isPlaying ? undefined : selectedVideoTrack
@@ -2613,7 +2627,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						onTimedMetadata={videoEvents.onTimedMetadata}
 						onAudioBecomingNoisy={videoEvents.onAudioBecomingNoisy}
 						onIdle={videoEvents.onIdle}
-						onExternalPlaybackChange={videoEvents.onExternalPlaybackChange}
+						onExternalPlaybackChange={combineEventHandlers(
+							handleOnExternalPlaybackChange,
+							videoEvents.onExternalPlaybackChange
+						)}
 						onFullscreenPlayerWillPresent={videoEvents.onFullscreenPlayerWillPresent}
 						onFullscreenPlayerDidPresent={videoEvents.onFullscreenPlayerDidPresent}
 						onFullscreenPlayerWillDismiss={videoEvents.onFullscreenPlayerWillDismiss}
@@ -2622,7 +2639,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				</View>
 			) : null}
 
-			{isAirplayConnected ? (
+			{isExternalPlaybackActive ? (
 				<Suspense fallback={props.components?.loader}>
 					<BackgroundPoster poster={props.playerMetadata?.poster} />
 				</Suspense>
@@ -2631,10 +2648,10 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			{!isPlayingAd && !tudumRef.current?.isPlaying && !isPipActive ? (
 				<Overlay
 					preloading={isBuffering}
-					pipEnabled={pipFeatureEnabled && !isAirplayConnected}
+					pipEnabled={pipFeatureEnabled && !isExternalPlaybackActive}
 					thumbnailsMetadata={sourceRef.current?.currentManifest?.thumbnailMetadata}
 					avoidTimelineThumbnails={props.avoidTimelineThumbnails}
-					alwaysVisible={isAirplayConnected}
+					alwaysVisible={isExternalPlaybackActive}
 					isChangingSource={isChangingSource.current}
 					isContentLoaded={isContentLoaded}
 					menuData={menuData}
