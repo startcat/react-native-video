@@ -1,3 +1,12 @@
+
+
+## [8.4.10](https://github.com/startcat/react-native-video/compare/v8.4.9...v8.4.10) (2026-10-05)
+
+
+### Bug Fixes
+
+* **airplay:** un altavoz AirPlay ya no tapa el video con el poster ([b574696](https://github.com/startcat/react-native-video/commit/b5746960600f89da16cddc41619859743a4b8b5d))
+
 ## [8.4.9](https://github.com/startcat/react-native-video/compare/v8.4.8...v8.4.9) (2026-09-28)
 
 
