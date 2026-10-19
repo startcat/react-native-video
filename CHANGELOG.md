@@ -1,5 +1,13 @@
 
 
+## [8.4.11](https://github.com/startcat/react-native-video/compare/v8.4.10...v8.4.11) (2026-10-19)
+
+
+### Bug Fixes
+
+* **ios:** el buffering de onVideoBuffer sigue al valor real de AVPlayer ([1b2b88b](https://github.com/startcat/react-native-video/commit/1b2b88bb75382c18cb6d03799f5e1b1722cfa55d))
+* **player:** la duración del VOD del consumidor va en segundos ([0d42f81](https://github.com/startcat/react-native-video/commit/0d42f813e83b36700ad146eaaa41f8ac82e221d5))
+
 ## [8.4.10](https://github.com/startcat/react-native-video/compare/v8.4.9...v8.4.10) (2026-10-05)
 
 
