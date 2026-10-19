@@ -1800,20 +1800,31 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
         )
     }
 
-    func handlePlaybackBufferKeyEmpty(playerItem _: AVPlayerItem, change _: NSKeyValueObservedChange<Bool>) {
-        if !_isBuffering {
+    /// Solo cuenta el valor nuevo (EITB-1844). Antes cualquier cambio de isPlaybackBufferEmpty
+    /// marcaba buffering, también el paso a false (el buffer acaba de llenarse). Si después no
+    /// cambiaba isPlaybackLikelyToKeepUp, onVideoBuffer se quedaba en true con el vídeo avanzando:
+    /// tras un pre-roll en un directo con DVR el progreso se congelaba y salía «Ir al directo».
+    func handlePlaybackBufferKeyEmpty(playerItem: AVPlayerItem, change: NSKeyValueObservedChange<Bool>) {
+        let isBufferEmpty = change.newValue ?? playerItem.isPlaybackBufferEmpty
+        if isBufferEmpty && !_isBuffering {
             _isBuffering = true
         }
     }
 
     // Continue playing (or not if paused) after being paused due to hitting an unbuffered zone.
-    func handlePlaybackLikelyToKeepUp(playerItem _: AVPlayerItem, change _: NSKeyValueObservedChange<Bool>) {
-        if _isBuffering {
+    func handlePlaybackLikelyToKeepUp(playerItem: AVPlayerItem, change: NSKeyValueObservedChange<Bool>) {
+        let isLikelyToKeepUp = change.newValue ?? playerItem.isPlaybackLikelyToKeepUp
+        if isLikelyToKeepUp && _isBuffering {
             _isBuffering = false
         }
     }
 
     func handleTimeControlStatusChange(player: AVPlayer, change: NSKeyValueObservedChange<AVPlayer.TimeControlStatus>) {
+        // Si AVPlayer está reproduciendo, no está esperando datos: cierra un buffering que el
+        // KVO del item no haya llegado a cerrar (EITB-1844).
+        if player.timeControlStatus == .playing && _isBuffering {
+            _isBuffering = false
+        }
         if player.timeControlStatus == change.oldValue && change.oldValue != nil {
             return
         }
