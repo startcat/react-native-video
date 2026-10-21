@@ -69,6 +69,15 @@
             adDisplayContainer = nil
         }
         
+        /// Al desmontar el player: suelta también el loader y el contenedor aunque no haya
+        /// llegado a haber anuncio (releaseAds sale antes sin adsManager)
+        func teardown() {
+            releaseAds()
+            adDisplayContainer = nil
+            adsLoader?.delegate = nil
+            adsLoader = nil
+        }
+
         /// Unregister all friendly obstructions from the ad display container
         /// This helps ensure touch events pass through after ads finish
         func unregisterAllFriendlyObstructions() {
