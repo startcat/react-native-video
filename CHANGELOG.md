@@ -1,5 +1,12 @@
 
 
+## [8.4.12](https://github.com/startcat/react-native-video/compare/v8.4.11...v8.4.12) (2026-10-21)
+
+
+### Bug Fixes
+
+* **ios:** el reproductor y su AVPlayer no se liberaban al desmontar (EITB-1856) ([2b88e94](https://github.com/startcat/react-native-video/commit/2b88e942d0abf3bc70431c3e6f7be033e1fc5ffa))
+
 ## [8.4.11](https://github.com/startcat/react-native-video/compare/v8.4.10...v8.4.11) (2026-10-19)
 
 
