@@ -193,7 +193,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     init(eventDispatcher: RCTEventDispatcher!) {
         super.init(frame: CGRect(x: 0, y: 0, width: 100, height: 100))
         #if RNUSE_GOOGLE_IMA
-            _imaAdsManager = RCTIMAAdsManager(video: self, pipEnabled: isPipEnabled)
+            _imaAdsManager = RCTIMAAdsManager(video: self, pipEnabled: { [weak self] in self?.isPipEnabled() ?? false })
         #endif
 
         _eventDispatcher = eventDispatcher
@@ -250,7 +250,7 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
         #if RNUSE_GOOGLE_IMA
-            _imaAdsManager = RCTIMAAdsManager(video: self, pipEnabled: isPipEnabled)
+            _imaAdsManager = RCTIMAAdsManager(video: self, pipEnabled: { [weak self] in self?.isPipEnabled() ?? false })
         #endif
     }
 
@@ -1590,12 +1590,16 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
             
         }
 
-        _player = nil
-        _resouceLoaderDelegate = nil
+        // Quitar los observadores antes de vaciar el item, para que no salten durante el desmontaje
         _playerObserver.clearPlayer()
+        _player?.replaceCurrentItem(with: nil)
+        _player = nil
+        _playerItem = nil
+        _resouceLoaderDelegate = nil
 
         #if RNUSE_GOOGLE_IMA
-            _imaAdsManager.releaseAds()
+            _imaAdsManager.teardown()
+            _contentPlayhead = nil
         #endif
 
         self.removePlayerLayer()
