@@ -20,7 +20,7 @@ Pod::Spec.new do |s|
     # ios/Managers (OveronDrmPlaybackBridge, RNVDrmDebugLog) es requerido por
     # RCTVideo.swift desde PLAYER-352; sin él, el pod solo compila si el consumidor
     # define $RNVideoUseVideoCaching (que amplia el glob a ios/*/** por accidente).
-    ss.source_files = ["ios/Video/**/*.{h,m,swift}", "ios/Managers/**/*.{h,m,swift}"]
+    ss.source_files = ["ios/Video/**/*.{h,m,mm,swift}", "ios/Managers/**/*.{h,m,mm,swift}"]
     ss.exclude_files = "ios/Tests/**/*"
     ss.dependency 'PromisesSwift', '2.4.0'
 
@@ -28,7 +28,7 @@ Pod::Spec.new do |s|
       Pod::UI.puts "RNVideo: enable Video caching"
       ss.dependency "SPTPersistentCache", "~> 1.1.0"
       ss.dependency "DVAssetLoaderDelegate", "~> 0.3.1"
-      ss.source_files = "ios/*/**/*.{h,m,swift}"
+      ss.source_files = "ios/*/**/*.{h,m,mm,swift}"
       ss.exclude_files = "ios/Tests/**/*"
       ss.pod_target_xcconfig = {
         'OTHER_SWIFT_FLAGS' => '$(inherited) -D USE_VIDEO_CACHING'
