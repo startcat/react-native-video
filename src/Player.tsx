@@ -1,7 +1,6 @@
 import { activateKeepAwake, deactivateKeepAwake } from "@sayem314/react-native-keep-awake";
 import React, { Suspense, lazy, useRef, useState } from "react";
 import { Platform } from "react-native";
-import BackgroundTimer from "react-native-background-timer";
 import DeviceInfo from "react-native-device-info";
 import {
     CastState as NativeCastState,
@@ -14,6 +13,7 @@ import SystemNavigationBar from "react-native-system-navigation-bar";
 import { PlayerContext } from "./player/core/context";
 import { ComponentLogger, Logger, LoggerFactory } from "./player/features/logger";
 import { type IPlayerProgress, type IPreferencesCommonData } from "./player/types";
+import { shouldReportWatchingProgress } from "./player/utils/watchingProgressPolicy";
 
 // Declaraciones globales para TypeScript
 declare let __DEV__: boolean;
@@ -61,7 +61,9 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 	const playerProgress = useRef<IPlayerProgress | null>(null);
 
 	const isCasting = useRef<boolean>(false);
-	const watchingProgressIntervalObj = useRef<number>();
+	// Último reporte de watching progress (JOYF-428): marca de tiempo (ms) y posición (s).
+	const lastWatchingProgressReportAt = useRef<number>(0);
+	const lastWatchingProgressTime = useRef<number | undefined>(undefined);
 	const hasBeenLoaded = useRef<boolean>(false);
 	const hasBeenLoadedAudio = useRef<boolean>(false);
 	const isPlayingAd = useRef<boolean>(false);
@@ -188,25 +190,9 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		//     stopDownloads();
 		// }
 
-		// Activamos un intervalo que envia los datos del continue watching según especificaciones de servidor
-		if (
-			typeof props.hooks?.watchingProgressInterval === "number" &&
-			props.hooks?.watchingProgressInterval > 0 &&
-			props.hooks?.addContentProgress &&
-			playerProgress.current &&
-			typeof playerProgress.current.currentTime === "number" &&
-			typeof playerProgress.current.duration === "number"
-		) {
-			watchingProgressIntervalObj.current = BackgroundTimer.setInterval(() => {
-				// Evitamos mandar el watching progress en directos, en Chromecast y durante anuncios
-				if (hasBeenLoaded.current && !props.playerProgress?.isLive && !isCasting.current && !isPlayingAd.current) {
-					props?.hooks?.addContentProgress?.(
-						playerProgress.current?.currentTime || 0,
-						playerProgress.current?.duration || 0
-					);
-				}
-			}, props.hooks?.watchingProgressInterval);
-		}
+		// El watching progress (continue watching) se reporta desde handleChangeCommonData, con
+		// cada progreso del contenido (JOYF-428). El intervalo que había aquí solo arrancaba si al
+		// montar ya se conocía la duración, y ninguna app la pasa: en vídeo no se guardaba nunca.
 
 		const baseTimer = setTimeout(() => {
 			setCorrectCastState(true);
@@ -214,10 +200,6 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		currentLogger.current?.debug(`Received manifests ${JSON.stringify(props.manifests)}`);
 
 		return () => {
-			if (watchingProgressIntervalObj.current) {
-				BackgroundTimer.clearInterval(watchingProgressIntervalObj.current);
-			}
-
 			deactivateKeepAwake();
 
 			if (!props.avoidRotation && !DeviceInfo.isTablet()) {
@@ -276,7 +258,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 		// Durante un ad, NO actualizamos currentTime/duration en playerProgress ni
 		// emitimos onProgress: los controles y los plugins de analytics deben ver
 		// los valores del contenido principal (mismo patrón que el gate del
-		// watchingProgress en el efecto inicial, y que `freeze playhead during ad
+		// watchingProgress más abajo, y que `freeze playhead during ad
 		// break` del plugin Adobe). Sin esto, la duración del ad se queda pegada
 		// en playerProgress.duration tras un pre-roll y los controles muestran
 		// la duración del anuncio en lugar de la del media.
@@ -308,6 +290,34 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 				playerProgress.current?.currentTime || 0,
 				playerProgress.current?.duration || 0
 			);
+		}
+
+		if (data?.time !== undefined && playerProgress.current) {
+			const now = Date.now();
+			const currentTime = playerProgress.current.currentTime || 0;
+
+			if (
+				shouldReportWatchingProgress({
+					hasHook: typeof props.hooks?.addContentProgress === "function",
+					intervalMs: props.hooks?.watchingProgressInterval,
+					now,
+					lastReportAt: lastWatchingProgressReportAt.current,
+					lastReportedTime: lastWatchingProgressTime.current,
+					currentTime,
+					duration: playerProgress.current.duration,
+					isPaused: !!playerProgress.current.isPaused,
+					isLive: !!props.playerProgress?.isLive,
+					isCasting: isCasting.current,
+					isPlayingAd: isAd,
+				})
+			) {
+				lastWatchingProgressReportAt.current = now;
+				lastWatchingProgressTime.current = currentTime;
+				props.hooks?.addContentProgress?.(
+					currentTime,
+					playerProgress.current.duration || 0
+				);
+			}
 		}
 
 		if (data?.paused !== undefined && playerProgress.current) {
