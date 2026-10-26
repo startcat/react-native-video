@@ -198,6 +198,15 @@ const Video = forwardRef<VideoRef, ReactVideoProps>(
 			if (!selectedTextTrack) {
 				return;
 			}
+			// "disabled" y "system" no llevan valor. Descartarlos aquí dejaba la prop en undefined
+			// ("sin preferencia") y el nativo conservaba la pista activa, así que "Ninguno" no
+			// quitaba los subtítulos.
+			if (selectedTextTrack.type === "disabled" || selectedTextTrack.type === "system") {
+				return {
+					type: selectedTextTrack.type,
+					value: "",
+				};
+			}
 			const type = typeof selectedTextTrack.value;
 			if (type !== "number" && type !== "string") {
 				console.log("invalid type provided to selectedTextTrack");
