@@ -1,5 +1,13 @@
 
 
+## [8.4.13](https://github.com/startcat/react-native-video/compare/v8.4.12...v8.4.13) (2026-10-26)
+
+
+### Bug Fixes
+
+* **player:** el flavour de vídeo reporta el watching progress (JOYF-428) ([b3087ba](https://github.com/startcat/react-native-video/commit/b3087ba14a2bc7c7aac6b0fd3772feb7f8b75b95))
+* **video:** «Ninguno» quita los subtítulos ([15d0685](https://github.com/startcat/react-native-video/commit/15d0685d1079e16eb32aea3fa000ce7e294e75c2))
+
 ## [8.4.12](https://github.com/startcat/react-native-video/compare/v8.4.11...v8.4.12) (2026-10-21)
 
 
