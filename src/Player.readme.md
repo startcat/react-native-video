@@ -51,6 +51,7 @@ El changelog incluye:
 | avoidTimelineThumbnails | boolean | No | Deshabilita las miniaturas en la línea de tiempo |
 | avoidRotation | boolean | No | Evita la rotación automática a landscape |
 | avoidDownloadsManagement | boolean | No | Evita la gestión automática de descargas |
+| immersiveOnExit | boolean | No | Android: al salir del player vuelve al modo inmersivo (`stickyImmersive`) en vez de dejar visibles las barras del sistema |
 | watchingProgressInterval | number | No | Intervalo para reportar progreso de visualización |
 
 ## Dependencias
