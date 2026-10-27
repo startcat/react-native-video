@@ -679,6 +679,9 @@ export interface PlayerProps extends ICommonPlayerProps, ICommonFlavourProps {
 	avoidTimelineThumbnails?: boolean;
 	avoidRotation?: boolean;
 	avoidDownloadsManagement?: boolean;
+	// Android: al desmontar, vuelve al modo inmersivo de la app en vez de dejar visibles las barras
+	// del sistema. Para apps que viven en `stickyImmersive` (ver `restoreSystemBarsOnExit`).
+	immersiveOnExit?: boolean;
 
 	// Custom data for Cast receiver
 	customDataForCast?: Record<string, unknown>;

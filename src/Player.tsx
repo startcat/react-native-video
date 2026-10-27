@@ -13,6 +13,7 @@ import SystemNavigationBar from "react-native-system-navigation-bar";
 import { PlayerContext } from "./player/core/context";
 import { ComponentLogger, Logger, LoggerFactory } from "./player/features/logger";
 import { type IPlayerProgress, type IPreferencesCommonData } from "./player/types";
+import { restoreSystemBarsOnExit } from "./player/utils/systemBarsOnExit";
 import { shouldReportWatchingProgress } from "./player/utils/watchingProgressPolicy";
 
 // Declaraciones globales para TypeScript
@@ -216,7 +217,7 @@ export function Player(props: PlayerProps): React.ReactElement | null {
 			// }
 
 			if (Platform.OS === "android") {
-				SystemNavigationBar.fullScreen(false);
+				restoreSystemBarsOnExit(props.immersiveOnExit);
 			}
 
 			clearTimeout(baseTimer);
