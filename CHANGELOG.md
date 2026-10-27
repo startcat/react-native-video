@@ -1,5 +1,12 @@
 
 
+## [8.4.14](https://github.com/startcat/react-native-video/compare/v8.4.13...v8.4.14) (2026-10-27)
+
+
+### Bug Fixes
+
+* **player:** prop immersiveOnExit para volver al modo inmersivo al salir (CXF-1460) ([3623d3c](https://github.com/startcat/react-native-video/commit/3623d3cc5ad0620bd43862e757a65b9a1cf668f5))
+
 ## [8.4.13](https://github.com/startcat/react-native-video/compare/v8.4.12...v8.4.13) (2026-10-26)
 
 
