@@ -13,6 +13,13 @@ class RCTVideoManager: RCTViewManager {
 
     func performOnVideoView(withReactTag reactTag: NSNumber, callback: @escaping (RCTVideo?) -> Void) {
         DispatchQueue.main.async { [weak self] in
+            // Fabric (New Arch): el uiManager legacy no conoce las vistas; el
+            // ComponentView registra su RCTVideo por tag en el shim.
+            if let fabricVideo = RNVideoFabricShim.videoView(forTag: reactTag) {
+                callback(fabricVideo)
+                return
+            }
+
             guard let self else {
                 callback(nil)
                 return
