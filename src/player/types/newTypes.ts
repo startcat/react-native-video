@@ -27,7 +27,7 @@ export interface IPlayerLiveValues {
 }
 
 export interface IPlayerMetadata {
-	id: number;
+	id: number | string;
 	slug: string;
 	title: string;
 	subtitle?: string;

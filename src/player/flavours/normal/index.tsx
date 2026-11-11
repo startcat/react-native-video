@@ -50,6 +50,7 @@ import { useIsLandscape } from "../common/hooks";
 import { useIsBuffering } from "../../core/buffering";
 
 import { mergeMenuData, onAdStarted } from "../../utils";
+import { redactJsonForLog, redactUrlTokens } from "../../utils/redact";
 
 import { downloadsManager } from "@overon/react-native-overon-player-downloads";
 
@@ -586,7 +587,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					);
 					convertedTracks.forEach(track => {
 						console.log(
-							`[Player] (Normal Flavour) [OFFLINE DEBUG]   - ${track.language}: ${track.uri}`
+							`[Player] (Normal Flavour) [OFFLINE DEBUG]   - ${track.language}: ${redactUrlTokens(String(track.uri))}`
 						);
 					});
 					setOfflineTextTracks(convertedTracks);
@@ -783,7 +784,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				);
 				convertedTracks.forEach(track => {
 					console.log(
-						`[Player] (Normal Flavour) [OFFLINE DEBUG]   - ${track.language}: ${track.uri}`
+						`[Player] (Normal Flavour) [OFFLINE DEBUG]   - ${track.language}: ${redactUrlTokens(String(track.uri))}`
 					);
 				});
 				setOfflineTextTracks(convertedTracks);
@@ -799,7 +800,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		currentLogger.current?.temp(
 			`setPlayerSource (currentSourceType ${currentSourceType.current})`
 		);
-		currentLogger.current?.temp(`setPlayerSource (data ${JSON.stringify(data)})`);
+		currentLogger.current?.temp(`setPlayerSource (data ${redactJsonForLog(data)})`);
 
 		if (data && data?.isReady) {
 			currentLogger.current?.debug("setPlayerSource - Using provided data");
@@ -807,7 +808,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			drm.current = data.drm;
 
 			currentLogger.current?.info(
-				`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`
+				`setPlayerSource - Setting content source: ${redactJsonForLog(data.source)}`
 			);
 
 			// [OFFLINE DEBUG] Log offline playback info
@@ -824,7 +825,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - effectivePlayOffline (sent to Video): ${!!props.playOffline}`
 			);
 			console.log(
-				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - source.uri: "${data.source?.uri}"`
+				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - source.uri: "${redactUrlTokens(String(data.source?.uri))}"`
 			);
 			console.log(
 				`[Player] (Normal Flavour) [OFFLINE DEBUG]   - source.title: "${data.source?.title}"`

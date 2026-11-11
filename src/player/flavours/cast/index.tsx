@@ -35,6 +35,7 @@ import {
 import { ComponentLogger } from "../../features/logger";
 
 import { getTrackId, getTrackIndex, mergeCastMenuData } from "../../utils";
+import { redactUrlTokens } from "../../utils/redact";
 
 import { useIsBuffering } from "../../core/buffering";
 import { SourceClass, type onSourceChangedProps } from "../../modules/source";
@@ -219,7 +220,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// CALLBACKS DEL CAST MANAGER
 	const onContentLoadedCallback = useCallback(
 		(content: CastContentInfo) => {
-			currentLogger.current?.info("Cast Manager - Content loaded:", content.source.uri);
+			currentLogger.current?.info(
+				"Cast Manager - Content loaded:",
+				redactUrlTokens(String(content.source.uri))
+			);
 			setIsLoadingContent(false);
 			isChangingSource.current = false;
 			setIsContentLoaded(true);

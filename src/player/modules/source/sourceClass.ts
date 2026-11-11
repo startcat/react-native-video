@@ -10,6 +10,7 @@ import {
 } from "../../types";
 
 import { getBestManifest, getDRM, getManifestSourceType, getVideoSourceUri } from "../../utils";
+import { redactJsonForLog, redactUrlTokens } from "../../utils/redact";
 
 import { PlayerError } from "../../core/errors";
 import {
@@ -20,7 +21,7 @@ import {
 } from "@overon/react-native-overon-player-downloads";
 
 export interface onSourceChangedProps {
-	id?: number;
+	id?: number | string;
 	source: IVideoSource | null;
 	drm?: IDrm;
 	dvrWindowSeconds?: number;
@@ -33,7 +34,7 @@ export interface onSourceChangedProps {
 
 export interface SourceClassProps {
 	// Metadata
-	id?: number;
+	id?: number | string;
 	title?: string;
 	artist?: string;
 	subtitle?: string;
@@ -235,7 +236,7 @@ export class SourceClass {
 		// Manejo de contenido descargado
 		if (downloadItem && this._isDownloaded) {
 			console.log(
-				`${LOG_TAG} [OFFLINE] isDownloaded: true, type: ${downloadItem.type}, fileUri: "${downloadItem.fileUri}"`
+				`${LOG_TAG} [OFFLINE] isDownloaded: true, type: ${downloadItem.type}, fileUri: "${redactUrlTokens(String(downloadItem.fileUri))}"`
 			);
 
 			if (this._isBinary) {
@@ -279,7 +280,9 @@ export class SourceClass {
 					? resolvedFileUri
 					: `file://${resolvedFileUri}`;
 
-				console.log(`${LOG_TAG} [OFFLINE] BINARY offline URI: "${offlineUri}"`);
+				console.log(
+					`${LOG_TAG} [OFFLINE] BINARY offline URI: "${redactUrlTokens(String(offlineUri))}"`
+				);
 				this._videoSource.uri = offlineUri;
 			} else {
 				// STREAM downloads (HLS/DASH): el nativo maneja la reproducción offline
@@ -344,7 +347,7 @@ export class SourceClass {
 
 		this._isReady = true;
 		console.log(
-			`${LOG_TAG} reloadDvrStream finished (isReady ${!!this._isReady}): ${this._videoSource?.uri}`
+			`${LOG_TAG} reloadDvrStream finished (isReady ${!!this._isReady}): ${redactUrlTokens(String(this._videoSource?.uri ?? ""))}`
 		);
 
 		this.getStats();
@@ -365,7 +368,7 @@ export class SourceClass {
 
 		this._isReady = true;
 		console.log(
-			`${LOG_TAG} changeDvrUriParameters finished (isReady ${!!this._isReady}): ${this._videoSource?.uri}`
+			`${LOG_TAG} changeDvrUriParameters finished (isReady ${!!this._isReady}): ${redactUrlTokens(String(this._videoSource?.uri ?? ""))}`
 		);
 
 		this.getStats();
@@ -389,7 +392,7 @@ export class SourceClass {
 					this._liveStartProgramTimestamp
 				);
 				console.log(
-					`${LOG_TAG} calculateSourceUri -> uri: ${uri} (from external function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`
+					`${LOG_TAG} calculateSourceUri -> uri: ${redactUrlTokens(String(uri))} (from external function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`
 				);
 			} else {
 				uri = getVideoSourceUri(
@@ -398,7 +401,7 @@ export class SourceClass {
 					this._liveStartProgramTimestamp
 				);
 				console.log(
-					`${LOG_TAG} calculateSourceUri -> uri: ${uri} (from internal function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`
+					`${LOG_TAG} calculateSourceUri -> uri: ${redactUrlTokens(String(uri))} (from internal function) :: window ${this._currentManifest?.dvr_window_minutes} :: timestamp ${this._liveStartProgramTimestamp}`
 				);
 			}
 		} catch (error) {
@@ -488,7 +491,7 @@ export class SourceClass {
 			currentManifest: this._currentManifest,
 		};
 
-		console.log(`${LOG_TAG} getStats: ${JSON.stringify(stats)}`);
+		console.log(`${LOG_TAG} getStats: ${redactJsonForLog(stats)}`);
 	}
 
 	get currentManifest(): IManifest | undefined {
