@@ -1,4 +1,5 @@
 import { i18n } from "../locales";
+import { redactJsonForLog } from "./redact";
 
 import { type OnLoadData } from "../../types";
 
@@ -199,7 +200,7 @@ export const mergeMenuData = (
 
 	menuData = menuData.sort(sortByIndex);
 
-	console.log(`[mergeMenuData] ${JSON.stringify(menuData)}`);
+	console.log(`[mergeMenuData] ${redactJsonForLog(menuData)}`);
 
 	return menuData;
 };
@@ -253,7 +254,7 @@ export const mergeCastMenuData = (
 
 	menuData = menuData.sort(sortByIndex);
 
-	console.log(`[mergeMenuData] ${JSON.stringify(menuData)}`);
+	console.log(`[mergeMenuData] ${redactJsonForLog(menuData)}`);
 
 	return menuData;
 };

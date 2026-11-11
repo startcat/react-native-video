@@ -8,6 +8,7 @@ declare const __DEV__: boolean;
 
 import { type ComponentLogger, type ILogger, type LoggerConfig, LogLevel } from "./types";
 
+import { redactUrlTokens } from "../../utils/redact";
 import { ANSI_COLORS } from "./constants/colors";
 import { CONSOLE_ICONS } from "./constants/icons";
 import { DefaultComponentLogger } from "./DefaultComponentLogger";
@@ -93,7 +94,9 @@ export class Logger implements ILogger {
 		}
 
 		// Construir el mensaje
-		const logMessage = this.buildLogMessage(level, component, message);
+		// Red de seguridad: ningún token de URL llega a la consola aunque el llamante no lo tape
+		const logMessage = redactUrlTokens(this.buildLogMessage(level, component, message));
+		args = args.map(arg => (typeof arg === "string" ? redactUrlTokens(arg) : arg));
 		const logMethod = this.getLogMethod(level);
 
 		// Hacer el log

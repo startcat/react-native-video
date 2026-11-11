@@ -1,6 +1,7 @@
 import { type IDrm, type IManifest, type IVideoSource } from "../../types";
 
 import { getDRM, getVideoSourceUri } from "../../utils";
+import { redactJsonForLog } from "../../utils/redact";
 
 import { PlayerError } from "../../core/errors";
 
@@ -22,7 +23,7 @@ export class TudumClass {
 	private _isAutoNext: boolean = false;
 
 	constructor(props: TudumClassProps) {
-		console.log(`[Player] (TudumClass) constructor: ${JSON.stringify(props)}`);
+		console.log(`[Player] (TudumClass) constructor: ${redactJsonForLog(props)}`);
 
 		this._isAutoNext = !!props.isAutoNext;
 
@@ -149,7 +150,7 @@ export class TudumClass {
 
 	private getStats = () => {
 		console.log(
-			`[Player] (TudumClass) getStats: ${JSON.stringify({
+			`[Player] (TudumClass) getStats: ${redactJsonForLog({
 				source: this._tudumSource,
 				drm: this._tudumDrm,
 				isReady: this.isReady,

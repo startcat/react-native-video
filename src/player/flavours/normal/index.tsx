@@ -221,7 +221,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	});
 
 	useEffect(() => {
-		currentLogger.current?.info(`useEffect videoSource ${JSON.stringify(videoSource)}`);
+		currentLogger.current?.info(`useEffect videoSource ${redactJsonForLog(videoSource)}`);
 	}, [videoSource?.uri]);
 
 	useEffect(() => {
@@ -387,7 +387,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			drm.current = tudumRef.current?.drm;
 
 			currentLogger.current?.debug(
-				`Setting tudum source: ${JSON.stringify(tudumRef.current.source)}`
+				`Setting tudum source: ${redactJsonForLog(tudumRef.current.source)}`
 			);
 			setVideoSource(tudumRef.current.source);
 		}
@@ -454,7 +454,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 		// Pequeño delay para asegurar que se limpia el source
 		setTimeout(() => {
 			currentLogger.current?.debug(
-				`switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(
+				`switchFromTudumToContent - pendingContentSource.current ${redactJsonForLog(
 					pendingContentSource.current
 				)}`
 			);
@@ -695,7 +695,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			pendingContentSource.current = data;
 
 			currentLogger.current?.debug(
-				`onSourceChanged - pendingContentSource.current ${JSON.stringify(
+				`onSourceChanged - pendingContentSource.current ${redactJsonForLog(
 					pendingContentSource.current
 				)}`
 			);
@@ -915,7 +915,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 
 			currentLogger.current?.info(
-				`setPlayerSource - Setting sourceRef content: ${JSON.stringify(
+				`setPlayerSource - Setting sourceRef content: ${redactJsonForLog(
 					sourceRef.current.playerSource
 				)}`
 			);
@@ -933,7 +933,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const handleOnProgressUpdate = useCallback(
 		(data: ProgressUpdateData) => {
-			currentLogger.current?.debug(`handleOnProgressUpdate ${JSON.stringify(data)}`);
+			currentLogger.current?.debug(`handleOnProgressUpdate ${redactJsonForLog(data)}`);
 
 			// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum.
 			if (currentSourceType.current === "content") {
@@ -989,11 +989,11 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	}, []);
 
 	const handleOnDVRModeChange = useCallback((data: ModeChangeData) => {
-		currentLogger.current?.debug(`handleOnDVRModeChange: ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(`handleOnDVRModeChange: ${redactJsonForLog(data)}`);
 	}, []);
 
 	const handleOnDVRProgramChange = useCallback((data: ProgramChangeData) => {
-		currentLogger.current?.debug(`handleOnDVRProgramChange: ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(`handleOnDVRProgramChange: ${redactJsonForLog(data)}`);
 	}, []);
 
 	/*
@@ -1681,7 +1681,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const handleOnLoad = (e: OnLoadData) => {
 		currentLogger.current?.info(
-			`handleOnLoad (${sourceRef.current?.playerSource?.uri}) - isPlayingAdRef=${isPlayingAdRef.current}, hasAdFinished=${hasAdFinishedRef.current}, isContentLoaded=${isContentLoadedRef.current}`
+			`handleOnLoad (${redactUrlTokens(String(sourceRef.current?.playerSource?.uri))}) - isPlayingAdRef=${isPlayingAdRef.current}, hasAdFinished=${hasAdFinishedRef.current}, isContentLoaded=${isContentLoadedRef.current}`
 		);
 		// currentLogger.current?.temp(`handleOnLoad currentSourceType: ${currentSourceType.current}`);
 		// currentLogger.current?.temp(`handleOnLoad tudumRef.current?.isPlaying ${tudumRef.current?.isPlaying}`);
@@ -1856,7 +1856,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 				) {
 					const userPreferences = props.hooks.getUserAudioSubtitlePreferences();
 					currentLogger.current?.info(
-						`handleOnLoad - User preferences: ${JSON.stringify(userPreferences)}`
+						`handleOnLoad - User preferences: ${redactJsonForLog(userPreferences)}`
 					);
 
 					const appliedPreferences = props.hooks.applyPreferencesFromMenuData(
@@ -1870,7 +1870,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 							appliedPreferences.subtitleIndex !== undefined)
 					) {
 						currentLogger.current?.info(
-							`handleOnLoad - Applying user preferences from menuData: ${JSON.stringify(
+							`handleOnLoad - Applying user preferences from menuData: ${redactJsonForLog(
 								appliedPreferences
 							)}`
 						);
@@ -1893,7 +1893,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 						props.events?.onChangePreferences?.(appliedPreferences);
 					} else {
 						currentLogger.current?.debug(
-							`handleOnLoad - No preferences to apply: ${JSON.stringify(
+							`handleOnLoad - No preferences to apply: ${redactJsonForLog(
 								appliedPreferences
 							)}`
 						);
@@ -2406,7 +2406,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const handleOnVideoError = (e: OnVideoErrorData) => {
 		currentLogger.current?.error(
-			`handleOnVideoError: ${JSON.stringify(e)} - currentSourceType: ${
+			`handleOnVideoError: ${redactJsonForLog(e)} - currentSourceType: ${
 				currentSourceType.current
 			}`
 		);
@@ -2434,7 +2434,7 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	};
 
 	const handleOnInternalError = (error: BaseError | PlayerError) => {
-		currentLogger.current?.error(`handleOnInternalError: ${JSON.stringify(error)}`);
+		currentLogger.current?.error(`handleOnInternalError: ${redactJsonForLog(error)}`);
 
 		if (props.events?.onError && typeof props.events.onError === "function") {
 			props.events.onError(error as unknown as PlayerError);

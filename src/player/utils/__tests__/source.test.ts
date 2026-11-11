@@ -64,7 +64,7 @@ describe("getManifestSourceType", () => {
 });
 
 describe("IPlayerMetadata", () => {
-	it("acepta un id de texto (comprobado por tsc)", () => {
+	it("acepta un id de texto (el tipo se comprueba al compilar con tsc)", () => {
 		const metadata: IPlayerMetadata = { id: "uuid", slug: "s", title: "t" };
 		expect(metadata.id).toBe("uuid");
 	});
