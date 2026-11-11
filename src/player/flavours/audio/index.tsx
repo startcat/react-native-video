@@ -41,6 +41,7 @@ import { useVideoAnalytics } from "../../core/events/hooks/useVideoAnalytics";
 import { useNowPlaying } from "../../core/events/hooks/useNowPlaying";
 
 import { styles } from "../styles";
+import { redactJsonForLog, redactUrlTokens } from "../../utils/redact";
 
 import {
 	type AudioFlavourProps,
@@ -108,7 +109,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	});
 
 	useEffect(() => {
-		currentLogger.current?.info(`useEffect videoSource ${JSON.stringify(videoSource)}`);
+		currentLogger.current?.info(`useEffect videoSource ${redactJsonForLog(videoSource)}`);
 	}, [videoSource?.uri]);
 
 	useEffect(() => {
@@ -262,7 +263,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			drm.current = tudumRef.current?.drm;
 
 			currentLogger.current?.debug(
-				`Setting tudum source: ${JSON.stringify(tudumRef.current.source)}`
+				`Setting tudum source: ${redactJsonForLog(tudumRef.current.source)}`
 			);
 			setVideoSource(tudumRef.current.source);
 		}
@@ -325,7 +326,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		// Pequeño delay para asegurar que se limpia el source
 		setTimeout(() => {
 			currentLogger.current?.debug(
-				`switchFromTudumToContent - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`
+				`switchFromTudumToContent - pendingContentSource.current ${redactJsonForLog(pendingContentSource.current)}`
 			);
 
 			// Si hay un source de contenido pendiente, usarlo directamente
@@ -384,7 +385,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			pendingContentSource.current = data;
 
 			currentLogger.current?.debug(
-				`onSourceChanged - pendingContentSource.current ${JSON.stringify(pendingContentSource.current)}`
+				`onSourceChanged - pendingContentSource.current ${redactJsonForLog(pendingContentSource.current)}`
 			);
 
 			// También preparar el progress
@@ -456,7 +457,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 		currentLogger.current?.temp(
 			`setPlayerSource (currentSourceType ${currentSourceType.current})`
 		);
-		currentLogger.current?.temp(`setPlayerSource (data ${JSON.stringify(data)})`);
+		currentLogger.current?.temp(`setPlayerSource (data ${redactJsonForLog(data)})`);
 
 		if (data && data?.isReady) {
 			currentLogger.current?.debug("setPlayerSource - Using provided data");
@@ -464,7 +465,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			drm.current = data.drm;
 
 			currentLogger.current?.info(
-				`setPlayerSource - Setting content source: ${JSON.stringify(data.source)}`
+				`setPlayerSource - Setting content source: ${redactJsonForLog(data.source)}`
 			);
 			setVideoSource(data.source!);
 		} else if (sourceRef.current?.isReady) {
@@ -473,7 +474,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 			drm.current = sourceRef.current.playerSourceDrm;
 
 			currentLogger.current?.info(
-				`setPlayerSource - Setting sourceRef content: ${JSON.stringify(sourceRef.current.playerSource)}`
+				`setPlayerSource - Setting sourceRef content: ${redactJsonForLog(sourceRef.current.playerSource)}`
 			);
 			setVideoSource(sourceRef.current.playerSource!);
 		} else {
@@ -488,7 +489,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	const handleOnProgressUpdate = useCallback(
 		(data: ProgressUpdateData) => {
-			currentLogger.current?.debug(`handleOnProgressUpdate ${JSON.stringify(data)}`);
+			currentLogger.current?.debug(`handleOnProgressUpdate ${redactJsonForLog(data)}`);
 
 			// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
 			if (currentSourceType.current === "content") {
@@ -534,11 +535,11 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	}, []);
 
 	const handleOnDVRModeChange = useCallback((data: ModeChangeData) => {
-		currentLogger.current?.debug(`handleOnDVRModeChange: ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(`handleOnDVRModeChange: ${redactJsonForLog(data)}`);
 	}, []);
 
 	const handleOnDVRProgramChange = useCallback((data: ProgramChangeData) => {
-		currentLogger.current?.debug(`handleOnDVRProgramChange: ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(`handleOnDVRProgramChange: ${redactJsonForLog(data)}`);
 	}, []);
 
 	/*
@@ -884,7 +885,9 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	 */
 
 	const handleOnLoad = async (e: OnLoadData) => {
-		currentLogger.current?.info(`handleOnLoad (${sourceRef.current?.playerSource?.uri})`);
+		currentLogger.current?.info(
+			`handleOnLoad (${redactUrlTokens(String(sourceRef.current?.playerSource?.uri))})`
+		);
 		// currentLogger.current?.temp(`handleOnLoad - currentSourceType: ${currentSourceType.current}`);
 		// currentLogger.current?.temp(`handleOnLoad - isContentLoaded: ${isContentLoaded}`);
 		// currentLogger.current?.temp(`handleOnLoad - isChangingSource: ${isChangingSource.current}`);
@@ -1045,7 +1048,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	const handleOnVideoError = (e: OnVideoErrorData) => {
 		currentLogger.current?.error(
-			`handleOnVideoError: ${JSON.stringify(e)} - currentSourceType: ${currentSourceType.current}`
+			`handleOnVideoError: ${redactJsonForLog(e)} - currentSourceType: ${currentSourceType.current}`
 		);
 
 		// [OFFLINE] Ignore network errors when playing offline content
@@ -1071,7 +1074,7 @@ export function AudioFlavour(props: AudioFlavourProps): React.ReactElement {
 	};
 
 	const handleOnInternalError = (error: BaseError | PlayerError) => {
-		currentLogger.current?.error(`handleOnInternalError: ${JSON.stringify(error)}`);
+		currentLogger.current?.error(`handleOnInternalError: ${redactJsonForLog(error)}`);
 
 		if (props.events?.onError && typeof props.events.onError === "function") {
 			props.events.onError(error as unknown as PlayerError);

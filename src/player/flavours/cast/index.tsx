@@ -35,6 +35,7 @@ import {
 import { ComponentLogger } from "../../features/logger";
 
 import { getTrackId, getTrackIndex, mergeCastMenuData } from "../../utils";
+import { redactJsonForLog, redactUrlTokens } from "../../utils/redact";
 
 import { useIsBuffering } from "../../core/buffering";
 import { SourceClass, type onSourceChangedProps } from "../../modules/source";
@@ -219,7 +220,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	// CALLBACKS DEL CAST MANAGER
 	const onContentLoadedCallback = useCallback(
 		(content: CastContentInfo) => {
-			currentLogger.current?.info("Cast Manager - Content loaded:", content.source.uri);
+			currentLogger.current?.info(
+				"Cast Manager - Content loaded:",
+				redactUrlTokens(String(content.source.uri))
+			);
 			setIsLoadingContent(false);
 			isChangingSource.current = false;
 			setIsContentLoaded(true);
@@ -394,14 +398,14 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		onError: (error: BaseError) => {
 			// Adapt the module's BaseError to RNV's PlayerError at the seam (PLAYER-240).
 			const playerError = toPlayerError(error);
-			currentLogger.current?.info(`Cast Monitor onError ${JSON.stringify(playerError)}`);
+			currentLogger.current?.info(`Cast Monitor onError ${redactJsonForLog(playerError)}`);
 			setIsLoadingContent(false);
 			handleOnError(playerError);
 		},
 		onAudioTrackChange: (track: CastTrackInfo | null) => {
 			if (track !== null && menuData) {
 				currentLogger.current?.info(
-					`Cast Monitor onAudioTrackChange ${JSON.stringify(track)}`
+					`Cast Monitor onAudioTrackChange ${redactJsonForLog(track)}`
 				);
 				// Sincronizar índice de audio cuando cambia desde el Chromecast
 				const newIndex = getTrackIndex(PLAYER_MENU_DATA_TYPE.AUDIO, track.id, menuData);
@@ -424,7 +428,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		},
 		onTextTrackChange: (track: CastTrackInfo | null) => {
 			currentLogger.current?.info(
-				`Cast Monitor onTextTrackChange - track: ${JSON.stringify(track)}, menuData available: ${!!menuData}`
+				`Cast Monitor onTextTrackChange - track: ${redactJsonForLog(track)}, menuData available: ${!!menuData}`
 			);
 			if (menuData) {
 				// Si track es null, significa que se desactivaron los subtítulos
@@ -511,7 +515,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 
 	useEffect(() => {
 		if (menuData) {
-			currentLogger.current?.debug(`useEffect menuData ready: ${JSON.stringify(menuData)}`);
+			currentLogger.current?.debug(`useEffect menuData ready: ${redactJsonForLog(menuData)}`);
 			handleMenuDataReady();
 		}
 	}, [menuData]);
@@ -585,7 +589,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			castMedia.url !== localLoadedUrlRef.current
 		) {
 			currentLogger.current?.info(
-				`[CAST_SYNC] Content changed from another device! Local URL: ${localLoadedUrlRef.current}, Cast URL: ${castMedia.url}`
+				`[CAST_SYNC] Content changed from another device! Local URL: ${redactUrlTokens(String(localLoadedUrlRef.current))}, Cast URL: ${redactUrlTokens(String(castMedia.url))}`
 			);
 
 			// Extraer el ID del contenido del customData o de la URL
@@ -603,7 +607,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			}
 
 			currentLogger.current?.info(
-				`[CAST_SYNC] Remote content ID: ${remoteContentId}, customData: ${JSON.stringify(castMedia.customData?.sourceDescription?.metadata)}`
+				`[CAST_SYNC] Remote content ID: ${remoteContentId}, customData: ${redactJsonForLog(castMedia.customData?.sourceDescription?.metadata)}`
 			);
 
 			// Si tenemos un ID válido del contenido remoto, notificar al PlayerScreen para que recargue
@@ -633,7 +637,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			const fallbackId = Date.now();
 
 			currentLogger.current?.info(
-				`[CAST_SYNC] Fallback: Updating syncedMetadata with fallbackId: ${fallbackId}, title: ${castMedia.title}, subtitle: ${castMedia.subtitle}, poster: ${castMedia.imageUrl}`
+				`[CAST_SYNC] Fallback: Updating syncedMetadata with fallbackId: ${fallbackId}, title: ${castMedia.title}, subtitle: ${castMedia.subtitle}, poster: ${redactUrlTokens(String(castMedia.imageUrl))}`
 			);
 
 			setSyncedMetadata(prev => {
@@ -715,7 +719,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		const joining = isJoiningExistingSessionRef.current;
 		if (joining) {
 			currentLogger.current?.info(
-				`[CAST_SYNC] Joining existing session - reading active tracks from Cast: ${JSON.stringify(currentIds)}`
+				`[CAST_SYNC] Joining existing session - reading active tracks from Cast: ${redactJsonForLog(currentIds)}`
 			);
 		}
 
@@ -803,7 +807,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			!menuData
 		) {
 			currentLogger.current?.debug(
-				`Processing media tracks from Cast: ${JSON.stringify(castMedia.mediaTracks)}`
+				`Processing media tracks from Cast: ${redactJsonForLog(castMedia.mediaTracks)}`
 			);
 
 			if (
@@ -1078,7 +1082,10 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			drm.current = tudumRef.current?.drm;
 			setIsLoadingContent(true);
 
-			currentLogger.current?.info("Loading tudum to Cast:", tudumRef.current.source);
+			currentLogger.current?.info(
+				"Loading tudum to Cast:",
+				redactJsonForLog(tudumRef.current.source)
+			);
 
 			const success = await castManagerRef.current?.loadContent({
 				source: tudumRef.current.source,
@@ -1111,7 +1118,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				tudumRef.current.isPlaying = false;
 			}
 
-			currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
+			currentLogger.current?.error(
+				`Failed to load tudum to Cast: ${redactJsonForLog(error)}`
+			);
 			handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
 
 			currentLogger.current?.debug("Tudum failed, loading content directly");
@@ -1289,7 +1298,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				} catch (error: any) {
 					setIsLoadingContent(false);
 					currentLogger.current?.error(
-						`loadContentWithCastManager - Failed: ${JSON.stringify(error)}`
+						`loadContentWithCastManager - Failed: ${redactJsonForLog(error)}`
 					);
 					handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
 				}
@@ -1314,7 +1323,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			currentLogger.current?.debug(
 				`onSourceChanged - currentSourceType: ${currentSourceType.current}`
 			);
-			currentLogger.current?.debug(`onSourceChanged - data: ${JSON.stringify(data)}`);
+			currentLogger.current?.debug(`onSourceChanged - data: ${redactJsonForLog(data)}`);
 
 			if (
 				!sourceRef.current?.isLive &&
@@ -1408,7 +1417,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				// Solo establecer tracks si hay IDs válidos
 				if (activeTracks.length > 0) {
 					currentLogger.current?.debug(
-						`handleTrackChanges - Setting active tracks: ${JSON.stringify(activeTracks)}`
+						`handleTrackChanges - Setting active tracks: ${redactJsonForLog(activeTracks)}`
 					);
 					castManager.setActiveTrackIds(activeTracks);
 				} else {
@@ -1457,7 +1466,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 			data.subtitleLabel = subtitleTrack?.label;
 			data.subtitleCode = subtitleTrack?.code;
 
-			currentLogger.current?.debug(`handleMenuDataReady ${JSON.stringify(data)}`);
+			currentLogger.current?.debug(`handleMenuDataReady ${redactJsonForLog(data)}`);
 
 			if (data) {
 				props.events.onChangeCommonData(data);
@@ -1484,17 +1493,17 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	}, [paused, muted, isContentLoaded, currentTime, props.playerProgress]);
 
 	const onDVRModeChange = useCallback((data: ModeChangeData) => {
-		currentLogger.current?.debug(`onDVRModeChange: ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(`onDVRModeChange: ${redactJsonForLog(data)}`);
 	}, []);
 
 	const onDVRProgramChange = useCallback((data: ProgramChangeData) => {
-		currentLogger.current?.debug(`onDVRProgramChange: ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(`onDVRProgramChange: ${redactJsonForLog(data)}`);
 	}, []);
 
 	const onProgressUpdate = useCallback((data: ProgressUpdateData) => {
 		// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
 		if (currentSourceType.current === "content") {
-			currentLogger.current?.debug(`onProgressUpdate: ${JSON.stringify(data)}`);
+			currentLogger.current?.debug(`onProgressUpdate: ${redactJsonForLog(data)}`);
 			sliderValues.current = {
 				minimumValue: data.minimumValue,
 				maximumValue: data.maximumValue,
@@ -1666,7 +1675,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 				setIsLoadingContent(false);
 
 				currentLogger.current?.debug(
-					`onLoad - mediaTracks: ${JSON.stringify(castMedia.mediaTracks)}`
+					`onLoad - mediaTracks: ${redactJsonForLog(castMedia.mediaTracks)}`
 				);
 
 				if (castMedia.mediaTracks && castMedia.mediaTracks.length > 0) {
@@ -1761,7 +1770,7 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 	const handleOnError = useCallback(
 		(error: PlayerError) => {
 			currentLogger.current?.error(
-				`handleOnError: ${JSON.stringify(error?.message)} (${error?.code}) - currentSourceType: ${currentSourceType.current}`
+				`handleOnError: ${redactJsonForLog(error?.message)} (${error?.code}) - currentSourceType: ${currentSourceType.current}`
 			);
 			setIsLoadingContent(false);
 
@@ -1851,9 +1860,9 @@ export function CastFlavour(props: CastFlavourProps): React.ReactElement {
 		};
 
 		currentLogger.current?.debug(
-			`Simulating onProgress - castProgress: ${JSON.stringify(castProgress)}`
+			`Simulating onProgress - castProgress: ${redactJsonForLog(castProgress)}`
 		);
-		currentLogger.current?.debug(`Simulating onProgress: ${JSON.stringify(e)}`);
+		currentLogger.current?.debug(`Simulating onProgress: ${redactJsonForLog(e)}`);
 
 		// Solo procesar progreso para contenido principal, no para tudum
 		if (currentSourceType.current === "content") {

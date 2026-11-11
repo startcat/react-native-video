@@ -1,5 +1,5 @@
 export interface MetadataClassProps {
-	id: number;
+	id: number | string;
 	title?: string;
 	subtitle?: string;
 	description?: string;
@@ -8,7 +8,7 @@ export interface MetadataClassProps {
 }
 
 export class MetadataClass {
-	public id: number;
+	public id: number | string;
 	public title?: string;
 	public subtitle?: string;
 	public description?: string;

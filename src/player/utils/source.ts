@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { DRM_TYPE, IManifest, STREAM_FORMAT_TYPE } from "../types";
+import { redactJsonForLog, redactUrlTokens } from "./redact";
 import { getAbsoluteUri } from "./siteUrl";
 
 import qs from "qs";
@@ -112,14 +113,22 @@ export const getBestManifest = (
 		}
 	}
 
-	log(`best manifest: ${JSON.stringify(manifest)}`);
+	log(`best manifest: ${redactJsonForLog(manifest)}`);
 
 	return manifest;
 };
 
 export const getManifestSourceType = (manifest: IManifest): string | undefined => {
 	let type: string | undefined;
+	const explicitTypes: Record<string, string> = {
+		dash: "mpd",
+		hls: "m3u8",
+		mp4: "mp4",
+		mp3: "mp3",
+	};
+	const explicitType = explicitTypes[String(manifest?.type ?? "").toLowerCase()];
 
+	// Primero la extensión de la URL (compatibilidad); si no hay, el tipo explícito del manifiesto.
 	if (manifest?.manifestURL?.includes(".mpd")) {
 		type = "mpd";
 	} else if (manifest?.manifestURL?.includes(".m3u8")) {
@@ -128,6 +137,8 @@ export const getManifestSourceType = (manifest: IManifest): string | undefined =
 		type = "mp3";
 	} else if (manifest?.manifestURL?.includes(".mp4")) {
 		type = "mp4";
+	} else if (explicitType) {
+		type = explicitType;
 	} else {
 		type = Platform.OS === "ios" ? "m3u8" : "mpd";
 	}
@@ -180,7 +191,7 @@ export const getVideoSourceUri = (
 		uri = addLiveTimestamp(uri, dvrWindowMinutes, tempLiveStartProgramTimestamp);
 	}
 
-	log(`uri: ${uri}`);
+	log(`uri: ${redactUrlTokens(uri)}`);
 
 	return uri;
 };

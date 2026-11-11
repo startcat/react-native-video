@@ -1,4 +1,5 @@
 import { DRM_TYPE, IDrm, IManifest } from "../types";
+import { redactJsonForLog } from "./redact";
 import { getAbsoluteUri } from "./siteUrl";
 
 const LOG_ENABLED = true;
@@ -19,22 +20,25 @@ export const getDRM = (manifest: IManifest): IDrm | undefined => {
 			licenseServer: getAbsoluteUri(manifest?.drmConfig?.licenseAcquisitionURL),
 			certificateUrl: manifest?.drmConfig?.certificateURL,
 			drmScheme: DRM_TYPE.FAIRPLAY,
+			headers: manifest?.drmConfig?.headers,
 		};
 	} else if (manifest?.drmConfig?.type === DRM_TYPE.WIDEVINE) {
 		drm = {
 			type: DRM_TYPE.WIDEVINE,
 			licenseServer: getAbsoluteUri(manifest?.drmConfig?.licenseAcquisitionURL),
 			drmScheme: DRM_TYPE.WIDEVINE,
+			headers: manifest?.drmConfig?.headers,
 		};
 	} else if (manifest?.drmConfig?.type === DRM_TYPE.PLAYREADY) {
 		drm = {
 			type: DRM_TYPE.PLAYREADY,
 			licenseServer: getAbsoluteUri(manifest?.drmConfig?.licenseAcquisitionURL),
 			drmScheme: DRM_TYPE.PLAYREADY,
+			headers: manifest?.drmConfig?.headers,
 		};
 	}
 
-	log(`DRM: ${JSON.stringify(drm)}`);
+	log(`DRM: ${redactJsonForLog(drm)}`);
 
 	return drm;
 };
@@ -71,7 +75,7 @@ export const setOfflineExpirationDate = (drm: IDrm | undefined): IDrm | undefine
 			drmMessage: drmMessage, // Add drmMessage for offline downloads
 		};
 
-		log(`DRM with expiration: ${JSON.stringify(newDrm)}`);
+		log(`DRM with expiration: ${redactJsonForLog(newDrm)}`);
 
 		return newDrm;
 	} else {

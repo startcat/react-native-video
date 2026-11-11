@@ -5,6 +5,7 @@
 
 import { PlayerAnalyticsEvents } from "@overon/react-native-overon-player-analytics-plugins";
 import { PlayerError } from "../../../core/errors";
+import { redactUrlTokens } from "../../../utils/redact";
 
 import type { OnVideoErrorData } from "../../../../specs/VideoNativeComponent";
 
@@ -23,7 +24,7 @@ export class ErrorEventsHandler {
 				case "network":
 					this.analyticsEvents.on("onNetworkError", {
 						errorCode: data.error.code,
-						errorMessage: data.error.localizedDescription,
+						errorMessage: this.redact(data.error.localizedDescription),
 						errorType: "network",
 						isFatal: this.isErrorFatal(data.error),
 						statusCode: this.extractStatusCode(data.error),
@@ -34,7 +35,7 @@ export class ErrorEventsHandler {
 				case "drm":
 					this.analyticsEvents.on("onContentProtectionError", {
 						errorCode: data.error.code,
-						errorMessage: data.error.localizedDescription,
+						errorMessage: this.redact(data.error.localizedDescription),
 						errorType: "drm",
 						isFatal: this.isErrorFatal(data.error),
 						drmType: this.extractDrmType(data.error),
@@ -44,7 +45,7 @@ export class ErrorEventsHandler {
 				case "stream":
 					this.analyticsEvents.on("onStreamError", {
 						errorCode: data.error.code,
-						errorMessage: data.error.localizedDescription,
+						errorMessage: this.redact(data.error.localizedDescription),
 						errorType: "playback",
 						isFatal: this.isErrorFatal(data.error),
 						streamUrl: this.extractStreamUrl(data.error),
@@ -55,7 +56,7 @@ export class ErrorEventsHandler {
 				default:
 					this.analyticsEvents.on("onError", {
 						errorCode: data.error.code,
-						errorMessage: data.error.localizedDescription,
+						errorMessage: this.redact(data.error.localizedDescription),
 						errorType: "other",
 						isFatal: this.isErrorFatal(data.error),
 					});
@@ -102,9 +103,13 @@ export class ErrorEventsHandler {
 		return error.statusCode || error.httpStatusCode;
 	};
 
+	// Las URL y los mensajes de error van a los plugins de analítica (Youbora): sin tokens de reproducción.
+	private redact = (text: string | undefined): string | undefined =>
+		typeof text === "string" ? redactUrlTokens(text) : text;
+
 	private extractUrl = (error: any): string | undefined => {
 		// Extraer URL que causó el error
-		return error.url || error.requestUrl;
+		return this.redact(error.url || error.requestUrl);
 	};
 
 	private extractDrmType = (error: any): string | undefined => {
@@ -114,7 +119,7 @@ export class ErrorEventsHandler {
 
 	private extractStreamUrl = (error: any): string | undefined => {
 		// Extraer URL del stream
-		return error.streamUrl || error.manifestUrl;
+		return this.redact(error.streamUrl || error.manifestUrl);
 	};
 
 	private extractBitrate = (error: any): number | undefined => {

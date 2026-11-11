@@ -38,6 +38,7 @@ import {
 import { ComponentLogger } from "../../features/logger";
 
 import { styles } from "../styles";
+import { redactJsonForLog, redactUrlTokens } from "../../utils/redact";
 
 import {
 	type AudioFlavourProps,
@@ -87,7 +88,9 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 
 	const onContentLoadedCallback = useCallback(
 		(content: CastContentInfo) => {
-			currentLogger.current?.info(`Cast Manager - Content loaded: ${content.source.uri}`);
+			currentLogger.current?.info(
+				`Cast Manager - Content loaded: ${redactUrlTokens(String(content.source.uri))}`
+			);
 			setIsLoadingContent(false);
 			isChangingSource.current = false;
 			setIsContentLoaded(true);
@@ -256,7 +259,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 		onError: (error: BaseError) => {
 			// Adapt the module's BaseError to RNV's PlayerError at the seam (PLAYER-240).
 			const playerError = toPlayerError(error);
-			currentLogger.current?.info(`Cast Monitor onError ${JSON.stringify(playerError)}`);
+			currentLogger.current?.info(`Cast Monitor onError ${redactJsonForLog(playerError)}`);
 			setIsLoadingContent(false);
 			// No resetear hasTriedLoading para evitar loops infinitos
 			handleOnError(playerError);
@@ -581,7 +584,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 				} catch (error: any) {
 					setIsLoadingContent(false);
 					currentLogger.current?.error(
-						`loadContentWithCastManager - Failed: ${JSON.stringify(error)}`
+						`loadContentWithCastManager - Failed: ${redactJsonForLog(error)}`
 					);
 					handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
 				}
@@ -617,7 +620,10 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			drm.current = tudumRef.current?.drm;
 			setIsLoadingContent(true);
 
-			currentLogger.current?.info("Loading tudum to Cast:", tudumRef.current.source);
+			currentLogger.current?.info(
+				"Loading tudum to Cast:",
+				redactJsonForLog(tudumRef.current.source)
+			);
 
 			const success = await castManagerRef.current?.loadContent({
 				source: tudumRef.current.source,
@@ -649,7 +655,9 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 				tudumRef.current.isPlaying = false;
 			}
 
-			currentLogger.current?.error(`Failed to load tudum to Cast: ${JSON.stringify(error)}`);
+			currentLogger.current?.error(
+				`Failed to load tudum to Cast: ${redactJsonForLog(error)}`
+			);
 			handleOnError(handleErrorException(error, "PLAYER_CAST_OPERATION_FAILED"));
 
 			currentLogger.current?.debug("Tudum failed, loading content directly");
@@ -724,7 +732,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			currentLogger.current?.debug(
 				`onSourceChanged - currentSourceType: ${currentSourceType.current}`
 			);
-			currentLogger.current?.debug(`onSourceChanged - data: ${JSON.stringify(data)}`);
+			currentLogger.current?.debug(`onSourceChanged - data: ${redactJsonForLog(data)}`);
 
 			if (
 				!sourceRef.current?.isLive &&
@@ -777,17 +785,17 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 	}, [paused, muted, isContentLoaded, currentTime, props.playerProgress]);
 
 	const onDVRModeChange = useCallback((data: ModeChangeData) => {
-		currentLogger.current?.debug(`onDVRModeChange: ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(`onDVRModeChange: ${redactJsonForLog(data)}`);
 	}, []);
 
 	const onDVRProgramChange = useCallback((data: ProgramChangeData) => {
-		currentLogger.current?.debug(`onDVRProgramChange: ${JSON.stringify(data)}`);
+		currentLogger.current?.debug(`onDVRProgramChange: ${redactJsonForLog(data)}`);
 	}, []);
 
 	const onProgressUpdate = useCallback((data: ProgressUpdateData) => {
 		// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum
 		if (currentSourceType.current === "content") {
-			currentLogger.current?.debug(`onProgressUpdate: ${JSON.stringify(data)}`);
+			currentLogger.current?.debug(`onProgressUpdate: ${redactJsonForLog(data)}`);
 			sliderValues.current = {
 				minimumValue: data.minimumValue,
 				maximumValue: data.maximumValue,
@@ -1005,7 +1013,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 			"audioPlayerAction",
 			(data: AudioPlayerActionEventProps) => {
 				currentLogger.current?.info(
-					`[Player] (Audio Cast Flavour) audioPlayerAction received: ${JSON.stringify(data)}`
+					`[Player] (Audio Cast Flavour) audioPlayerAction received: ${redactJsonForLog(data)}`
 				);
 				onControlsPress(data.action, data.value);
 			}
@@ -1105,9 +1113,9 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 		};
 
 		currentLogger.current?.debug(
-			`Simulating onProgress - castProgress: ${JSON.stringify(castProgress)}`
+			`Simulating onProgress - castProgress: ${redactJsonForLog(castProgress)}`
 		);
-		currentLogger.current?.debug(`Simulating onProgress: ${JSON.stringify(e)}`);
+		currentLogger.current?.debug(`Simulating onProgress: ${redactJsonForLog(e)}`);
 
 		// Solo procesar progreso para contenido principal, no para tudum
 		if (currentSourceType.current === "content") {
@@ -1151,7 +1159,7 @@ export function AudioCastFlavour(props: AudioFlavourProps): React.ReactElement {
 	const handleOnError = useCallback(
 		(error: PlayerError) => {
 			currentLogger.current?.error(
-				`handleOnError: ${JSON.stringify(error?.message)} (${error?.code}) - currentSourceType: ${currentSourceType.current}`
+				`handleOnError: ${redactJsonForLog(error?.message)} (${error?.code}) - currentSourceType: ${currentSourceType.current}`
 			);
 			setIsLoadingContent(false);
 

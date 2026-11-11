@@ -91,6 +91,7 @@ export interface IManifest {
 		type: Enums.DRM_TYPE;
 		licenseAcquisitionURL: string;
 		certificateURL?: string;
+		headers?: Record<string, string>;
 	};
 	textTracks?: Array<IManifestTextTrack>;
 }
@@ -118,7 +119,7 @@ export interface IMappedYoubora {
 }
 
 export interface IVideoSource {
-	id?: number;
+	id?: number | string;
 	title?: string;
 	uri: string;
 	type?: string;
@@ -150,7 +151,7 @@ export interface ILanguagesMapping {
 // Generic cast plumbing types now live in @overon/react-native-cast (PLAYER-240).
 // The interfaces below are RNV-local orchestration/UI types kept in RNV.
 export interface ICastMetadata {
-	id?: number;
+	id?: number | string;
 	title?: string;
 	subtitle?: string;
 	description?: string;
