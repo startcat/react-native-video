@@ -1,5 +1,18 @@
 
 
+# [8.5.0](https://github.com/startcat/react-native-video/compare/v8.4.14...v8.5.0) (2026-11-11)
+
+
+### Bug Fixes
+
+* **analytics:** sin tokens en las URL y mensajes de error que van a los plugins ([f8a7932](https://github.com/startcat/react-native-video/commit/f8a7932308f4e7c3367d416555d5c6b85e02a12e))
+* tapa tokens y cabeceras en todos los logs del player ([cb506f9](https://github.com/startcat/react-native-video/commit/cb506f9c010634d4bebfb06995a042594c079590))
+
+
+### Features
+
+* tipo de manifiesto explícito, ids de texto y logs sin tokens ([ba6001c](https://github.com/startcat/react-native-video/commit/ba6001ccfe9a557f22e88aae521ef358d1eaa667))
+
 ## [8.4.14](https://github.com/startcat/react-native-video/compare/v8.4.13...v8.4.14) (2026-10-27)
 
 
