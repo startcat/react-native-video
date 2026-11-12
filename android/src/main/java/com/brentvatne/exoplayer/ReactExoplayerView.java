@@ -1393,6 +1393,30 @@ public class ReactExoplayerView extends FrameLayout implements
      *
      */
 
+    /*
+     * Fuente de un contenido descargado (HLS/DASH), con los metadatos de la fuente.
+     *
+     * DownloadHelper.createMediaSource monta el MediaItem a partir de la petición de descarga,
+     * que no lleva metadatos: sin conexión, la sesión de medios (notificación, pantalla de
+     * bloqueo, Android Auto) se quedaba sin título ni programa (EITB-2004). Se monta igual que
+     * DownloadHelper en Media3 (DefaultMediaSourceFactory sin extractores y el DRM offline),
+     * pero sobre el MediaItem de la descarga con los metadatos añadidos.
+     */
+    private MediaSource buildOfflineMediaSource(DownloadRequest downloadRequest, MediaMetadata metadata) {
+        MediaItem offlineMediaItem = downloadRequest.toMediaItem();
+        if (metadata != null) {
+            offlineMediaItem = offlineMediaItem.buildUpon().setMediaMetadata(metadata).build();
+        }
+
+        DefaultMediaSourceFactory offlineSourceFactory = new DefaultMediaSourceFactory(
+                mMediaDataSourceFactory, androidx.media3.extractor.ExtractorsFactory.EMPTY);
+        final DrmSessionManager offlineDrmSessionManager = mDrmSessionManager;
+        if (offlineDrmSessionManager != null) {
+            offlineSourceFactory.setDrmSessionManagerProvider(unusedMediaItem -> offlineDrmSessionManager);
+        }
+        return offlineSourceFactory.createMediaSource(offlineMediaItem);
+    }
+
     private MediaSource buildMediaSource(Uri uri, String overrideExtension, DrmSessionManager drmSessionManager, long cropStartMs, long cropEndMs) {
         if (uri == null) {
             throw new IllegalStateException("Invalid video uri");
@@ -1444,7 +1468,7 @@ public class ReactExoplayerView extends FrameLayout implements
 
             if (mDownloadRequest != null) { // ---> Esto es null!
                 Log.i("Downloads", "Playing offline!");
-                return DownloadHelper.createMediaSource(mDownloadRequest, mMediaDataSourceFactory, mDrmSessionManager);
+                return buildOfflineMediaSource(mDownloadRequest, customMetadata);
             }
             return null;
 
