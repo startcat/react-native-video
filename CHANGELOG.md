@@ -1,5 +1,12 @@
 
 
+## [8.5.1](https://github.com/startcat/react-native-video/compare/v8.5.0...v8.5.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* **android:** metadatos en la sesión de medios al reproducir una descarga ([46bcd52](https://github.com/startcat/react-native-video/commit/46bcd52c1477f92f09176cdf9e4843f8073472b6))
+
 # [8.5.0](https://github.com/startcat/react-native-video/compare/v8.4.14...v8.5.0) (2026-11-11)
 
 
