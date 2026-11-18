@@ -658,7 +658,18 @@ class RCTVideo: UIView, RCTVideoPlayerViewControllerDelegate, RCTPlayerObserverH
                 DebugLog("setSrc Stopping playback")
                 return
             }
-            self.removePlayerLayer()
+            // EITB-1966: este bloque corre en una cola global; quitar la capa fuera del hilo
+            // principal abre una transacción de Core Animation que, al confirmarse, maqueta
+            // vistas desde ese hilo (excepción del motor de layout en iOS 26). Se hace en el
+            // principal y de forma síncrona para no cambiar el orden. Sin riesgo de bloqueo:
+            // el hilo principal nunca espera a esta cola.
+            if Thread.isMainThread {
+                self.removePlayerLayer()
+            } else {
+                DispatchQueue.main.sync {
+                    self.removePlayerLayer()
+                }
+            }
             self._playerObserver.player = nil
             self._resouceLoaderDelegate = nil
             self._playerObserver.playerItem = nil
