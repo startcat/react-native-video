@@ -1,5 +1,13 @@
 
 
+## [8.5.2](https://github.com/startcat/react-native-video/compare/v8.5.1...v8.5.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **ios:** quita la capa del reproductor en el hilo principal al cambiar de fuente ([b0a683d](https://github.com/startcat/react-native-video/commit/b0a683de18141a23170c8233dd1e564e9b660f7f))
+* **player:** progreso del flavour normal en transición y sin tocar el estado en segundo plano ([646ac81](https://github.com/startcat/react-native-video/commit/646ac81be5c5699c8481f50f1a7c1e9daa32a493))
+
 ## [8.5.1](https://github.com/startcat/react-native-video/compare/v8.5.0...v8.5.1) (2026-11-12)
 
 
