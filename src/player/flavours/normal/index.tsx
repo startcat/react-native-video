@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Platform, View } from "react-native";
+import { AppState, Platform, View } from "react-native";
 
 // react-airplay@2 migró a TurboModuleRegistry.getEnforcing("NativeAirplay") al
 // cargar el módulo, lo que crashea en Android (AirPlay es iOS-only). Conditional
@@ -73,6 +73,7 @@ import { useNowPlaying } from "../../core/events/hooks/useNowPlaying";
 
 import { styles } from "../styles";
 import { resolveVodDuration } from "./vodDurationPolicy";
+import { scheduleProgressStateUpdate, updateProgressState } from "./progressStatePolicy";
 
 import {
 	type ICommonData,
@@ -118,6 +119,8 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 	const isChangingSource = useRef<boolean>(true);
 
 	const [currentTime, setCurrentTime] = useState<number>(props.playerProgress?.currentTime || 0);
+	// EITB-1892: último currentTime de onProgress, para refrescar el estado al volver a primer plano.
+	const lastProgressTimeRef = useRef<number | undefined>(undefined);
 	const [paused, setPaused] = useState<boolean>(!!props.playerProgress?.isPaused);
 	const [muted, setMuted] = useState<boolean>(!!props?.playerProgress?.isMuted);
 	const [buffering, setBuffering] = useState<boolean>(false);
@@ -937,7 +940,9 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 			// Solo actualizar sliderValues si estamos reproduciendo contenido, no tudum.
 			if (currentSourceType.current === "content") {
-				setSliderValues({
+				// EITB-1892: llega en cada tick de progreso; en transición para que no cuente
+				// como actualización urgente. Sin cortar en segundo plano: también se resetea fuera.
+				const nextSliderValues: SliderValues = {
 					minimumValue: data.minimumValue,
 					maximumValue: data.maximumValue,
 					progress: data.progress,
@@ -955,11 +960,14 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 					buffered: sourceRef.current?.isDVR
 						? undefined
 						: playableDurationRef.current,
+				};
+				const nextPlaybackType = data.playbackType;
+				scheduleProgressStateUpdate(() => {
+					setSliderValues(nextSliderValues);
+					if (nextPlaybackType !== undefined) {
+						setDvrPlaybackType(nextPlaybackType);
+					}
 				});
-
-				if (data.playbackType !== undefined) {
-					setDvrPlaybackType(data.playbackType);
-				}
 
 				playerProgressRef.current = {
 					...props.playerProgress,
@@ -994,6 +1002,18 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 
 	const handleOnDVRProgramChange = useCallback((data: ProgramChangeData) => {
 		currentLogger.current?.debug(`handleOnDVRProgramChange: ${redactJsonForLog(data)}`);
+	}, []);
+
+	// EITB-1892: handleOnProgress no actualiza currentTime con la app no activa. Al volver a
+	// active se pone el último valor recibido, por si no llega otro tick (p. ej. en pausa).
+	useEffect(() => {
+		const subscription = AppState.addEventListener("change", nextAppState => {
+			const lastTime = lastProgressTimeRef.current;
+			if (nextAppState === "active" && typeof lastTime === "number") {
+				setCurrentTime(lastTime);
+			}
+		});
+		return () => subscription.remove();
 	}, []);
 
 	/*
@@ -2026,9 +2046,14 @@ export function NormalFlavour(props: NormalFlavourProps): React.ReactElement {
 			}
 		}
 
-		if (typeof e.currentTime === "number" && currentTime !== e.currentTime) {
-			// Trigger para el cambio de estado
-			setCurrentTime(e.currentTime);
+		if (typeof e.currentTime === "number") {
+			lastProgressTimeRef.current = e.currentTime;
+			// EITB-1892: currentTime solo pinta los controles. Con la app no activa no se toca
+			// (se refresca al volver a active) y, si no, va en transición (prioridad baja).
+			if (currentTime !== e.currentTime) {
+				const time = e.currentTime;
+				updateProgressState(AppState.currentState, () => setCurrentTime(time));
+			}
 		}
 
 		// Solo procesar progreso para contenido principal, no para tudum
